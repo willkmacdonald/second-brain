@@ -20,6 +20,7 @@ from fastapi import FastAPI  # noqa: E402
 
 from second_brain.agents.echo import create_echo_agent  # noqa: E402
 from second_brain.api.health import router as health_router  # noqa: E402
+from second_brain.auth import APIKeyMiddleware  # noqa: E402
 from second_brain.config import get_settings  # noqa: E402
 from second_brain.db.cosmos import CosmosManager  # noqa: E402
 
@@ -70,6 +71,10 @@ async def lifespan(app: FastAPI):
     agent = create_echo_agent(cosmos_manager=app.state.cosmos_manager)
     add_agent_framework_fastapi_endpoint(app, agent, "/api/ag-ui")
     logger.info("Echo agent registered with AG-UI endpoint")
+
+    # Add API key auth middleware AFTER AG-UI endpoint so it wraps the endpoint
+    app.add_middleware(APIKeyMiddleware, api_key=app.state.api_key)
+    logger.info("API key authentication middleware added")
 
     yield
 
