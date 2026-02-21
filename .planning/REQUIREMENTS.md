@@ -9,10 +9,10 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Infrastructure
 
-- [ ] **INFRA-01**: Agent Framework server runs on Azure Container Apps with AG-UI endpoint accepting HTTP POST and streaming SSE responses
+- [x] **INFRA-01**: Agent Framework server runs on Azure Container Apps with AG-UI endpoint accepting HTTP POST and streaming SSE responses
 - [ ] **INFRA-02**: Cosmos DB provisioned with 5 containers (Inbox, People, Projects, Ideas, Admin) partitioned by `/userId`
 - [ ] **INFRA-03**: Azure Blob Storage configured for media file uploads (voice recordings)
-- [ ] **INFRA-04**: OpenTelemetry tracing enabled across all agent handoffs with traces viewable in Agent Framework DevUI
+- [x] **INFRA-04**: OpenTelemetry tracing enabled across all agent handoffs with traces viewable in Agent Framework DevUI
 - [ ] **INFRA-05**: API key authentication protects the AG-UI endpoint (key stored in Expo Secure Store)
 
 ### Capture
@@ -121,10 +121,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INFRA-01 | Phase 1 | Pending |
+| INFRA-01 | Phase 1 | Complete |
 | INFRA-02 | Phase 1 | Pending |
 | INFRA-03 | Phase 5 | Pending |
-| INFRA-04 | Phase 1 | Pending |
+| INFRA-04 | Phase 1 | Complete |
 | INFRA-05 | Phase 1 | Pending |
 | CAPT-01 | Phase 2 | Pending |
 | CAPT-02 | Phase 4 | Pending |

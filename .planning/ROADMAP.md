@@ -36,7 +36,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 3 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Project scaffold + AG-UI server with echo agent + OpenTelemetry
+- [x] 01-01-PLAN.md — Project scaffold + AG-UI server with echo agent + OpenTelemetry
 - [ ] 01-02-PLAN.md — Cosmos DB data layer (models, singleton client, CRUD tools)
 - [ ] 01-03-PLAN.md — API key auth middleware + end-to-end integration verification
 
