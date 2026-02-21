@@ -66,6 +66,11 @@ async def lifespan(app: FastAPI):
         )
         app.state.cosmos_manager = None
 
+    # Create the echo agent with CRUD tools (requires cosmos_manager from lifespan)
+    agent = create_echo_agent(cosmos_manager=app.state.cosmos_manager)
+    add_agent_framework_fastapi_endpoint(app, agent, "/api/ag-ui")
+    logger.info("Echo agent registered with AG-UI endpoint")
+
     yield
 
     # Cleanup Cosmos DB
@@ -73,13 +78,7 @@ async def lifespan(app: FastAPI):
         await app.state.cosmos_manager.close()
 
 
-# Create the echo agent at module level (sync credential, per research Pattern 1)
-agent = create_echo_agent()
-
 app = FastAPI(title="Second Brain AG-UI Server", lifespan=lifespan)
-
-# Register the AG-UI endpoint (per locked decision: single POST /api/ag-ui)
-add_agent_framework_fastapi_endpoint(app, agent, "/api/ag-ui")
 
 # Include health check router
 app.include_router(health_router)

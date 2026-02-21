@@ -4,7 +4,7 @@ Shared base schema (id, userId, createdAt, updatedAt, rawText, classificationMet
 with bucket-specific extensions per the locked CONTEXT.md decision.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -15,8 +15,8 @@ class BaseDocument(BaseModel):
 
     id: str = Field(default_factory=lambda: str(uuid4()))
     userId: str = "will"
-    createdAt: datetime = Field(default_factory=datetime.utcnow)
-    updatedAt: datetime = Field(default_factory=datetime.utcnow)
+    createdAt: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updatedAt: datetime = Field(default_factory=lambda: datetime.now(UTC))
     rawText: str
     classificationMeta: dict | None = None
 
