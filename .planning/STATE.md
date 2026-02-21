@@ -10,28 +10,28 @@ See: .planning/PROJECT.md (updated 2026-02-21)
 ## Current Position
 
 Phase: 1 of 9 (Backend Foundation)
-Plan: 1 of 3 in current phase
+Plan: 2 of 3 in current phase
 Status: Executing
-Last activity: 2026-02-21 -- Completed 01-01-PLAN.md (project scaffold + AG-UI server)
+Last activity: 2026-02-21 -- Completed 01-02-PLAN.md (Cosmos DB data layer)
 
-Progress: [#.........] 4%
+Progress: [##........] 8%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 1
-- Average duration: 5 min
-- Total execution time: 0.08 hours
+- Total plans completed: 2
+- Average duration: 4.5 min
+- Total execution time: 0.15 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 01-backend-foundation | 1/3 | 5 min | 5 min |
+| 01-backend-foundation | 2/3 | 9 min | 4.5 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (5 min)
-- Trend: baseline
+- Last 5 plans: 01-01 (5 min), 01-02 (4 min)
+- Trend: stable
 
 *Updated after each plan completion*
 
@@ -49,6 +49,10 @@ Recent decisions affecting current work:
 - [01-01]: Agent and AG-UI endpoint registered at module level (not in lifespan) following research Pattern 1
 - [01-01]: Key Vault fetch in lifespan with graceful fallback if unavailable
 - [01-01]: Ruff per-file ignore for main.py (E402, I001) to support load_dotenv-before-imports pattern
+- [01-02]: Agent creation moved to lifespan (from module level) to pass runtime CosmosManager to CRUD tools
+- [01-02]: Class-based CosmosCrudTools pattern to bind container references without module-level globals
+- [01-02]: Ruff N815 per-file ignore for camelCase Cosmos DB document field names
+- [01-02]: Graceful Cosmos DB fallback in lifespan -- server starts without Cosmos configured
 
 ### Pending Todos
 
@@ -63,5 +67,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-21
-Stopped at: Completed 01-01-PLAN.md
-Resume file: .planning/phases/01-backend-foundation/01-02-PLAN.md
+Stopped at: Completed 01-02-PLAN.md
+Resume file: .planning/phases/01-backend-foundation/01-03-PLAN.md
