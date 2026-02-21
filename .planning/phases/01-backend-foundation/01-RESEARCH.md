@@ -1437,3 +1437,803 @@ This is why Phase 1 builds the foundation correctly: the AG-UI endpoint, Cosmos 
 | Middleware (agent, function, chat) | HIGH | Official docs with class/function/decorator examples |
 | WorkflowAgent + AG-UI integration | MEDIUM | API reference confirms WorkflowAgent exists, AG-UI endpoint accepts AgentProtocol, but integration not explicitly documented |
 | Handoff + AG-UI streaming | LOW | Not documented. Needs Phase 3 validation. |
+
+---
+
+## AG-UI Protocol Deep Dive
+
+**Added:** 2026-02-21
+**Purpose:** Comprehensive reference for the AG-UI protocol as consumed by Agent Framework's `add_agent_framework_fastapi_endpoint()`. Critical for Phase 2 (mobile SSE client) and Phase 4 (HITL patterns). The Expo app has no CopilotKit equivalent -- a custom SSE consumer must be built.
+
+### 1. Protocol Overview
+
+AG-UI (Agent-User Interaction Protocol) is an open, lightweight, event-based protocol that standardizes how AI agents connect to user-facing applications. It is transport-agnostic (supports SSE, WebSockets, webhooks) but the standard HTTP transport uses **HTTP POST + Server-Sent Events (SSE)** for streaming responses.
+
+**Key design principles:**
+- **Event-driven:** All communication is broken into typed events with JSON payloads
+- **Transport-agnostic:** Protocol defines events, not how they travel (SSE is the standard HTTP transport)
+- **Bidirectional:** Agents accept input from users and emit event streams back
+- **Minimal opinion:** Does not mandate UI rendering, state shape, or framework choice
+
+**Current version:** `@ag-ui/core` v0.0.45 (npm). Protocol version 0.1.x. Pre-1.0 -- breaking changes possible.
+
+**Confidence:** HIGH -- sourced from official AG-UI docs (docs.ag-ui.com) and `@ag-ui/core` npm package.
+
+### 2. The HTTP Contract
+
+#### Request: HTTP POST
+
+The client sends an HTTP POST to the agent endpoint. The body is a JSON `RunAgentInput`:
+
+```
+POST / HTTP/1.1
+Content-Type: application/json
+Accept: text/event-stream
+X-API-Key: <your-api-key>       (custom, from our auth middleware)
+
+{
+  "threadId": "thread-abc123",
+  "runId": "run-xyz789",
+  "messages": [
+    {"id": "msg-1", "role": "user", "content": "What is in my inbox?"}
+  ],
+  "tools": [],
+  "context": [],
+  "state": {},
+  "forwardedProps": {}
+}
+```
+
+**RunAgentInput fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `threadId` | `string` | Yes | Conversation thread ID. Client provides this. Same thread across multiple requests = continuity. |
+| `runId` | `string` | Yes | Unique ID for this specific run. Client generates a new one per request. |
+| `parentRunId` | `string` | No | For branching/time-travel. References a prior run in the same thread. |
+| `messages` | `Message[]` | Yes | Conversation history. Client maintains this and sends the full history each time. |
+| `tools` | `Tool[]` | No | Frontend-defined tools the agent can call (for HITL patterns). Empty array for backend-only tools. |
+| `context` | `Context[]` | No | Extra context objects (description + value pairs). |
+| `state` | `any` | No | Current client-side state. Used for shared state / predictive state updates. |
+| `forwardedProps` | `any` | No | Arbitrary properties forwarded to the agent. |
+| `resume` | `object` | No | **DRAFT** -- For interrupt/resume pattern. Contains `interruptId` and `payload`. |
+
+**IMPORTANT for Agent Framework:** When using `add_agent_framework_fastapi_endpoint()`, the endpoint accepts a simplified body. The framework handles the full `RunAgentInput` internally. The minimal curl body is:
+
+```json
+{
+  "messages": [
+    {"role": "user", "content": "Hello"}
+  ]
+}
+```
+
+The framework generates `threadId` and `runId` if not provided by the client. For conversation continuity, the client SHOULD provide `threadId`.
+
+**Confidence:** HIGH -- verified from both AG-UI official docs (docs.ag-ui.com/sdk/js/core/types) and Agent Framework Getting Started curl example.
+
+#### Response: Server-Sent Events (SSE)
+
+The server responds with `Content-Type: text/event-stream`. Each event is a `data:` line containing a JSON object, followed by a blank line:
+
+```
+HTTP/1.1 200 OK
+Content-Type: text/event-stream
+Cache-Control: no-cache
+Connection: keep-alive
+
+data: {"type":"RUN_STARTED","threadId":"thread-abc123","runId":"run-xyz789"}
+
+data: {"type":"TEXT_MESSAGE_START","messageId":"msg-asst-001","role":"assistant"}
+
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"msg-asst-001","delta":"Hello"}
+
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"msg-asst-001","delta":", how"}
+
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"msg-asst-001","delta":" can I help?"}
+
+data: {"type":"TEXT_MESSAGE_END","messageId":"msg-asst-001"}
+
+data: {"type":"RUN_FINISHED","threadId":"thread-abc123","runId":"run-xyz789"}
+
+```
+
+**SSE format rules:**
+- Each event is `data: {json}\n\n` (data line + blank line separator)
+- No SSE `event:` field is used -- the event type is inside the JSON `type` field
+- No SSE `id:` field is used -- message correlation uses `messageId`, `toolCallId`, `threadId`, `runId`
+- Field names in JSON are **camelCase** (e.g., `threadId`, `runId`, `messageId`)
+- Event type names are **UPPER_SNAKE_CASE** (e.g., `RUN_STARTED`, `TEXT_MESSAGE_CONTENT`)
+- Connection closes after `RUN_FINISHED` or `RUN_ERROR` event
+- Stream is one-directional: server to client. Client cannot send data mid-stream.
+
+**Confidence:** HIGH -- verified from Agent Framework Getting Started tutorial (curl example showing exact SSE format) and AG-UI architecture docs.
+
+#### Connection Lifecycle
+
+```
+1. Client opens HTTP POST connection
+2. Server responds with 200 OK + Content-Type: text/event-stream
+3. Server emits RUN_STARTED event
+4. Server streams events (text messages, tool calls, state updates)
+5. Server emits RUN_FINISHED or RUN_ERROR
+6. Server closes the connection
+7. Client processes final event and closes its end
+```
+
+**For multi-turn conversations:**
+- Client opens a NEW HTTP POST for each user message
+- Client includes the FULL conversation history in `messages[]`
+- Server does NOT maintain conversation state between connections
+- Thread continuity is achieved by the client sending the same `threadId` and full message history
+
+This is fundamentally **stateless on the server side**. Each POST is independent. The client is the source of truth for conversation history.
+
+### 3. Complete Event Type Reference
+
+The AG-UI protocol defines 26 event types across 7 categories. Here is the complete list with payload shapes:
+
+#### 3.1 Lifecycle Events (REQUIRED)
+
+Every run MUST emit `RUN_STARTED` and either `RUN_FINISHED` or `RUN_ERROR`.
+
+| Event Type | Key Fields | Description |
+|------------|-----------|-------------|
+| `RUN_STARTED` | `threadId`, `runId`, `parentRunId?`, `input?` | First event in every run. Establishes execution context. |
+| `RUN_FINISHED` | `threadId`, `runId`, `result?`, `outcome?`, `interrupt?` | Successful completion (or interrupt, see HITL section). |
+| `RUN_ERROR` | `message`, `code?` | Fatal error. Run terminates. No further events. |
+| `STEP_STARTED` | `stepName` | Optional. Signals start of a named sub-task within a run. |
+| `STEP_FINISHED` | `stepName` | Optional. Signals end of a named sub-task. |
+
+**Payload shapes:**
+```typescript
+// RUN_STARTED
+{
+  type: "RUN_STARTED",
+  threadId: string,       // conversation thread
+  runId: string,          // this execution
+  parentRunId?: string,   // for branching/time-travel
+  input?: RunAgentInput,  // the request that started this run
+  timestamp?: number
+}
+
+// RUN_FINISHED
+{
+  type: "RUN_FINISHED",
+  threadId: string,
+  runId: string,
+  result?: any,           // final output data
+  outcome?: "success" | "interrupt",  // DRAFT: for HITL
+  interrupt?: {           // DRAFT: present when outcome === "interrupt"
+    id?: string,
+    reason?: string,
+    payload?: any
+  },
+  timestamp?: number
+}
+
+// RUN_ERROR
+{
+  type: "RUN_ERROR",
+  message: string,        // human-readable error
+  code?: string,          // machine-readable error code
+  timestamp?: number
+}
+```
+
+#### 3.2 Text Message Events
+
+Streamed token-by-token. Follow the Start -> Content* -> End pattern.
+
+| Event Type | Key Fields | Description |
+|------------|-----------|-------------|
+| `TEXT_MESSAGE_START` | `messageId`, `role` | Start of assistant response. `role` is always `"assistant"`. |
+| `TEXT_MESSAGE_CONTENT` | `messageId`, `delta` | One chunk of text. `delta` is a non-empty string. Concatenate in order. |
+| `TEXT_MESSAGE_END` | `messageId` | Message complete. No more content for this `messageId`. |
+| `TEXT_MESSAGE_CHUNK` | `messageId?`, `role?`, `delta?` | Convenience event. Auto-expands to Start/Content/End triad. |
+
+**Payload shapes:**
+```typescript
+// TEXT_MESSAGE_START
+{ type: "TEXT_MESSAGE_START", messageId: string, role: "assistant", timestamp?: number }
+
+// TEXT_MESSAGE_CONTENT
+{ type: "TEXT_MESSAGE_CONTENT", messageId: string, delta: string, timestamp?: number }
+
+// TEXT_MESSAGE_END
+{ type: "TEXT_MESSAGE_END", messageId: string, timestamp?: number }
+```
+
+#### 3.3 Tool Call Events
+
+Streamed when the agent invokes a tool. Arguments are sent as JSON fragments.
+
+| Event Type | Key Fields | Description |
+|------------|-----------|-------------|
+| `TOOL_CALL_START` | `toolCallId`, `toolCallName`, `parentMessageId?` | Agent begins calling a tool. |
+| `TOOL_CALL_ARGS` | `toolCallId`, `delta` | JSON fragment of tool arguments. Concatenate all deltas to get complete JSON. |
+| `TOOL_CALL_END` | `toolCallId` | All arguments sent. Tool execution begins (or has completed). |
+| `TOOL_CALL_RESULT` | `messageId`, `toolCallId`, `content`, `role?` | Result of tool execution. `content` is a string. |
+| `TOOL_CALL_CHUNK` | `toolCallId?`, `toolCallName?`, `parentMessageId?`, `delta?` | Convenience event. Auto-expands to Start/Args/End triad. |
+
+**Payload shapes:**
+```typescript
+// TOOL_CALL_START
+{
+  type: "TOOL_CALL_START",
+  toolCallId: string,      // unique ID for this tool invocation
+  toolCallName: string,    // name of the tool being called
+  parentMessageId?: string // links to the assistant message that triggered it
+}
+
+// TOOL_CALL_ARGS
+{
+  type: "TOOL_CALL_ARGS",
+  toolCallId: string,
+  delta: string            // JSON fragment, e.g. '{"locat' ... 'ion":"Paris"}'
+}
+
+// TOOL_CALL_END
+{ type: "TOOL_CALL_END", toolCallId: string }
+
+// TOOL_CALL_RESULT
+{
+  type: "TOOL_CALL_RESULT",
+  messageId: string,       // message ID for this result in the conversation
+  toolCallId: string,      // links back to the TOOL_CALL_START
+  content: string,         // the tool's return value as a string
+  role?: "tool"
+}
+```
+
+**Complete tool call flow example:**
+```
+data: {"type":"TOOL_CALL_START","toolCallId":"call_abc","toolCallName":"get_weather"}
+data: {"type":"TOOL_CALL_ARGS","toolCallId":"call_abc","delta":"{\"location\":\"Paris\"}"}
+data: {"type":"TOOL_CALL_END","toolCallId":"call_abc"}
+data: {"type":"TOOL_CALL_RESULT","messageId":"msg-tool-1","toolCallId":"call_abc","content":"Sunny, 22C"}
+```
+
+#### 3.4 State Management Events
+
+For synchronizing shared state between agent and client. Uses JSON Patch (RFC 6902) for deltas.
+
+| Event Type | Key Fields | Description |
+|------------|-----------|-------------|
+| `STATE_SNAPSHOT` | `snapshot` | Complete state replacement. Client should overwrite its state. |
+| `STATE_DELTA` | `delta` | Array of JSON Patch operations (RFC 6902). Apply incrementally. |
+| `MESSAGES_SNAPSHOT` | `messages` | Complete conversation history snapshot. |
+
+**Payload shapes:**
+```typescript
+// STATE_SNAPSHOT
+{ type: "STATE_SNAPSHOT", snapshot: any }
+
+// STATE_DELTA -- uses RFC 6902 JSON Patch
+{ type: "STATE_DELTA", delta: [{ op: "add", path: "/foo", value: 1 }, ...] }
+
+// MESSAGES_SNAPSHOT
+{ type: "MESSAGES_SNAPSHOT", messages: Message[] }
+```
+
+#### 3.5 Activity Events
+
+For structured progress updates (e.g., "searching...", "planning...").
+
+| Event Type | Key Fields | Description |
+|------------|-----------|-------------|
+| `ACTIVITY_SNAPSHOT` | `messageId`, `activityType`, `content`, `replace?` | Complete activity state. `activityType` is a discriminator like `"PLAN"` or `"SEARCH"`. |
+| `ACTIVITY_DELTA` | `messageId`, `activityType`, `patch` | JSON Patch operations on the activity content. |
+
+#### 3.6 Reasoning Events
+
+For exposing agent chain-of-thought. Replaces deprecated `THINKING_*` events.
+
+| Event Type | Key Fields | Description |
+|------------|-----------|-------------|
+| `REASONING_START` | `messageId` | Start of reasoning phase. Pass-through signal. |
+| `REASONING_MESSAGE_START` | `messageId`, `role` | Start of a reasoning message. Creates `ReasoningMessage` in history. |
+| `REASONING_MESSAGE_CONTENT` | `messageId`, `delta` | Reasoning text chunk. |
+| `REASONING_MESSAGE_END` | `messageId` | End of reasoning message. |
+| `REASONING_MESSAGE_CHUNK` | `messageId?`, `delta?` | Convenience event, auto-expands to Start/Content/End. |
+| `REASONING_END` | `messageId` | End of reasoning phase. |
+| `REASONING_ENCRYPTED_VALUE` | `subtype`, `entityId`, `encryptedValue` | Encrypted chain-of-thought for state carry-over across turns. |
+
+#### 3.7 Special Events
+
+| Event Type | Key Fields | Description |
+|------------|-----------|-------------|
+| `RAW` | `event`, `source?` | Passthrough for external system events. |
+| `CUSTOM` | `name`, `value` | Application-specific custom events. |
+
+#### 3.8 Deprecated Events (do NOT implement)
+
+| Deprecated | Replacement |
+|------------|-------------|
+| `THINKING_START` | `REASONING_START` |
+| `THINKING_END` | `REASONING_END` |
+| `THINKING_TEXT_MESSAGE_START` | `REASONING_MESSAGE_START` |
+| `THINKING_TEXT_MESSAGE_CONTENT` | `REASONING_MESSAGE_CONTENT` |
+| `THINKING_TEXT_MESSAGE_END` | `REASONING_MESSAGE_END` |
+
+**Confidence:** HIGH -- all event types and payload shapes sourced from official AG-UI docs (docs.ag-ui.com/sdk/js/core/events and docs.ag-ui.com/concepts/events).
+
+### 4. Which Events Does Agent Framework Actually Emit?
+
+Agent Framework's `add_agent_framework_fastapi_endpoint()` uses an internal `AgentFrameworkEventBridge` to translate Agent Framework internal events to AG-UI events. Based on the official documentation and Getting Started tutorial, here is what the bridge emits:
+
+#### Events Agent Framework Definitely Emits
+
+| AG-UI Event | Agent Framework Source | When |
+|-------------|----------------------|------|
+| `RUN_STARTED` | Run begins | Always first. Bridge generates `threadId` and `runId`. |
+| `TEXT_MESSAGE_START` | Agent begins generating text response | Start of each assistant message. |
+| `TEXT_MESSAGE_CONTENT` | Streaming tokens from LLM | Each token/chunk from Azure OpenAI. `delta` contains the token text. |
+| `TEXT_MESSAGE_END` | Agent finishes text response | After all tokens for a message. |
+| `TOOL_CALL_START` | Agent decides to call a `@tool` function | Includes `toolCallName` matching the Python function name. |
+| `TOOL_CALL_ARGS` | LLM streams function arguments | JSON fragments of the tool arguments. |
+| `TOOL_CALL_END` | Arguments complete | Tool is about to execute (or just executed). |
+| `TOOL_CALL_RESULT` | Tool function returns a value | `content` is the string return value from the `@tool` function. |
+| `RUN_FINISHED` | Run completes successfully | Always last on success. |
+| `RUN_ERROR` | Unhandled exception during run | Replaces `RUN_FINISHED` on failure. |
+
+#### Events Agent Framework May Emit (Situational)
+
+| AG-UI Event | When | Notes |
+|-------------|------|-------|
+| `STEP_STARTED` / `STEP_FINISHED` | During handoff workflow steps | When using `WorkflowAgent` with `HandoffBuilder`. Each agent transition may emit step events. Needs Phase 3 validation. |
+| `STATE_SNAPSHOT` | When using shared state orchestrator | The AG-UI overview mentions "Shared State" as a supported feature. Requires explicit state configuration. |
+
+#### Events Agent Framework Does NOT Emit (Client-Side / Future)
+
+| AG-UI Event | Why Not |
+|-------------|---------|
+| `STATE_DELTA` | No incremental state updates from Agent Framework. State snapshots only if configured. |
+| `MESSAGES_SNAPSHOT` | Agent Framework does not send message history snapshots -- client maintains history. |
+| `ACTIVITY_SNAPSHOT` / `ACTIVITY_DELTA` | Activity events are for custom progress UIs. Not part of standard Agent Framework flow. |
+| `REASONING_*` events | Would require extended thinking / chain-of-thought model support. Not emitted by standard Azure OpenAI Chat Completions. |
+| `RAW` / `CUSTOM` | For application-specific extensions. Not emitted by default. |
+| `TEXT_MESSAGE_CHUNK` / `TOOL_CALL_CHUNK` | Convenience events -- Agent Framework emits the explicit Start/Content/End triad instead. |
+
+**Confidence:** HIGH for the "Definitely Emits" list (verified from Getting Started curl output and backend tool rendering tutorial). MEDIUM for "May Emit" (documented as supported features but not shown in basic examples). HIGH for "Does NOT Emit" (these are client-side or extension features not relevant to the bridge).
+
+### 5. Thread Management
+
+#### How Thread IDs Work
+
+Thread IDs provide conversation continuity. The key insight: **AG-UI is stateless on the server side.** The client is the source of truth.
+
+**Who provides the thread ID?**
+- The **client** provides `threadId` in the POST body
+- If the client omits `threadId`, Agent Framework generates one and returns it in `RUN_STARTED`
+- For conversation continuity, the client MUST capture `threadId` from `RUN_STARTED` and send it in subsequent requests
+
+**Thread lifecycle:**
+
+```
+Request 1 (new conversation):
+  Client sends: { "messages": [{"role": "user", "content": "Hello"}] }
+  Server responds: RUN_STARTED { threadId: "thread-abc", runId: "run-1" }
+  Client captures threadId = "thread-abc"
+
+Request 2 (continuation):
+  Client sends: {
+    "threadId": "thread-abc",
+    "messages": [
+      {"role": "user", "content": "Hello"},
+      {"role": "assistant", "content": "Hi! How can I help?"},
+      {"role": "user", "content": "What is in my inbox?"}
+    ]
+  }
+  Server responds: RUN_STARTED { threadId: "thread-abc", runId: "run-2" }
+```
+
+**Critical detail:** The client sends the ENTIRE conversation history in `messages[]` on every request. The server does not store conversation state between requests. This means:
+
+1. **Mobile app must maintain the message array** -- accumulate user messages + assistant responses
+2. **Thread ID is just a correlation ID** -- it does not cause the server to look up stored history
+3. **Agent Framework `AgentSession`** provides in-process session state, but the AG-UI bridge reconstructs context from the incoming messages array
+
+**Relationship between AG-UI threads and Agent Framework sessions:**
+- AG-UI `threadId` maps to Agent Framework's `ConversationId` concept
+- Each HTTP POST creates a new Agent Framework session internally
+- The session is populated with the messages from the POST body
+- After the response streams, the session is discarded
+- There is no persistent server-side session store in the AG-UI pattern
+
+**Confidence:** HIGH -- verified from Getting Started tutorial (client manages message history, sends full array each time) and AG-UI architecture overview (stateless server pattern).
+
+### 6. HITL / Interrupt Pattern
+
+#### Current Status: DRAFT Proposal
+
+The interrupt-aware run lifecycle is a **draft proposal** in the AG-UI protocol (docs.ag-ui.com/drafts/interrupts). It is NOT yet part of the stable specification. However, Agent Framework lists "Human in the Loop" as a supported AG-UI feature, and the `@tool(approval_mode="always_require")` decorator exists.
+
+#### How It Works (Draft Spec)
+
+The interrupt pattern uses `RUN_FINISHED` with a special `outcome` field:
+
+**Step 1: Agent encounters an action requiring approval**
+
+The agent calls a tool marked with `approval_mode="always_require"`. Instead of executing immediately, the framework emits a `RUN_FINISHED` event with `outcome: "interrupt"`:
+
+```json
+{
+  "type": "RUN_FINISHED",
+  "threadId": "thread-abc",
+  "runId": "run-1",
+  "outcome": "interrupt",
+  "interrupt": {
+    "id": "int-xyz",
+    "reason": "human_approval",
+    "payload": {
+      "proposal": {
+        "tool": "delete_document",
+        "args": {"container_name": "Inbox", "document_id": "doc-123"}
+      }
+    }
+  }
+}
+```
+
+**Step 2: Client presents approval UI to user**
+
+The mobile app receives the `RUN_FINISHED` event, checks for `outcome === "interrupt"`, and renders an approval dialog showing the proposed action.
+
+**Step 3: User approves or rejects**
+
+The client sends a new POST request with a `resume` field:
+
+```json
+{
+  "threadId": "thread-abc",
+  "runId": "run-2",
+  "messages": [...],
+  "resume": {
+    "interruptId": "int-xyz",
+    "payload": {"approved": true}
+  }
+}
+```
+
+**Step 4: Agent continues or aborts**
+
+If approved, the agent executes the tool and continues. If rejected, the agent acknowledges and moves on.
+
+#### Agent Framework's HITL Implementation
+
+Agent Framework supports HITL through two mechanisms:
+
+1. **`@tool(approval_mode="always_require")`** -- marks a tool for approval before execution
+2. **AG-UI orchestrator middleware** -- the `AgentFrameworkAgent` wrapper handles the approval protocol
+
+The AG-UI integration page lists these as supported:
+- "Human-in-the-Loop: Function approval requests for user confirmation"
+- "ApprovalRequiredAIFunction: Middleware converts to approval protocol"
+
+**How this maps to AG-UI events for the mobile client:**
+
+| Step | Server Emits | Client Action |
+|------|-------------|---------------|
+| Agent wants to call approved tool | `TOOL_CALL_START` + `TOOL_CALL_ARGS` + `TOOL_CALL_END` (showing what will be called) | Display "Agent wants to call X with args Y" |
+| Framework pauses for approval | `RUN_FINISHED` with `outcome: "interrupt"` | Show approval dialog |
+| User approves | -- | Send new POST with `resume: { approved: true }` |
+| Agent executes tool | `TOOL_CALL_RESULT` in new run | Display result |
+
+**Important caveat:** The exact wire format for Agent Framework's HITL through AG-UI is not fully documented for the Python SDK. The draft interrupt proposal is the latest specification. The implementation may use frontend-defined tools (where the client implements the approval tool) rather than the interrupt pattern. Both approaches achieve the same goal.
+
+**Alternative HITL approach (frontend tools):** AG-UI also supports defining tools on the frontend that the agent can call. For approval workflows:
+
+1. Client defines a `confirmAction` tool in the `tools[]` array of the POST body
+2. Agent calls this frontend tool when it needs approval
+3. Client receives `TOOL_CALL_START` / `TOOL_CALL_ARGS` / `TOOL_CALL_END` events
+4. Client executes the tool (shows dialog, gets user input)
+5. Client sends a new POST with the tool result in messages
+
+This is the CopilotKit pattern (`useCopilotAction`) adapted for a custom client.
+
+**Confidence:** MEDIUM -- interrupt draft is well-specified but explicitly marked as "Draft" and "subject to change." Agent Framework claims HITL support but the exact Python AG-UI wire format is not documented. The mobile client should be designed to handle BOTH the interrupt pattern and the frontend-tool pattern.
+
+### 7. Serialization and Event Compaction
+
+AG-UI supports serializing event streams for persistence and replay. Key concepts for the mobile app:
+
+- **Event compaction** -- `compactEvents()` merges verbose streams into snapshots (e.g., merge `TEXT_MESSAGE_START` + `TEXT_MESSAGE_CONTENT*` + `TEXT_MESSAGE_END` into a single `MESSAGES_SNAPSHOT`)
+- **Run lineage** -- `parentRunId` creates git-like branching for conversation time-travel
+- **Stream persistence** -- Store events as JSON arrays, restore later
+
+**Relevance to mobile app:** The Expo app should store compacted conversation history locally (AsyncStorage or SQLite) to avoid re-fetching. On reconnect, send the compacted messages array in the next POST.
+
+### 8. What the Mobile SSE Client Must Handle
+
+Given no CopilotKit for React Native, the Expo app needs a custom SSE consumer. Here is the minimum viable specification:
+
+#### 8.1 SSE Parsing Requirements
+
+The client must:
+
+1. **Open an HTTP POST connection** with `Content-Type: application/json` and `Accept: text/event-stream`
+2. **Read the response as a stream** of `data: {json}\n\n` lines
+3. **Parse each `data:` line** as JSON
+4. **Dispatch on the `type` field** to handle different event types
+5. **Handle connection close** after `RUN_FINISHED` or `RUN_ERROR`
+6. **Handle network errors** (timeout, disconnect) gracefully
+
+#### 8.2 Minimum Event Set to Handle
+
+For Phase 2, the mobile client MUST handle these events:
+
+| Event | Client Action |
+|-------|---------------|
+| `RUN_STARTED` | Capture `threadId` and `runId`. Show loading indicator. |
+| `TEXT_MESSAGE_START` | Create a new assistant message bubble. Begin rendering. |
+| `TEXT_MESSAGE_CONTENT` | Append `delta` text to the current message. Real-time token display. |
+| `TEXT_MESSAGE_END` | Finalize message. Remove loading indicator for this message. |
+| `TOOL_CALL_START` | Optionally show "Agent is calling [toolCallName]..." indicator. |
+| `TOOL_CALL_ARGS` | Optionally accumulate tool arguments for display. |
+| `TOOL_CALL_END` | Optionally show "Tool call complete, waiting for result..." |
+| `TOOL_CALL_RESULT` | Optionally display tool result in UI. |
+| `RUN_FINISHED` | Mark run complete. Enable user input. |
+| `RUN_ERROR` | Display error message. Enable user input. Allow retry. |
+
+**Events to ignore initially (Phase 2 can skip):**
+- `STEP_STARTED` / `STEP_FINISHED` -- nice-to-have progress indicators
+- `STATE_SNAPSHOT` / `STATE_DELTA` -- no shared state needed initially
+- `MESSAGES_SNAPSHOT` -- client manages messages locally
+- `ACTIVITY_SNAPSHOT` / `ACTIVITY_DELTA` -- no activity UI in Phase 2
+- `REASONING_*` -- no reasoning display in Phase 2
+- `RAW` / `CUSTOM` -- no custom events in Phase 2
+
+**Events for Phase 4 (HITL):**
+- `RUN_FINISHED` with `outcome: "interrupt"` -- trigger approval dialog
+- Frontend tool calls via `TOOL_CALL_START` / `TOOL_CALL_ARGS` / `TOOL_CALL_END`
+
+#### 8.3 React Native SSE Implementation Approaches
+
+**Option A: `EventSource` polyfill (simplest)**
+
+React Native does not natively support `EventSource` for POST requests. Use a library:
+
+```typescript
+// react-native-sse or expo-server-sent-events
+// These handle the SSE parsing layer
+
+import EventSource from 'react-native-sse';
+
+const es = new EventSource('http://backend:8000/', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-API-Key': apiKey,
+  },
+  body: JSON.stringify({
+    threadId: threadId,
+    messages: messageHistory,
+  }),
+});
+
+es.addEventListener('message', (event) => {
+  const data = JSON.parse(event.data);
+  switch (data.type) {
+    case 'TEXT_MESSAGE_CONTENT':
+      appendToCurrentMessage(data.delta);
+      break;
+    case 'RUN_FINISHED':
+      completeRun();
+      es.close();
+      break;
+    // ... handle other event types
+  }
+});
+```
+
+**Option B: `fetch()` with streaming reader (more control)**
+
+```typescript
+const response = await fetch('http://backend:8000/', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'text/event-stream',
+    'X-API-Key': apiKey,
+  },
+  body: JSON.stringify({ threadId, messages: messageHistory }),
+});
+
+const reader = response.body?.getReader();
+const decoder = new TextDecoder();
+let buffer = '';
+
+while (reader) {
+  const { done, value } = await reader.read();
+  if (done) break;
+
+  buffer += decoder.decode(value, { stream: true });
+
+  // Parse SSE data lines
+  const lines = buffer.split('\n');
+  buffer = lines.pop() || ''; // Keep incomplete line in buffer
+
+  for (const line of lines) {
+    if (line.startsWith('data: ')) {
+      const json = line.slice(6); // Remove 'data: ' prefix
+      if (json.trim()) {
+        const event = JSON.parse(json);
+        handleAgUiEvent(event);
+      }
+    }
+  }
+}
+```
+
+**Recommendation for Phase 2:** Use Option B (`fetch` with streaming reader). It gives full control over the connection, does not require an EventSource polyfill that may not support POST bodies, and works well with React Native's `fetch` implementation. The parsing logic is ~20 lines of code.
+
+**Confidence:** MEDIUM -- React Native SSE support varies by version and platform. The `fetch` streaming approach is more reliable. Both approaches need validation on actual device. The `react-native-sse` library supports POST but has fewer downloads. Need to test with Expo SDK during Phase 2.
+
+#### 8.4 Client-Side State Management
+
+The mobile client must maintain:
+
+1. **Message history array** -- `Message[]` accumulating user + assistant + tool messages
+2. **Current thread ID** -- captured from first `RUN_STARTED`, reused across requests
+3. **Current run state** -- `idle | running | error` for UI state
+4. **Streaming message buffer** -- accumulate `TEXT_MESSAGE_CONTENT` deltas for the current message
+5. **Tool call tracking** -- map of `toolCallId -> { name, args, result }` for display
+
+**Suggested Zustand store shape (Phase 2):**
+```typescript
+interface ChatState {
+  threadId: string | null;
+  messages: Message[];
+  isRunning: boolean;
+  error: string | null;
+  currentStreamingMessage: string;
+  pendingToolCalls: Map<string, ToolCallState>;
+
+  // Actions
+  sendMessage: (content: string) => Promise<void>;
+  handleEvent: (event: AgUiEvent) => void;
+  reset: () => void;
+}
+```
+
+### 9. Complete SSE Stream Examples
+
+#### Example 1: Simple Text Response
+
+```
+POST / HTTP/1.1
+Content-Type: application/json
+
+{"messages":[{"role":"user","content":"Hello"}]}
+
+---
+
+data: {"type":"RUN_STARTED","threadId":"t1","runId":"r1"}
+
+data: {"type":"TEXT_MESSAGE_START","messageId":"m1","role":"assistant"}
+
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"m1","delta":"Hello"}
+
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"m1","delta":"! How"}
+
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"m1","delta":" can I help you?"}
+
+data: {"type":"TEXT_MESSAGE_END","messageId":"m1"}
+
+data: {"type":"RUN_FINISHED","threadId":"t1","runId":"r1"}
+
+```
+
+#### Example 2: Tool Call + Text Response
+
+```
+data: {"type":"RUN_STARTED","threadId":"t1","runId":"r2"}
+
+data: {"type":"TOOL_CALL_START","toolCallId":"tc1","toolCallName":"read_inbox"}
+
+data: {"type":"TOOL_CALL_ARGS","toolCallId":"tc1","delta":"{}"}
+
+data: {"type":"TOOL_CALL_END","toolCallId":"tc1"}
+
+data: {"type":"TOOL_CALL_RESULT","messageId":"tr1","toolCallId":"tc1","content":"[{\"title\":\"Buy groceries\"}]"}
+
+data: {"type":"TEXT_MESSAGE_START","messageId":"m2","role":"assistant"}
+
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"m2","delta":"You have 1 item"}
+
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"m2","delta":" in your inbox: Buy groceries."}
+
+data: {"type":"TEXT_MESSAGE_END","messageId":"m2"}
+
+data: {"type":"RUN_FINISHED","threadId":"t1","runId":"r2"}
+
+```
+
+#### Example 3: Interrupt (HITL Approval) -- DRAFT
+
+```
+data: {"type":"RUN_STARTED","threadId":"t1","runId":"r3"}
+
+data: {"type":"TOOL_CALL_START","toolCallId":"tc2","toolCallName":"delete_document"}
+
+data: {"type":"TOOL_CALL_ARGS","toolCallId":"tc2","delta":"{\"container\":\"Inbox\",\"id\":\"doc-123\"}"}
+
+data: {"type":"TOOL_CALL_END","toolCallId":"tc2"}
+
+data: {"type":"RUN_FINISHED","threadId":"t1","runId":"r3","outcome":"interrupt","interrupt":{"id":"int-1","reason":"human_approval","payload":{"tool":"delete_document","args":{"container":"Inbox","id":"doc-123"}}}}
+
+```
+
+Client then sends a resume POST:
+
+```
+POST / HTTP/1.1
+Content-Type: application/json
+
+{"threadId":"t1","runId":"r4","messages":[...],"resume":{"interruptId":"int-1","payload":{"approved":true}}}
+```
+
+### 10. Deep Dive Open Questions
+
+1. **Agent Framework's exact HITL wire format**
+   - What we know: AG-UI interrupt draft is specified. Agent Framework claims HITL support. `@tool(approval_mode="always_require")` exists.
+   - What's unclear: Does Agent Framework's Python AG-UI bridge emit `RUN_FINISHED` with `outcome: "interrupt"`, or does it use the frontend-tool pattern? The Getting Started and Backend Tool Rendering tutorials don't show HITL.
+   - Recommendation: Design the mobile client to handle BOTH patterns. Test during Phase 4 implementation.
+
+2. **React Native SSE support for POST requests**
+   - What we know: Standard `EventSource` API does not support POST. React Native's `fetch` supports streaming.
+   - What's unclear: Exact behavior of `response.body.getReader()` in Expo/React Native on iOS and Android. Some older Expo versions may not support ReadableStream.
+   - Recommendation: Validate during Phase 2 with a simple POC. Fallback is `XMLHttpRequest` with `onprogress` handler.
+
+3. **Message history size limits**
+   - What we know: Each POST includes full message history. Azure OpenAI has token limits.
+   - What's unclear: Does Agent Framework truncate messages, or does the client need to manage context window?
+   - Recommendation: Implement client-side message truncation (keep last N messages + system prompt). Agent Framework likely passes messages through to Azure OpenAI which will error on token limit exceeded.
+
+4. **Thread ID persistence across app restarts**
+   - What we know: Thread ID is just a string correlation ID. No server-side state.
+   - What's unclear: Should the mobile app persist `threadId` + message history to AsyncStorage for session continuity across app restarts?
+   - Recommendation: Yes. Store `{ threadId, messages }` in Expo SecureStore or AsyncStorage. Restore on app launch.
+
+5. **Concurrent requests on same thread**
+   - What we know: Each POST is independent. Server does not lock threads.
+   - What's unclear: What happens if the user sends a new message while a previous run is still streaming? Does the server handle concurrent runs on the same thread?
+   - Recommendation: Disable the send button while a run is in progress (`isRunning` state). Queue messages if needed.
+
+### Deep Dive Sources
+
+#### Primary (HIGH confidence)
+- [AG-UI Events Reference (docs.ag-ui.com)](https://docs.ag-ui.com/concepts/events) -- Complete event type documentation with mermaid sequence diagrams, all 26 event types, payload descriptions.
+- [AG-UI SDK Events (docs.ag-ui.com)](https://docs.ag-ui.com/sdk/js/core/events) -- TypeScript type definitions for all events with exact field types and validation schemas (Zod).
+- [AG-UI Core Types (docs.ag-ui.com)](https://docs.ag-ui.com/sdk/js/core/types) -- `RunAgentInput`, `Message`, `Tool`, `Context`, `State` type definitions.
+- [AG-UI Core Architecture (docs.ag-ui.com)](https://docs.ag-ui.com/concepts/architecture) -- Design principles, transport options, architectural overview, HttpAgent client.
+- [AG-UI Serialization (docs.ag-ui.com)](https://docs.ag-ui.com/concepts/serialization) -- Event compaction, branching with `parentRunId`, stream persistence patterns.
+- [AG-UI Tools (docs.ag-ui.com)](https://docs.ag-ui.com/concepts/tools) -- Frontend-defined tools, tool call lifecycle, HITL via tools, CopilotKit integration.
+- [Agent Framework AG-UI Integration (Microsoft Learn)](https://learn.microsoft.com/en-us/agent-framework/integrations/ag-ui/) -- Feature list, architecture diagram, event mapping table, supported features (7 AG-UI features). Updated 2026-02-13.
+- [Agent Framework AG-UI Getting Started (Microsoft Learn)](https://learn.microsoft.com/en-us/agent-framework/integrations/ag-ui/getting-started) -- Server setup, client setup, curl testing, SSE format, thread management, protocol details. Updated 2026-02-13.
+- [Agent Framework AG-UI Backend Tool Rendering (Microsoft Learn)](https://learn.microsoft.com/en-us/agent-framework/integrations/ag-ui/backend-tool-rendering) -- Tool event sequences (`TOOL_CALL_START` through `TOOL_CALL_RESULT`), Python examples. Updated 2026-02-13.
+
+#### Secondary (MEDIUM confidence)
+- [AG-UI Interrupt Draft Proposal (docs.ag-ui.com)](https://docs.ag-ui.com/drafts/interrupts) -- `RUN_FINISHED` with `outcome: "interrupt"`, `RunAgentInput.resume` field, contract rules, implementation examples. Status: Draft.
+- [CopilotKit AG-UI Blog (copilotkit.ai)](https://www.copilotkit.ai/blog/master-the-17-ag-ui-event-types-for-building-agents-the-right-way) -- Practical walkthrough of all event types with diagrams. Counts 17 events (pre-Reasoning events addition).
+- [@ag-ui/core npm package](https://npmjs.com/package/@ag-ui/core) -- v0.0.45, 323K weekly downloads, confirms 16 core event kinds in current release.
+
+#### Tertiary (LOW confidence)
+- React Native SSE support: No official AG-UI documentation for React Native. SSE POST support depends on Expo version and platform. Needs Phase 2 validation.
+- Agent Framework HITL wire format via AG-UI: Claimed as supported but no Python example showing the interrupt flow end-to-end. Needs Phase 4 validation.
+
+### Deep Dive Confidence Assessment
+
+| Area | Level | Reason |
+|------|-------|--------|
+| Event type list and payload shapes | HIGH | Official AG-UI TypeScript types + Zod schemas verified |
+| HTTP contract (POST body, SSE format) | HIGH | Official docs + Agent Framework curl example match |
+| Thread management lifecycle | HIGH | Stateless server pattern verified from multiple sources |
+| Agent Framework event mapping | HIGH | Getting Started tutorial + backend tool rendering show exact events |
+| HITL / Interrupt pattern | MEDIUM | Draft proposal well-specified but not yet stable. Agent Framework claims support but wire format undocumented for Python. |
+| Mobile SSE client requirements | MEDIUM | Event parsing is well-defined. React Native SSE transport needs device validation. |
+| State management events | MEDIUM | Well-specified in protocol but Agent Framework does not emit them in basic scenarios. |
+
+**Research date:** 2026-02-21
+**Valid until:** 2026-03-21 (AG-UI protocol is pre-1.0, may change. Interrupt proposal is Draft status.)
