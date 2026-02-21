@@ -67,7 +67,7 @@ One-tap capture from a phone instantly routes through an agent chain that classi
 
 - **Tech stack**: Microsoft Agent Framework (Python), Azure OpenAI GPT-5.2, Expo/React Native, Azure Container Apps, Cosmos DB, Blob Storage
 - **Protocol**: AG-UI (SSE event stream) for agent-to-frontend communication
-- **LLM**: Azure OpenAI GPT-5.2 (with Vision for Perception Agent, Whisper for transcription)
+- **LLM**: Azure OpenAI GPT-4o (with Vision for Perception Agent, Whisper for transcription)
 - **Platform**: iOS and Android via Expo
 - **Single user**: No multi-tenancy design needed — hardcode `userId: "will"`
 - **Observability**: OpenTelemetry built into Agent Framework, DevUI for development
@@ -83,9 +83,9 @@ One-tap capture from a phone instantly routes through an agent chain that classi
 | Action Agent separate from Classifier | Single responsibility — classify vs sharpen are different skills | — Pending |
 | Cosmos DB NoSQL | JSON documents, serverless pricing, free tier, simple for single-user | — Pending |
 | API key auth (not Azure AD) | Single user, simplest approach, stored in Expo Secure Store | — Pending |
-| GPT-5.2 for all agents | Latest model, native Agent Framework support | — Pending |
+| GPT-4o for all agents | Proven model, native Agent Framework support, lower cost than GPT-5.2 | — Pending |
 | Evaluation Agent in Phase 4 | Needs weeks of data before patterns emerge | — Pending |
 | Claude Code + GSD methodology | Development approach; fallback to spec-driven if GSD impedes | — Pending |
 
 ---
-*Last updated: 2026-02-21 after initialization*
+*Last updated: 2026-02-21 after requirements definition (LLM changed to GPT-4o)*
