@@ -10,28 +10,28 @@ See: .planning/PROJECT.md (updated 2026-02-21)
 ## Current Position
 
 Phase: 1 of 9 (Backend Foundation)
-Plan: 2 of 3 in current phase
-Status: Executing
-Last activity: 2026-02-21 -- Completed 01-02-PLAN.md (Cosmos DB data layer)
+Plan: 3 of 3 in current phase
+Status: Phase Complete
+Last activity: 2026-02-21 -- Completed 01-03-PLAN.md (API key auth + integration tests)
 
-Progress: [##........] 8%
+Progress: [##........] 11%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 2
-- Average duration: 4.5 min
-- Total execution time: 0.15 hours
+- Total plans completed: 3
+- Average duration: 4 min
+- Total execution time: 0.2 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 01-backend-foundation | 2/3 | 9 min | 4.5 min |
+| 01-backend-foundation | 3/3 | 12 min | 4 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (5 min), 01-02 (4 min)
-- Trend: stable
+- Last 5 plans: 01-01 (5 min), 01-02 (4 min), 01-03 (3 min)
+- Trend: stable/improving
 
 *Updated after each plan completion*
 
@@ -53,6 +53,9 @@ Recent decisions affecting current work:
 - [01-02]: Class-based CosmosCrudTools pattern to bind container references without module-level globals
 - [01-02]: Ruff N815 per-file ignore for camelCase Cosmos DB document field names
 - [01-02]: Graceful Cosmos DB fallback in lifespan -- server starts without Cosmos configured
+- [01-03]: API key middleware added in lifespan (not module level) because app.state.api_key set during lifespan Key Vault fetch
+- [01-03]: Public paths as frozenset for O(1) lookup: /health, /docs, /openapi.json
+- [01-03]: Integration tests use MockAgentFrameworkAgent rather than real agent (no Azure credentials needed)
 
 ### Pending Todos
 
@@ -67,5 +70,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-21
-Stopped at: Completed 01-02-PLAN.md
-Resume file: .planning/phases/01-backend-foundation/01-03-PLAN.md
+Stopped at: Completed 01-03-PLAN.md (Phase 1 complete)
+Resume file: Next phase planning

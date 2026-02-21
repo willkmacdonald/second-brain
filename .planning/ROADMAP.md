@@ -12,7 +12,7 @@ This roadmap delivers a multi-agent capture-and-intelligence system in 9 phases,
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Backend Foundation** - FastAPI server with AG-UI endpoint, Cosmos DB, API auth, and OpenTelemetry tracing
+- [x] **Phase 1: Backend Foundation** - FastAPI server with AG-UI endpoint, Cosmos DB, API auth, and OpenTelemetry tracing
 - [ ] **Phase 2: Expo App Shell** - Mobile app with text input, main capture screen, and cross-platform support
 - [ ] **Phase 3: Text Classification Pipeline** - Orchestrator and Classifier agents that route text input to the correct bucket in Cosmos DB
 - [ ] **Phase 4: HITL Clarification and AG-UI Streaming** - Real-time agent chain visibility and clarification conversation for low-confidence classifications
@@ -37,8 +37,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 Plans:
 - [x] 01-01-PLAN.md — Project scaffold + AG-UI server with echo agent + OpenTelemetry
-- [ ] 01-02-PLAN.md — Cosmos DB data layer (models, singleton client, CRUD tools)
-- [ ] 01-03-PLAN.md — API key auth middleware + end-to-end integration verification
+- [x] 01-02-PLAN.md — Cosmos DB data layer (models, singleton client, CRUD tools)
+- [x] 01-03-PLAN.md — API key auth middleware + end-to-end integration verification
 
 ### Phase 2: Expo App Shell
 **Goal**: Will can open the app on his phone, type a thought, and send it to the backend

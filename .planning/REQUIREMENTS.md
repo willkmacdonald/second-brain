@@ -13,7 +13,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **INFRA-02**: Cosmos DB provisioned with 5 containers (Inbox, People, Projects, Ideas, Admin) partitioned by `/userId`
 - [ ] **INFRA-03**: Azure Blob Storage configured for media file uploads (voice recordings)
 - [x] **INFRA-04**: OpenTelemetry tracing enabled across all agent handoffs with traces viewable in Agent Framework DevUI
-- [ ] **INFRA-05**: API key authentication protects the AG-UI endpoint (key stored in Expo Secure Store)
+- [x] **INFRA-05**: API key authentication protects the AG-UI endpoint (key stored in Expo Secure Store)
 
 ### Capture
 
@@ -125,7 +125,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INFRA-02 | Phase 1 | Complete |
 | INFRA-03 | Phase 5 | Pending |
 | INFRA-04 | Phase 1 | Complete |
-| INFRA-05 | Phase 1 | Pending |
+| INFRA-05 | Phase 1 | Complete |
 | CAPT-01 | Phase 2 | Pending |
 | CAPT-02 | Phase 4 | Pending |
 | CAPT-03 | Phase 5 | Pending |
