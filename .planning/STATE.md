@@ -70,5 +70,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-21
-Stopped at: Phase 1 complete, Phase 2 ready to plan
-Resume file: .planning/ROADMAP.md (Phase 2: Expo App Shell)
+Stopped at: Phase 2 context gathered
+Resume file: .planning/phases/02-expo-app-shell/02-CONTEXT.md
