@@ -17,7 +17,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Capture
 
-- [ ] **CAPT-01**: User can type a thought in the Expo app and submit it with one tap
+- [x] **CAPT-01**: User can type a thought in the Expo app and submit it with one tap
 - [ ] **CAPT-02**: User receives real-time visual feedback showing the agent chain processing their capture (Orchestrator → Classifier → Action)
 - [ ] **CAPT-03**: User can record a voice note in the Expo app which is transcribed by the Perception Agent via Whisper
 - [ ] **CAPT-04**: User sees transcribed text and classification result after voice capture
@@ -126,7 +126,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INFRA-03 | Phase 5 | Pending |
 | INFRA-04 | Phase 1 | Complete |
 | INFRA-05 | Phase 1 | Complete |
-| CAPT-01 | Phase 2 | Pending |
+| CAPT-01 | Phase 2 | Complete |
 | CAPT-02 | Phase 4 | Pending |
 | CAPT-03 | Phase 5 | Pending |
 | CAPT-04 | Phase 5 | Pending |

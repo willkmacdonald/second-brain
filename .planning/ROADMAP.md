@@ -13,7 +13,7 @@ This roadmap delivers a multi-agent capture-and-intelligence system in 9 phases,
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Backend Foundation** - FastAPI server with AG-UI endpoint, Cosmos DB, API auth, and OpenTelemetry tracing
-- [ ] **Phase 2: Expo App Shell** - Mobile app with text input, main capture screen, and cross-platform support
+- [x] **Phase 2: Expo App Shell** - Mobile app with text input, main capture screen, and cross-platform support
 - [ ] **Phase 3: Text Classification Pipeline** - Orchestrator and Classifier agents that route text input to the correct bucket in Cosmos DB
 - [ ] **Phase 4: HITL Clarification and AG-UI Streaming** - Real-time agent chain visibility and clarification conversation for low-confidence classifications
 - [ ] **Phase 5: Voice Capture** - Voice recording with Whisper transcription routed through the Perception Agent
@@ -52,7 +52,7 @@ Plans:
 
 Plans:
 - [x] 02-01-PLAN.md — Expo project scaffold + main capture screen with four buttons
-- [ ] 02-02-PLAN.md — Text capture flow with AG-UI backend connectivity
+- [x] 02-02-PLAN.md — Text capture flow with AG-UI backend connectivity
 
 ### Phase 3: Text Classification Pipeline
 **Goal**: A typed thought is automatically classified into the correct bucket and filed in Cosmos DB without any user effort
@@ -173,7 +173,7 @@ Note: Phases 5, 6, 7, and 9 depend only on Phase 3 and can be parallelized, but 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Backend Foundation | 3/3 | Complete | 2026-02-21 |
-| 2. Expo App Shell | 1/2 | In Progress | - |
+| 2. Expo App Shell | 2/2 | Complete | 2026-02-21 |
 | 3. Text Classification Pipeline | 0/3 | Not started | - |
 | 4. HITL Clarification and AG-UI Streaming | 0/3 | Not started | - |
 | 5. Voice Capture | 0/3 | Not started | - |

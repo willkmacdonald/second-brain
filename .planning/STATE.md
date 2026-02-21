@@ -9,29 +9,29 @@ See: .planning/PROJECT.md (updated 2026-02-21)
 
 ## Current Position
 
-Phase: 2 of 9 (Expo App Shell)
-Plan: 1 of 2 in current phase
-Status: Executing
-Last activity: 2026-02-21 -- Plan 02-01 complete (Expo app shell with capture screen)
+Phase: 2 of 9 (Expo App Shell) -- COMPLETE
+Plan: 2 of 2 in current phase
+Status: Phase complete
+Last activity: 2026-02-21 -- Plan 02-02 complete (text capture flow with AG-UI backend)
 
-Progress: [##........] 17%
+Progress: [##........] 22%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4
-- Average duration: 4 min
-- Total execution time: 0.25 hours
+- Total plans completed: 5
+- Average duration: 3 min
+- Total execution time: 0.28 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-backend-foundation | 3/3 | 12 min | 4 min |
-| 02-expo-app-shell | 1/2 | 3 min | 3 min |
+| 02-expo-app-shell | 2/2 | 5 min | 2.5 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (5 min), 01-02 (4 min), 01-03 (3 min), 02-01 (3 min)
+- Last 5 plans: 01-02 (4 min), 01-03 (3 min), 02-01 (3 min), 02-02 (2 min)
 - Trend: stable/improving
 
 *Updated after each plan completion*
@@ -60,6 +60,9 @@ Recent decisions affecting current work:
 - [02-01]: SafeAreaView from react-native-safe-area-context for consistent safe area handling
 - [02-01]: Toast: ToastAndroid on Android, Alert.alert on iOS (no third-party library for MVP)
 - [02-01]: Removed default App.tsx/index.ts -- expo-router uses app/_layout.tsx as entry
+- [02-02]: EventSource<AGUIEventType> generic parameter for type-safe custom AG-UI event listeners
+- [02-02]: Inline state-driven toast instead of third-party library
+- [02-02]: Fire-and-forget: only RUN_FINISHED and error events, no TEXT_MESSAGE_CONTENT (Phase 4)
 
 ### Pending Todos
 
@@ -67,12 +70,12 @@ None yet.
 
 ### Blockers/Concerns
 
-- [Research]: React Native AG-UI client must be custom-built (no official package); validate SSE on Android physical device early in Phase 2
+- [Resolved]: React Native AG-UI client custom-built using react-native-sse with EventSource<AGUIEventType> generic typing (Phase 2)
 - [Resolved]: Cosmos DB partition key decision — /userId only (finalized in Phase 1 context)
 - [Research]: Whisper + expo-audio integration needs targeted research spike before Phase 5
 
 ## Session Continuity
 
 Last session: 2026-02-21
-Stopped at: Completed 02-01-PLAN.md
-Resume file: .planning/phases/02-expo-app-shell/02-01-SUMMARY.md
+Stopped at: Completed 02-02-PLAN.md (Phase 2 complete)
+Resume file: .planning/phases/02-expo-app-shell/02-02-SUMMARY.md
