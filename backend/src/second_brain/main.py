@@ -21,6 +21,7 @@ from fastapi import FastAPI  # noqa: E402
 from second_brain.agents.echo import create_echo_agent  # noqa: E402
 from second_brain.api.health import router as health_router  # noqa: E402
 from second_brain.config import get_settings  # noqa: E402
+from second_brain.db.cosmos import CosmosManager  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +50,27 @@ async def lifespan(app: FastAPI):
     finally:
         await credential.close()
 
+    # Initialize Cosmos DB client singleton
+    cosmos_manager = CosmosManager(
+        endpoint=settings.cosmos_endpoint,
+        database_name=settings.database_name,
+    )
+    try:
+        await cosmos_manager.initialize()
+        app.state.cosmos_manager = cosmos_manager
+        logger.info("Cosmos DB manager initialized")
+    except Exception:
+        logger.warning(
+            "Could not initialize Cosmos DB. "
+            "Database operations will not be available until Cosmos DB is configured."
+        )
+        app.state.cosmos_manager = None
+
     yield
+
+    # Cleanup Cosmos DB
+    if app.state.cosmos_manager is not None:
+        await app.state.cosmos_manager.close()
 
 
 # Create the echo agent at module level (sync credential, per research Pattern 1)
