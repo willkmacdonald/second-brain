@@ -21,7 +21,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **CAPT-02**: User receives real-time visual feedback showing the agent chain processing their capture (Orchestrator → Classifier → Action)
 - [ ] **CAPT-03**: User can record a voice note in the Expo app which is transcribed by the Perception Agent via Whisper
 - [ ] **CAPT-04**: User sees transcribed text and classification result after voice capture
-- [ ] **CAPT-05**: Expo app runs on both iOS and Android
+- [x] **CAPT-05**: Expo app runs on both iOS and Android
 
 ### Orchestration
 
@@ -72,7 +72,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### App UX
 
-- [ ] **APPX-01**: Main screen shows four large capture buttons (Voice, Photo, Video, Text) — no settings, folders, or tags visible
+- [x] **APPX-01**: Main screen shows four large capture buttons (Voice, Photo, Video, Text) — no settings, folders, or tags visible
 - [ ] **APPX-02**: Inbox view shows recent captures with the agent chain that processed each one
 - [ ] **APPX-03**: Digest view displays the morning briefing, opened via push notification
 - [ ] **APPX-04**: Conversation view opens when a specialist needs clarification, showing a focused chat
@@ -130,7 +130,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CAPT-02 | Phase 4 | Pending |
 | CAPT-03 | Phase 5 | Pending |
 | CAPT-04 | Phase 5 | Pending |
-| CAPT-05 | Phase 2 | Pending |
+| CAPT-05 | Phase 2 | Complete |
 | ORCH-01 | Phase 3 | Pending |
 | ORCH-02 | Phase 3 | Pending |
 | ORCH-03 | Phase 5 | Pending |
@@ -160,7 +160,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DGST-06 | Phase 8 | Pending |
 | SRCH-01 | Phase 9 | Pending |
 | SRCH-02 | Phase 9 | Pending |
-| APPX-01 | Phase 2 | Pending |
+| APPX-01 | Phase 2 | Complete |
 | APPX-02 | Phase 4 | Pending |
 | APPX-03 | Phase 8 | Pending |
 | APPX-04 | Phase 4 | Pending |

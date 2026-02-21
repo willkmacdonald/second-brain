@@ -51,7 +51,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — Expo project scaffold + main capture screen with four buttons
+- [x] 02-01-PLAN.md — Expo project scaffold + main capture screen with four buttons
 - [ ] 02-02-PLAN.md — Text capture flow with AG-UI backend connectivity
 
 ### Phase 3: Text Classification Pipeline
@@ -173,7 +173,7 @@ Note: Phases 5, 6, 7, and 9 depend only on Phase 3 and can be parallelized, but 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Backend Foundation | 3/3 | Complete | 2026-02-21 |
-| 2. Expo App Shell | 0/2 | Not started | - |
+| 2. Expo App Shell | 1/2 | In Progress | - |
 | 3. Text Classification Pipeline | 0/3 | Not started | - |
 | 4. HITL Clarification and AG-UI Streaming | 0/3 | Not started | - |
 | 5. Voice Capture | 0/3 | Not started | - |
