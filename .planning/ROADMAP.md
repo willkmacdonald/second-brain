@@ -33,12 +33,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. Documents can be created and read in each of the 5 Cosmos DB containers
   3. Requests without a valid API key are rejected with 401
   4. Agent handoff traces are visible in the Agent Framework DevUI
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 01-01: TBD
-- [ ] 01-02: TBD
-- [ ] 01-03: TBD
+- [ ] 01-01-PLAN.md — Project scaffold + AG-UI server with echo agent + OpenTelemetry
+- [ ] 01-02-PLAN.md — Cosmos DB data layer (models, singleton client, CRUD tools)
+- [ ] 01-03-PLAN.md — API key auth middleware + end-to-end integration verification
 
 ### Phase 2: Expo App Shell
 **Goal**: Will can open the app on his phone, type a thought, and send it to the backend
@@ -172,7 +172,7 @@ Note: Phases 5, 6, 7, and 9 depend only on Phase 3 and can be parallelized, but 
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Backend Foundation | 0/3 | Not started | - |
+| 1. Backend Foundation | 0/3 | Planned | - |
 | 2. Expo App Shell | 0/2 | Not started | - |
 | 3. Text Classification Pipeline | 0/3 | Not started | - |
 | 4. HITL Clarification and AG-UI Streaming | 0/3 | Not started | - |
