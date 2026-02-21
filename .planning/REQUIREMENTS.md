@@ -121,55 +121,55 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INFRA-01 | TBD | Pending |
-| INFRA-02 | TBD | Pending |
-| INFRA-03 | TBD | Pending |
-| INFRA-04 | TBD | Pending |
-| INFRA-05 | TBD | Pending |
-| CAPT-01 | TBD | Pending |
-| CAPT-02 | TBD | Pending |
-| CAPT-03 | TBD | Pending |
-| CAPT-04 | TBD | Pending |
-| CAPT-05 | TBD | Pending |
-| ORCH-01 | TBD | Pending |
-| ORCH-02 | TBD | Pending |
-| ORCH-03 | TBD | Pending |
-| ORCH-04 | TBD | Pending |
-| ORCH-05 | TBD | Pending |
-| ORCH-06 | TBD | Pending |
-| CLAS-01 | TBD | Pending |
-| CLAS-02 | TBD | Pending |
-| CLAS-03 | TBD | Pending |
-| CLAS-04 | TBD | Pending |
-| CLAS-05 | TBD | Pending |
-| CLAS-06 | TBD | Pending |
-| CLAS-07 | TBD | Pending |
-| ACTN-01 | TBD | Pending |
-| ACTN-02 | TBD | Pending |
-| ACTN-03 | TBD | Pending |
-| ACTN-04 | TBD | Pending |
-| PEOP-01 | TBD | Pending |
-| PEOP-02 | TBD | Pending |
-| PEOP-03 | TBD | Pending |
-| PEOP-04 | TBD | Pending |
-| DGST-01 | TBD | Pending |
-| DGST-02 | TBD | Pending |
-| DGST-03 | TBD | Pending |
-| DGST-04 | TBD | Pending |
-| DGST-05 | TBD | Pending |
-| DGST-06 | TBD | Pending |
-| SRCH-01 | TBD | Pending |
-| SRCH-02 | TBD | Pending |
-| APPX-01 | TBD | Pending |
-| APPX-02 | TBD | Pending |
-| APPX-03 | TBD | Pending |
-| APPX-04 | TBD | Pending |
+| INFRA-01 | Phase 1 | Pending |
+| INFRA-02 | Phase 1 | Pending |
+| INFRA-03 | Phase 5 | Pending |
+| INFRA-04 | Phase 1 | Pending |
+| INFRA-05 | Phase 1 | Pending |
+| CAPT-01 | Phase 2 | Pending |
+| CAPT-02 | Phase 4 | Pending |
+| CAPT-03 | Phase 5 | Pending |
+| CAPT-04 | Phase 5 | Pending |
+| CAPT-05 | Phase 2 | Pending |
+| ORCH-01 | Phase 3 | Pending |
+| ORCH-02 | Phase 3 | Pending |
+| ORCH-03 | Phase 5 | Pending |
+| ORCH-04 | Phase 6 | Pending |
+| ORCH-05 | Phase 8 | Pending |
+| ORCH-06 | Phase 3 | Pending |
+| CLAS-01 | Phase 3 | Pending |
+| CLAS-02 | Phase 3 | Pending |
+| CLAS-03 | Phase 3 | Pending |
+| CLAS-04 | Phase 4 | Pending |
+| CLAS-05 | Phase 7 | Pending |
+| CLAS-06 | Phase 7 | Pending |
+| CLAS-07 | Phase 3 | Pending |
+| ACTN-01 | Phase 6 | Pending |
+| ACTN-02 | Phase 6 | Pending |
+| ACTN-03 | Phase 6 | Pending |
+| ACTN-04 | Phase 6 | Pending |
+| PEOP-01 | Phase 7 | Pending |
+| PEOP-02 | Phase 7 | Pending |
+| PEOP-03 | Phase 7 | Pending |
+| PEOP-04 | Phase 7 | Pending |
+| DGST-01 | Phase 8 | Pending |
+| DGST-02 | Phase 8 | Pending |
+| DGST-03 | Phase 8 | Pending |
+| DGST-04 | Phase 8 | Pending |
+| DGST-05 | Phase 8 | Pending |
+| DGST-06 | Phase 8 | Pending |
+| SRCH-01 | Phase 9 | Pending |
+| SRCH-02 | Phase 9 | Pending |
+| APPX-01 | Phase 2 | Pending |
+| APPX-02 | Phase 4 | Pending |
+| APPX-03 | Phase 8 | Pending |
+| APPX-04 | Phase 4 | Pending |
 
 **Coverage:**
-- v1 requirements: 42 total
-- Mapped to phases: 0
-- Unmapped: 42
+- v1 requirements: 43 total
+- Mapped to phases: 43
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-21*
-*Last updated: 2026-02-21 after initial definition*
+*Last updated: 2026-02-21 after roadmap creation (traceability updated)*
