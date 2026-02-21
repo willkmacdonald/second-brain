@@ -655,3 +655,785 @@ ENABLE_SENSITIVE_DATA=false
 
 **Research date:** 2026-02-21
 **Valid until:** 2026-03-21 (Agent Framework may reach GA before then, potentially changing package names or APIs)
+
+---
+
+## Agent Framework Deep Dive
+
+**Added:** 2026-02-21
+**Purpose:** Detailed reference for agent definitions, handoff patterns, tool registration, and dependency injection -- the patterns needed to build Phase 1's stub agent and Phase 3's multi-agent handoff mesh.
+
+### 1. Agent Definitions
+
+#### The Agent Type Hierarchy
+
+Agent Framework has a clear class hierarchy. Understanding it avoids confusion between old names (like "ChatCompletionAgent" from AutoGen/Semantic Kernel) and the current API:
+
+| Class | Import | Purpose | Phase 1 Use |
+|-------|--------|---------|-------------|
+| `BaseAgent` | `from agent_framework import BaseAgent` | Abstract base class. Cannot be instantiated directly. | Do not use directly. |
+| `ChatAgent` | `from agent_framework import ChatAgent` | Primary concrete agent -- wraps a chat client + tools + instructions. This is what `as_agent()` returns. | This is the agent type you get when calling `chat_client.as_agent()`. |
+| `WorkflowAgent` | `from agent_framework import WorkflowAgent` | Wraps a workflow (handoff, sequential, concurrent) and exposes it as a single agent. | Phase 3 -- wrap the handoff workflow as an agent for the AG-UI endpoint. |
+
+**Confidence:** HIGH -- verified from official API reference page (learn.microsoft.com/en-us/python/api/agent-framework-core/agent_framework), updated 2026-02-13.
+
+**IMPORTANT terminology note:** There is NO class called `ChatCompletionAgent` in the current Agent Framework RC. That name is from the old AutoGen/Semantic Kernel era. The current equivalent is `ChatAgent`. If you see `ChatCompletionAgent` in any example, it is outdated.
+
+#### Creating an Agent: Three Patterns
+
+**Pattern A: `chat_client.as_agent()` (Recommended)**
+
+This is the most common pattern. The chat client creates and returns a `ChatAgent` instance.
+
+```python
+from agent_framework.azure import AzureOpenAIChatClient
+from azure.identity import AzureCliCredential
+
+chat_client = AzureOpenAIChatClient(credential=AzureCliCredential())
+
+agent = chat_client.as_agent(
+    name="SecondBrainEcho",
+    instructions="You are a test agent for the Second Brain system.",
+    tools=[my_tool_1, my_tool_2],           # Optional: list of @tool functions
+    description="Echo agent for testing",    # Optional: used by handoff for routing
+    temperature=0.7,                         # Optional: LLM parameters
+    max_tokens=1000,                         # Optional: limit response length
+    middleware=[my_middleware],               # Optional: agent/function/chat middleware
+)
+```
+
+**Source:** https://learn.microsoft.com/en-us/agent-framework/agents/providers/azure-openai (Updated 2026-02-13)
+
+**Pattern B: `ChatAgent(...)` direct construction**
+
+Use when you need more control or are working with a generic `ChatClientProtocol`.
+
+```python
+from agent_framework import ChatAgent
+from agent_framework.azure import AzureOpenAIChatClient
+from azure.identity import AzureCliCredential
+
+chat_client = AzureOpenAIChatClient(credential=AzureCliCredential())
+
+agent = ChatAgent(
+    chat_client=chat_client,
+    name="SecondBrainEcho",
+    instructions="You are a test agent.",
+    tools=[my_tool_1, my_tool_2],
+    context_providers=None,        # Optional: dynamic context injection
+    middleware=None,                # Optional: middleware chain
+    frequency_penalty=None,
+    presence_penalty=None,
+    temperature=0.7,
+    top_p=None,
+    max_tokens=1000,
+    seed=None,
+    request_kwargs=None,           # Optional: extra kwargs passed to LLM
+)
+```
+
+**Source:** https://learn.microsoft.com/en-us/python/api/agent-framework-core/agent_framework (API reference)
+
+**Pattern C: `AzureOpenAIResponsesClient` (for hosted tools)**
+
+Use when you need code interpreter, file search, web search, or hosted MCP tools. NOT needed for Phase 1.
+
+```python
+from agent_framework.azure import AzureOpenAIResponsesClient
+from azure.identity import AzureCliCredential
+
+client = AzureOpenAIResponsesClient(credential=AzureCliCredential())
+agent = client.as_agent(
+    name="FullFeaturedAgent",
+    instructions="You have access to hosted tools.",
+    tools=[client.get_code_interpreter_tool(), client.get_web_search_tool()],
+)
+```
+
+**Source:** https://learn.microsoft.com/en-us/agent-framework/agents/providers/azure-openai
+
+#### Which Client for Phase 1?
+
+Use `AzureOpenAIChatClient` (Chat Completions API). Reasons:
+
+1. **Simplest API surface** -- Chat Completions is the most widely supported API.
+2. **Function tools are fully supported** -- our Cosmos DB CRUD tools work with ChatClient.
+3. **No hosted tools needed** -- Second Brain agents only need local function tools.
+4. **Less setup** -- no Azure AI Foundry project endpoint needed, just an Azure OpenAI resource.
+
+Switch to `AzureOpenAIResponsesClient` only if you need code interpreter, file search, web search, or hosted MCP. That is not in scope for any phase.
+
+**Confidence:** HIGH -- provider comparison table verified from official docs.
+
+#### Running an Agent
+
+```python
+# Non-streaming (complete response)
+result = await agent.run("What is in my inbox?")
+print(result.text)
+
+# Streaming (token-by-token)
+async for chunk in agent.run("What is in my inbox?", stream=True):
+    if chunk.text:
+        print(chunk.text, end="", flush=True)
+
+# Multi-turn with session (conversation memory)
+session = agent.create_session()
+r1 = await agent.run("My name is Will", session=session)
+r2 = await agent.run("What is my name?", session=session)  # Remembers "Will"
+```
+
+**Source:** https://learn.microsoft.com/en-us/agent-framework/get-started/your-first-agent (Updated 2026-02-20)
+
+### 2. Tool Registration
+
+#### Defining Tools with `@tool`
+
+The `@tool` decorator (aliased as `@ai_function`) converts a Python function into something the LLM can call. Two key mechanisms for parameter descriptions: `Annotated` type hints and Pydantic `Field`.
+
+**Minimal tool:**
+```python
+from agent_framework import tool
+
+@tool
+def echo(message: str) -> str:
+    """Echo the message back."""
+    return message
+```
+
+**Tool with full descriptions:**
+```python
+from typing import Annotated
+from pydantic import Field
+from agent_framework import tool
+
+@tool
+async def create_inbox_item(
+    title: Annotated[str, Field(description="Title for the inbox item")],
+    content: Annotated[str, Field(description="Content or body of the item")],
+    priority: Annotated[int, Field(description="Priority 1-5, where 1 is highest")] = 3,
+) -> str:
+    """Create a new item in the user's inbox."""
+    # implementation...
+    return f"Created inbox item: {title}"
+```
+
+**Tool with explicit name and description override:**
+```python
+@tool(name="search_people", description="Search the People container by name")
+async def search_people(
+    query: Annotated[str, Field(description="Name or partial name to search for")],
+) -> str:
+    """Search for people by name."""
+    # implementation...
+    return "results..."
+```
+
+**Tool with approval mode (human-in-the-loop):**
+```python
+@tool(approval_mode="always_require")
+async def delete_document(
+    container_name: Annotated[str, Field(description="Container name")],
+    document_id: Annotated[str, Field(description="Document ID to delete")],
+) -> str:
+    """Delete a document permanently. Requires human approval."""
+    # implementation...
+    return f"Deleted {document_id}"
+```
+
+**Source:** https://learn.microsoft.com/en-us/agent-framework/agents/tools/function-tools (Updated 2026-02-20)
+
+**Confidence:** HIGH -- all patterns verified from official function tools tutorial.
+
+#### `@tool` Decorator Parameters
+
+| Parameter | Type | Default | Purpose |
+|-----------|------|---------|---------|
+| `name` | `str \| None` | Function `__name__` | Custom tool name exposed to the LLM |
+| `description` | `str \| None` | Function docstring | Custom description for the LLM |
+| `approval_mode` | `"always_require" \| "never_require" \| None` | `None` | Require human approval before execution |
+| `max_invocations` | `int \| None` | `None` | Max times the tool can be called per agent run |
+| `max_invocation_exceptions` | `int \| None` | `None` | Max exceptions before the tool is disabled |
+| `schema` | `BaseModel \| dict \| None` | `None` | Explicit Pydantic model or JSON schema for parameters |
+
+#### Assigning Tools to Agents
+
+Tools are passed as a list (or single function) to `as_agent()` or `ChatAgent()`:
+
+```python
+# Single tool (no list needed)
+agent = chat_client.as_agent(
+    instructions="You help manage inbox items.",
+    tools=create_inbox_item,
+)
+
+# Multiple tools as a list
+agent = chat_client.as_agent(
+    instructions="You help manage the second brain.",
+    tools=[create_inbox_item, search_people, read_records, delete_document],
+)
+```
+
+**Important:** Each agent gets its own tool set. In Phase 3, the Classifier agent gets classification tools, the InboxManager gets inbox CRUD tools, etc. Tools are NOT shared across agents in a handoff workflow -- each specialist owns its tools.
+
+#### Sync vs Async Tools
+
+Both synchronous and asynchronous functions work with `@tool`:
+
+```python
+# Sync tool -- runs in a thread pool automatically
+@tool
+def get_current_time() -> str:
+    """Get the current server time."""
+    from datetime import datetime
+    return datetime.now().isoformat()
+
+# Async tool -- runs on the event loop (preferred for I/O)
+@tool
+async def read_from_cosmos(container_name: str) -> str:
+    """Read items from Cosmos DB."""
+    # await cosmos operations here
+    pass
+```
+
+**Rule for Second Brain:** Always use async tools when they perform I/O (Cosmos DB reads/writes). Sync tools are fine for pure computation (formatting, timestamp generation).
+
+#### Tool Type Constraints
+
+- **Parameter types:** Must be JSON-serializable types that the LLM can produce: `str`, `int`, `float`, `bool`, `list`, `dict`, `Optional[T]`, and Pydantic models.
+- **Return type:** Must be `str`. Tools return strings that the LLM interprets. For complex data, serialize to JSON string.
+- **Annotated descriptions:** Use `Annotated[type, Field(description="...")]` for each parameter. Without descriptions, the LLM has to guess from parameter names alone.
+- **No positional-only args:** All parameters must be keyword arguments (the LLM calls tools by name).
+
+#### Dependency Injection into Tools: The `**kwargs` Pattern
+
+**This is the critical pattern for passing Cosmos DB references to tools.**
+
+Agent Framework supports injecting runtime context into tools via `**kwargs`. When you call `agent.run(...)`, any extra keyword arguments are passed through to all tool invocations. The tool receives them in `**kwargs` -- the LLM never sees them.
+
+```python
+from typing import Annotated, Any
+from pydantic import Field
+from agent_framework import tool
+
+@tool
+async def create_inbox_item(
+    title: Annotated[str, Field(description="Title for the inbox item")],
+    content: Annotated[str, Field(description="Content or body of the item")],
+    **kwargs: Any,  # <-- Receives injected runtime context
+) -> str:
+    """Create a new item in the user's inbox."""
+    # Extract injected dependencies
+    cosmos_containers = kwargs.get("cosmos_containers", {})
+    user_id = kwargs.get("user_id", "will")
+
+    container = cosmos_containers.get("Inbox")
+    if not container:
+        return "Error: Inbox container not available"
+
+    import uuid
+    document = {
+        "id": str(uuid.uuid4()),
+        "userId": user_id,
+        "title": title,
+        "content": content,
+    }
+    result = await container.create_item(body=document)
+    return f"Created inbox item: {result['id']}"
+
+
+# When running the agent, pass the dependencies as kwargs:
+result = await agent.run(
+    "Add 'Buy groceries' to my inbox",
+    cosmos_containers=app.state.cosmos_containers,  # Injected into **kwargs
+    user_id="will",                                  # Injected into **kwargs
+)
+```
+
+**Source:** https://learn.microsoft.com/en-us/agent-framework/agents/tools/function-tools -- complete example titled "AI Function with kwargs Example" (Updated 2026-02-20)
+
+**Confidence:** HIGH -- this pattern is explicitly documented in the official function tools tutorial with a complete runnable example.
+
+**How this works with AG-UI:** The `add_agent_framework_fastapi_endpoint()` function handles the HTTP layer. When the AG-UI client sends a message, the endpoint calls `agent.run()` internally. The question is: can we pass kwargs through the AG-UI endpoint? This needs validation during Phase 1 implementation. If not, the fallback is module-level references or a class-based tool pattern (documented below).
+
+#### Alternative: Class-Based Tools for Shared State
+
+When `**kwargs` injection is not available (e.g., through the AG-UI endpoint which may not pass extra kwargs), use a class with instance methods as tools:
+
+```python
+class CosmosTools:
+    """Tools that share Cosmos DB container references."""
+
+    def __init__(self, containers: dict):
+        self.containers = containers
+
+    @tool
+    async def create_inbox_item(
+        self,
+        title: Annotated[str, Field(description="Title for the inbox item")],
+        content: Annotated[str, Field(description="Content or body of the item")],
+    ) -> str:
+        """Create a new item in the user's inbox."""
+        import uuid
+        container = self.containers["Inbox"]
+        document = {
+            "id": str(uuid.uuid4()),
+            "userId": "will",
+            "title": title,
+            "content": content,
+        }
+        result = await container.create_item(body=document)
+        return f"Created inbox item: {result['id']}"
+
+    @tool
+    async def read_inbox(self) -> str:
+        """Read all items from the inbox."""
+        container = self.containers["Inbox"]
+        items = [item async for item in container.read_all_items()]
+        return str(items)
+
+
+# In the FastAPI lifespan, after initializing Cosmos containers:
+cosmos_tools = CosmosTools(containers=app.state.cosmos_containers)
+
+# Pass instance methods as tools to the agent:
+agent = chat_client.as_agent(
+    instructions="You manage the second brain inbox.",
+    tools=[cosmos_tools.create_inbox_item, cosmos_tools.read_inbox],
+)
+```
+
+**Source:** https://learn.microsoft.com/en-us/agent-framework/agents/tools/function-tools -- "Create a class with multiple function tools" section.
+
+**Confidence:** HIGH -- class-based tool pattern explicitly documented with official examples.
+
+**Recommendation for Phase 1:** Use the class-based tool pattern. It works regardless of whether the AG-UI endpoint passes kwargs, and it cleanly binds Cosmos DB references without module-level globals. The class is justified here per CLAUDE.md guidelines (manages stateful client references -- Cosmos containers).
+
+#### Alternative: Module-Level References (Simplest, Less Testable)
+
+```python
+# cosmos_crud.py
+from typing import Annotated
+from pydantic import Field
+from agent_framework import tool
+
+# Set during FastAPI lifespan initialization
+_containers: dict = {}
+
+def init_tools(containers: dict) -> None:
+    """Called from lifespan to inject Cosmos container references."""
+    global _containers
+    _containers = containers
+
+@tool
+async def create_inbox_item(
+    title: Annotated[str, Field(description="Title for the inbox item")],
+    content: Annotated[str, Field(description="Content or body of the item")],
+) -> str:
+    """Create a new item in the user's inbox."""
+    container = _containers["Inbox"]
+    # ... create document ...
+    return "Created"
+```
+
+This works but makes testing harder (must mock globals). Use class-based pattern instead.
+
+### 3. Handoff Pattern
+
+#### Overview
+
+The handoff pattern creates a **mesh topology** where agents can transfer control to one another. There is no central orchestrator routing messages -- each agent decides when to hand off based on the conversation context. The `HandoffBuilder` automatically injects "handoff tools" into each agent so the LLM can call a function like `transfer_to_refund_agent()` to hand off.
+
+**Key insight:** Handoff is fundamentally different from "agent-as-tools" (where a primary agent delegates sub-tasks). In handoff, the receiving agent takes **full ownership** of the conversation. In agent-as-tools, the primary agent retains control.
+
+**Source:** https://learn.microsoft.com/en-us/agent-framework/workflows/orchestrations/handoff (Updated 2026-02-13)
+
+#### HandoffBuilder API
+
+```python
+from agent_framework.orchestrations import HandoffBuilder
+
+workflow = (
+    HandoffBuilder(
+        name="second_brain_handoff",                    # Workflow name
+        participants=[triage, inbox_mgr, people_mgr],   # All agents in the mesh
+        termination_condition=lambda conv: False,        # When to end (return True to stop)
+    )
+    .with_start_agent(triage)           # Which agent receives the first user message
+    .build()                            # Returns a Workflow object
+)
+```
+
+**Full HandoffBuilder method chain:**
+
+| Method | Purpose |
+|--------|---------|
+| `HandoffBuilder(name, participants, termination_condition)` | Constructor. `participants` is the list of all agents. `termination_condition` is a callable that takes the conversation list and returns bool. |
+| `.with_start_agent(agent)` | Sets which agent gets the initial user message. |
+| `.add_handoff(from_agent, [to_agents])` | Restricts which agents `from_agent` can hand off to. By default, ALL agents can hand off to ALL others. |
+| `.with_autonomous_mode()` | Enables autonomous mode (no human input needed between turns). Can target specific agents. |
+| `.with_autonomous_mode(agents=[...], prompts={...}, turn_limits={...})` | Fine-grained autonomous control per agent. |
+| `.build()` | Returns a `Workflow` object. |
+
+**Confidence:** HIGH -- all methods verified from official handoff orchestration docs.
+
+#### How Handoff Control Flow Works
+
+1. **User sends message** to the workflow.
+2. **Start agent** receives the message and generates a response.
+3. If the start agent decides to hand off, it calls a **handoff tool** (auto-injected by HandoffBuilder) -- e.g., `transfer_to_inbox_manager()`.
+4. The **HandoffBuilder** intercepts this tool call and transfers conversation ownership to the target agent.
+5. The target agent receives the **full conversation history** (all messages broadcast to all participants).
+6. If the target agent does NOT hand off, the workflow emits a `request_info` event requesting user input.
+7. The cycle repeats until the `termination_condition` returns `True`.
+
+**What "handing back" looks like:** The specialist agent calls a handoff tool to transfer back to the triage agent (or any other agent in its allowed handoff list). There is no automatic "return to caller" -- the agent must explicitly hand off.
+
+#### Configuring Handoff Routes
+
+**Default: all-to-all mesh (every agent can hand off to every other agent)**
+
+```python
+workflow = (
+    HandoffBuilder(
+        name="second_brain",
+        participants=[triage, inbox_mgr, people_mgr, project_mgr, idea_mgr],
+    )
+    .with_start_agent(triage)
+    .build()
+)
+```
+
+**Custom routes: restrict who can hand off to whom**
+
+```python
+workflow = (
+    HandoffBuilder(
+        name="second_brain",
+        participants=[triage, inbox_mgr, people_mgr, project_mgr, idea_mgr],
+    )
+    .with_start_agent(triage)
+    # Triage can route to any specialist
+    .add_handoff(triage, [inbox_mgr, people_mgr, project_mgr, idea_mgr])
+    # Each specialist can only hand back to triage
+    .add_handoff(inbox_mgr, [triage])
+    .add_handoff(people_mgr, [triage])
+    .add_handoff(project_mgr, [triage])
+    .add_handoff(idea_mgr, [triage])
+    .build()
+)
+```
+
+#### Context Synchronization in Handoffs
+
+All participants in a handoff workflow share conversation context through **broadcasting**:
+- When any agent generates a response, it is broadcast to all other participants.
+- When user input is received, it is broadcast to all participants.
+- **Tool calls and handoff tool calls are NOT broadcast** -- only user and agent messages.
+- Each agent maintains its own `AgentSession` -- they do NOT share session instances (because different agent types may have different session implementations).
+
+**Source:** Handoff docs, "Context Synchronization" section.
+
+#### Complete Handoff Example (Phase 3 Preview)
+
+This shows what the full Second Brain handoff will look like in Phase 3. Phase 1 only needs a single agent -- this is included for architectural understanding.
+
+```python
+"""Second Brain Agent Handoff Workflow -- Phase 3 target architecture."""
+
+from typing import Annotated
+from pydantic import Field
+from agent_framework import tool
+from agent_framework.azure import AzureOpenAIChatClient
+from agent_framework.orchestrations import HandoffBuilder
+from azure.identity import AzureCliCredential
+
+# --- Chat Client ---
+chat_client = AzureOpenAIChatClient(credential=AzureCliCredential())
+
+# --- Tools (simplified for illustration) ---
+@tool
+async def add_to_inbox(
+    title: Annotated[str, Field(description="Item title")],
+    content: Annotated[str, Field(description="Item content")],
+) -> str:
+    """Add an item to the inbox."""
+    return f"Added '{title}' to inbox"
+
+@tool
+async def search_people(
+    query: Annotated[str, Field(description="Name to search")],
+) -> str:
+    """Search the People container."""
+    return f"Found people matching '{query}'"
+
+# --- Agents ---
+triage_agent = chat_client.as_agent(
+    name="triage",
+    instructions=(
+        "You are the Second Brain triage agent. Determine what the user needs and "
+        "hand off to the appropriate specialist:\n"
+        "- inbox_manager: for adding/reading/managing inbox items\n"
+        "- people_manager: for managing contacts and people\n"
+        "ALWAYS hand off to a specialist. Do not answer domain questions yourself."
+    ),
+    description="Routes user requests to the appropriate specialist agent.",
+)
+
+inbox_manager = chat_client.as_agent(
+    name="inbox_manager",
+    instructions=(
+        "You manage the user's inbox. You can add items, read items, and "
+        "update items. When done, hand off back to triage."
+    ),
+    description="Manages inbox items -- add, read, update, delete.",
+    tools=[add_to_inbox],
+)
+
+people_manager = chat_client.as_agent(
+    name="people_manager",
+    instructions=(
+        "You manage the user's contacts. You can search, add, and update "
+        "people records. When done, hand off back to triage."
+    ),
+    description="Manages people/contacts -- search, add, update.",
+    tools=[search_people],
+)
+
+# --- Handoff Workflow ---
+workflow = (
+    HandoffBuilder(
+        name="second_brain_handoff",
+        participants=[triage_agent, inbox_manager, people_manager],
+    )
+    .with_start_agent(triage_agent)
+    .add_handoff(triage_agent, [inbox_manager, people_manager])
+    .add_handoff(inbox_manager, [triage_agent])
+    .add_handoff(people_manager, [triage_agent])
+    .with_autonomous_mode(agents=[triage_agent])  # Triage auto-routes without user input
+    .build()
+)
+```
+
+**Confidence:** HIGH -- assembled from verified HandoffBuilder API + official handoff examples.
+
+#### Exposing a Handoff Workflow via AG-UI
+
+To expose a handoff workflow through the AG-UI endpoint, wrap it in a `WorkflowAgent`:
+
+```python
+from agent_framework import WorkflowAgent
+from agent_framework_ag_ui import add_agent_framework_fastapi_endpoint
+
+# Wrap the workflow as a single agent
+workflow_agent = WorkflowAgent(workflow=workflow, name="SecondBrainWorkflow")
+
+# Register with AG-UI endpoint
+add_agent_framework_fastapi_endpoint(app, workflow_agent, "/")
+```
+
+**Confidence:** MEDIUM -- `WorkflowAgent` is documented in the API reference with the constructor `WorkflowAgent(workflow, name)`. Its use with `add_agent_framework_fastapi_endpoint` is logical (the function accepts any agent protocol) but not explicitly shown in the handoff docs. Needs validation during implementation.
+
+### 4. Agent-as-Tool Pattern (Alternative to Handoff)
+
+For simpler delegation without full handoff semantics, you can use an agent as a tool for another agent. The inner agent runs as a sub-task and returns control to the outer agent.
+
+```python
+# Inner agent
+weather_agent = chat_client.as_agent(
+    name="WeatherAgent",
+    description="Answers weather questions",  # LLM sees this to decide when to call
+    instructions="You answer questions about the weather.",
+    tools=[get_weather],
+)
+
+# Outer agent uses inner agent as a tool
+main_agent = chat_client.as_agent(
+    instructions="You are a helpful assistant.",
+    tools=[weather_agent.as_tool()],  # .as_tool() converts agent to callable tool
+)
+
+# Custom tool name/description
+weather_tool = weather_agent.as_tool(
+    name="WeatherLookup",
+    description="Look up weather information for any location",
+    arg_name="query",
+    arg_description="The weather query or location",
+)
+```
+
+**When to use agent-as-tool vs handoff:**
+- **Agent-as-tool:** Primary agent retains control. Sub-agent handles ONE sub-task and returns. Good for utility agents (weather, time, calculations).
+- **Handoff:** Receiving agent takes FULL ownership. Good for domain specialists that need multi-turn conversation (inbox management, people management).
+
+**For Second Brain:** Use handoff for the specialist agents (Phase 3). Agent-as-tool is not the right pattern here because specialists need multi-turn conversation ownership.
+
+**Source:** https://learn.microsoft.com/en-us/agent-framework/agents/tools/ -- "Using an Agent as a Function Tool" section.
+
+### 5. Middleware for Cross-Cutting Concerns
+
+Agent Framework supports three middleware types that form a pipeline around agent execution. Middleware is relevant for Phase 1 (logging, security) and essential for Phase 3 (observability across handoffs).
+
+#### Middleware Types
+
+| Type | Context Object | What It Intercepts | Use Case |
+|------|---------------|-------------------|----------|
+| Agent middleware | `AgentContext` | Agent run (input messages, output result) | Logging, security validation, input filtering |
+| Function middleware | `FunctionInvocationContext` | Tool invocations (function name, args, result) | Tool execution logging, timing, error handling |
+| Chat middleware | `ChatContext` | LLM requests/responses (raw messages, options) | Token counting, prompt injection detection |
+
+#### Registration Patterns
+
+```python
+from agent_framework import AgentMiddleware, FunctionMiddleware, AgentContext, FunctionInvocationContext
+
+# Class-based function middleware (for Cosmos DB tool logging)
+class ToolLoggingMiddleware(FunctionMiddleware):
+    async def process(self, context: FunctionInvocationContext, call_next) -> None:
+        import logging
+        logger = logging.getLogger("second_brain.tools")
+        logger.info(f"Tool called: {context.function.name}")
+        await call_next()
+        logger.info(f"Tool completed: {context.function.name}")
+
+# Register middleware when creating an agent
+agent = chat_client.as_agent(
+    name="SecondBrainEcho",
+    instructions="You are a test agent.",
+    tools=[create_inbox_item],
+    middleware=[ToolLoggingMiddleware()],  # Applied to ALL runs of this agent
+)
+
+# Or register per-run
+result = await agent.run(
+    "Add something to my inbox",
+    middleware=[ToolLoggingMiddleware()],  # Applied to THIS run only
+)
+```
+
+**Middleware execution order:** Agent-level middleware (outermost) wraps run-level middleware (innermost). For agent middleware `[A1, A2]` and run middleware `[R1, R2]`, execution is: `A1 -> A2 -> R1 -> R2 -> Agent -> R2 -> R1 -> A2 -> A1`.
+
+**Source:** https://learn.microsoft.com/en-us/agent-framework/agents/middleware/ (Updated 2026-02-20)
+
+**Confidence:** HIGH -- complete middleware examples with imports verified from official docs.
+
+### 6. Orchestration Builders (Beyond Handoff)
+
+For reference, Agent Framework provides four workflow orchestration patterns. Only handoff is needed for Second Brain, but knowing the alternatives helps understand the design space:
+
+| Builder | Import | Pattern | When to Use |
+|---------|--------|---------|-------------|
+| `HandoffBuilder` | `from agent_framework.orchestrations import HandoffBuilder` | Mesh -- agents hand off to each other | Multi-domain specialists needing multi-turn conversation |
+| `SequentialBuilder` | `from agent_framework import SequentialBuilder` | Pipeline -- agents process in fixed order | Review chains, content pipelines |
+| `ConcurrentBuilder` | `from agent_framework import ConcurrentBuilder` | Fan-out/fan-in -- agents process in parallel | Multiple perspectives, ensemble responses |
+| `MagenticBuilder` | `from agent_framework import MagenticBuilder` | LLM-managed -- a manager agent plans and delegates | Complex multi-step tasks needing dynamic planning |
+
+**Confidence:** HIGH -- all builders verified in API reference.
+
+### 7. Phase 1 vs Phase 3 Architecture Bridge
+
+#### Phase 1: Single Agent (prove the stack works)
+
+```python
+# main.py -- Phase 1 architecture
+from agent_framework.azure import AzureOpenAIChatClient
+from agent_framework_ag_ui import add_agent_framework_fastapi_endpoint
+
+chat_client = AzureOpenAIChatClient(credential=AzureCliCredential())
+
+# One agent, simple tools
+agent = chat_client.as_agent(
+    name="SecondBrainEcho",
+    instructions="You are a test agent. You can create and read inbox items.",
+    tools=[cosmos_tools.create_inbox_item, cosmos_tools.read_inbox],
+)
+
+add_agent_framework_fastapi_endpoint(app, agent, "/")
+```
+
+#### Phase 3: Multi-Agent Handoff (full system)
+
+```python
+# main.py -- Phase 3 architecture (builds on Phase 1)
+from agent_framework import WorkflowAgent
+from agent_framework.orchestrations import HandoffBuilder
+from agent_framework_ag_ui import add_agent_framework_fastapi_endpoint
+
+# Multiple specialized agents (each with own tools)
+triage = chat_client.as_agent(name="triage", instructions="...", description="...")
+inbox_mgr = chat_client.as_agent(name="inbox_manager", instructions="...", tools=[...])
+people_mgr = chat_client.as_agent(name="people_manager", instructions="...", tools=[...])
+# ... more specialists ...
+
+# Wire them into a handoff workflow
+workflow = (
+    HandoffBuilder(name="second_brain", participants=[triage, inbox_mgr, people_mgr])
+    .with_start_agent(triage)
+    .add_handoff(triage, [inbox_mgr, people_mgr])
+    .add_handoff(inbox_mgr, [triage])
+    .add_handoff(people_mgr, [triage])
+    .with_autonomous_mode(agents=[triage])
+    .build()
+)
+
+# Wrap workflow as agent, expose via AG-UI
+workflow_agent = WorkflowAgent(workflow=workflow, name="SecondBrain")
+add_agent_framework_fastapi_endpoint(app, workflow_agent, "/")
+```
+
+**The transition from Phase 1 to Phase 3:**
+1. Replace the single `agent` with a `WorkflowAgent` wrapping a `HandoffBuilder` workflow.
+2. Move the single agent's tools into specialist agents.
+3. Add a triage agent with routing instructions.
+4. The AG-UI endpoint call stays exactly the same -- `add_agent_framework_fastapi_endpoint(app, workflow_agent, "/")`.
+5. The FastAPI lifespan, Cosmos DB setup, middleware, and API key auth remain unchanged.
+
+This is why Phase 1 builds the foundation correctly: the AG-UI endpoint, Cosmos DB singleton, API key auth, and tool patterns all carry forward without modification.
+
+### 8. Deep Dive Open Questions
+
+1. **AG-UI endpoint `**kwargs` passthrough**
+   - What we know: `agent.run()` supports `**kwargs` that flow to tools. The AG-UI endpoint calls `agent.run()` internally.
+   - What's unclear: Does `add_agent_framework_fastapi_endpoint()` support passing extra kwargs that flow through to tools? The API reference shows optional `request_kwargs` but it is unclear if these reach tool invocations.
+   - Recommendation: Validate during Phase 1. If kwargs don't flow through, use class-based tools (which are cleaner anyway).
+
+2. **WorkflowAgent with AG-UI endpoint**
+   - What we know: `WorkflowAgent(workflow, name)` wraps a workflow as an agent. `add_agent_framework_fastapi_endpoint` accepts any `AgentProtocol`.
+   - What's unclear: Whether the AG-UI endpoint correctly streams events from a handoff workflow (which has multi-agent turns, handoff events, user input requests).
+   - Recommendation: Phase 3 concern. Validate when building the handoff mesh. Phase 1 uses a simple `ChatAgent` which is known to work.
+
+3. **Handoff + autonomous mode with AG-UI**
+   - What we know: Handoff workflows can request user input (`request_info` events). Autonomous mode auto-responds for specified agents.
+   - What's unclear: How AG-UI client handles `request_info` events. The mobile app would need to render these as prompts and send responses.
+   - Recommendation: Phase 3 concern. For Phase 1, not relevant since there is only one agent.
+
+### Deep Dive Sources
+
+#### Primary (HIGH confidence)
+- [Handoff Orchestration (Microsoft Learn)](https://learn.microsoft.com/en-us/agent-framework/workflows/orchestrations/handoff) -- Complete HandoffBuilder API, Python code, context sync, autonomous mode, tool approval in handoffs. Updated 2026-02-13.
+- [Function Tools (Microsoft Learn)](https://learn.microsoft.com/en-us/agent-framework/agents/tools/function-tools) -- `@tool` decorator, Annotated types, `**kwargs` injection, class-based tools, explicit schemas, declaration-only tools. Updated 2026-02-20.
+- [Azure OpenAI Provider (Microsoft Learn)](https://learn.microsoft.com/en-us/agent-framework/agents/providers/azure-openai) -- Three client types (Chat/Responses/Assistants), `as_agent()` pattern, hosted tools, env var names. Updated 2026-02-13.
+- [Agent Middleware (Microsoft Learn)](https://learn.microsoft.com/en-us/agent-framework/agents/middleware/) -- Three middleware types, registration patterns, class/function/decorator syntax, execution order, termination. Updated 2026-02-20.
+- [Tools Overview (Microsoft Learn)](https://learn.microsoft.com/en-us/agent-framework/agents/tools/) -- Tool type matrix, provider support, agent-as-tool pattern. Updated 2026-02-13.
+- [Providers Overview (Microsoft Learn)](https://learn.microsoft.com/en-us/agent-framework/agents/providers/) -- Agent type hierarchy, provider comparison table. Updated 2026-02-13.
+- [AgentSession (Microsoft Learn)](https://learn.microsoft.com/en-us/agent-framework/agents/conversations/session) -- Session fields, multi-turn pattern, serialization. Updated 2026-02-20.
+- [Agent Framework API Reference (Microsoft Learn)](https://learn.microsoft.com/en-us/python/api/agent-framework-core/agent_framework) -- Full API: BaseAgent, ChatAgent, WorkflowAgent, HandoffBuilder, ai_function, middleware types, builders.
+- [Your First Agent (Microsoft Learn)](https://learn.microsoft.com/en-us/agent-framework/get-started/your-first-agent) -- Basic agent creation, run/stream patterns. Updated 2026-02-20.
+
+#### Observations (needs Phase 1 validation)
+- AG-UI endpoint kwargs passthrough: Not documented. Needs empirical testing.
+- WorkflowAgent + AG-UI: Logical but not explicitly shown. Needs Phase 3 validation.
+- Handoff `request_info` events through AG-UI: Not documented. Phase 3 concern.
+
+### Deep Dive Confidence Assessment
+
+| Area | Level | Reason |
+|------|-------|--------|
+| Agent definitions (ChatAgent, as_agent) | HIGH | API reference + provider docs + quickstart all consistent |
+| Tool registration (@tool, Annotated, **kwargs) | HIGH | Complete official tutorial with runnable examples |
+| Handoff pattern (HandoffBuilder, routes, context sync) | HIGH | Comprehensive official docs with Python code |
+| Dependency injection (class tools, **kwargs) | HIGH | Official tutorial explicitly demonstrates both patterns |
+| Agent-as-tool pattern | HIGH | Official tools overview with code examples |
+| Middleware (agent, function, chat) | HIGH | Official docs with class/function/decorator examples |
+| WorkflowAgent + AG-UI integration | MEDIUM | API reference confirms WorkflowAgent exists, AG-UI endpoint accepts AgentProtocol, but integration not explicitly documented |
+| Handoff + AG-UI streaming | LOW | Not documented. Needs Phase 3 validation. |
