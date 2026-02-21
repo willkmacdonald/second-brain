@@ -120,8 +120,11 @@ def app_with_mocks() -> FastAPI:
 
     app.post("/api/ag-ui", tags=["AG-UI"])(agui_endpoint)
 
-    # Add API key middleware with known test key
-    app.add_middleware(APIKeyMiddleware, api_key=TEST_API_KEY)
+    # Set API key on app.state (middleware reads it lazily)
+    app.state.api_key = TEST_API_KEY
+
+    # Add API key middleware
+    app.add_middleware(APIKeyMiddleware)
 
     return app
 

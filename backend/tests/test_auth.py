@@ -20,6 +20,9 @@ def auth_app() -> FastAPI:
     """Create a FastAPI app with API key middleware and test routes."""
     app = FastAPI()
 
+    # Set API key on app.state (middleware reads it lazily)
+    app.state.api_key = TEST_API_KEY
+
     @app.get("/health")
     async def health():
         return {"status": "ok"}
@@ -36,7 +39,7 @@ def auth_app() -> FastAPI:
     async def openapi():
         return {"openapi": "3.0"}
 
-    app.add_middleware(APIKeyMiddleware, api_key=TEST_API_KEY)
+    app.add_middleware(APIKeyMiddleware)
     return app
 
 

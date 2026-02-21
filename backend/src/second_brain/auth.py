@@ -24,17 +24,11 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
 
     Public paths (/health, /docs, /openapi.json) bypass authentication.
     Failed attempts are logged with client IP, timestamp, and AUTH_FAILED marker.
+
+    The API key is read lazily from app.state.api_key at request time,
+    allowing the middleware to be registered before the lifespan fetches
+    the key from Azure Key Vault.
     """
-
-    def __init__(self, app, api_key: str | None = None) -> None:
-        """Store the expected API key.
-
-        Args:
-            app: The ASGI application.
-            api_key: Expected API key value. If None, all requests are rejected.
-        """
-        super().__init__(app)
-        self._api_key = api_key
 
     async def dispatch(
         self, request: Request, call_next: RequestResponseEndpoint
@@ -47,6 +41,9 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
         # Allow public paths without authentication
         if request.url.path in PUBLIC_PATHS:
             return await call_next(request)
+
+        # Read API key lazily from app.state (set by lifespan after Key Vault fetch)
+        api_key = getattr(request.app.state, "api_key", None)
 
         # Extract Authorization header
         auth_header = request.headers.get("authorization", "")
@@ -61,7 +58,7 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
 
         provided_key = auth_header[7:]  # Strip "Bearer " prefix
 
-        if self._api_key is None or provided_key != self._api_key:
+        if api_key is None or provided_key != api_key:
             self._log_auth_failure(request, "invalid API key")
             return JSONResponse(
                 status_code=401,

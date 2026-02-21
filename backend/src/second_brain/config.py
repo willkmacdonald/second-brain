@@ -17,7 +17,7 @@ class Settings(BaseSettings):
 
     # Azure Key Vault
     key_vault_url: str = ""
-    api_key_secret_name: str = "api-key"
+    api_key_secret_name: str = "sb-api-key"
 
     # Database
     database_name: str = "second-brain"

@@ -72,10 +72,6 @@ async def lifespan(app: FastAPI):
     add_agent_framework_fastapi_endpoint(app, agent, "/api/ag-ui")
     logger.info("Echo agent registered with AG-UI endpoint")
 
-    # Add API key auth middleware AFTER AG-UI endpoint so it wraps the endpoint
-    app.add_middleware(APIKeyMiddleware, api_key=app.state.api_key)
-    logger.info("API key authentication middleware added")
-
     yield
 
     # Cleanup Cosmos DB
@@ -85,10 +81,13 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Second Brain AG-UI Server", lifespan=lifespan)
 
+# API key auth middleware — reads app.state.api_key lazily (set by lifespan)
+app.add_middleware(APIKeyMiddleware)
+
 # Include health check router
 app.include_router(health_router)
 
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    uvicorn.run(app, host="127.0.0.1", port=8003)

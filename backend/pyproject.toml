@@ -11,6 +11,8 @@ dependencies = [
     "azure-cosmos",
     "azure-identity",
     "azure-keyvault-secrets",
+    # Async HTTP transport (required by azure-identity async credentials)
+    "aiohttp",
     # Configuration
     "pydantic-settings",
     "python-dotenv",
