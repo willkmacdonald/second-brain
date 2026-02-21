@@ -48,11 +48,11 @@ Plans:
   1. User can open the app and see four large capture buttons (Voice, Photo, Video, Text) with no settings, folders, or tags visible
   2. User can type a thought and submit it with one tap
   3. App runs on both iOS and Android devices via Expo
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 02-01: TBD
-- [ ] 02-02: TBD
+- [ ] 02-01-PLAN.md — Expo project scaffold + main capture screen with four buttons
+- [ ] 02-02-PLAN.md — Text capture flow with AG-UI backend connectivity
 
 ### Phase 3: Text Classification Pipeline
 **Goal**: A typed thought is automatically classified into the correct bucket and filed in Cosmos DB without any user effort
