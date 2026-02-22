@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-02-21)
 
 **Core value:** One-tap capture from a phone instantly routes through an agent chain that classifies, files, and sharpens thoughts into concrete next actions -- with zero organizational effort.
-**Current focus:** Phase 2: Expo App Shell
+**Current focus:** Phase 3: Text Classification Pipeline
 
 ## Current Position
 
-Phase: 2 of 9 (Expo App Shell) -- COMPLETE
-Plan: 2 of 2 in current phase
-Status: Phase complete
-Last activity: 2026-02-21 -- Plan 02-02 complete (text capture flow with AG-UI backend)
+Phase: 3 of 9 (Text Classification Pipeline)
+Plan: 0 of 3 in current phase
+Status: Ready to plan
+Last activity: 2026-02-22 -- Phase 2 complete (verified, Expo app shell with text capture)
 
 Progress: [##........] 22%
 
