@@ -20,6 +20,9 @@ def create_classifier_agent(
     The Classifier analyzes captured text, determines which of four buckets
     it belongs to, assigns a confidence score, extracts a title, and files
     the record to Cosmos DB via the classify_and_file tool.
+
+    Phase 4: Includes low-confidence clarification instructions so the
+    Classifier can ask the user a question before filing when unsure.
     """
     return chat_client.as_agent(
         name="Classifier",
@@ -82,14 +85,32 @@ def create_classifier_agent(
             "If the input is gibberish, accidental, or nonsensical (random "
             "characters, empty phrases, keyboard mashing), call mark_as_junk "
             "instead of classify_and_file.\n\n"
+            "## Low Confidence Handling\n\n"
+            "When the classify_and_file tool returns a message starting with "
+            '"Filed" AND the confidence score you used was below 0.6:\n'
+            "1. Ask the user ONE focused clarifying question to help distinguish "
+            "between the top 2 likely buckets\n"
+            "2. Present the question concisely (one sentence)\n"
+            "3. Wait for the user's response\n"
+            "4. After receiving clarification, call classify_and_file again with "
+            "the user-specified bucket and higher confidence (0.80+)\n\n"
+            "When the user responds with just a bucket name (People, Projects, "
+            "Ideas, or Admin):\n"
+            "- Call classify_and_file immediately with that bucket at confidence "
+            "0.85\n"
+            "- The user is overriding your classification -- honor their choice\n\n"
+            "You may ask at most 2 clarifying questions. If still uncertain after "
+            "2 exchanges, file with your best guess at confidence 0.55.\n\n"
             "## Rules\n\n"
-            "1. ALWAYS call classify_and_file or mark_as_junk -- never respond "
-            "without calling a tool\n"
-            "2. You MUST provide ALL FOUR bucket scores (people_score, "
+            "1. When confidence >= 0.6, ALWAYS call classify_and_file immediately\n"
+            "2. When confidence < 0.6, ask ONE clarifying question first, then "
+            "file after receiving the response\n"
+            "3. NEVER respond without eventually calling classify_and_file or "
+            "mark_as_junk\n"
+            "4. You MUST provide ALL FOUR bucket scores (people_score, "
             "projects_score, ideas_score, admin_score) that sum roughly to 1.0\n"
-            "3. After filing, respond with ONLY the confirmation string returned "
-            "by the tool (e.g., 'Filed -> Projects (0.85)')\n"
-            "4. Do NOT add any extra commentary before or after the confirmation"
+            "5. After filing, respond with ONLY the confirmation string returned "
+            "by the tool (e.g., 'Filed -> Projects (0.85)')"
         ),
         description=(
             "Classifies text into People/Projects/Ideas/Admin and files to Cosmos DB"
