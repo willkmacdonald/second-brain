@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-21)
 
 **Core value:** One-tap capture from a phone instantly routes through an agent chain that classifies, files, and sharpens thoughts into concrete next actions -- with zero organizational effort.
-**Current focus:** Phase 3: Text Classification Pipeline
+**Current focus:** Phase 4: HITL Clarification and AG-UI Streaming
 
 ## Current Position
 
-Phase: 3 of 9 (Text Classification Pipeline) -- COMPLETE
-Plan: 2 of 2 in current phase
-Status: Phase Complete
-Last activity: 2026-02-22 -- Plan 03-02 complete (classification result display + tests)
+Phase: 4 of 9 (HITL Clarification and AG-UI Streaming)
+Plan: 1 of 3 in current phase
+Status: In Progress
+Last activity: 2026-02-22 -- Plan 04-01 complete (backend HITL workflow, step events, inbox API)
 
-Progress: [####......] 36%
+Progress: [####......] 40%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7
-- Average duration: 3 min
-- Total execution time: 0.40 hours
+- Total plans completed: 8
+- Average duration: 4 min
+- Total execution time: 0.55 hours
 
 **By Phase:**
 
@@ -30,10 +30,11 @@ Progress: [####......] 36%
 | 01-backend-foundation | 3/3 | 12 min | 4 min |
 | 02-expo-app-shell | 2/2 | 5 min | 2.5 min |
 | 03-text-classification-pipeline | 2/2 | 7 min | 3.5 min |
+| 04-hitl-clarification-and-ag-ui-streaming | 1/3 | 9 min | 9 min |
 
 **Recent Trend:**
-- Last 5 plans: 02-01 (3 min), 02-02 (2 min), 03-01 (4 min), 03-02 (3 min)
-- Trend: stable
+- Last 5 plans: 02-02 (2 min), 03-01 (4 min), 03-02 (3 min), 04-01 (9 min)
+- Trend: slight increase (HITL complexity)
 
 *Updated after each plan completion*
 
@@ -74,6 +75,10 @@ Recent decisions affecting current work:
 - [03-02]: Stay on screen after capture (removed router.back) for rapid-fire input
 - [03-02]: Accept echo bug in accumulated result for Phase 3 (Phase 4 will filter)
 - [03-02]: Fallback to "Captured" toast when result is empty/falsy
+- [04-01]: Raw Workflow instead of WorkflowAgent for HITL resume (WorkflowAgent doesn't expose run(responses=...))
+- [04-01]: Custom AG-UI endpoint replaces add_agent_framework_fastapi_endpoint for mixed AgentResponseUpdate + BaseEvent streams
+- [04-01]: Echo filter by author_name: suppress Orchestrator text-only updates, pass through Classifier content
+- [04-01]: Classifier removed from autonomous mode to enable request_info emission for HITL
 
 ### Pending Todos
 
@@ -88,5 +93,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-22
-Stopped at: Phase 4 context gathered
-Resume file: .planning/phases/04-hitl-clarification-and-ag-ui-streaming/04-CONTEXT.md
+Stopped at: Completed 04-01-PLAN.md
+Resume file: .planning/phases/04-hitl-clarification-and-ag-ui-streaming/04-01-SUMMARY.md

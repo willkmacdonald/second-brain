@@ -68,7 +68,7 @@ Plans:
 
 Plans:
 - [x] 03-01-PLAN.md — Backend classification pipeline (models, tools, agents, workflow, main.py wiring)
-- [ ] 03-02-PLAN.md — Mobile classification result toast + backend classification tests
+- [x] 03-02-PLAN.md — Mobile classification result toast + backend classification tests
 
 ### Phase 4: HITL Clarification and AG-UI Streaming
 **Goal**: Will can see agents working in real time and respond to clarification questions when the system is unsure
@@ -82,7 +82,7 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 04-01-PLAN.md — Backend HITL workflow, AG-UI step events, echo filter, respond endpoint, Inbox API
+- [x] 04-01-PLAN.md — Backend HITL workflow, AG-UI step events, echo filter, respond endpoint, Inbox API
 - [ ] 04-02-PLAN.md — Mobile tab navigation, capture screen with step dots, streaming text, inline HITL bucket buttons
 - [ ] 04-03-PLAN.md — Inbox list view with detail cards and conversation screen for pending clarifications
 
@@ -173,8 +173,8 @@ Note: Phases 5, 6, 7, and 9 depend only on Phase 3 and can be parallelized, but 
 |-------|----------------|--------|-----------|
 | 1. Backend Foundation | 3/3 | Complete | 2026-02-21 |
 | 2. Expo App Shell | 2/2 | Complete    | 2026-02-22 |
-| 3. Text Classification Pipeline | 0/2 | Not started | - |
-| 4. HITL Clarification and AG-UI Streaming | 0/3 | Not started | - |
+| 3. Text Classification Pipeline | 2/2 | Complete | 2026-02-22 |
+| 4. HITL Clarification and AG-UI Streaming | 1/3 | In Progress | - |
 | 5. Voice Capture | 0/3 | Not started | - |
 | 6. Action Sharpening | 0/2 | Not started | - |
 | 7. People CRM and Cross-References | 0/3 | Not started | - |

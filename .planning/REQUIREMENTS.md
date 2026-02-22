@@ -18,7 +18,7 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Capture
 
 - [x] **CAPT-01**: User can type a thought in the Expo app and submit it with one tap
-- [ ] **CAPT-02**: User receives real-time visual feedback showing the agent chain processing their capture (Orchestrator → Classifier → Action)
+- [x] **CAPT-02**: User receives real-time visual feedback showing the agent chain processing their capture (Orchestrator → Classifier → Action)
 - [ ] **CAPT-03**: User can record a voice note in the Expo app which is transcribed by the Perception Agent via Whisper
 - [ ] **CAPT-04**: User sees transcribed text and classification result after voice capture
 - [x] **CAPT-05**: Expo app runs on both iOS and Android
@@ -37,7 +37,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **CLAS-01**: Classifier Agent classifies input into exactly one of four buckets: People, Projects, Ideas, or Admin
 - [x] **CLAS-02**: Classifier assigns a confidence score (0.0–1.0) to each classification
 - [x] **CLAS-03**: When confidence >= 0.6, Classifier silently files the record and confirms (e.g., "Filed → Projects (0.85)")
-- [ ] **CLAS-04**: When confidence < 0.6, Classifier asks the user a focused clarifying question before filing
+- [x] **CLAS-04**: When confidence < 0.6, Classifier asks the user a focused clarifying question before filing
 - [ ] **CLAS-05**: Classifier checks existing People and Projects records before creating new ones
 - [ ] **CLAS-06**: Classifier extracts cross-references (people mentioned in project captures, projects mentioned in people captures) and links them
 - [x] **CLAS-07**: Every capture is logged to the Inbox container with full classification details and agent chain metadata
@@ -73,7 +73,7 @@ Requirements for initial release. Each maps to roadmap phases.
 ### App UX
 
 - [x] **APPX-01**: Main screen shows four large capture buttons (Voice, Photo, Video, Text) — no settings, folders, or tags visible
-- [ ] **APPX-02**: Inbox view shows recent captures with the agent chain that processed each one
+- [x] **APPX-02**: Inbox view shows recent captures with the agent chain that processed each one
 - [ ] **APPX-03**: Digest view displays the morning briefing, opened via push notification
 - [ ] **APPX-04**: Conversation view opens when a specialist needs clarification, showing a focused chat
 
@@ -127,7 +127,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INFRA-04 | Phase 1 | Complete |
 | INFRA-05 | Phase 1 | Complete |
 | CAPT-01 | Phase 2 | Complete |
-| CAPT-02 | Phase 4 | Pending |
+| CAPT-02 | Phase 4 | Complete |
 | CAPT-03 | Phase 5 | Pending |
 | CAPT-04 | Phase 5 | Pending |
 | CAPT-05 | Phase 2 | Complete |
@@ -140,7 +140,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CLAS-01 | Phase 3 | Complete |
 | CLAS-02 | Phase 3 | Complete |
 | CLAS-03 | Phase 3 | Complete |
-| CLAS-04 | Phase 4 | Pending |
+| CLAS-04 | Phase 4 | Complete |
 | CLAS-05 | Phase 7 | Pending |
 | CLAS-06 | Phase 7 | Pending |
 | CLAS-07 | Phase 3 | Complete |
@@ -161,7 +161,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SRCH-01 | Phase 9 | Pending |
 | SRCH-02 | Phase 9 | Pending |
 | APPX-01 | Phase 2 | Complete |
-| APPX-02 | Phase 4 | Pending |
+| APPX-02 | Phase 4 | Complete |
 | APPX-03 | Phase 8 | Pending |
 | APPX-04 | Phase 4 | Pending |
 
