@@ -5,11 +5,9 @@ import {
   Pressable,
   Text,
   StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
 } from "react-native";
 import * as Haptics from "expo-haptics";
-import { router } from "expo-router";
+import { router, Stack } from "expo-router";
 import { sendCapture } from "../../lib/ag-ui-client";
 import { API_KEY } from "../../constants/config";
 
@@ -76,49 +74,56 @@ export default function TextCaptureScreen() {
     cleanupRef.current = cleanup;
   }, [thought, sending]);
 
+  const sendDisabled = !thought.trim() || sending;
+
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-    >
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.input}
-          value={thought}
-          onChangeText={setThought}
-          placeholder="What's on your mind?"
-          placeholderTextColor="#666"
-          multiline
-          autoFocus
-          textAlignVertical="top"
-        />
-      </View>
+    <View style={styles.container}>
+      <Stack.Screen
+        options={{
+          headerTitle: () =>
+            toast ? (
+              <Text
+                style={[
+                  styles.headerToast,
+                  toast.type === "success"
+                    ? styles.headerToastSuccess
+                    : styles.headerToastError,
+                ]}
+              >
+                {toast.message}
+              </Text>
+            ) : (
+              <Text style={styles.headerTitle}>Text Input</Text>
+            ),
+          headerRight: () => (
+            <Pressable
+              onPress={handleSubmit}
+              disabled={sendDisabled}
+              style={({ pressed }) => [
+                styles.headerSendButton,
+                pressed && styles.sendPressed,
+                sendDisabled && styles.sendDisabled,
+              ]}
+            >
+              <Text style={[styles.headerSendText, sendDisabled && styles.headerSendTextDisabled]}>
+                {sending ? "Sending..." : "Send"}
+              </Text>
+            </Pressable>
+          ),
+        }}
+      />
 
-      <Pressable
-        onPress={handleSubmit}
-        disabled={!thought.trim() || sending}
-        style={({ pressed }) => [
-          styles.sendButton,
-          pressed && styles.sendPressed,
-          (!thought.trim() || sending) && styles.sendDisabled,
-        ]}
-      >
-        <Text style={styles.sendText}>
-          {sending ? "Sending..." : "Send"}
-        </Text>
-      </Pressable>
-
-      {toast ? (
-        <View
-          style={[
-            styles.toast,
-            toast.type === "success" ? styles.toastSuccess : styles.toastError,
-          ]}
-        >
-          <Text style={styles.toastText}>{toast.message}</Text>
-        </View>
-      ) : null}
-    </KeyboardAvoidingView>
+      <TextInput
+        style={styles.input}
+        value={thought}
+        onChangeText={setThought}
+        placeholder="What's on your mind?"
+        placeholderTextColor="#666"
+        multiline
+        autoFocus
+        textAlignVertical="top"
+      />
+    </View>
   );
 }
 
@@ -127,10 +132,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#0f0f23",
     padding: 16,
-  },
-  inputContainer: {
-    flex: 1,
-    marginBottom: 12,
   },
   input: {
     flex: 1,
@@ -141,12 +142,24 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     textAlignVertical: "top",
   },
-  sendButton: {
-    backgroundColor: "#4a90d9",
-    padding: 16,
-    borderRadius: 12,
-    alignItems: "center",
-    marginBottom: 8,
+  headerTitle: {
+    color: "#ffffff",
+    fontSize: 17,
+    fontWeight: "600",
+  },
+  headerToast: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  headerToastSuccess: {
+    color: "#4ade80",
+  },
+  headerToastError: {
+    color: "#f87171",
+  },
+  headerSendButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
   sendPressed: {
     opacity: 0.7,
@@ -154,29 +167,12 @@ const styles = StyleSheet.create({
   sendDisabled: {
     opacity: 0.4,
   },
-  sendText: {
-    color: "#ffffff",
-    fontSize: 18,
+  headerSendText: {
+    color: "#4a90d9",
+    fontSize: 17,
     fontWeight: "600",
   },
-  toast: {
-    position: "absolute",
-    bottom: 32,
-    left: 16,
-    right: 16,
-    padding: 12,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  toastSuccess: {
-    backgroundColor: "#2d7d46",
-  },
-  toastError: {
-    backgroundColor: "#c0392b",
-  },
-  toastText: {
-    color: "#ffffff",
-    fontSize: 14,
-    fontWeight: "500",
+  headerSendTextDisabled: {
+    color: "#666",
   },
 });
