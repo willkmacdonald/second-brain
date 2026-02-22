@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Backend Foundation** - FastAPI server with AG-UI endpoint, Cosmos DB, API auth, and OpenTelemetry tracing
 - [x] **Phase 2: Expo App Shell** - Mobile app with text input, main capture screen, and cross-platform support
 - [ ] **Phase 3: Text Classification Pipeline** - Orchestrator and Classifier agents that route text input to the correct bucket in Cosmos DB
-- [ ] **Phase 4: HITL Clarification and AG-UI Streaming** - Real-time agent chain visibility and clarification conversation for low-confidence classifications
+- [x] **Phase 4: HITL Clarification and AG-UI Streaming** - Real-time agent chain visibility and clarification conversation for low-confidence classifications
 - [ ] **Phase 5: Voice Capture** - Voice recording with Whisper transcription routed through the Perception Agent
 - [ ] **Phase 6: Action Sharpening** - Action Agent that converts vague Projects/Admin captures into concrete next actions
 - [ ] **Phase 7: People CRM and Cross-References** - People records with automatic relationship tracking and cross-reference extraction
@@ -83,8 +83,8 @@ Plans:
 
 Plans:
 - [x] 04-01-PLAN.md — Backend HITL workflow, AG-UI step events, echo filter, respond endpoint, Inbox API
-- [ ] 04-02-PLAN.md — Mobile tab navigation, capture screen with step dots, streaming text, inline HITL bucket buttons
-- [ ] 04-03-PLAN.md — Inbox list view with detail cards and conversation screen for pending clarifications
+- [x] 04-02-PLAN.md — Mobile tab navigation, capture screen with step dots, streaming text, inline HITL bucket buttons
+- [x] 04-03-PLAN.md — Inbox list view with detail cards and conversation screen for pending clarifications
 
 ### Phase 5: Voice Capture
 **Goal**: Will can speak a thought into the app and have it transcribed, classified, and filed automatically
@@ -174,7 +174,7 @@ Note: Phases 5, 6, 7, and 9 depend only on Phase 3 and can be parallelized, but 
 | 1. Backend Foundation | 3/3 | Complete | 2026-02-21 |
 | 2. Expo App Shell | 2/2 | Complete    | 2026-02-22 |
 | 3. Text Classification Pipeline | 2/2 | Complete | 2026-02-22 |
-| 4. HITL Clarification and AG-UI Streaming | 1/3 | In Progress | - |
+| 4. HITL Clarification and AG-UI Streaming | 3/3 | Complete | 2026-02-22 |
 | 5. Voice Capture | 0/3 | Not started | - |
 | 6. Action Sharpening | 0/2 | Not started | - |
 | 7. People CRM and Cross-References | 0/3 | Not started | - |

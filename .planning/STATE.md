@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-21)
 
 **Core value:** One-tap capture from a phone instantly routes through an agent chain that classifies, files, and sharpens thoughts into concrete next actions -- with zero organizational effort.
-**Current focus:** Phase 4: HITL Clarification and AG-UI Streaming
+**Current focus:** Phase 5: Voice Capture (next up)
 
 ## Current Position
 
-Phase: 4 of 9 (HITL Clarification and AG-UI Streaming)
-Plan: 2 of 3 in current phase
-Status: In Progress
-Last activity: 2026-02-22 -- Plan 04-02 complete (mobile real-time capture UX with step dots, streaming, HITL)
+Phase: 4 of 9 (HITL Clarification and AG-UI Streaming) -- COMPLETE
+Plan: 3 of 3 in current phase (all plans complete)
+Status: Phase Complete
+Last activity: 2026-02-22 -- Plan 04-03 complete (inbox list view, conversation screen, full Phase 4 UX verified)
 
-Progress: [#####.....] 50%
+Progress: [######....] 56%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 9
-- Average duration: 4 min
-- Total execution time: 0.60 hours
+- Total plans completed: 10
+- Average duration: 4.8 min
+- Total execution time: 0.80 hours
 
 **By Phase:**
 
@@ -30,11 +30,11 @@ Progress: [#####.....] 50%
 | 01-backend-foundation | 3/3 | 12 min | 4 min |
 | 02-expo-app-shell | 2/2 | 5 min | 2.5 min |
 | 03-text-classification-pipeline | 2/2 | 7 min | 3.5 min |
-| 04-hitl-clarification-and-ag-ui-streaming | 2/3 | 12 min | 6 min |
+| 04-hitl-clarification-and-ag-ui-streaming | 3/3 | 24 min | 8 min |
 
 **Recent Trend:**
-- Last 5 plans: 03-01 (4 min), 03-02 (3 min), 04-01 (9 min), 04-02 (3 min)
-- Trend: stabilized (HITL UI simpler than backend)
+- Last 5 plans: 03-02 (3 min), 04-01 (9 min), 04-02 (3 min), 04-03 (12 min)
+- Trend: Phase 4 complete; HITL verification checkpoint added time
 
 *Updated after each plan completion*
 
@@ -84,6 +84,10 @@ Recent decisions affecting current work:
 - [04-02]: Input area uses minHeight/maxHeight (not flex: 1) to make room for step dots and streaming text below
 - [04-02]: Tab navigation: (tabs) group inside Stack root layout with modal screens alongside
 - [04-02]: Old app/index.tsx removed to avoid expo-router route conflict with (tabs)/index.tsx
+- [04-03]: InboxItem uses inline getRelativeTime utility (no library) for relative timestamps
+- [04-03]: Detail card as Modal overlay within inbox screen, not a separate route
+- [04-03]: Conversation screen fetches item detail via GET /api/inbox/{threadId} for context display
+- [04-03]: Expired HITL sessions handled gracefully with resubmission message
 
 ### Pending Todos
 
@@ -98,5 +102,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-22
-Stopped at: Completed 04-02-PLAN.md
-Resume file: .planning/phases/04-hitl-clarification-and-ag-ui-streaming/04-02-SUMMARY.md
+Stopped at: Completed 04-03-PLAN.md (Phase 4 complete)
+Resume file: .planning/phases/04-hitl-clarification-and-ag-ui-streaming/04-03-SUMMARY.md

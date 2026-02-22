@@ -75,7 +75,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **APPX-01**: Main screen shows four large capture buttons (Voice, Photo, Video, Text) — no settings, folders, or tags visible
 - [x] **APPX-02**: Inbox view shows recent captures with the agent chain that processed each one
 - [ ] **APPX-03**: Digest view displays the morning briefing, opened via push notification
-- [ ] **APPX-04**: Conversation view opens when a specialist needs clarification, showing a focused chat
+- [x] **APPX-04**: Conversation view opens when a specialist needs clarification, showing a focused chat
 
 ## v2 Requirements
 
@@ -163,7 +163,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | APPX-01 | Phase 2 | Complete |
 | APPX-02 | Phase 4 | Complete |
 | APPX-03 | Phase 8 | Pending |
-| APPX-04 | Phase 4 | Pending |
+| APPX-04 | Phase 4 | Complete |
 
 **Coverage:**
 - v1 requirements: 43 total
