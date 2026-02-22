@@ -1,7 +1,7 @@
 import { View, StyleSheet, Alert, Platform, ToastAndroid } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import { CaptureButton } from "../components/CaptureButton";
+import { CaptureButton } from "../../components/CaptureButton";
 
 function showComingSoon() {
   if (Platform.OS === "android") {
