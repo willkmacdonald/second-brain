@@ -88,5 +88,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-22
-Stopped at: Completed 03-02-PLAN.md (Phase 3 complete)
-Resume file: .planning/phases/03-text-classification-pipeline/03-02-SUMMARY.md
+Stopped at: Phase 4 context gathered
+Resume file: .planning/phases/04-hitl-clarification-and-ag-ui-streaming/04-CONTEXT.md
