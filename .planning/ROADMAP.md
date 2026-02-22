@@ -79,12 +79,12 @@ Plans:
   2. When classification confidence is < 0.6, the user is asked a focused clarifying question before filing
   3. Inbox view shows recent captures with the agent chain that processed each one
   4. Conversation view opens when a specialist needs clarification, showing a focused chat
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 04-01: TBD
-- [ ] 04-02: TBD
-- [ ] 04-03: TBD
+- [ ] 04-01-PLAN.md — Backend HITL workflow, AG-UI step events, echo filter, respond endpoint, Inbox API
+- [ ] 04-02-PLAN.md — Mobile tab navigation, capture screen with step dots, streaming text, inline HITL bucket buttons
+- [ ] 04-03-PLAN.md — Inbox list view with detail cards and conversation screen for pending clarifications
 
 ### Phase 5: Voice Capture
 **Goal**: Will can speak a thought into the app and have it transcribed, classified, and filed automatically
