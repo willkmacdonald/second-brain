@@ -5,11 +5,17 @@ import {
   Pressable,
   Text,
   StyleSheet,
+  ScrollView,
 } from "react-native";
 import * as Haptics from "expo-haptics";
 import { Stack } from "expo-router";
-import { sendCapture } from "../../lib/ag-ui-client";
+import { sendCapture, sendClarification } from "../../lib/ag-ui-client";
 import { API_KEY } from "../../constants/config";
+import { AgentSteps } from "../../components/AgentSteps";
+
+const AGENT_STEPS = ["Orchestrator", "Classifier"];
+const BUCKETS = ["People", "Projects", "Ideas", "Admin"];
+const AUTO_RESET_MS = 2500;
 
 interface Toast {
   message: string;
@@ -20,6 +26,13 @@ export default function TextCaptureScreen() {
   const [thought, setThought] = useState("");
   const [sending, setSending] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
+  const [currentStep, setCurrentStep] = useState<string | null>(null);
+  const [completedSteps, setCompletedSteps] = useState<string[]>([]);
+  const [streamedText, setStreamedText] = useState("");
+  const [showSteps, setShowSteps] = useState(false);
+  const [hitlQuestion, setHitlQuestion] = useState<string | null>(null);
+  const [hitlThreadId, setHitlThreadId] = useState<string | null>(null);
+  const [isResolving, setIsResolving] = useState(false);
   const cleanupRef = useRef<(() => void) | null>(null);
 
   // Clear toast after 2 seconds
@@ -39,6 +52,16 @@ export default function TextCaptureScreen() {
     };
   }, []);
 
+  const resetState = useCallback(() => {
+    setThought("");
+    setShowSteps(false);
+    setCurrentStep(null);
+    setCompletedSteps([]);
+    setStreamedText("");
+    setHitlQuestion(null);
+    setHitlThreadId(null);
+  }, []);
+
   const handleSubmit = useCallback(() => {
     if (!thought.trim() || sending) return;
 
@@ -47,30 +70,93 @@ export default function TextCaptureScreen() {
       return;
     }
 
+    // If HITL is pending, clear it -- pending item stays in inbox for later resolution
+    if (hitlThreadId) {
+      setHitlQuestion(null);
+      setHitlThreadId(null);
+      setStreamedText("");
+      setShowSteps(false);
+      setCurrentStep(null);
+      setCompletedSteps([]);
+    }
+
     setSending(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    const cleanup = sendCapture({
+    const captureResult = sendCapture({
       message: thought.trim(),
       apiKey: API_KEY,
-      onComplete: (result: string) => {
-        setSending(false);
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        setToast({ message: result || "Captured", type: "success" });
-        setThought("");
-      },
-      onError: (error: string) => {
-        void error; // Show generic message per locked CONTEXT.md decision
-        setSending(false);
-        setToast({
-          message: "Couldn\u2019t file your capture. Try again.",
-          type: "error",
-        });
+      callbacks: {
+        onStepStart: (stepName: string) => {
+          setShowSteps(true);
+          setCurrentStep(stepName);
+        },
+        onStepFinish: (stepName: string) => {
+          setCompletedSteps((prev) => [...prev, stepName]);
+          setCurrentStep(null);
+        },
+        onTextDelta: (delta: string) => {
+          setStreamedText((prev) => prev + delta);
+        },
+        onHITLRequired: (threadId: string, questionText: string) => {
+          setHitlThreadId(threadId);
+          setHitlQuestion(questionText);
+          setSending(false); // Re-enable interaction for bucket selection
+        },
+        onComplete: (result: string) => {
+          setSending(false);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          setToast({ message: result || "Captured", type: "success" });
+          setTimeout(resetState, AUTO_RESET_MS);
+        },
+        onError: (error: string) => {
+          void error;
+          setSending(false);
+          setShowSteps(false);
+          setToast({
+            message: "Couldn\u2019t file your capture. Try again.",
+            type: "error",
+          });
+        },
       },
     });
+    cleanupRef.current = captureResult.cleanup;
+  }, [thought, sending, hitlThreadId, resetState]);
 
-    cleanupRef.current = cleanup;
-  }, [thought, sending]);
+  const handleBucketSelect = useCallback(
+    (bucket: string) => {
+      if (!hitlThreadId || isResolving) return;
+      setIsResolving(true);
+      setHitlQuestion(null); // Hide question UI
+      setStreamedText(""); // Clear question text, show filing progress
+
+      const cleanup = sendClarification({
+        threadId: hitlThreadId,
+        bucket,
+        apiKey: API_KEY!,
+        callbacks: {
+          onTextDelta: (delta: string) => {
+            setStreamedText((prev) => prev + delta);
+          },
+          onComplete: (result: string) => {
+            setIsResolving(false);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            setToast({ message: result || "Filed", type: "success" });
+            setTimeout(resetState, AUTO_RESET_MS);
+          },
+          onError: () => {
+            setIsResolving(false);
+            setToast({
+              message: "Couldn\u2019t file. Try again.",
+              type: "error",
+            });
+          },
+        },
+      });
+      cleanupRef.current = cleanup;
+    },
+    [hitlThreadId, isResolving, resetState],
+  );
 
   const sendDisabled = !thought.trim() || sending;
 
@@ -103,7 +189,12 @@ export default function TextCaptureScreen() {
                 sendDisabled && styles.sendDisabled,
               ]}
             >
-              <Text style={[styles.headerSendText, sendDisabled && styles.headerSendTextDisabled]}>
+              <Text
+                style={[
+                  styles.headerSendText,
+                  sendDisabled && styles.headerSendTextDisabled,
+                ]}
+              >
                 {sending ? "Sending..." : "Send"}
               </Text>
             </Pressable>
@@ -121,6 +212,49 @@ export default function TextCaptureScreen() {
         autoFocus
         textAlignVertical="top"
       />
+
+      {/* Step dots, streaming text, and HITL area below input */}
+      {showSteps && (
+        <View style={styles.feedbackArea}>
+          <AgentSteps
+            steps={AGENT_STEPS}
+            currentStep={currentStep}
+            completedSteps={completedSteps}
+          />
+
+          {streamedText.length > 0 && (
+            <ScrollView style={styles.streamContainer}>
+              <Text style={styles.streamedText}>{streamedText}</Text>
+            </ScrollView>
+          )}
+
+          {hitlQuestion !== null && (
+            <View style={styles.hitlContainer}>
+              <Text style={styles.hitlQuestion}>{hitlQuestion}</Text>
+              <View style={styles.bucketRow}>
+                {BUCKETS.map((bucket) => (
+                  <Pressable
+                    key={bucket}
+                    onPress={() => handleBucketSelect(bucket)}
+                    disabled={isResolving}
+                    style={({ pressed }) => [
+                      styles.bucketButton,
+                      pressed && styles.bucketPressed,
+                      isResolving && styles.bucketDisabled,
+                    ]}
+                  >
+                    <Text style={styles.bucketText}>{bucket}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {isResolving && (
+            <Text style={styles.resolvingText}>Filing...</Text>
+          )}
+        </View>
+      )}
     </View>
   );
 }
@@ -132,13 +266,70 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   input: {
-    flex: 1,
     fontSize: 18,
     color: "#ffffff",
     padding: 16,
     backgroundColor: "#1a1a2e",
     borderRadius: 12,
     textAlignVertical: "top",
+    minHeight: 120,
+    maxHeight: 200,
+  },
+  feedbackArea: {
+    marginTop: 12,
+    backgroundColor: "#1a1a2e",
+    borderRadius: 12,
+    padding: 12,
+  },
+  streamContainer: {
+    maxHeight: 100,
+    marginTop: 8,
+  },
+  streamedText: {
+    fontSize: 14,
+    color: "#999",
+    lineHeight: 20,
+  },
+  hitlContainer: {
+    marginTop: 12,
+  },
+  hitlQuestion: {
+    fontSize: 14,
+    color: "#ccc",
+    lineHeight: 20,
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  bucketRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  bucketButton: {
+    flex: 1,
+    backgroundColor: "#2a2a4e",
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  bucketPressed: {
+    opacity: 0.7,
+    backgroundColor: "#4a90d9",
+  },
+  bucketDisabled: {
+    opacity: 0.4,
+  },
+  bucketText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#ffffff",
+  },
+  resolvingText: {
+    fontSize: 12,
+    color: "#4a90d9",
+    textAlign: "center",
+    marginTop: 8,
   },
   headerTitle: {
     color: "#ffffff",
