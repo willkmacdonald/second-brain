@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-21)
 ## Current Position
 
 Phase: 4 of 9 (HITL Clarification and AG-UI Streaming)
-Plan: 1 of 3 in current phase
+Plan: 2 of 3 in current phase
 Status: In Progress
-Last activity: 2026-02-22 -- Plan 04-01 complete (backend HITL workflow, step events, inbox API)
+Last activity: 2026-02-22 -- Plan 04-02 complete (mobile real-time capture UX with step dots, streaming, HITL)
 
-Progress: [####......] 40%
+Progress: [#####.....] 50%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 8
+- Total plans completed: 9
 - Average duration: 4 min
-- Total execution time: 0.55 hours
+- Total execution time: 0.60 hours
 
 **By Phase:**
 
@@ -30,11 +30,11 @@ Progress: [####......] 40%
 | 01-backend-foundation | 3/3 | 12 min | 4 min |
 | 02-expo-app-shell | 2/2 | 5 min | 2.5 min |
 | 03-text-classification-pipeline | 2/2 | 7 min | 3.5 min |
-| 04-hitl-clarification-and-ag-ui-streaming | 1/3 | 9 min | 9 min |
+| 04-hitl-clarification-and-ag-ui-streaming | 2/3 | 12 min | 6 min |
 
 **Recent Trend:**
-- Last 5 plans: 02-02 (2 min), 03-01 (4 min), 03-02 (3 min), 04-01 (9 min)
-- Trend: slight increase (HITL complexity)
+- Last 5 plans: 03-01 (4 min), 03-02 (3 min), 04-01 (9 min), 04-02 (3 min)
+- Trend: stabilized (HITL UI simpler than backend)
 
 *Updated after each plan completion*
 
@@ -79,6 +79,11 @@ Recent decisions affecting current work:
 - [04-01]: Custom AG-UI endpoint replaces add_agent_framework_fastapi_endpoint for mixed AgentResponseUpdate + BaseEvent streams
 - [04-01]: Echo filter by author_name: suppress Orchestrator text-only updates, pass through Classifier content
 - [04-01]: Classifier removed from autonomous mode to enable request_info emission for HITL
+- [04-02]: Shared attachCallbacks helper extracts SSE event routing for both sendCapture and sendClarification
+- [04-02]: sendCapture returns { cleanup, threadId } to support HITL thread reference from capture screen
+- [04-02]: Input area uses minHeight/maxHeight (not flex: 1) to make room for step dots and streaming text below
+- [04-02]: Tab navigation: (tabs) group inside Stack root layout with modal screens alongside
+- [04-02]: Old app/index.tsx removed to avoid expo-router route conflict with (tabs)/index.tsx
 
 ### Pending Todos
 
@@ -93,5 +98,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-22
-Stopped at: Completed 04-01-PLAN.md
-Resume file: .planning/phases/04-hitl-clarification-and-ag-ui-streaming/04-01-SUMMARY.md
+Stopped at: Completed 04-02-PLAN.md
+Resume file: .planning/phases/04-hitl-clarification-and-ag-ui-streaming/04-02-SUMMARY.md
