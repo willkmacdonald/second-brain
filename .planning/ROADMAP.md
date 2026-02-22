@@ -64,12 +64,11 @@ Plans:
   3. When confidence is >= 0.6, the capture is silently filed and the user sees a confirmation (e.g., "Filed -> Projects (0.85)")
   4. Every capture is logged to the Inbox container with full classification details and agent chain metadata
   5. The Orchestrator provides a brief confirmation when the full agent chain completes
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 03-01: TBD
-- [ ] 03-02: TBD
-- [ ] 03-03: TBD
+- [ ] 03-01-PLAN.md — Backend classification pipeline (models, tools, agents, workflow, main.py wiring)
+- [ ] 03-02-PLAN.md — Mobile classification result toast + backend classification tests
 
 ### Phase 4: HITL Clarification and AG-UI Streaming
 **Goal**: Will can see agents working in real time and respond to clarification questions when the system is unsure
@@ -174,7 +173,7 @@ Note: Phases 5, 6, 7, and 9 depend only on Phase 3 and can be parallelized, but 
 |-------|----------------|--------|-----------|
 | 1. Backend Foundation | 3/3 | Complete | 2026-02-21 |
 | 2. Expo App Shell | 2/2 | Complete    | 2026-02-22 |
-| 3. Text Classification Pipeline | 0/3 | Not started | - |
+| 3. Text Classification Pipeline | 0/2 | Not started | - |
 | 4. HITL Clarification and AG-UI Streaming | 0/3 | Not started | - |
 | 5. Voice Capture | 0/3 | Not started | - |
 | 6. Action Sharpening | 0/2 | Not started | - |
