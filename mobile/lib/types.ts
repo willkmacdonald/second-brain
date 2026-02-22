@@ -32,4 +32,5 @@ export interface SendClarificationOptions {
   bucket: string;
   apiKey: string;
   callbacks: StreamingCallbacks;
+  inboxItemId?: string;
 }

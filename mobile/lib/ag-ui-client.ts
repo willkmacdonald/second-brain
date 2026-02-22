@@ -15,6 +15,7 @@ interface AGUIEventPayload {
   type?: string;
   delta?: string;
   name?: string;
+  stepName?: string;
   value?: { threadId?: string };
 }
 
@@ -31,6 +32,7 @@ function attachCallbacks(
   callbacks: StreamingCallbacks,
 ): () => void {
   let result = "";
+  let hitlTriggered = false;
 
   es.addEventListener("message", (event) => {
     if (!event.data) return;
@@ -39,11 +41,11 @@ function attachCallbacks(
 
       switch (parsed.type) {
         case "STEP_STARTED":
-          callbacks.onStepStart?.(parsed.name ?? "Unknown");
+          callbacks.onStepStart?.(parsed.stepName ?? "Unknown");
           break;
 
         case "STEP_FINISHED":
-          callbacks.onStepFinish?.(parsed.name ?? "Unknown");
+          callbacks.onStepFinish?.(parsed.stepName ?? "Unknown");
           break;
 
         case "TEXT_MESSAGE_CONTENT":
@@ -55,13 +57,18 @@ function attachCallbacks(
 
         case "CUSTOM":
           if (parsed.name === "HITL_REQUIRED" && parsed.value?.threadId) {
-            // The accumulated result IS the clarifying question text
+            hitlTriggered = true;
+            // The accumulated result IS the classification confirmation text
             callbacks.onHITLRequired?.(parsed.value.threadId, result);
           }
           break;
 
         case "RUN_FINISHED":
-          callbacks.onComplete(result);
+          // Don't call onComplete if HITL was triggered — the client
+          // is now showing bucket buttons for clarification
+          if (!hitlTriggered) {
+            callbacks.onComplete(result);
+          }
           es.close();
           break;
 
@@ -140,6 +147,7 @@ export function sendClarification({
   bucket,
   apiKey,
   callbacks,
+  inboxItemId,
 }: SendClarificationOptions): () => void {
   const es = new EventSource<AGUIEventType>(
     `${API_BASE_URL}/api/ag-ui/respond`,
@@ -152,6 +160,7 @@ export function sendClarification({
       body: JSON.stringify({
         thread_id: threadId,
         response: bucket,
+        inbox_item_id: inboxItemId,
       }),
       pollingInterval: 0,
     },

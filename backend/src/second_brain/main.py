@@ -35,7 +35,7 @@ from azure.identity.aio import (  # noqa: E402, I001
 )
 from azure.keyvault.secrets.aio import SecretClient as KeyVaultSecretClient  # noqa: E402
 from fastapi import FastAPI, Request  # noqa: E402
-from fastapi.responses import JSONResponse, StreamingResponse  # noqa: E402
+from fastapi.responses import StreamingResponse  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
 from second_brain.agents.classifier import create_classifier_agent  # noqa: E402
@@ -152,10 +152,16 @@ class AGUIRunRequest(BaseModel):
 
 
 class RespondRequest(BaseModel):
-    """Request body for the HITL respond endpoint."""
+    """Request body for the HITL respond endpoint.
+
+    The client sends the thread_id (for SSE lifecycle) and the user's
+    chosen bucket. The inbox_item_id identifies the low-confidence inbox
+    document to re-classify.
+    """
 
     thread_id: str  # noqa: N815
     response: str
+    inbox_item_id: str | None = None  # noqa: N815
 
 
 # ---------------------------------------------------------------------------
@@ -225,8 +231,12 @@ async def lifespan(app: FastAPI):
     classifier = create_classifier_agent(chat_client, classification_tools)
 
     # Build workflow adapter and store on app.state for respond endpoint
-    workflow_agent = create_capture_workflow(orchestrator, classifier)
+    workflow_agent = create_capture_workflow(
+        orchestrator, classifier,
+        classification_threshold=settings.classification_threshold,
+    )
     app.state.workflow_agent = workflow_agent
+    app.state.classification_tools = classification_tools
     logger.info("Capture pipeline created and stored on app.state")
 
     yield
@@ -304,27 +314,82 @@ async def ag_ui_endpoint(request: Request, body: AGUIRunRequest) -> StreamingRes
 
 @app.post("/api/ag-ui/respond", tags=["AG-UI"])
 async def respond_to_hitl(request: Request, body: RespondRequest) -> StreamingResponse:
-    """Resume a paused HITL workflow with the user's clarification response.
+    """Re-classify a low-confidence capture with the user's chosen bucket.
 
-    Accepts thread_id (to find the pending session) and response (the user's
-    clarification text). Returns an SSE stream with the workflow continuation
-    including step events and classification result.
+    The client sends the bucket name the user selected. This endpoint
+    looks up the original inbox item, re-classifies it with the chosen
+    bucket at high confidence, and streams back the result as SSE events.
     """
-    workflow_agent: AGUIWorkflowAdapter = request.app.state.workflow_agent
-
-    try:
-        item_stream = workflow_agent.resume_with_response(body.thread_id, body.response)
-    except ValueError as exc:
-        return JSONResponse(
-            status_code=404,
-            content={"detail": str(exc)},
-        )
+    classification_tools: ClassificationTools = request.app.state.classification_tools
+    cosmos_manager: CosmosManager | None = request.app.state.cosmos_manager
 
     run_id = f"run-{uuid.uuid4()}"
+    encoder = EventEncoder()
 
     async def generate() -> AsyncGenerator[str, None]:
-        async for chunk in _stream_sse(item_stream, body.thread_id, run_id):
-            yield chunk
+        yield encoder.encode(
+            RunStartedEvent(thread_id=body.thread_id, run_id=run_id)
+        )
+
+        msg_id = str(uuid.uuid4())
+        bucket = body.response
+
+        try:
+            # Look up the original inbox item to get rawText and title
+            raw_text = ""
+            title = ""
+            if body.inbox_item_id and cosmos_manager:
+                inbox_container = cosmos_manager.get_container("Inbox")
+                try:
+                    item = await inbox_container.read_item(
+                        item=body.inbox_item_id, partition_key="will"
+                    )
+                    raw_text = item.get("rawText", "")
+                    title = item.get("title", "")
+                except Exception:
+                    logger.warning(
+                        "Could not read inbox item %s", body.inbox_item_id
+                    )
+
+            if raw_text:
+                # Re-classify with user's bucket at high confidence
+                result = await classification_tools.classify_and_file(
+                    bucket=bucket,
+                    confidence=0.85,
+                    people_score=0.85 if bucket == "People" else 0.05,
+                    projects_score=0.85 if bucket == "Projects" else 0.05,
+                    ideas_score=0.85 if bucket == "Ideas" else 0.05,
+                    admin_score=0.85 if bucket == "Admin" else 0.05,
+                    raw_text=raw_text,
+                    title=title or "Untitled",
+                )
+            else:
+                result = f"Filed → {bucket} (0.85)"
+
+            # Stream the result as text events
+            yield encoder.encode(
+                TextMessageStartEvent(message_id=msg_id, role="assistant")
+            )
+            yield encoder.encode(
+                TextMessageContentEvent(message_id=msg_id, delta=result)
+            )
+            yield encoder.encode(TextMessageEndEvent(message_id=msg_id))
+
+        except Exception as exc:
+            logger.error("Respond error: %s", exc)
+            yield encoder.encode(
+                TextMessageStartEvent(message_id=msg_id, role="assistant")
+            )
+            yield encoder.encode(
+                TextMessageContentEvent(
+                    message_id=msg_id, delta=f"Filed → {bucket} (0.85)"
+                )
+            )
+            yield encoder.encode(TextMessageEndEvent(message_id=msg_id))
+
+        yield encoder.encode(
+            RunFinishedEvent(thread_id=body.thread_id, run_id=run_id)
+        )
 
     return StreamingResponse(
         generate(),

@@ -1,14 +1,15 @@
 """HandoffBuilder workflow wiring for the capture pipeline.
 
 Includes an AG-UI adapter that wraps Workflow for AG-UI endpoint compatibility.
-Phase 4 additions: HITL support (request_info handling + respond), AG-UI step
-events (StepStarted/StepFinished on agent transitions), Orchestrator echo
-filtering, and in-memory pending session storage for HITL continuation.
+Phase 4 additions: HITL support (low-confidence detection + respond endpoint),
+AG-UI step events (StepStarted/StepFinished on agent transitions), and
+Orchestrator echo filtering.
 """
 
 from __future__ import annotations
 
 import logging
+import re
 import uuid as _uuid
 from collections.abc import AsyncIterable, Sequence
 from typing import Any, Literal, overload
@@ -18,9 +19,6 @@ from ag_ui.core.events import (
     CustomEvent,
     StepFinishedEvent,
     StepStartedEvent,
-    TextMessageContentEvent,
-    TextMessageEndEvent,
-    TextMessageStartEvent,
 )
 from agent_framework import (
     Agent,
@@ -33,7 +31,7 @@ from agent_framework import (
     WorkflowEvent,
 )
 from agent_framework._types import ResponseStream
-from agent_framework.orchestrations import HandoffAgentUserRequest, HandoffBuilder
+from agent_framework.orchestrations import HandoffBuilder
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +40,9 @@ logger = logging.getLogger(__name__)
 # BaseEvent is injected by the adapter for step/HITL events.
 StreamItem = AgentResponseUpdate | BaseEvent
 
+# Regex to extract confidence from "Filed → Bucket (0.XX)" tool result
+_FILED_CONFIDENCE_RE = re.compile(r"Filed\s*→\s*\w+\s*\((\d+\.\d+)\)")
+
 
 class AGUIWorkflowAdapter:
     """Adapter that wraps a workflow definition for AG-UI endpoint compatibility.
@@ -49,36 +50,39 @@ class AGUIWorkflowAdapter:
     Creates a fresh Workflow per request to avoid state leaking
     between requests (e.g., conversation_id accumulation).
 
-    Phase 4: Supports HITL pause/resume via _pending_sessions, emits
-    AG-UI StepStarted/StepFinished events, and filters Orchestrator echo.
+    Phase 4: Emits AG-UI StepStarted/StepFinished events, filters
+    Orchestrator echo, and detects low-confidence classifications
+    to emit HITL_REQUIRED for client-side clarification.
     """
-
-    # Store pending HITL sessions: thread_id -> (workflow, request_id)
-    _pending_sessions: dict[str, tuple[Workflow, str]] = {}
 
     def __init__(
         self,
         orchestrator: Agent,
         classifier: Agent,
         name: str,
+        classification_threshold: float = 0.6,
     ) -> None:
         self._orchestrator = orchestrator
         self._classifier = classifier
         self.id = f"workflow-{name}"
         self.name = name
         self.description = "Capture pipeline workflow"
+        self._classification_threshold = classification_threshold
         # Keep a dummy WorkflowAgent for its converter method reference
         self._converter_agent: WorkflowAgent | None = None
 
     def _create_workflow(self) -> Workflow:
         """Create a fresh Workflow for each request.
 
-        Returns the raw Workflow (not WorkflowAgent) so that
-        workflow.run(responses=...) is available for HITL resumption.
-        Only the Orchestrator is autonomous; the Classifier is interactive
-        so it emits request_info when it responds without handing off.
+        Returns the raw Workflow (not WorkflowAgent) so that all event
+        types are visible in the stream — including executor_invoked and
+        executor_completed needed for step events. WorkflowAgent filters
+        these out and only yields output/request_info events.
+
+        Both agents run in autonomous mode so the workflow completes
+        without blocking on request_info.
         """
-        workflow = (
+        return (
             HandoffBuilder(
                 name="capture_pipeline",
                 participants=[self._orchestrator, self._classifier],
@@ -86,14 +90,14 @@ class AGUIWorkflowAdapter:
             .with_start_agent(self._orchestrator)
             .add_handoff(self._orchestrator, [self._classifier])
             .with_autonomous_mode(
-                agents=[self._orchestrator],
+                agents=[self._orchestrator, self._classifier],
                 prompts={
                     self._orchestrator.name: "Route this input to the Classifier.",
+                    self._classifier.name: "Classify this text and file it.",
                 },
             )
             .build()
         )
-        return workflow
 
     def _get_converter(self) -> WorkflowAgent:
         """Lazily create a WorkflowAgent for its event converter method."""
@@ -122,45 +126,50 @@ class AGUIWorkflowAdapter:
         **kwargs: Any,
     ) -> ResponseStream[AgentResponseUpdate, AgentResponse[Any]]: ...
 
+    def _is_orchestrator_text(self, update: AgentResponseUpdate) -> bool:
+        """Check if an update is text-only content from the Orchestrator."""
+        if (
+            update.author_name
+            and update.author_name.lower() == self._orchestrator.name.lower()
+        ):
+            return all(
+                getattr(c, "type", None) == "text"
+                for c in (update.contents or [])
+            )
+        return False
+
+    @staticmethod
+    def _extract_confidence(text: str) -> float | None:
+        """Extract confidence from 'Filed → Bucket (0.XX)' text."""
+        match = _FILED_CONFIDENCE_RE.search(text)
+        return float(match.group(1)) if match else None
+
     async def _stream_updates(
         self,
         messages: str | Message | Sequence[str | Message] | None,
         thread: AgentThread | None,
         **kwargs: Any,
     ) -> AsyncIterable[StreamItem]:
-        """Stream updates from the workflow with step events and HITL support.
+        """Stream updates from the workflow with step events and HITL detection.
 
         Yields a mix of AgentResponseUpdate (text/tool content) and AG-UI
         BaseEvent (StepStarted, StepFinished, Custom HITL_REQUIRED).
+
+        Both agents run in autonomous mode. The adapter detects low-confidence
+        classifications from tool results and appends HITL_REQUIRED after
+        the normal stream completes.
 
         Echo filtering: Only yield text content from the Classifier agent.
         The Orchestrator's text (which echoes user input) is suppressed.
         """
         workflow = self._create_workflow()
+        converter = self._get_converter()
         thread_id = kwargs.get("thread_id") or str(_uuid.uuid4())
         current_agent: str | None = None
         response_id = str(_uuid.uuid4())
+        detected_confidence: float | None = None
 
-        # Extract user input text for logging / debugging
-        user_input_text = ""
-        if isinstance(messages, str):
-            user_input_text = messages
-        elif isinstance(messages, list):
-            for msg in messages:
-                if isinstance(msg, str):
-                    user_input_text = msg
-                    break
-                if hasattr(msg, "text") and msg.text:
-                    user_input_text = msg.text
-                    break
-
-        logger.info(
-            "Starting workflow stream: thread_id=%s, user_input=%s",
-            thread_id,
-            user_input_text[:80] if user_input_text else "(empty)",
-        )
-
-        converter = self._get_converter()
+        logger.info("Starting workflow stream: thread_id=%s", thread_id)
 
         try:
             source = workflow.run(message=messages, stream=True)
@@ -186,196 +195,72 @@ class AGUIWorkflowAdapter:
                             current_agent = None
                         continue
 
-                    # --- HITL: request_info ---
-                    if event.type == "request_info" and isinstance(
-                        event.data, HandoffAgentUserRequest
-                    ):
-                        request_id = event.request_id
-                        self._pending_sessions[thread_id] = (
-                            workflow,
-                            request_id,
-                        )
-                        logger.info(
-                            "HITL pause: thread_id=%s request_id=%s",
-                            thread_id,
-                            request_id,
-                        )
-
-                        # Emit the agent's clarifying question as text events
-                        msg_id = str(_uuid.uuid4())
-                        agent_response = event.data.agent_response
-                        question_text = ""
-                        for msg in agent_response.messages:
-                            for content in msg.contents:
-                                if hasattr(content, "text") and content.text:
-                                    question_text += content.text
-
-                        if question_text:
-                            yield TextMessageStartEvent(
-                                message_id=msg_id, role="assistant"
-                            )
-                            yield TextMessageContentEvent(
-                                message_id=msg_id, delta=question_text
-                            )
-                            yield TextMessageEndEvent(message_id=msg_id)
-
-                        # Signal HITL needed
-                        yield CustomEvent(
-                            name="HITL_REQUIRED",
-                            value={"threadId": thread_id},
-                        )
-                        return  # End stream; client calls /respond
-
                     # --- Convert output/data events to AgentResponseUpdate ---
                     if event.type in ("output", "data"):
                         updates = (
-                            converter._convert_workflow_event_to_agent_response_updates(
+                            converter
+                            ._convert_workflow_event_to_agent_response_updates(
                                 response_id, event
                             )
                         )
                         for update in updates:
-                            # Echo filter: skip text from Orchestrator
-                            if (
-                                update.author_name
-                                and update.author_name.lower()
-                                == self._orchestrator.name.lower()
-                            ):
-                                # Check if this update has only text content
-                                has_only_text = all(
-                                    getattr(c, "type", None) == "text"
-                                    for c in (update.contents or [])
+                            if self._is_orchestrator_text(update):
+                                logger.debug(
+                                    "Filtering Orchestrator echo: %s",
+                                    update.text[:80] if update.text else "",
                                 )
-                                if has_only_text:
-                                    logger.debug(
-                                        "Filtering Orchestrator echo: %s",
-                                        update.text[:80] if update.text else "",
-                                    )
-                                    continue
+                                continue
+                            # Check for low-confidence in text updates
+                            if update.text and detected_confidence is None:
+                                conf = self._extract_confidence(update.text)
+                                if conf is not None:
+                                    detected_confidence = conf
                             yield update
+
+                    if event.type == "request_info":
+                        # Both agents are autonomous, so request_info
+                        # shouldn't fire. Skip if it does.
+                        logger.warning("Unexpected request_info event")
+                        continue
 
                     # Skip other workflow events (status, superstep, etc.)
 
                 elif isinstance(event, AgentResponseUpdate):
-                    # Direct AgentResponseUpdate from the stream
-                    # Echo filter: skip text from Orchestrator
-                    if (
-                        event.author_name
-                        and event.author_name.lower() == self._orchestrator.name.lower()
-                    ):
-                        has_only_text = all(
-                            getattr(c, "type", None) == "text"
-                            for c in (event.contents or [])
+                    if self._is_orchestrator_text(event):
+                        logger.debug(
+                            "Filtering direct Orchestrator echo: %s",
+                            event.text[:80] if event.text else "",
                         )
-                        if has_only_text:
-                            logger.debug(
-                                "Filtering direct Orchestrator echo: %s",
-                                event.text[:80] if event.text else "",
-                            )
-                            continue
+                        continue
+                    # Check for low-confidence in text updates
+                    if event.text and detected_confidence is None:
+                        conf = self._extract_confidence(event.text)
+                        if conf is not None:
+                            detected_confidence = conf
                     yield event
 
         except Exception as exc:
-            # Workflow may error after classification is complete
-            # (e.g., request_info timeout). Classification already
-            # filed to Cosmos DB -- let the stream end gracefully.
             logger.warning("Workflow stream error: %s", exc)
 
         # Final step finished for any open step
         if current_agent:
             yield StepFinishedEvent(step_name=current_agent)
 
-    async def _stream_resume(
-        self,
-        workflow: Workflow,
-        responses: dict[str, Any],
-    ) -> AsyncIterable[StreamItem]:
-        """Stream events from a resumed HITL workflow.
-
-        Same event processing as _stream_updates but for the
-        continuation after user clarification.
-        """
-        current_agent: str | None = None
-        response_id = str(_uuid.uuid4())
-        converter = self._get_converter()
-
-        try:
-            source = workflow.run(responses=responses, stream=True)
-            async for event in source:
-                if isinstance(event, WorkflowEvent):
-                    logger.info(
-                        "Resume WorkflowEvent: type=%s executor_id=%s",
-                        event.type,
-                        getattr(event, "executor_id", None),
-                    )
-
-                    if event.type == "executor_invoked" and event.executor_id:
-                        if current_agent and current_agent != event.executor_id:
-                            yield StepFinishedEvent(step_name=current_agent)
-                        current_agent = event.executor_id
-                        yield StepStartedEvent(step_name=current_agent)
-                        continue
-
-                    if event.type == "executor_completed" and event.executor_id:
-                        yield StepFinishedEvent(step_name=event.executor_id)
-                        if current_agent == event.executor_id:
-                            current_agent = None
-                        continue
-
-                    if event.type in ("output", "data"):
-                        updates = (
-                            converter._convert_workflow_event_to_agent_response_updates(
-                                response_id, event
-                            )
-                        )
-                        for update in updates:
-                            # On resume, Orchestrator shouldn't produce text,
-                            # but filter just in case
-                            if (
-                                update.author_name
-                                and update.author_name.lower()
-                                == self._orchestrator.name.lower()
-                            ):
-                                has_only_text = all(
-                                    getattr(c, "type", None) == "text"
-                                    for c in (update.contents or [])
-                                )
-                                if has_only_text:
-                                    continue
-                            yield update
-
-                elif isinstance(event, AgentResponseUpdate):
-                    yield event
-
-        except Exception as exc:
-            logger.warning("Resume stream error: %s", exc)
-
-        if current_agent:
-            yield StepFinishedEvent(step_name=current_agent)
-
-    async def resume_with_response(
-        self, thread_id: str, user_response: str
-    ) -> AsyncIterable[StreamItem]:
-        """Resume a paused HITL workflow with the user's clarification.
-
-        Pops the pending session for thread_id, creates the response
-        payload, and streams events from the resumed workflow.
-
-        Raises:
-            ValueError: If no pending session exists for thread_id.
-        """
-        if thread_id not in self._pending_sessions:
-            raise ValueError(f"No pending HITL session for thread_id={thread_id}")
-
-        workflow, request_id = self._pending_sessions.pop(thread_id)
-        logger.info(
-            "Resuming HITL: thread_id=%s request_id=%s",
-            thread_id,
-            request_id,
-        )
-
-        responses = {request_id: HandoffAgentUserRequest.create_response(user_response)}
-        async for item in self._stream_resume(workflow, responses):
-            yield item
+        # After workflow completes: if classification was low-confidence,
+        # signal HITL so the client can offer bucket buttons
+        if (
+            detected_confidence is not None
+            and detected_confidence < self._classification_threshold
+        ):
+            logger.info(
+                "Low-confidence detected (%.2f < %.2f), emitting HITL_REQUIRED",
+                detected_confidence,
+                self._classification_threshold,
+            )
+            yield CustomEvent(
+                name="HITL_REQUIRED",
+                value={"threadId": thread_id},
+            )
 
     def run(
         self,
@@ -406,12 +291,18 @@ class AGUIWorkflowAdapter:
 def create_capture_workflow(
     orchestrator: Agent,
     classifier: Agent,
+    classification_threshold: float = 0.6,
 ) -> AGUIWorkflowAdapter:
     """Build the AG-UI compatible adapter for the capture pipeline.
 
     The workflow routes: Orchestrator -> Classifier.
-    Only the Orchestrator runs in autonomous mode; the Classifier is
-    interactive for Phase 4 HITL support.
-    A fresh Workflow is created per request to avoid state leakage.
+    Both agents run in autonomous mode. HITL detection happens
+    post-classification by inspecting confidence in tool results.
+    A fresh WorkflowAgent is created per request to avoid state leakage.
     """
-    return AGUIWorkflowAdapter(orchestrator, classifier, name="SecondBrainPipeline")
+    return AGUIWorkflowAdapter(
+        orchestrator,
+        classifier,
+        name="SecondBrainPipeline",
+        classification_threshold=classification_threshold,
+    )
