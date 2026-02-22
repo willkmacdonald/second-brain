@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-21)
 ## Current Position
 
 Phase: 3 of 9 (Text Classification Pipeline)
-Plan: 0 of 3 in current phase
-Status: Ready to plan
-Last activity: 2026-02-22 -- Phase 2 complete (verified, Expo app shell with text capture)
+Plan: 1 of 2 in current phase
+Status: Executing
+Last activity: 2026-02-22 -- Plan 03-01 complete (classification pipeline backend)
 
-Progress: [##........] 22%
+Progress: [###.......] 27%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 5
+- Total plans completed: 6
 - Average duration: 3 min
-- Total execution time: 0.28 hours
+- Total execution time: 0.35 hours
 
 **By Phase:**
 
@@ -29,10 +29,11 @@ Progress: [##........] 22%
 |-------|-------|-------|----------|
 | 01-backend-foundation | 3/3 | 12 min | 4 min |
 | 02-expo-app-shell | 2/2 | 5 min | 2.5 min |
+| 03-text-classification-pipeline | 1/2 | 4 min | 4 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-02 (4 min), 01-03 (3 min), 02-01 (3 min), 02-02 (2 min)
-- Trend: stable/improving
+- Last 5 plans: 01-03 (3 min), 02-01 (3 min), 02-02 (2 min), 03-01 (4 min)
+- Trend: stable
 
 *Updated after each plan completion*
 
@@ -63,6 +64,12 @@ Recent decisions affecting current work:
 - [02-02]: EventSource<AGUIEventType> generic parameter for type-safe custom AG-UI event listeners
 - [02-02]: Inline state-driven toast instead of third-party library
 - [02-02]: Fire-and-forget: only RUN_FINISHED and error events, no TEXT_MESSAGE_CONTENT (Phase 4)
+- [03-01]: Shared AzureOpenAIChatClient across all agents (one client, not one per agent)
+- [03-01]: Orchestrator autonomous, Classifier interactive (Phase 4 HITL readiness)
+- [03-01]: All four bucket scores stored in ClassificationMeta.allScores for future threshold tuning
+- [03-01]: Bi-directional linking: InboxDocument.filedRecordId <-> BucketDocument.inboxRecordId
+- [03-01]: Used str type for bucket param (not Literal) for Agent Framework JSON schema compatibility
+- [03-01]: AsyncDefaultAzureCredential for Key Vault, sync DefaultAzureCredential for AzureOpenAIChatClient
 
 ### Pending Todos
 
@@ -76,6 +83,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-21
-Stopped at: Completed 02-02-PLAN.md (Phase 2 complete)
-Resume file: .planning/phases/02-expo-app-shell/02-02-SUMMARY.md
+Last session: 2026-02-22
+Stopped at: Completed 03-01-PLAN.md
+Resume file: .planning/phases/03-text-classification-pipeline/03-01-SUMMARY.md

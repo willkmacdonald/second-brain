@@ -67,7 +67,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 03-01-PLAN.md — Backend classification pipeline (models, tools, agents, workflow, main.py wiring)
+- [x] 03-01-PLAN.md — Backend classification pipeline (models, tools, agents, workflow, main.py wiring)
 - [ ] 03-02-PLAN.md — Mobile classification result toast + backend classification tests
 
 ### Phase 4: HITL Clarification and AG-UI Streaming

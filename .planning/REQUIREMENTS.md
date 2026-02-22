@@ -25,22 +25,22 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Orchestration
 
-- [ ] **ORCH-01**: Orchestrator Agent receives all input and routes to the correct specialist agent based on input type and context
-- [ ] **ORCH-02**: Orchestrator routes text input directly to Classifier Agent
+- [x] **ORCH-01**: Orchestrator Agent receives all input and routes to the correct specialist agent based on input type and context
+- [x] **ORCH-02**: Orchestrator routes text input directly to Classifier Agent
 - [ ] **ORCH-03**: Orchestrator routes audio input to Perception Agent first, then Classifier Agent
 - [ ] **ORCH-04**: Orchestrator routes classified Projects/Admin items to Action Agent for sharpening
 - [ ] **ORCH-05**: Orchestrator routes digest/summary requests to Digest Agent
-- [ ] **ORCH-06**: Orchestrator provides brief confirmation when the full agent chain completes
+- [x] **ORCH-06**: Orchestrator provides brief confirmation when the full agent chain completes
 
 ### Classification
 
-- [ ] **CLAS-01**: Classifier Agent classifies input into exactly one of four buckets: People, Projects, Ideas, or Admin
-- [ ] **CLAS-02**: Classifier assigns a confidence score (0.0–1.0) to each classification
-- [ ] **CLAS-03**: When confidence >= 0.6, Classifier silently files the record and confirms (e.g., "Filed → Projects (0.85)")
+- [x] **CLAS-01**: Classifier Agent classifies input into exactly one of four buckets: People, Projects, Ideas, or Admin
+- [x] **CLAS-02**: Classifier assigns a confidence score (0.0–1.0) to each classification
+- [x] **CLAS-03**: When confidence >= 0.6, Classifier silently files the record and confirms (e.g., "Filed → Projects (0.85)")
 - [ ] **CLAS-04**: When confidence < 0.6, Classifier asks the user a focused clarifying question before filing
 - [ ] **CLAS-05**: Classifier checks existing People and Projects records before creating new ones
 - [ ] **CLAS-06**: Classifier extracts cross-references (people mentioned in project captures, projects mentioned in people captures) and links them
-- [ ] **CLAS-07**: Every capture is logged to the Inbox container with full classification details and agent chain metadata
+- [x] **CLAS-07**: Every capture is logged to the Inbox container with full classification details and agent chain metadata
 
 ### Action Sharpening
 
@@ -131,19 +131,19 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CAPT-03 | Phase 5 | Pending |
 | CAPT-04 | Phase 5 | Pending |
 | CAPT-05 | Phase 2 | Complete |
-| ORCH-01 | Phase 3 | Pending |
-| ORCH-02 | Phase 3 | Pending |
+| ORCH-01 | Phase 3 | Complete |
+| ORCH-02 | Phase 3 | Complete |
 | ORCH-03 | Phase 5 | Pending |
 | ORCH-04 | Phase 6 | Pending |
 | ORCH-05 | Phase 8 | Pending |
-| ORCH-06 | Phase 3 | Pending |
-| CLAS-01 | Phase 3 | Pending |
-| CLAS-02 | Phase 3 | Pending |
-| CLAS-03 | Phase 3 | Pending |
+| ORCH-06 | Phase 3 | Complete |
+| CLAS-01 | Phase 3 | Complete |
+| CLAS-02 | Phase 3 | Complete |
+| CLAS-03 | Phase 3 | Complete |
 | CLAS-04 | Phase 4 | Pending |
 | CLAS-05 | Phase 7 | Pending |
 | CLAS-06 | Phase 7 | Pending |
-| CLAS-07 | Phase 3 | Pending |
+| CLAS-07 | Phase 3 | Complete |
 | ACTN-01 | Phase 6 | Pending |
 | ACTN-02 | Phase 6 | Pending |
 | ACTN-03 | Phase 6 | Pending |
