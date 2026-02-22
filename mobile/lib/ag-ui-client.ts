@@ -5,8 +5,8 @@ import type { AGUIEventType, SendCaptureOptions } from "./types";
 /**
  * Send a capture thought to the AG-UI backend via SSE POST.
  *
- * Fire-and-forget: listens for RUN_FINISHED (success) or error (failure).
- * Does NOT consume TEXT_MESSAGE_CONTENT deltas -- that is Phase 4 work.
+ * Accumulates TEXT_MESSAGE_CONTENT deltas to build the classification result
+ * string (e.g., "Filed -> Projects (0.85)"), then passes it to onComplete.
  *
  * Returns a cleanup function to abort the connection if the component unmounts.
  */
@@ -36,8 +36,24 @@ export function sendCapture({
     pollingInterval: 0, // CRITICAL: prevents auto-reconnection and duplicate captures
   });
 
+  // Accumulate classification result from TEXT_MESSAGE_CONTENT deltas
+  let result = "";
+
+  es.addEventListener("TEXT_MESSAGE_CONTENT", (event) => {
+    if (event.data) {
+      try {
+        const parsed = JSON.parse(event.data) as { delta?: string };
+        if (parsed.delta) {
+          result += parsed.delta;
+        }
+      } catch {
+        // Ignore malformed JSON chunks
+      }
+    }
+  });
+
   es.addEventListener("RUN_FINISHED", () => {
-    onComplete();
+    onComplete(result);
     es.close();
   });
 

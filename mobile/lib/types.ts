@@ -9,6 +9,6 @@ export type AGUIEventType =
 export interface SendCaptureOptions {
   message: string;
   apiKey: string;
-  onComplete: () => void;
+  onComplete: (result: string) => void;
   onError: (error: string) => void;
 }

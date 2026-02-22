@@ -7,7 +7,7 @@ import {
   StyleSheet,
 } from "react-native";
 import * as Haptics from "expo-haptics";
-import { router, Stack } from "expo-router";
+import { Stack } from "expo-router";
 import { sendCapture } from "../../lib/ag-ui-client";
 import { API_KEY } from "../../constants/config";
 
@@ -53,19 +53,17 @@ export default function TextCaptureScreen() {
     const cleanup = sendCapture({
       message: thought.trim(),
       apiKey: API_KEY,
-      onComplete: () => {
+      onComplete: (result: string) => {
         setSending(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        setToast({ message: "Sent", type: "success" });
-        setTimeout(() => {
-          router.back();
-        }, 500);
+        setToast({ message: result || "Captured", type: "success" });
+        setThought("");
       },
       onError: (error: string) => {
-        void error; // Fire-and-forget: show generic message per locked decision
+        void error; // Show generic message per locked CONTEXT.md decision
         setSending(false);
         setToast({
-          message: "Couldn\u2019t send \u2014 check connection",
+          message: "Couldn\u2019t file your capture. Try again.",
           type: "error",
         });
       },
