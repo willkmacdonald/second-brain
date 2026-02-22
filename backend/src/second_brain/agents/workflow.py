@@ -281,12 +281,12 @@ class AGUIWorkflowAdapter:
     ) -> Any:
         """Run the workflow, wrapping streaming output in a ResponseStream."""
         if stream:
-            # Extract thread_id from thread object if available
-            thread_id = None
-            if thread and hasattr(thread, "id"):
-                thread_id = str(thread.id)
+            # Prefer thread_id from kwargs (caller), fall back to thread.id
+            if "thread_id" not in kwargs:
+                if thread and hasattr(thread, "id"):
+                    kwargs["thread_id"] = str(thread.id)
             return ResponseStream(
-                self._stream_updates(messages, thread, thread_id=thread_id, **kwargs)
+                self._stream_updates(messages, thread, **kwargs)
             )
         # Non-streaming: create a workflow and run it
         workflow = self._create_workflow()
