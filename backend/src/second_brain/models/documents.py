@@ -10,6 +10,20 @@ from uuid import uuid4
 from pydantic import BaseModel, Field
 
 
+class ClassificationMeta(BaseModel):
+    """Structured classification metadata attached to every filed document.
+
+    All fields use camelCase per Phase 1 convention for Cosmos DB JSON.
+    """
+
+    bucket: str
+    confidence: float
+    allScores: dict[str, float]
+    classifiedBy: str
+    agentChain: list[str]
+    classifiedAt: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
 class BaseDocument(BaseModel):
     """Shared fields across all Cosmos DB containers."""
 
@@ -18,16 +32,20 @@ class BaseDocument(BaseModel):
     createdAt: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updatedAt: datetime = Field(default_factory=lambda: datetime.now(UTC))
     rawText: str
-    classificationMeta: dict | None = None
+    classificationMeta: ClassificationMeta | None = None
 
 
 class InboxDocument(BaseDocument):
     """Inbox container document -- raw capture log.
 
-    No additional fields beyond source for Phase 1.
+    Includes classification metadata, bi-directional link to bucket record,
+    and status tracking.
     """
 
     source: str = "text"
+    filedRecordId: str | None = None
+    status: str = "classified"
+    title: str | None = None
 
 
 class PeopleDocument(BaseDocument):
@@ -38,6 +56,7 @@ class PeopleDocument(BaseDocument):
     birthday: str | None = None
     contacts: dict | None = None
     lastInteraction: datetime | None = None
+    inboxRecordId: str | None = None
 
 
 class ProjectsDocument(BaseDocument):
@@ -46,6 +65,7 @@ class ProjectsDocument(BaseDocument):
     title: str
     status: str = "active"
     nextAction: str | None = None
+    inboxRecordId: str | None = None
 
 
 class IdeasDocument(BaseDocument):
@@ -53,6 +73,7 @@ class IdeasDocument(BaseDocument):
 
     title: str
     tags: list[str] = Field(default_factory=list)
+    inboxRecordId: str | None = None
 
 
 class AdminDocument(BaseDocument):
@@ -61,6 +82,7 @@ class AdminDocument(BaseDocument):
     title: str
     nextAction: str | None = None
     dueDate: str | None = None
+    inboxRecordId: str | None = None
 
 
 CONTAINER_MODELS: dict[str, type[BaseDocument]] = {

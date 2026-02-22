@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     key_vault_url: str = ""
     api_key_secret_name: str = "sb-api-key"
 
+    # Classification
+    classification_threshold: float = 0.6
+
     # Database
     database_name: str = "second-brain"
 

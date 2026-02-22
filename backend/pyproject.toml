@@ -7,6 +7,7 @@ dependencies = [
     # Agent Framework + AG-UI (installs agent-framework-core, fastapi, uvicorn)
     # NOTE: requires --prerelease=allow during install (RC packages)
     "agent-framework-ag-ui",
+    "agent-framework-orchestrations",
     # Azure services
     "azure-cosmos",
     "azure-identity",
@@ -47,6 +48,8 @@ select = ["E", "F", "I", "UP", "B", "SIM", "N"]
 "src/second_brain/main.py" = ["E402", "I001"]
 # Document models use camelCase field names to match Cosmos DB JSON schema
 "src/second_brain/models/documents.py" = ["N815"]
+# Classification tools access camelCase ClassificationMeta fields
+"src/second_brain/tools/classification.py" = ["N815"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
