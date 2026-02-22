@@ -13,12 +13,9 @@ import uuid as _uuid
 from collections.abc import AsyncIterable, Sequence
 from typing import Any, Literal, overload
 
-from ag_ui.core import EventType
 from ag_ui.core.events import (
     BaseEvent,
     CustomEvent,
-    RunFinishedEvent,
-    RunStartedEvent,
     StepFinishedEvent,
     StepStartedEvent,
     TextMessageContentEvent,
@@ -30,7 +27,6 @@ from agent_framework import (
     AgentResponse,
     AgentResponseUpdate,
     AgentThread,
-    Content,
     Message,
     Workflow,
     WorkflowAgent,
@@ -103,9 +99,7 @@ class AGUIWorkflowAdapter:
         """Lazily create a WorkflowAgent for its event converter method."""
         if self._converter_agent is None:
             workflow = self._create_workflow()
-            self._converter_agent = WorkflowAgent(
-                workflow, name="ConverterHelper"
-            )
+            self._converter_agent = WorkflowAgent(workflow, name="ConverterHelper")
         return self._converter_agent
 
     @overload
@@ -235,8 +229,7 @@ class AGUIWorkflowAdapter:
                     # --- Convert output/data events to AgentResponseUpdate ---
                     if event.type in ("output", "data"):
                         updates = (
-                            converter
-                            ._convert_workflow_event_to_agent_response_updates(
+                            converter._convert_workflow_event_to_agent_response_updates(
                                 response_id, event
                             )
                         )
@@ -267,8 +260,7 @@ class AGUIWorkflowAdapter:
                     # Echo filter: skip text from Orchestrator
                     if (
                         event.author_name
-                        and event.author_name.lower()
-                        == self._orchestrator.name.lower()
+                        and event.author_name.lower() == self._orchestrator.name.lower()
                     ):
                         has_only_text = all(
                             getattr(c, "type", None) == "text"
@@ -317,19 +309,13 @@ class AGUIWorkflowAdapter:
                     )
 
                     if event.type == "executor_invoked" and event.executor_id:
-                        if (
-                            current_agent
-                            and current_agent != event.executor_id
-                        ):
+                        if current_agent and current_agent != event.executor_id:
                             yield StepFinishedEvent(step_name=current_agent)
                         current_agent = event.executor_id
                         yield StepStartedEvent(step_name=current_agent)
                         continue
 
-                    if (
-                        event.type == "executor_completed"
-                        and event.executor_id
-                    ):
+                    if event.type == "executor_completed" and event.executor_id:
                         yield StepFinishedEvent(step_name=event.executor_id)
                         if current_agent == event.executor_id:
                             current_agent = None
@@ -337,8 +323,7 @@ class AGUIWorkflowAdapter:
 
                     if event.type in ("output", "data"):
                         updates = (
-                            converter
-                            ._convert_workflow_event_to_agent_response_updates(
+                            converter._convert_workflow_event_to_agent_response_updates(
                                 response_id, event
                             )
                         )
@@ -379,9 +364,7 @@ class AGUIWorkflowAdapter:
             ValueError: If no pending session exists for thread_id.
         """
         if thread_id not in self._pending_sessions:
-            raise ValueError(
-                f"No pending HITL session for thread_id={thread_id}"
-            )
+            raise ValueError(f"No pending HITL session for thread_id={thread_id}")
 
         workflow, request_id = self._pending_sessions.pop(thread_id)
         logger.info(
@@ -390,9 +373,7 @@ class AGUIWorkflowAdapter:
             request_id,
         )
 
-        responses = {
-            request_id: HandoffAgentUserRequest.create_response(user_response)
-        }
+        responses = {request_id: HandoffAgentUserRequest.create_response(user_response)}
         async for item in self._stream_resume(workflow, responses):
             yield item
 
@@ -411,9 +392,7 @@ class AGUIWorkflowAdapter:
             if thread and hasattr(thread, "id"):
                 thread_id = str(thread.id)
             return ResponseStream(
-                self._stream_updates(
-                    messages, thread, thread_id=thread_id, **kwargs
-                )
+                self._stream_updates(messages, thread, thread_id=thread_id, **kwargs)
             )
         # Non-streaming: create a workflow and run it
         workflow = self._create_workflow()
