@@ -197,10 +197,19 @@ class AGUIWorkflowAdapter:
 
                     # --- Convert output/data events to AgentResponseUpdate ---
                     if event.type in ("output", "data"):
+                        # The converter only handles type="output"; for "data"
+                        # events we re-wrap as "output" since the payload is
+                        # identical.
+                        convert_event = event
+                        if event.type == "data":
+                            convert_event = WorkflowEvent.output(
+                                executor_id=event.executor_id or "",
+                                data=event.data,
+                            )
                         updates = (
                             converter
                             ._convert_workflow_event_to_agent_response_updates(
-                                response_id, event
+                                response_id, convert_event
                             )
                         )
                         for update in updates:
