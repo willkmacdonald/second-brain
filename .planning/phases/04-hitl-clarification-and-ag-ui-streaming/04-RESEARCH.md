@@ -873,3 +873,152 @@ export function AgentSteps({ currentStep, completedSteps }: AgentStepsProps) {
 
 **Research date:** 2026-02-22
 **Valid until:** 2026-03-22 (check Agent Framework releases for echo bug fix and any request_info changes)
+
+---
+
+## Deep Dive Addendum (Codebase Verification)
+
+*Added 2026-02-22 after deep investigation of installed packages and existing codebase.*
+
+### 1. HITL request_info Flow — VERIFIED
+
+**HandoffAgentUserRequest** (exact location: `agent_framework_orchestrations/_handoff.py:146-181`):
+```python
+@dataclass
+class HandoffAgentUserRequest:
+    agent_response: AgentResponse
+
+    @staticmethod
+    def create_response(response: str | list[str] | Message | list[Message]) -> list[Message]:
+        ...
+
+    @staticmethod
+    def terminate() -> list[Message]:
+        return []
+```
+
+**request_info WorkflowEvent fields:**
+- `event.type` = `"request_info"`
+- `event.data` = `HandoffAgentUserRequest` instance (contains agent's response with clarifying question)
+- `event.request_id` = UUID string for correlating response
+- `event.source_executor_id` = Agent that requested user input
+- `event.response_type` = `list[Message]`
+
+**Emission point** (HandoffAgentExecutor._run_agent_and_emit, line 434):
+```python
+# Agent completes turn without handoff AND not in autonomous mode:
+await ctx.request_info(HandoffAgentUserRequest(response), list[Message])
+```
+
+**workflow.run(responses=...)** — verified:
+```python
+def run(self, message=None, *, stream=False, responses: dict[str, Any] | None = None, ...):
+```
+- `message` and `responses` are **mutually exclusive**
+- Keys = request_ids, Values = response data matching response_type
+- Example: `workflow.run(responses={"req-uuid": HandoffAgentUserRequest.create_response("user input")})`
+
+**with_autonomous_mode()** — verified selective support:
+```python
+def with_autonomous_mode(self, *, agents=None, prompts=None, turn_limits=None):
+```
+- `agents`: If provided, ONLY those agents are autonomous; others are interactive (emit request_info)
+- Current code: `agents=[self._orchestrator, self._classifier]` → Phase 4 change: `agents=[self._orchestrator]`
+
+**Current adapter skip** (workflow.py:118): `if event.type == "request_info": continue`
+
+### 2. Echo Bug — ROOT CAUSE IDENTIFIED
+
+**The echo is NOT from the user's input being prepended.** It's from the **Orchestrator Agent's TEXT_MESSAGE_CONTENT** events.
+
+**Event sequence during a capture:**
+1. Orchestrator receives user message, generates routing response (which echoes input)
+2. Orchestrator's response streams as TEXT_MESSAGE_CONTENT deltas
+3. Handoff to Classifier occurs
+4. Classifier's response streams as TEXT_MESSAGE_CONTENT deltas
+5. Client accumulates ALL TEXT_MESSAGE_CONTENT → gets Orchestrator echo + Classifier result
+
+**Current client code** (ag-ui-client.ts:39-61):
+```typescript
+if (parsed.type === "TEXT_MESSAGE_CONTENT" && parsed.delta) {
+    result += parsed.delta;  // Accumulates ALL deltas from ALL agents
+}
+```
+
+**Best fix: Server-side filtering in adapter.** Options:
+1. Track which agent is emitting via `event.executor_id` and only yield Classifier events
+2. Or: When Orchestrator completes and Classifier starts, reset the text accumulation
+3. Server-side is preferred — single source of truth, reduces bandwidth
+
+**Note:** If AG-UI events include `author_name` in TEXT_MESSAGE_CONTENT, the client can also filter by agent name.
+
+### 3. Step Event Emission — KEY FINDING: `handoff_sent` Event
+
+**The `"handoff_sent"` event is the definitive agent transition marker.**
+
+WorkflowEvent types relevant to step tracking:
+| Event Type | executor_id | Use |
+|---|---|---|
+| `"executor_invoked"` | ✓ (agent name) | Agent started processing |
+| `"executor_completed"` | ✓ (agent name) | Agent finished processing |
+| `"handoff_sent"` | ✗ | **Agent transition** — `event.data` is `HandoffSentEvent(source, target)` |
+| `"data"` | ✓ (agent name) | Agent response/tool result |
+
+**AG-UI step event classes** (ag_ui/core/events.py):
+```python
+class StepStartedEvent(BaseEvent):
+    type: Literal[EventType.STEP_STARTED] = EventType.STEP_STARTED
+    step_name: str
+    timestamp: Optional[int] = None
+
+class StepFinishedEvent(BaseEvent):
+    type: Literal[EventType.STEP_FINISHED] = EventType.STEP_FINISHED
+    step_name: str
+    timestamp: Optional[int] = None
+```
+
+**Implementation plan for adapter:**
+1. On `"executor_invoked"` with executor_id → emit `StepStartedEvent(step_name=executor_id)`
+2. On `"executor_completed"` with executor_id → emit `StepFinishedEvent(step_name=executor_id)`
+3. `"handoff_sent"` confirms transition (use for logging/debugging)
+
+**Tool call events are already emitted** by the internal converter (`_convert_workflow_event_to_agent_response_updates` handles FunctionCallContent).
+
+### 4. Conversation UX Flow — GAP ANALYSIS
+
+**Current state:**
+- Mobile: 2 screens (home + text capture modal), stack navigation, no tabs
+- thread_id: Generated as `thread-${Date.now()}`, NOT persisted
+- No state management (no Context, no Zustand, no Redux)
+- Fire-and-forget UX — once RUN_FINISHED, capture is done
+- No /respond endpoint on server
+
+**What HITL needs:**
+1. **Thread persistence**: Store threadId when HITL_REQUIRED custom event arrives
+2. **Conversation screen**: `app/conversation/[threadId].tsx` (dynamic expo-router route)
+3. **State container**: React Context + useReducer (simplest, no new deps) for active conversations
+4. **Respond endpoint**: `POST /api/ag-ui/respond` on backend
+5. **Navigation**: From SSE callback → store thread → `router.push(\`/conversation/${threadId}\`)`
+
+**Recommended flow:**
+```
+sendCapture() → SSE stream → CUSTOM(HITL_REQUIRED) event arrives
+  → Store {threadId, question} in ConversationContext
+  → router.push(`/conversation/${threadId}`)
+  → ConversationScreen reads params, displays question + TextInput
+  → User responds → sendClarification({threadId, response}) → new SSE stream
+  → RUN_FINISHED → navigate back with success toast
+```
+
+**Inbox screen** also needs:
+- `GET /api/inbox` REST endpoint (not SSE)
+- FlatList with pull-to-refresh
+- Items show rawText, bucket, confidence, agentChain
+- Low-confidence items tap → navigate to conversation
+
+### 5. Cosmos DB Consideration
+
+Inbox documents already have `classificationMeta.agentChain` (array of agent names) and `status` field. For Inbox listing:
+- Query: `SELECT * FROM c WHERE c.userId = @userId ORDER BY c.createdAt DESC OFFSET 0 LIMIT @limit`
+- Partition key: `"will"`
+- **Add composite index** on `(userId ASC, createdAt DESC)` for efficient ordered queries
