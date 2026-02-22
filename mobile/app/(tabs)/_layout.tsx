@@ -30,7 +30,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => (
             <TabIcon label={"\uD83D\uDCC2"} color={color} />
           ),
-          // Badge count for pending clarifications (Plan 04-03 will populate)
+          // Badge count set dynamically via navigation.setOptions in InboxScreen
           tabBarBadge: undefined,
         }}
       />
