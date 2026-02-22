@@ -1,4 +1,4 @@
-"""FastAPI app with AG-UI endpoint, echo agent, and OpenTelemetry tracing."""
+"""FastAPI app with AG-UI endpoint, capture pipeline, and OpenTelemetry tracing."""
 
 import logging
 from contextlib import asynccontextmanager
@@ -13,16 +13,21 @@ from agent_framework.observability import configure_otel_providers  # noqa: E402
 # Configure OpenTelemetry immediately after load_dotenv (Pattern 4 from research)
 configure_otel_providers()
 
+from agent_framework.azure import AzureOpenAIChatClient  # noqa: E402
 from agent_framework_ag_ui import add_agent_framework_fastapi_endpoint  # noqa: E402
-from azure.identity.aio import DefaultAzureCredential  # noqa: E402
+from azure.identity import DefaultAzureCredential  # noqa: E402
+from azure.identity.aio import DefaultAzureCredential as AsyncDefaultAzureCredential  # noqa: E402
 from azure.keyvault.secrets.aio import SecretClient as KeyVaultSecretClient  # noqa: E402
 from fastapi import FastAPI  # noqa: E402
 
-from second_brain.agents.echo import create_echo_agent  # noqa: E402
+from second_brain.agents.classifier import create_classifier_agent  # noqa: E402
+from second_brain.agents.orchestrator import create_orchestrator_agent  # noqa: E402
+from second_brain.agents.workflow import create_capture_workflow  # noqa: E402
 from second_brain.api.health import router as health_router  # noqa: E402
 from second_brain.auth import APIKeyMiddleware  # noqa: E402
 from second_brain.config import get_settings  # noqa: E402
 from second_brain.db.cosmos import CosmosManager  # noqa: E402
+from second_brain.tools.classification import ClassificationTools  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +38,7 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
 
     # Fetch API key from Azure Key Vault (per locked CONTEXT.md decision)
-    credential = DefaultAzureCredential()
+    credential = AsyncDefaultAzureCredential()
     try:
         kv_client = KeyVaultSecretClient(
             vault_url=settings.key_vault_url, credential=credential
@@ -52,12 +57,14 @@ async def lifespan(app: FastAPI):
         await credential.close()
 
     # Initialize Cosmos DB client singleton
-    cosmos_manager = CosmosManager(
+    cosmos_manager: CosmosManager | None = None
+    cosmos_mgr = CosmosManager(
         endpoint=settings.cosmos_endpoint,
         database_name=settings.database_name,
     )
     try:
-        await cosmos_manager.initialize()
+        await cosmos_mgr.initialize()
+        cosmos_manager = cosmos_mgr
         app.state.cosmos_manager = cosmos_manager
         logger.info("Cosmos DB manager initialized")
     except Exception:
@@ -67,10 +74,29 @@ async def lifespan(app: FastAPI):
         )
         app.state.cosmos_manager = None
 
-    # Create the echo agent with CRUD tools (requires cosmos_manager from lifespan)
-    agent = create_echo_agent(cosmos_manager=app.state.cosmos_manager)
-    add_agent_framework_fastapi_endpoint(app, agent, "/api/ag-ui")
-    logger.info("Echo agent registered with AG-UI endpoint")
+    # Create shared chat client (sync credential -- AzureOpenAIChatClient expects
+    # TokenCredential, not AsyncTokenCredential, per Phase 1 decision)
+    chat_client = AzureOpenAIChatClient(
+        credential=DefaultAzureCredential(),
+        endpoint=settings.azure_openai_endpoint,
+        deployment_name=settings.azure_openai_chat_deployment_name,
+    )
+
+    # Create classification tools (None-safe: tools will error at runtime
+    # if called without Cosmos, but server still starts)
+    classification_tools = ClassificationTools(
+        cosmos_manager=cosmos_manager,
+        classification_threshold=settings.classification_threshold,
+    )
+
+    # Create agents
+    orchestrator = create_orchestrator_agent(chat_client)
+    classifier = create_classifier_agent(chat_client, classification_tools)
+
+    # Build workflow and register with AG-UI endpoint
+    workflow_agent = create_capture_workflow(orchestrator, classifier)
+    add_agent_framework_fastapi_endpoint(app, workflow_agent, "/api/ag-ui")
+    logger.info("Capture pipeline registered with AG-UI endpoint")
 
     yield
 

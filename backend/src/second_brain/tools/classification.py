@@ -94,9 +94,7 @@ class ClassificationTools:
         bucket_doc_id = str(uuid4())
 
         # Determine status based on threshold
-        status = (
-            "classified" if confidence >= self._threshold else "low_confidence"
-        )
+        status = "classified" if confidence >= self._threshold else "low_confidence"
 
         # Create Inbox document
         inbox_doc = InboxDocument(
