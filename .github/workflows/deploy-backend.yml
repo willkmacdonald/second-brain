@@ -10,10 +10,9 @@ permissions:
   contents: read
 
 env:
-  # TODO: Replace <ACR_NAME_PLACEHOLDER> with your Azure Container Registry name (e.g., myregistry)
-  ACR_NAME: <ACR_NAME_PLACEHOLDER>
+  ACR_NAME: wkmsharedservicesacr
   CONTAINER_APP_NAME: second-brain-api
-  # TODO: Replace <RG_PLACEHOLDER> with your Azure resource group name
+  # TODO: Replace <RG_PLACEHOLDER> with your Azure resource group name (e.g., az group list -o table)
   RESOURCE_GROUP: <RG_PLACEHOLDER>
   IMAGE_NAME: second-brain-api
 
