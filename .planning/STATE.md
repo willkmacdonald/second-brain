@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-21)
 
 **Core value:** One-tap capture from a phone instantly routes through an agent chain that classifies, files, and sharpens thoughts into concrete next actions -- with zero organizational effort.
-**Current focus:** Phase 5: Voice Capture (next up)
+**Current focus:** Phase 4: Gap Closure (plans 04-05 remaining)
 
 ## Current Position
 
-Phase: 4 of 9 (HITL Clarification and AG-UI Streaming) -- COMPLETE
-Plan: 3 of 3 in current phase (all plans complete)
-Status: Phase Complete
-Last activity: 2026-02-22 -- Plan 04-03 complete (inbox list view, conversation screen, full Phase 4 UX verified)
+Phase: 4 of 9 (HITL Clarification and AG-UI Streaming) -- Gap Closure
+Plan: 4 of 5 in current phase
+Status: In Progress
+Last activity: 2026-02-23 -- Plan 04-04 complete (backend gap closure: request_clarification tool, HITL inboxItemId, upsert respond)
 
 Progress: [######....] 56%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 10
+- Total plans completed: 11
 - Average duration: 4.8 min
-- Total execution time: 0.80 hours
+- Total execution time: 0.88 hours
 
 **By Phase:**
 
@@ -30,11 +30,11 @@ Progress: [######....] 56%
 | 01-backend-foundation | 3/3 | 12 min | 4 min |
 | 02-expo-app-shell | 2/2 | 5 min | 2.5 min |
 | 03-text-classification-pipeline | 2/2 | 7 min | 3.5 min |
-| 04-hitl-clarification-and-ag-ui-streaming | 3/3 | 24 min | 8 min |
+| 04-hitl-clarification-and-ag-ui-streaming | 4/5 | 29 min | 7.25 min |
 
 **Recent Trend:**
-- Last 5 plans: 03-02 (3 min), 04-01 (9 min), 04-02 (3 min), 04-03 (12 min)
-- Trend: Phase 4 complete; HITL verification checkpoint added time
+- Last 5 plans: 03-02 (3 min), 04-01 (9 min), 04-02 (3 min), 04-03 (12 min), 04-04 (5 min)
+- Trend: Gap closure plans executing efficiently
 
 *Updated after each plan completion*
 
@@ -88,6 +88,10 @@ Recent decisions affecting current work:
 - [04-03]: Detail card as Modal overlay within inbox screen, not a separate route
 - [04-03]: Conversation screen fetches item detail via GET /api/inbox/{threadId} for context display
 - [04-03]: Expired HITL sessions handled gracefully with resubmission message
+- [04-04]: request_clarification returns "Clarification -> {uuid} | {text}" format parsed by adapter regex
+- [04-04]: Respond endpoint uses upsert_item on existing Inbox doc (not classify_and_file re-call)
+- [04-04]: HITL_REQUIRED event includes inboxItemId and questionText for client resolution
+- [04-04]: Clarification detection prioritized over confidence detection in adapter scanning
 
 ### Pending Todos
 
@@ -101,6 +105,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-22
-Stopped at: Completed 04-03-PLAN.md (Phase 4 complete)
-Resume file: .planning/phases/04-hitl-clarification-and-ag-ui-streaming/04-03-SUMMARY.md
+Last session: 2026-02-23
+Stopped at: Completed 04-04-PLAN.md (backend gap closure)
+Resume file: .planning/phases/04-hitl-clarification-and-ag-ui-streaming/04-04-SUMMARY.md
