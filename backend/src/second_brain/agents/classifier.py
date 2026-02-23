@@ -86,20 +86,34 @@ def create_classifier_agent(
             "characters, empty phrases, keyboard mashing), call mark_as_junk "
             "instead of classify_and_file.\n\n"
             "## Rules\n\n"
-            "1. ALWAYS call classify_and_file with your best bucket and honest "
-            "confidence score\n"
-            "2. NEVER respond without calling classify_and_file or mark_as_junk\n"
-            "3. You MUST provide ALL FOUR bucket scores (people_score, "
+            "1. When confidence >= 0.6, call classify_and_file immediately "
+            "with your best bucket\n"
+            "2. When confidence < 0.6, call request_clarification instead "
+            "-- do NOT call classify_and_file for low-confidence "
+            "classifications\n"
+            "3. NEVER respond without calling classify_and_file, "
+            "request_clarification, or mark_as_junk\n"
+            "4. You MUST provide ALL FOUR bucket scores (people_score, "
             "projects_score, ideas_score, admin_score) that sum roughly to 1.0\n"
-            "4. After filing, respond with ONLY the confirmation string returned "
+            "5. After filing, respond with ONLY the confirmation string returned "
             "by the tool (e.g., 'Filed -> Projects (0.85)')\n"
-            "5. Do NOT add any extra commentary before or after the confirmation"
+            "6. Do NOT add any extra commentary before or after the confirmation\n\n"
+            "## Low Confidence Handling\n\n"
+            "When your confidence is below 0.6, you MUST call request_clarification "
+            "instead of classify_and_file. In your clarification_text parameter, "
+            "explain "
+            "your top 2 bucket candidates with their scores and why you're torn. "
+            "Be specific to this capture -- do NOT use generic questions.\n\n"
+            "Example clarification_text: 'I'm torn between People (0.55) and Projects "
+            "(0.42). This mentions Mike (a person) but also discusses a potential "
+            "relocation which could be a life project. Which fits better?'\n"
         ),
         description=(
             "Classifies text into People/Projects/Ideas/Admin and files to Cosmos DB"
         ),
         tools=[
             classification_tools.classify_and_file,
+            classification_tools.request_clarification,
             classification_tools.mark_as_junk,
         ],
     )

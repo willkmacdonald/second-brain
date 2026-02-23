@@ -46,6 +46,7 @@ class InboxDocument(BaseDocument):
     filedRecordId: str | None = None
     status: str = "classified"
     title: str | None = None
+    clarificationText: str | None = None
 
 
 class PeopleDocument(BaseDocument):
