@@ -85,8 +85,8 @@ Plans:
 - [x] 04-01-PLAN.md — Backend HITL workflow, AG-UI step events, echo filter, respond endpoint, Inbox API
 - [x] 04-02-PLAN.md — Mobile tab navigation, capture screen with step dots, streaming text, inline HITL bucket buttons
 - [x] 04-03-PLAN.md — Inbox list view with detail cards and conversation screen for pending clarifications
-- [ ] 04-04-PLAN.md — [Gap fix] Backend: request_clarification tool, classifier instructions, adapter HITL detection, respond endpoint fix
-- [ ] 04-05-PLAN.md — [Gap fix] Mobile: inboxItemId flow, real clarification text, top-2 bucket emphasis
+- [x] 04-04-PLAN.md — [Gap fix] Backend: request_clarification tool, classifier instructions, adapter HITL detection, respond endpoint fix
+- [x] 04-05-PLAN.md — [Gap fix] Mobile: inboxItemId flow, real clarification text, top-2 bucket emphasis
 
 ### Phase 5: Voice Capture
 **Goal**: Will can speak a thought into the app and have it transcribed, classified, and filed automatically
@@ -176,7 +176,7 @@ Note: Phases 5, 6, 7, and 9 depend only on Phase 3 and can be parallelized, but 
 | 1. Backend Foundation | 3/3 | Complete | 2026-02-21 |
 | 2. Expo App Shell | 2/2 | Complete    | 2026-02-22 |
 | 3. Text Classification Pipeline | 2/2 | Complete | 2026-02-22 |
-| 4. HITL Clarification and AG-UI Streaming | 3/5 | Gap closure | 2026-02-22 |
+| 4. HITL Clarification and AG-UI Streaming | 5/5 | Complete | 2026-02-23 |
 | 5. Voice Capture | 0/3 | Not started | - |
 | 6. Action Sharpening | 0/2 | Not started | - |
 | 7. People CRM and Cross-References | 0/3 | Not started | - |
