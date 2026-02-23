@@ -12,8 +12,7 @@ permissions:
 env:
   ACR_NAME: wkmsharedservicesacr
   CONTAINER_APP_NAME: second-brain-api
-  # TODO: Replace <RG_PLACEHOLDER> with your Azure resource group name (e.g., az group list -o table)
-  RESOURCE_GROUP: <RG_PLACEHOLDER>
+  RESOURCE_GROUP: shared-services-rg
   IMAGE_NAME: second-brain-api
 
 jobs:
