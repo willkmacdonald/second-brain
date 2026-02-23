@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-21)
 
 **Core value:** One-tap capture from a phone instantly routes through an agent chain that classifies, files, and sharpens thoughts into concrete next actions -- with zero organizational effort.
-**Current focus:** Phase 4: Gap Closure (plans 04-05 remaining)
+**Current focus:** Phase 4 complete -- ready for Phase 5 (Voice Capture)
 
 ## Current Position
 
-Phase: 4 of 9 (HITL Clarification and AG-UI Streaming) -- Gap Closure
-Plan: 4 of 5 in current phase
-Status: In Progress
-Last activity: 2026-02-23 -- Plan 04-04 complete (backend gap closure: request_clarification tool, HITL inboxItemId, upsert respond)
+Phase: 4 of 9 (HITL Clarification and AG-UI Streaming) -- COMPLETE
+Plan: 5 of 5 in current phase
+Status: Phase Complete
+Last activity: 2026-02-23 -- Plan 04-05 complete (frontend gap closure: clarificationText, inboxItemId, top-2 bucket emphasis)
 
-Progress: [######....] 56%
+Progress: [######....] 60%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 11
-- Average duration: 4.8 min
-- Total execution time: 0.88 hours
+- Total plans completed: 12
+- Average duration: 4.5 min
+- Total execution time: 0.93 hours
 
 **By Phase:**
 
@@ -30,11 +30,11 @@ Progress: [######....] 56%
 | 01-backend-foundation | 3/3 | 12 min | 4 min |
 | 02-expo-app-shell | 2/2 | 5 min | 2.5 min |
 | 03-text-classification-pipeline | 2/2 | 7 min | 3.5 min |
-| 04-hitl-clarification-and-ag-ui-streaming | 4/5 | 29 min | 7.25 min |
+| 04-hitl-clarification-and-ag-ui-streaming | 5/5 | 32 min | 6.4 min |
 
 **Recent Trend:**
-- Last 5 plans: 03-02 (3 min), 04-01 (9 min), 04-02 (3 min), 04-03 (12 min), 04-04 (5 min)
-- Trend: Gap closure plans executing efficiently
+- Last 5 plans: 04-01 (9 min), 04-02 (3 min), 04-03 (12 min), 04-04 (5 min), 04-05 (3 min)
+- Trend: Phase 4 complete; gap closure plans executing efficiently
 
 *Updated after each plan completion*
 
@@ -92,6 +92,10 @@ Recent decisions affecting current work:
 - [04-04]: Respond endpoint uses upsert_item on existing Inbox doc (not classify_and_file re-call)
 - [04-04]: HITL_REQUIRED event includes inboxItemId and questionText for client resolution
 - [04-04]: Clarification detection prioritized over confidence detection in adapter scanning
+- [04-05]: Top 2 buckets on capture screen derived from questionText heuristic (first 2 BUCKETS mentioned)
+- [04-05]: Top 2 buckets on conversation screen derived from allScores sorting (data-driven)
+- [04-05]: clarificationText as primary question source; generic question is fallback only
+- [04-05]: isPending checks both 'pending' and 'low_confidence' for backward compatibility
 
 ### Pending Todos
 
@@ -106,5 +110,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-23
-Stopped at: Completed 04-04-PLAN.md (backend gap closure)
-Resume file: .planning/phases/04-hitl-clarification-and-ag-ui-streaming/04-04-SUMMARY.md
+Stopped at: Completed 04-05-PLAN.md (frontend gap closure -- Phase 4 complete)
+Resume file: .planning/phases/04-hitl-clarification-and-ag-ui-streaming/04-05-SUMMARY.md
