@@ -79,7 +79,7 @@ Plans:
   2. When classification confidence is < 0.6, the user is asked a focused clarifying question before filing
   3. Inbox view shows recent captures with the agent chain that processed each one
   4. Conversation view opens when a specialist needs clarification, showing a focused chat
-**Plans**: 5 plans (3 original + 2 gap closure)
+**Plans**: 6 plans (3 original + 3 gap closure)
 
 Plans:
 - [x] 04-01-PLAN.md — Backend HITL workflow, AG-UI step events, echo filter, respond endpoint, Inbox API
@@ -87,6 +87,7 @@ Plans:
 - [x] 04-03-PLAN.md — Inbox list view with detail cards and conversation screen for pending clarifications
 - [x] 04-04-PLAN.md — [Gap fix] Backend: request_clarification tool, classifier instructions, adapter HITL detection, respond endpoint fix
 - [x] 04-05-PLAN.md — [Gap fix] Mobile: inboxItemId flow, real clarification text, top-2 bucket emphasis
+- [ ] 04-06-PLAN.md — [UAT fix] Remove Classifier autonomous mode, fix useCallback closure bug, harden respond endpoint, inbox auto-refresh
 
 ### Phase 04.1: Backend Deployment to Azure Container Apps (INSERTED)
 
@@ -187,7 +188,7 @@ Note: Phases 5, 6, 7, and 9 depend only on Phase 3 and can be parallelized, but 
 | 1. Backend Foundation | 3/3 | Complete | 2026-02-21 |
 | 2. Expo App Shell | 2/2 | Complete    | 2026-02-22 |
 | 3. Text Classification Pipeline | 2/2 | Complete | 2026-02-22 |
-| 4. HITL Clarification and AG-UI Streaming | 5/5 | Complete | 2026-02-23 |
+| 4. HITL Clarification and AG-UI Streaming | 5/6 | UAT gap closure | - |
 | 4.1 Backend Deployment to Azure Container Apps | 2/2 | Complete | 2026-02-23 |
 | 5. Voice Capture | 0/3 | Not started | - |
 | 6. Action Sharpening | 0/2 | Not started | - |
