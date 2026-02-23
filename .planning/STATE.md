@@ -97,6 +97,10 @@ Recent decisions affecting current work:
 - [04-05]: clarificationText as primary question source; generic question is fallback only
 - [04-05]: isPending checks both 'pending' and 'low_confidence' for backward compatibility
 
+### Roadmap Evolution
+
+- Phase 04.1 inserted after Phase 4: Backend Deployment to Azure Container Apps (URGENT) — cannot do real UAT without deployed backend
+
 ### Pending Todos
 
 None yet.
@@ -110,5 +114,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-23
-Stopped at: Completed 04-05-PLAN.md (frontend gap closure -- Phase 4 complete)
-Resume file: .planning/phases/04-hitl-clarification-and-ag-ui-streaming/04-05-SUMMARY.md
+Stopped at: Phase 04.1 context gathered
+Resume file: .planning/phases/04.1-backend-deployment-to-azure-container-apps/04.1-CONTEXT.md
