@@ -96,7 +96,7 @@ export default function ConversationScreen() {
       // Cleanup on unmount if still in flight
       return () => cleanup();
     },
-    [threadId, isResolving],
+    [threadId, isResolving, item],
   );
 
   if (loading) {

@@ -9,7 +9,7 @@ import {
   StyleSheet,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router, useNavigation } from "expo-router";
+import { router, useNavigation, useFocusEffect } from "expo-router";
 import { API_BASE_URL, API_KEY } from "../../constants/config";
 import { InboxItem } from "../../components/InboxItem";
 import type { InboxItemData } from "../../components/InboxItem";
@@ -44,32 +44,41 @@ export default function InboxScreen() {
         const data: { items: InboxItemData[]; count: number } =
           await res.json();
         if (append) {
-          setItems((prev) => [...prev, ...data.items]);
+          setItems((prev) => {
+            const existingIds = new Set(prev.map((i) => i.id));
+            const newItems = data.items.filter(
+              (i: InboxItemData) => !existingIds.has(i.id),
+            );
+            return [...prev, ...newItems];
+          });
         } else {
           setItems(data.items);
         }
         setHasMore(data.items.length === PAGE_SIZE);
-        // Update badge count on tab
-        const isPendingStatus = (s: string) => s === "pending" || s === "low_confidence";
-        const pendingCount = append
-          ? [...items, ...data.items].filter(
-              (i) => isPendingStatus(i.status),
-            ).length
-          : data.items.filter((i) => isPendingStatus(i.status)).length;
-        navigation.setOptions({
-          tabBarBadge: pendingCount > 0 ? pendingCount : undefined,
-        });
       } catch {
         // Silently fail -- empty list is shown
       }
     },
-    [navigation, items],
+    [],
   );
 
+  // Re-fetch inbox every time the screen gains focus (e.g., returning
+  // from conversation screen after filing an item)
+  useFocusEffect(
+    useCallback(() => {
+      void fetchInbox();
+    }, [fetchInbox]),
+  );
+
+  // Derive badge count from items state so it always reflects current data
   useEffect(() => {
-    void fetchInbox();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    const isPendingStatus = (s: string) =>
+      s === "pending" || s === "low_confidence";
+    const pendingCount = items.filter((i) => isPendingStatus(i.status)).length;
+    navigation.setOptions({
+      tabBarBadge: pendingCount > 0 ? pendingCount : undefined,
+    });
+  }, [items, navigation]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
