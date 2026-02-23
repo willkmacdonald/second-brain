@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-21)
 
 **Core value:** One-tap capture from a phone instantly routes through an agent chain that classifies, files, and sharpens thoughts into concrete next actions -- with zero organizational effort.
-**Current focus:** Phase 4 complete -- ready for Phase 5 (Voice Capture)
+**Current focus:** Phase 04.1 in progress -- Backend Deployment to Azure Container Apps
 
 ## Current Position
 
-Phase: 4 of 9 (HITL Clarification and AG-UI Streaming) -- COMPLETE
-Plan: 5 of 5 in current phase
-Status: Phase Complete
-Last activity: 2026-02-23 -- Plan 04-05 complete (frontend gap closure: clarificationText, inboxItemId, top-2 bucket emphasis)
+Phase: 04.1 of 9 (Backend Deployment to Azure Container Apps) -- IN PROGRESS
+Plan: 1 of 2 in current phase -- COMPLETE
+Status: Executing Phase 04.1
+Last activity: 2026-02-23 -- Plan 04.1-01 complete (Dockerfile with multi-stage uv build, .dockerignore)
 
-Progress: [######....] 60%
+Progress: [######....] 62%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 12
-- Average duration: 4.5 min
-- Total execution time: 0.93 hours
+- Total plans completed: 13
+- Average duration: 4.4 min
+- Total execution time: 0.98 hours
 
 **By Phase:**
 
@@ -31,10 +31,11 @@ Progress: [######....] 60%
 | 02-expo-app-shell | 2/2 | 5 min | 2.5 min |
 | 03-text-classification-pipeline | 2/2 | 7 min | 3.5 min |
 | 04-hitl-clarification-and-ag-ui-streaming | 5/5 | 32 min | 6.4 min |
+| 04.1-backend-deployment-to-azure-container-apps | 1/2 | 3 min | 3 min |
 
 **Recent Trend:**
-- Last 5 plans: 04-01 (9 min), 04-02 (3 min), 04-03 (12 min), 04-04 (5 min), 04-05 (3 min)
-- Trend: Phase 4 complete; gap closure plans executing efficiently
+- Last 5 plans: 04-03 (12 min), 04-04 (5 min), 04-05 (3 min), 04.1-01 (3 min)
+- Trend: Infrastructure plans executing efficiently
 
 *Updated after each plan completion*
 
@@ -96,6 +97,10 @@ Recent decisions affecting current work:
 - [04-05]: Top 2 buckets on conversation screen derived from allScores sorting (data-driven)
 - [04-05]: clarificationText as primary question source; generic question is fallback only
 - [04-05]: isPending checks both 'pending' and 'low_confidence' for backward compatibility
+- [04.1-01]: uv 0.5.4 pinned in Dockerfile for reproducible builds (COPY --from=ghcr.io/astral-sh/uv:0.5.4)
+- [04.1-01]: Port 8000 in container (standard), not 8003 (local dev only in __main__ block)
+- [04.1-01]: Graceful chat client fallback: server starts without Azure OpenAI credentials (matches Key Vault/Cosmos pattern)
+- [04.1-01]: uv.lock tracked in git for reproducible Docker builds
 
 ### Roadmap Evolution
 
@@ -114,5 +119,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-23
-Stopped at: Phase 04.1 context gathered
-Resume file: .planning/phases/04.1-backend-deployment-to-azure-container-apps/04.1-CONTEXT.md
+Stopped at: Completed 04.1-01-PLAN.md (Dockerfile and .dockerignore)
+Resume file: .planning/phases/04.1-backend-deployment-to-azure-container-apps/04.1-01-SUMMARY.md
