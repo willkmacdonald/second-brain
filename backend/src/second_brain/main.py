@@ -50,6 +50,10 @@ from second_brain.api.inbox import router as inbox_router  # noqa: E402
 from second_brain.auth import APIKeyMiddleware  # noqa: E402
 from second_brain.config import get_settings  # noqa: E402
 from second_brain.db.cosmos import CosmosManager  # noqa: E402
+from second_brain.models.documents import (  # noqa: E402
+    CONTAINER_MODELS,
+    ClassificationMeta,
+)
 from second_brain.tools.classification import ClassificationTools  # noqa: E402
 
 logger = logging.getLogger(__name__)
@@ -232,7 +236,8 @@ async def lifespan(app: FastAPI):
 
     # Build workflow adapter and store on app.state for respond endpoint
     workflow_agent = create_capture_workflow(
-        orchestrator, classifier,
+        orchestrator,
+        classifier,
         classification_threshold=settings.classification_threshold,
     )
     app.state.workflow_agent = workflow_agent
@@ -320,51 +325,88 @@ async def respond_to_hitl(request: Request, body: RespondRequest) -> StreamingRe
     looks up the original inbox item, re-classifies it with the chosen
     bucket at high confidence, and streams back the result as SSE events.
     """
-    classification_tools: ClassificationTools = request.app.state.classification_tools
     cosmos_manager: CosmosManager | None = request.app.state.cosmos_manager
 
     run_id = f"run-{uuid.uuid4()}"
     encoder = EventEncoder()
 
     async def generate() -> AsyncGenerator[str, None]:
-        yield encoder.encode(
-            RunStartedEvent(thread_id=body.thread_id, run_id=run_id)
-        )
+        yield encoder.encode(RunStartedEvent(thread_id=body.thread_id, run_id=run_id))
 
         msg_id = str(uuid.uuid4())
         bucket = body.response
 
         try:
-            # Look up the original inbox item to get rawText and title
-            raw_text = ""
-            title = ""
+            result = f"Filed \u2192 {bucket} (0.85)"
+
             if body.inbox_item_id and cosmos_manager:
                 inbox_container = cosmos_manager.get_container("Inbox")
                 try:
-                    item = await inbox_container.read_item(
+                    # Read existing pending inbox item
+                    existing = await inbox_container.read_item(
                         item=body.inbox_item_id, partition_key="will"
                     )
-                    raw_text = item.get("rawText", "")
-                    title = item.get("title", "")
+                    raw_text = existing.get("rawText", "")
+                    title = existing.get("title", "Untitled")
+
+                    if raw_text:
+                        # Create bucket document
+                        from datetime import UTC, datetime
+
+                        bucket_doc_id = str(uuid.uuid4())
+
+                        classification_meta = ClassificationMeta(
+                            bucket=bucket,
+                            confidence=0.85,
+                            allScores={
+                                "People": 0.85 if bucket == "People" else 0.05,
+                                "Projects": 0.85 if bucket == "Projects" else 0.05,
+                                "Ideas": 0.85 if bucket == "Ideas" else 0.05,
+                                "Admin": 0.85 if bucket == "Admin" else 0.05,
+                            },
+                            classifiedBy="User",
+                            agentChain=[
+                                "Orchestrator",
+                                "Classifier",
+                                "User",
+                            ],
+                            classifiedAt=datetime.now(UTC),
+                        )
+
+                        model_class = CONTAINER_MODELS[bucket]
+                        kwargs: dict = {
+                            "id": bucket_doc_id,
+                            "rawText": raw_text,
+                            "classificationMeta": classification_meta,
+                            "inboxRecordId": body.inbox_item_id,
+                        }
+                        if bucket == "People":
+                            kwargs["name"] = title
+                        else:
+                            kwargs["title"] = title
+
+                        bucket_doc = model_class(**kwargs)
+                        target_container = cosmos_manager.get_container(bucket)
+                        await target_container.create_item(
+                            body=bucket_doc.model_dump(mode="json")
+                        )
+
+                        # Update existing inbox document in place
+                        existing["status"] = "classified"
+                        existing["filedRecordId"] = bucket_doc_id
+                        existing["classificationMeta"] = classification_meta.model_dump(
+                            mode="json"
+                        )
+                        existing["updatedAt"] = datetime.now(UTC).isoformat()
+                        await inbox_container.upsert_item(body=existing)
+
+                        result = f"Filed \u2192 {bucket} (0.85)"
+
                 except Exception:
                     logger.warning(
-                        "Could not read inbox item %s", body.inbox_item_id
+                        "Could not process inbox item %s",
+                        body.inbox_item_id,
                     )
-
-            if raw_text:
-                # Re-classify with user's bucket at high confidence
-                result = await classification_tools.classify_and_file(
-                    bucket=bucket,
-                    confidence=0.85,
-                    people_score=0.85 if bucket == "People" else 0.05,
-                    projects_score=0.85 if bucket == "Projects" else 0.05,
-                    ideas_score=0.85 if bucket == "Ideas" else 0.05,
-                    admin_score=0.85 if bucket == "Admin" else 0.05,
-                    raw_text=raw_text,
-                    title=title or "Untitled",
-                )
-            else:
-                result = f"Filed → {bucket} (0.85)"
 
             # Stream the result as text events
             yield encoder.encode(
@@ -382,14 +424,13 @@ async def respond_to_hitl(request: Request, body: RespondRequest) -> StreamingRe
             )
             yield encoder.encode(
                 TextMessageContentEvent(
-                    message_id=msg_id, delta=f"Filed → {bucket} (0.85)"
+                    message_id=msg_id,
+                    delta=f"Filed \u2192 {bucket} (0.85)",
                 )
             )
             yield encoder.encode(TextMessageEndEvent(message_id=msg_id))
 
-        yield encoder.encode(
-            RunFinishedEvent(thread_id=body.thread_id, run_id=run_id)
-        )
+        yield encoder.encode(RunFinishedEvent(thread_id=body.thread_id, run_id=run_id))
 
     return StreamingResponse(
         generate(),

@@ -43,6 +43,11 @@ StreamItem = AgentResponseUpdate | BaseEvent
 # Regex to extract confidence from "Filed → Bucket (0.XX)" tool result
 _FILED_CONFIDENCE_RE = re.compile(r"Filed\s*→\s*\w+\s*\((\d+\.\d+)\)")
 
+# Regex to extract (inbox_doc_id, clarification_text) from request_clarification output
+_CLARIFICATION_RE = re.compile(
+    r"Clarification\s*→\s*([a-f0-9\-]+)\s*\|\s*(.+)", re.DOTALL
+)
+
 
 class AGUIWorkflowAdapter:
     """Adapter that wraps a workflow definition for AG-UI endpoint compatibility.
@@ -133,8 +138,7 @@ class AGUIWorkflowAdapter:
             and update.author_name.lower() == self._orchestrator.name.lower()
         ):
             return all(
-                getattr(c, "type", None) == "text"
-                for c in (update.contents or [])
+                getattr(c, "type", None) == "text" for c in (update.contents or [])
             )
         return False
 
@@ -143,6 +147,12 @@ class AGUIWorkflowAdapter:
         """Extract confidence from 'Filed → Bucket (0.XX)' text."""
         match = _FILED_CONFIDENCE_RE.search(text)
         return float(match.group(1)) if match else None
+
+    @staticmethod
+    def _extract_clarification(text: str) -> tuple[str, str] | None:
+        """Extract (inbox_item_id, clarification_text) from output."""
+        match = _CLARIFICATION_RE.search(text)
+        return (match.group(1), match.group(2)) if match else None
 
     async def _stream_updates(
         self,
@@ -168,6 +178,7 @@ class AGUIWorkflowAdapter:
         current_agent: str | None = None
         response_id = str(_uuid.uuid4())
         detected_confidence: float | None = None
+        detected_clarification: tuple[str, str] | None = None
 
         logger.info("Starting workflow stream: thread_id=%s", thread_id)
 
@@ -207,8 +218,7 @@ class AGUIWorkflowAdapter:
                                 data=event.data,
                             )
                         updates = (
-                            converter
-                            ._convert_workflow_event_to_agent_response_updates(
+                            converter._convert_workflow_event_to_agent_response_updates(
                                 response_id, convert_event
                             )
                         )
@@ -219,11 +229,15 @@ class AGUIWorkflowAdapter:
                                     update.text[:80] if update.text else "",
                                 )
                                 continue
-                            # Check for low-confidence in text updates
-                            if update.text and detected_confidence is None:
-                                conf = self._extract_confidence(update.text)
-                                if conf is not None:
-                                    detected_confidence = conf
+                            # Detect clarification or confidence in text
+                            if update.text and detected_clarification is None:
+                                clar = self._extract_clarification(update.text)
+                                if clar is not None:
+                                    detected_clarification = clar
+                                elif detected_confidence is None:
+                                    conf = self._extract_confidence(update.text)
+                                    if conf is not None:
+                                        detected_confidence = conf
                             yield update
 
                     if event.type == "request_info":
@@ -241,11 +255,15 @@ class AGUIWorkflowAdapter:
                             event.text[:80] if event.text else "",
                         )
                         continue
-                    # Check for low-confidence in text updates
-                    if event.text and detected_confidence is None:
-                        conf = self._extract_confidence(event.text)
-                        if conf is not None:
-                            detected_confidence = conf
+                    # Detect clarification or confidence in text
+                    if event.text and detected_clarification is None:
+                        clar = self._extract_clarification(event.text)
+                        if clar is not None:
+                            detected_clarification = clar
+                        elif detected_confidence is None:
+                            conf = self._extract_confidence(event.text)
+                            if conf is not None:
+                                detected_confidence = conf
                     yield event
 
         except Exception as exc:
@@ -255,12 +273,27 @@ class AGUIWorkflowAdapter:
         if current_agent:
             yield StepFinishedEvent(step_name=current_agent)
 
-        # After workflow completes: if classification was low-confidence,
-        # signal HITL so the client can offer bucket buttons
-        if (
+        # After workflow completes: emit HITL if clarification was requested
+        if detected_clarification is not None:
+            inbox_item_id, clarification_text = detected_clarification
+            logger.info(
+                "Clarification requested for inbox item %s, emitting HITL_REQUIRED",
+                inbox_item_id,
+            )
+            yield CustomEvent(
+                name="HITL_REQUIRED",
+                value={
+                    "threadId": thread_id,
+                    "inboxItemId": inbox_item_id,
+                    "questionText": clarification_text,
+                },
+            )
+        elif (
             detected_confidence is not None
             and detected_confidence < self._classification_threshold
         ):
+            # Legacy fallback for edge case where classify_and_file
+            # is called at low confidence
             logger.info(
                 "Low-confidence detected (%.2f < %.2f), emitting HITL_REQUIRED",
                 detected_confidence,
@@ -282,12 +315,9 @@ class AGUIWorkflowAdapter:
         """Run the workflow, wrapping streaming output in a ResponseStream."""
         if stream:
             # Prefer thread_id from kwargs (caller), fall back to thread.id
-            if "thread_id" not in kwargs:
-                if thread and hasattr(thread, "id"):
-                    kwargs["thread_id"] = str(thread.id)
-            return ResponseStream(
-                self._stream_updates(messages, thread, **kwargs)
-            )
+            if "thread_id" not in kwargs and thread and hasattr(thread, "id"):
+                kwargs["thread_id"] = str(thread.id)
+            return ResponseStream(self._stream_updates(messages, thread, **kwargs))
         # Non-streaming: create a workflow and run it
         workflow = self._create_workflow()
         return workflow.run(message=messages)
