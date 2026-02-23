@@ -9,19 +9,19 @@ See: .planning/PROJECT.md (updated 2026-02-21)
 
 ## Current Position
 
-Phase: 04.1 of 9 (Backend Deployment to Azure Container Apps) -- IN PROGRESS
-Plan: 1 of 2 in current phase -- COMPLETE
-Status: Executing Phase 04.1
-Last activity: 2026-02-23 -- Plan 04.1-01 complete (Dockerfile with multi-stage uv build, .dockerignore)
+Phase: 04.1 of 9 (Backend Deployment to Azure Container Apps) -- COMPLETE
+Plan: 2 of 2 in current phase -- COMPLETE
+Status: Phase 04.1 complete; ready for next phase
+Last activity: 2026-02-23 -- Plan 04.1-02 complete (CI/CD workflow with OIDC auth, ACR placeholder updated)
 
-Progress: [######....] 62%
+Progress: [######....] 67%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 13
-- Average duration: 4.4 min
-- Total execution time: 0.98 hours
+- Total plans completed: 14
+- Average duration: 4.2 min
+- Total execution time: 1.01 hours
 
 **By Phase:**
 
@@ -31,10 +31,10 @@ Progress: [######....] 62%
 | 02-expo-app-shell | 2/2 | 5 min | 2.5 min |
 | 03-text-classification-pipeline | 2/2 | 7 min | 3.5 min |
 | 04-hitl-clarification-and-ag-ui-streaming | 5/5 | 32 min | 6.4 min |
-| 04.1-backend-deployment-to-azure-container-apps | 1/2 | 3 min | 3 min |
+| 04.1-backend-deployment-to-azure-container-apps | 2/2 | 5 min | 2.5 min |
 
 **Recent Trend:**
-- Last 5 plans: 04-03 (12 min), 04-04 (5 min), 04-05 (3 min), 04.1-01 (3 min)
+- Last 5 plans: 04-04 (5 min), 04-05 (3 min), 04.1-01 (3 min), 04.1-02 (2 min)
 - Trend: Infrastructure plans executing efficiently
 
 *Updated after each plan completion*
@@ -101,6 +101,11 @@ Recent decisions affecting current work:
 - [04.1-01]: Port 8000 in container (standard), not 8003 (local dev only in __main__ block)
 - [04.1-01]: Graceful chat client fallback: server starts without Azure OpenAI credentials (matches Key Vault/Cosmos pattern)
 - [04.1-01]: uv.lock tracked in git for reproducible Docker builds
+- [04.1-02]: ACR_NAME hardcoded in workflow (wkmsharedservicesacr) -- simpler than GitHub variable for solo project
+- [04.1-02]: GitHub repository variables (not secrets) for AZURE_CLIENT_ID, TENANT_ID, SUBSCRIPTION_ID
+- [04.1-02]: Single-job workflow with 5 steps; path filter backend/** for targeted triggers
+- [04.1-02]: SHA-based image tagging (github.sha) for immutable, traceable deployments
+- [04.1-02]: OIDC Workload Identity Federation (azure/login@v2) -- no stored secrets
 
 ### Roadmap Evolution
 
@@ -119,5 +124,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-23
-Stopped at: Completed 04.1-01-PLAN.md (Dockerfile and .dockerignore)
-Resume file: .planning/phases/04.1-backend-deployment-to-azure-container-apps/04.1-01-SUMMARY.md
+Stopped at: Completed 04.1-02-PLAN.md (CI/CD pipeline and deployment) -- Phase 04.1 complete
+Resume file: .planning/phases/04.1-backend-deployment-to-azure-container-apps/04.1-02-SUMMARY.md

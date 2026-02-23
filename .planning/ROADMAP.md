@@ -93,11 +93,11 @@ Plans:
 **Goal:** The FastAPI backend is containerized, deployed to Azure Container Apps, and accessible over HTTPS with automated CI/CD on push to main
 **Depends on:** Phase 4
 **Requirements:** INFRA-01
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
-- [ ] 04.1-01-PLAN.md -- Backend containerization (Dockerfile + .dockerignore with multi-stage uv build)
-- [ ] 04.1-02-PLAN.md -- CI/CD pipeline and deployment (GitHub Actions workflow, Azure infra setup, deploy verification)
+- [x] 04.1-01-PLAN.md -- Backend containerization (Dockerfile + .dockerignore with multi-stage uv build)
+- [x] 04.1-02-PLAN.md -- CI/CD pipeline and deployment (GitHub Actions workflow, Azure infra setup, deploy verification)
 
 ### Phase 5: Voice Capture
 **Goal**: Will can speak a thought into the app and have it transcribed, classified, and filed automatically
@@ -188,6 +188,7 @@ Note: Phases 5, 6, 7, and 9 depend only on Phase 3 and can be parallelized, but 
 | 2. Expo App Shell | 2/2 | Complete    | 2026-02-22 |
 | 3. Text Classification Pipeline | 2/2 | Complete | 2026-02-22 |
 | 4. HITL Clarification and AG-UI Streaming | 5/5 | Complete | 2026-02-23 |
+| 4.1 Backend Deployment to Azure Container Apps | 2/2 | Complete | 2026-02-23 |
 | 5. Voice Capture | 0/3 | Not started | - |
 | 6. Action Sharpening | 0/2 | Not started | - |
 | 7. People CRM and Cross-References | 0/3 | Not started | - |
