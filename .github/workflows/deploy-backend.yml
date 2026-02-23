@@ -1,0 +1,47 @@
+name: Deploy Backend to Azure Container Apps
+
+on:
+  push:
+    branches: [main]
+    paths: ['backend/**']
+
+permissions:
+  id-token: write   # Required for OIDC (Workload Identity Federation)
+  contents: read
+
+env:
+  # TODO: Replace <ACR_NAME_PLACEHOLDER> with your Azure Container Registry name (e.g., myregistry)
+  ACR_NAME: <ACR_NAME_PLACEHOLDER>
+  CONTAINER_APP_NAME: second-brain-api
+  # TODO: Replace <RG_PLACEHOLDER> with your Azure resource group name
+  RESOURCE_GROUP: <RG_PLACEHOLDER>
+  IMAGE_NAME: second-brain-api
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Log in to ACR
+        run: az acr login --name ${{ env.ACR_NAME }}
+
+      - name: Build and push image
+        run: |
+          IMAGE_TAG="${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}"
+          docker build -t "$IMAGE_TAG" ./backend
+          docker push "$IMAGE_TAG"
+
+      - name: Deploy to Container Apps
+        run: |
+          az containerapp update \
+            --name ${{ env.CONTAINER_APP_NAME }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --image "${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}"
