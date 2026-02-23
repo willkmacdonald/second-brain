@@ -217,32 +217,41 @@ async def lifespan(app: FastAPI):
 
     # Create shared chat client (sync credential -- AzureOpenAIChatClient expects
     # TokenCredential, not AsyncTokenCredential, per Phase 1 decision)
-    chat_client = AzureOpenAIChatClient(
-        credential=DefaultAzureCredential(),
-        endpoint=settings.azure_openai_endpoint,
-        deployment_name=settings.azure_openai_chat_deployment_name,
-    )
+    try:
+        chat_client = AzureOpenAIChatClient(
+            credential=DefaultAzureCredential(),
+            endpoint=settings.azure_openai_endpoint,
+            deployment_name=settings.azure_openai_chat_deployment_name,
+        )
 
-    # Create classification tools (None-safe: tools will error at runtime
-    # if called without Cosmos, but server still starts)
-    classification_tools = ClassificationTools(
-        cosmos_manager=cosmos_manager,
-        classification_threshold=settings.classification_threshold,
-    )
+        # Create classification tools (None-safe: tools will error at runtime
+        # if called without Cosmos, but server still starts)
+        classification_tools = ClassificationTools(
+            cosmos_manager=cosmos_manager,
+            classification_threshold=settings.classification_threshold,
+        )
 
-    # Create agents
-    orchestrator = create_orchestrator_agent(chat_client)
-    classifier = create_classifier_agent(chat_client, classification_tools)
+        # Create agents
+        orchestrator = create_orchestrator_agent(chat_client)
+        classifier = create_classifier_agent(chat_client, classification_tools)
 
-    # Build workflow adapter and store on app.state for respond endpoint
-    workflow_agent = create_capture_workflow(
-        orchestrator,
-        classifier,
-        classification_threshold=settings.classification_threshold,
-    )
-    app.state.workflow_agent = workflow_agent
-    app.state.classification_tools = classification_tools
-    logger.info("Capture pipeline created and stored on app.state")
+        # Build workflow adapter and store on app.state for respond endpoint
+        workflow_agent = create_capture_workflow(
+            orchestrator,
+            classifier,
+            classification_threshold=settings.classification_threshold,
+        )
+        app.state.workflow_agent = workflow_agent
+        app.state.classification_tools = classification_tools
+        logger.info("Capture pipeline created and stored on app.state")
+    except Exception:
+        logger.warning(
+            "Could not create chat client or capture pipeline. "
+            "Azure OpenAI credentials are not available. "
+            "AG-UI endpoints will not work until credentials are configured."
+        )
+        app.state.workflow_agent = None
+        app.state.classification_tools = None
 
     yield
 
