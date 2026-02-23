@@ -34,7 +34,7 @@ jobs:
       - name: Build and push image
         run: |
           IMAGE_TAG="${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}"
-          docker build -t "$IMAGE_TAG" ./backend
+          docker build --platform linux/amd64 -t "$IMAGE_TAG" ./backend
           docker push "$IMAGE_TAG"
 
       - name: Deploy to Container Apps
