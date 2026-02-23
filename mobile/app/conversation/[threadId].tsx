@@ -68,6 +68,7 @@ export default function ConversationScreen() {
         threadId,
         bucket,
         apiKey: API_KEY,
+        inboxItemId: item?.id,
         callbacks: {
           onTextDelta: (delta: string) => {
             setStreamedText((prev) => prev + delta);
@@ -121,11 +122,19 @@ export default function ConversationScreen() {
     );
   }
 
-  // Derive the clarifying question from classification metadata or use a generic prompt
-  const question =
-    item?.classificationMeta?.bucket === undefined
-      ? "Which bucket does this belong to?"
-      : "Which bucket does this belong to?";
+  // Use stored clarification text from the classifier, fall back to generic
+  const question = item?.clarificationText
+    || "Which bucket does this belong to?";
+
+  // Derive top 2 buckets from classification scores
+  const topBuckets: string[] = [];
+  if (item?.classificationMeta?.allScores) {
+    const scores = item.classificationMeta.allScores;
+    const sorted = Object.entries(scores).sort(([, a], [, b]) => b - a);
+    if (sorted.length >= 2) {
+      topBuckets.push(sorted[0][0], sorted[1][0]);
+    }
+  }
 
   return (
     <View style={styles.container}>
@@ -142,20 +151,25 @@ export default function ConversationScreen() {
 
         {/* Bucket selection buttons */}
         <View style={styles.bucketGrid}>
-          {BUCKETS.map((bucket) => (
-            <Pressable
-              key={bucket}
-              onPress={() => handleBucketSelect(bucket)}
-              disabled={isResolving}
-              style={({ pressed }) => [
-                styles.bucketButton,
-                pressed && styles.bucketPressed,
-                isResolving && styles.bucketDisabled,
-              ]}
-            >
-              <Text style={styles.bucketText}>{bucket}</Text>
-            </Pressable>
-          ))}
+          {BUCKETS.map((bucket) => {
+            const isTopBucket = topBuckets.includes(bucket);
+            return (
+              <Pressable
+                key={bucket}
+                onPress={() => handleBucketSelect(bucket)}
+                disabled={isResolving}
+                style={({ pressed }) => [
+                  isTopBucket ? styles.bucketButtonPrimary : styles.bucketButtonSecondary,
+                  pressed && styles.bucketPressed,
+                  isResolving && styles.bucketDisabled,
+                ]}
+              >
+                <Text style={isTopBucket ? styles.bucketTextPrimary : styles.bucketTextSecondary}>
+                  {bucket}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
 
         {/* Filing progress */}
@@ -239,12 +253,21 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: 12,
   },
-  bucketButton: {
+  bucketButtonPrimary: {
     width: "47%",
-    backgroundColor: "#2a2a4e",
+    backgroundColor: "#4a90d9",
     paddingVertical: 18,
     borderRadius: 12,
     alignItems: "center",
+  },
+  bucketButtonSecondary: {
+    width: "47%",
+    backgroundColor: "transparent",
+    paddingVertical: 18,
+    borderRadius: 12,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#4a4a6e",
   },
   bucketPressed: {
     opacity: 0.7,
@@ -253,10 +276,15 @@ const styles = StyleSheet.create({
   bucketDisabled: {
     opacity: 0.4,
   },
-  bucketText: {
+  bucketTextPrimary: {
     fontSize: 16,
     fontWeight: "600",
     color: "#ffffff",
+  },
+  bucketTextSecondary: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#888",
   },
   filingStatus: {
     flexDirection: "row",

@@ -32,6 +32,8 @@ export default function TextCaptureScreen() {
   const [showSteps, setShowSteps] = useState(false);
   const [hitlQuestion, setHitlQuestion] = useState<string | null>(null);
   const [hitlThreadId, setHitlThreadId] = useState<string | null>(null);
+  const [hitlInboxItemId, setHitlInboxItemId] = useState<string | null>(null);
+  const [hitlTopBuckets, setHitlTopBuckets] = useState<string[]>([]);
   const [isResolving, setIsResolving] = useState(false);
   const cleanupRef = useRef<(() => void) | null>(null);
 
@@ -60,6 +62,8 @@ export default function TextCaptureScreen() {
     setStreamedText("");
     setHitlQuestion(null);
     setHitlThreadId(null);
+    setHitlInboxItemId(null);
+    setHitlTopBuckets([]);
   }, []);
 
   const handleSubmit = useCallback(() => {
@@ -74,6 +78,8 @@ export default function TextCaptureScreen() {
     if (hitlThreadId) {
       setHitlQuestion(null);
       setHitlThreadId(null);
+      setHitlInboxItemId(null);
+      setHitlTopBuckets([]);
       setStreamedText("");
       setShowSteps(false);
       setCurrentStep(null);
@@ -98,10 +104,21 @@ export default function TextCaptureScreen() {
         onTextDelta: (delta: string) => {
           setStreamedText((prev) => prev + delta);
         },
-        onHITLRequired: (threadId: string, questionText: string) => {
+        onHITLRequired: (threadId: string, questionText: string, inboxItemId?: string) => {
           setHitlThreadId(threadId);
           setHitlQuestion(questionText);
+          setHitlInboxItemId(inboxItemId ?? null);
           setSending(false); // Re-enable interaction for bucket selection
+
+          // Extract top 2 buckets from questionText pattern
+          // The classifier's question contains bucket names -- first 2 mentioned are the top ones
+          const mentioned: string[] = [];
+          for (const b of BUCKETS) {
+            if (questionText.includes(b)) {
+              mentioned.push(b);
+            }
+          }
+          setHitlTopBuckets(mentioned.slice(0, 2));
         },
         onComplete: (result: string) => {
           setSending(false);
@@ -134,6 +151,7 @@ export default function TextCaptureScreen() {
         threadId: hitlThreadId,
         bucket,
         apiKey: API_KEY!,
+        inboxItemId: hitlInboxItemId ?? undefined,
         callbacks: {
           onTextDelta: (delta: string) => {
             setStreamedText((prev) => prev + delta);
@@ -155,7 +173,7 @@ export default function TextCaptureScreen() {
       });
       cleanupRef.current = cleanup;
     },
-    [hitlThreadId, isResolving, resetState],
+    [hitlThreadId, hitlInboxItemId, isResolving, resetState],
   );
 
   const sendDisabled = !thought.trim() || sending;
@@ -232,20 +250,25 @@ export default function TextCaptureScreen() {
             <View style={styles.hitlContainer}>
               <Text style={styles.hitlQuestion}>{hitlQuestion}</Text>
               <View style={styles.bucketRow}>
-                {BUCKETS.map((bucket) => (
-                  <Pressable
-                    key={bucket}
-                    onPress={() => handleBucketSelect(bucket)}
-                    disabled={isResolving}
-                    style={({ pressed }) => [
-                      styles.bucketButton,
-                      pressed && styles.bucketPressed,
-                      isResolving && styles.bucketDisabled,
-                    ]}
-                  >
-                    <Text style={styles.bucketText}>{bucket}</Text>
-                  </Pressable>
-                ))}
+                {BUCKETS.map((bucket) => {
+                  const isTopBucket = hitlTopBuckets.includes(bucket);
+                  return (
+                    <Pressable
+                      key={bucket}
+                      onPress={() => handleBucketSelect(bucket)}
+                      disabled={isResolving}
+                      style={({ pressed }) => [
+                        isTopBucket ? styles.bucketButtonPrimary : styles.bucketButtonSecondary,
+                        pressed && styles.bucketPressed,
+                        isResolving && styles.bucketDisabled,
+                      ]}
+                    >
+                      <Text style={isTopBucket ? styles.bucketTextPrimary : styles.bucketTextSecondary}>
+                        {bucket}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
               </View>
             </View>
           )}
@@ -305,13 +328,23 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 8,
   },
-  bucketButton: {
+  bucketButtonPrimary: {
     flex: 1,
-    backgroundColor: "#2a2a4e",
+    backgroundColor: "#4a90d9",
     paddingVertical: 10,
     paddingHorizontal: 4,
     borderRadius: 8,
     alignItems: "center",
+  },
+  bucketButtonSecondary: {
+    flex: 1,
+    backgroundColor: "transparent",
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+    borderRadius: 8,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#4a4a6e",
   },
   bucketPressed: {
     opacity: 0.7,
@@ -320,10 +353,15 @@ const styles = StyleSheet.create({
   bucketDisabled: {
     opacity: 0.4,
   },
-  bucketText: {
+  bucketTextPrimary: {
     fontSize: 13,
     fontWeight: "600",
     color: "#ffffff",
+  },
+  bucketTextSecondary: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#888",
   },
   resolvingText: {
     fontSize: 12,

@@ -50,11 +50,12 @@ export default function InboxScreen() {
         }
         setHasMore(data.items.length === PAGE_SIZE);
         // Update badge count on tab
+        const isPendingStatus = (s: string) => s === "pending" || s === "low_confidence";
         const pendingCount = append
           ? [...items, ...data.items].filter(
-              (i) => i.status === "low_confidence",
+              (i) => isPendingStatus(i.status),
             ).length
-          : data.items.filter((i) => i.status === "low_confidence").length;
+          : data.items.filter((i) => isPendingStatus(i.status)).length;
         navigation.setOptions({
           tabBarBadge: pendingCount > 0 ? pendingCount : undefined,
         });
@@ -85,7 +86,7 @@ export default function InboxScreen() {
 
   const handleItemPress = useCallback(
     (item: InboxItemData) => {
-      if (item.status === "low_confidence") {
+      if (item.status === "pending" || item.status === "low_confidence") {
         router.push(`/conversation/${item.id}`);
       } else {
         setSelectedItem(item);

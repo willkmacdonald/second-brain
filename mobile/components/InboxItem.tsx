@@ -6,10 +6,12 @@ export interface InboxItemData {
   title: string | null;
   status: string;
   createdAt: string;
+  clarificationText?: string;
   classificationMeta: {
     bucket: string;
     confidence: number;
     agentChain: string[];
+    allScores?: Record<string, number>;
   } | null;
 }
 
@@ -44,7 +46,7 @@ function getRelativeTime(dateString: string): string {
  * and an orange dot indicator for pending (low_confidence) items.
  */
 export function InboxItem({ item, onPress }: InboxItemProps) {
-  const isPending = item.status === "low_confidence";
+  const isPending = item.status === "pending" || item.status === "low_confidence";
   const bucketLabel = isPending
     ? "Pending"
     : item.classificationMeta?.bucket ?? "Unknown";
