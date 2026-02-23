@@ -16,7 +16,11 @@ interface AGUIEventPayload {
   delta?: string;
   name?: string;
   stepName?: string;
-  value?: { threadId?: string };
+  value?: {
+    threadId?: string;
+    inboxItemId?: string;
+    questionText?: string;
+  };
 }
 
 /**
@@ -58,8 +62,15 @@ function attachCallbacks(
         case "CUSTOM":
           if (parsed.name === "HITL_REQUIRED" && parsed.value?.threadId) {
             hitlTriggered = true;
-            // The accumulated result IS the classification confirmation text
-            callbacks.onHITLRequired?.(parsed.value.threadId, result);
+            // Use questionText from event if available (new flow),
+            // fall back to accumulated result (legacy flow)
+            const questionText = parsed.value.questionText || result;
+            const inboxItemId = parsed.value.inboxItemId;
+            callbacks.onHITLRequired?.(
+              parsed.value.threadId,
+              questionText,
+              inboxItemId,
+            );
           }
           break;
 

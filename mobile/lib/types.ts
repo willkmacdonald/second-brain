@@ -16,7 +16,7 @@ export interface StreamingCallbacks {
   onStepStart?: (stepName: string) => void;
   onStepFinish?: (stepName: string) => void;
   onTextDelta?: (delta: string) => void;
-  onHITLRequired?: (threadId: string, questionText: string) => void;
+  onHITLRequired?: (threadId: string, questionText: string, inboxItemId?: string) => void;
   onComplete: (result: string) => void;
   onError: (error: string) => void;
 }
