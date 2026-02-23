@@ -88,6 +88,17 @@ Plans:
 - [x] 04-04-PLAN.md — [Gap fix] Backend: request_clarification tool, classifier instructions, adapter HITL detection, respond endpoint fix
 - [x] 04-05-PLAN.md — [Gap fix] Mobile: inboxItemId flow, real clarification text, top-2 bucket emphasis
 
+### Phase 04.1: Backend Deployment to Azure Container Apps (INSERTED)
+
+**Goal:** The FastAPI backend is containerized, deployed to Azure Container Apps, and accessible over HTTPS with automated CI/CD on push to main
+**Depends on:** Phase 4
+**Requirements:** INFRA-01
+**Plans:** 2 plans
+
+Plans:
+- [ ] 04.1-01-PLAN.md -- Backend containerization (Dockerfile + .dockerignore with multi-stage uv build)
+- [ ] 04.1-02-PLAN.md -- CI/CD pipeline and deployment (GitHub Actions workflow, Azure infra setup, deploy verification)
+
 ### Phase 5: Voice Capture
 **Goal**: Will can speak a thought into the app and have it transcribed, classified, and filed automatically
 **Depends on**: Phase 3
