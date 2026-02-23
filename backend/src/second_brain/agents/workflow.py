@@ -84,8 +84,11 @@ class AGUIWorkflowAdapter:
         executor_completed needed for step events. WorkflowAgent filters
         these out and only yields output/request_info events.
 
-        Both agents run in autonomous mode so the workflow completes
-        without blocking on request_info.
+        Only the Orchestrator runs in autonomous mode. The Classifier is
+        NOT autonomous so that when it calls request_clarification, the
+        framework emits a request_info event and the workflow pauses for
+        HITL. For high-confidence cases the Classifier calls classify_and_file,
+        produces its response, and the workflow completes normally.
         """
         return (
             HandoffBuilder(
@@ -95,10 +98,9 @@ class AGUIWorkflowAdapter:
             .with_start_agent(self._orchestrator)
             .add_handoff(self._orchestrator, [self._classifier])
             .with_autonomous_mode(
-                agents=[self._orchestrator, self._classifier],
+                agents=[self._orchestrator],
                 prompts={
                     self._orchestrator.name: "Route this input to the Classifier.",
-                    self._classifier.name: "Classify this text and file it.",
                 },
             )
             .build()
@@ -165,9 +167,12 @@ class AGUIWorkflowAdapter:
         Yields a mix of AgentResponseUpdate (text/tool content) and AG-UI
         BaseEvent (StepStarted, StepFinished, Custom HITL_REQUIRED).
 
-        Both agents run in autonomous mode. The adapter detects low-confidence
-        classifications from tool results and appends HITL_REQUIRED after
-        the normal stream completes.
+        Only the Orchestrator is autonomous. The Classifier pauses the
+        workflow via request_info when it calls request_clarification.
+        The adapter detects clarification text from output events and
+        appends HITL_REQUIRED after the stream ends. For high-confidence
+        cases the Classifier calls classify_and_file and the workflow
+        completes normally.
 
         Echo filtering: Only yield text content from the Classifier agent.
         The Orchestrator's text (which echoes user input) is suppressed.
@@ -241,9 +246,11 @@ class AGUIWorkflowAdapter:
                             yield update
 
                     if event.type == "request_info":
-                        # Both agents are autonomous, so request_info
-                        # shouldn't fire. Skip if it does.
-                        logger.warning("Unexpected request_info event")
+                        # The Classifier is not autonomous, so request_info
+                        # fires when it calls request_clarification. The adapter
+                        # detects the clarification text from prior output events
+                        # and emits HITL_REQUIRED after the stream ends.
+                        logger.info("request_info received — workflow paused for HITL")
                         continue
 
                     # Skip other workflow events (status, superstep, etc.)
@@ -335,9 +342,10 @@ def create_capture_workflow(
     """Build the AG-UI compatible adapter for the capture pipeline.
 
     The workflow routes: Orchestrator -> Classifier.
-    Both agents run in autonomous mode. HITL detection happens
-    post-classification by inspecting confidence in tool results.
-    A fresh WorkflowAgent is created per request to avoid state leakage.
+    Only the Orchestrator runs in autonomous mode; the Classifier pauses
+    on request_clarification for HITL. HITL detection happens by inspecting
+    clarification text in tool results. A fresh Workflow is created per
+    request to avoid state leakage.
     """
     return AGUIWorkflowAdapter(
         orchestrator,

@@ -345,6 +345,23 @@ async def respond_to_hitl(request: Request, body: RespondRequest) -> StreamingRe
         msg_id = str(uuid.uuid4())
         bucket = body.response
 
+        # Guard: inbox_item_id is required for filing
+        if not body.inbox_item_id:
+            yield encoder.encode(
+                TextMessageStartEvent(message_id=msg_id, role="assistant")
+            )
+            yield encoder.encode(
+                TextMessageContentEvent(
+                    message_id=msg_id,
+                    delta="Error: No inbox item ID provided",
+                )
+            )
+            yield encoder.encode(TextMessageEndEvent(message_id=msg_id))
+            yield encoder.encode(
+                RunFinishedEvent(thread_id=body.thread_id, run_id=run_id)
+            )
+            return
+
         try:
             result = f"Filed \u2192 {bucket} (0.85)"
 
@@ -412,10 +429,11 @@ async def respond_to_hitl(request: Request, body: RespondRequest) -> StreamingRe
                         result = f"Filed \u2192 {bucket} (0.85)"
 
                 except Exception:
-                    logger.warning(
-                        "Could not process inbox item %s",
+                    logger.exception(
+                        "Failed to process inbox item %s",
                         body.inbox_item_id,
                     )
+                    result = "Error: Could not file capture. Please try again."
 
             # Stream the result as text events
             yield encoder.encode(
@@ -427,14 +445,14 @@ async def respond_to_hitl(request: Request, body: RespondRequest) -> StreamingRe
             yield encoder.encode(TextMessageEndEvent(message_id=msg_id))
 
         except Exception as exc:
-            logger.error("Respond error: %s", exc)
+            logger.exception("Respond error: %s", exc)
             yield encoder.encode(
                 TextMessageStartEvent(message_id=msg_id, role="assistant")
             )
             yield encoder.encode(
                 TextMessageContentEvent(
                     message_id=msg_id,
-                    delta=f"Filed \u2192 {bucket} (0.85)",
+                    delta="Error: Could not file capture. Please try again.",
                 )
             )
             yield encoder.encode(TextMessageEndEvent(message_id=msg_id))
