@@ -95,11 +95,10 @@ async def test_classify_and_file_high_confidence(mock_cosmos_manager: object) ->
 
 
 async def test_classify_and_file_low_confidence(mock_cosmos_manager: object) -> None:
-    """Low confidence classification creates records with status='low_confidence'.
+    """Low confidence classification creates records with status='pending'.
 
-    Note: This tests the tool directly. In production the classifier agent would
-    call request_clarification instead for < 0.6, but classify_and_file still
-    works if called directly.
+    Low-confidence items are silently filed as pending for later user review
+    in the inbox. No HITL interruption on the capture screen.
     """
     _setup_echo(mock_cosmos_manager, "Inbox")
     _setup_echo(mock_cosmos_manager, "People")
@@ -111,11 +110,12 @@ async def test_classify_and_file_low_confidence(mock_cosmos_manager: object) -> 
         **_BASE_KWARGS,
     )
 
-    # Still filed (per CONTEXT.md: "still file to best bucket")
-    assert result == "Filed \u2192 People (0.45)"
+    # Still filed but with "(needs review)" indicator
+    assert result == "Filed (needs review) \u2192 People (0.45)"
+    assert "(needs review)" in result
 
     inbox_body = _get_body(mock_cosmos_manager, "Inbox")
-    assert inbox_body["status"] == "low_confidence"
+    assert inbox_body["status"] == "pending"
 
     # Bucket document still written
     people_container = mock_cosmos_manager.get_container("People")
@@ -290,50 +290,34 @@ async def test_mark_as_junk(mock_cosmos_manager: object) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Tests: request_clarification
+# Tests: request_misunderstood
 # ---------------------------------------------------------------------------
 
-# Common call kwargs for request_clarification
-_CLARIFICATION_KWARGS = {
-    "raw_text": "Interesting conversation with Mike about moving to Austin",
-    "title": "Mike Austin conversation",
-    "top_bucket": "People",
-    "top_confidence": 0.55,
-    "second_bucket": "Ideas",
-    "second_confidence": 0.42,
-    "clarification_text": (
-        "I'm torn between People (0.55) and Ideas (0.42). "
-        "This mentions Mike (a person) but also discusses a potential "
-        "relocation which could be a life change idea. Which fits better?"
-    ),
-    "people_score": 0.55,
-    "projects_score": 0.01,
-    "ideas_score": 0.42,
-    "admin_score": 0.02,
-}
 
-
-async def test_request_clarification_creates_pending_inbox(
+async def test_request_misunderstood_creates_misunderstood_inbox(
     mock_cosmos_manager: object,
 ) -> None:
-    """request_clarification creates a pending Inbox doc with no bucket write."""
+    """request_misunderstood creates an Inbox doc with status='misunderstood'."""
     _setup_echo(mock_cosmos_manager, "Inbox")
 
     tools = _make_tools(mock_cosmos_manager)
-    await tools.request_clarification(**_CLARIFICATION_KWARGS)
+    await tools.request_misunderstood(
+        raw_text="Aardvark",
+        question_text="I'm not quite sure what you meant by 'Aardvark'. Could you tell me more?",
+    )
 
     # Verify Inbox write
     inbox_container = mock_cosmos_manager.get_container("Inbox")
     assert inbox_container.create_item.call_count == 1
     inbox_body = inbox_container.create_item.call_args[1]["body"]
-    assert inbox_body["status"] == "pending"
+    assert inbox_body["status"] == "misunderstood"
     assert inbox_body["filedRecordId"] is None
-    expected_text = _CLARIFICATION_KWARGS["clarification_text"]
-    assert inbox_body["clarificationText"] == expected_text
-    assert inbox_body["rawText"] == _CLARIFICATION_KWARGS["raw_text"]
-    assert inbox_body["title"] == _CLARIFICATION_KWARGS["title"]
-    assert inbox_body["classificationMeta"]["bucket"] == "People"
-    assert inbox_body["classificationMeta"]["confidence"] == 0.55
+    assert inbox_body["classificationMeta"] is None
+    assert inbox_body["title"] is None
+    assert inbox_body["clarificationText"] == (
+        "I'm not quite sure what you meant by 'Aardvark'. Could you tell me more?"
+    )
+    assert inbox_body["rawText"] == "Aardvark"
 
     # No bucket container writes
     for name in ("People", "Projects", "Ideas", "Admin"):
@@ -341,55 +325,31 @@ async def test_request_clarification_creates_pending_inbox(
         container.create_item.assert_not_called()
 
 
-async def test_request_clarification_returns_parseable_string(
+async def test_request_misunderstood_returns_parseable_string(
     mock_cosmos_manager: object,
 ) -> None:
-    """Return string matches format 'Clarification -> {uuid} | {text}'."""
+    """Return string matches format 'Misunderstood -> {uuid} | {text}'."""
     import re
+    import uuid
 
     _setup_echo(mock_cosmos_manager, "Inbox")
 
     tools = _make_tools(mock_cosmos_manager)
-    result = await tools.request_clarification(**_CLARIFICATION_KWARGS)
+    result = await tools.request_misunderstood(
+        raw_text="xyz",
+        question_text="Could you tell me what 'xyz' refers to?",
+    )
 
     # Parse the return string
-    pattern = r"Clarification\s*\u2192\s*([a-f0-9\-]+)\s*\|\s*(.+)"
+    pattern = r"Misunderstood\s*\u2192\s*([a-f0-9\-]+)\s*\|\s*(.+)"
     match = re.match(pattern, result, re.DOTALL)
     assert match is not None, f"Return string did not match expected format: {result}"
 
     inbox_item_id = match.group(1)
-    clarification_text = match.group(2)
+    question_text = match.group(2)
 
     # Verify UUID format
-    import uuid
-
     uuid.UUID(inbox_item_id)  # Raises if invalid
 
-    # Verify clarification text is present
-    assert "torn between" in clarification_text
-
-
-async def test_request_clarification_invalid_bucket(
-    mock_cosmos_manager: object,
-) -> None:
-    """Invalid bucket names return error string with no writes."""
-    tools = _make_tools(mock_cosmos_manager)
-
-    # Invalid top_bucket
-    result = await tools.request_clarification(
-        **{**_CLARIFICATION_KWARGS, "top_bucket": "Unknown"},
-    )
-    assert "Error" in result
-    assert "Unknown" in result
-
-    # Invalid second_bucket
-    result = await tools.request_clarification(
-        **{**_CLARIFICATION_KWARGS, "second_bucket": "BadBucket"},
-    )
-    assert "Error" in result
-    assert "BadBucket" in result
-
-    # No writes to any container
-    for name in ("Inbox", "People", "Projects", "Ideas", "Admin"):
-        container = mock_cosmos_manager.get_container(name)
-        container.create_item.assert_not_called()
+    # Verify question text is present
+    assert "xyz" in question_text

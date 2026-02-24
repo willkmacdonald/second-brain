@@ -94,7 +94,7 @@ class ClassificationTools:
         bucket_doc_id = str(uuid4())
 
         # Determine status based on threshold
-        status = "classified" if confidence >= self._threshold else "low_confidence"
+        status = "classified" if confidence >= self._threshold else "pending"
 
         # Create Inbox document
         inbox_doc = InboxDocument(
@@ -137,74 +137,44 @@ class ClassificationTools:
             status,
             raw_text[:80],
         )
+        if status == "pending":
+            return f"Filed (needs review) \u2192 {bucket} ({confidence:.2f})"
         return f"Filed \u2192 {bucket} ({confidence:.2f})"
 
     @tool
-    async def request_clarification(
+    async def request_misunderstood(
         self,
         raw_text: Annotated[str, "The original captured text"],
-        title: Annotated[str, "Brief title extracted from the text (3-6 words)"],
-        top_bucket: Annotated[str, "Most likely bucket"],
-        top_confidence: Annotated[float, "Confidence for top bucket (must be < 0.6)"],
-        second_bucket: Annotated[str, "Second most likely bucket"],
-        second_confidence: Annotated[float, "Confidence for second bucket"],
-        clarification_text: Annotated[
+        question_text: Annotated[
             str,
-            "A specific question explaining your top 2 buckets and why you're unsure. "
-            "Example: 'I'm torn between People (0.55) and Projects (0.42) -- this "
-            "mentions Mike but also a potential relocation project. "
-            "Which fits better?'",
+            "A friendly, open-ended question asking the user what they meant. "
+            "Example: \"I'm not quite sure what you meant by 'Aardvark'. "
+            "Could you tell me more?\"",
         ],
-        people_score: Annotated[float, "Score 0.0-1.0 for People bucket"],
-        projects_score: Annotated[float, "Score 0.0-1.0 for Projects bucket"],
-        ideas_score: Annotated[float, "Score 0.0-1.0 for Ideas bucket"],
-        admin_score: Annotated[float, "Score 0.0-1.0 for Admin bucket"],
+        follow_up_round: Annotated[
+            int,
+            "Which follow-up round this is (1 = first question, 2 = second attempt)",
+        ] = 1,
     ) -> str:
-        """Request human clarification when classification confidence is below 0.6.
+        """Flag input as misunderstood and ask the user a conversational question.
 
-        Creates a pending Inbox document (NO bucket container record) and returns
-        the clarification text for streaming to the user. The capture will be
-        filed to the correct bucket only after the user responds.
+        Creates a misunderstood Inbox document with no bucket filing and no
+        classification metadata. Returns the question text for streaming to
+        the user on the capture screen.
         """
-        # Validate buckets
-        if top_bucket not in VALID_BUCKETS:
-            valid = ", ".join(sorted(VALID_BUCKETS))
-            return f"Error: Invalid bucket '{top_bucket}'. Valid buckets: {valid}"
-        if second_bucket not in VALID_BUCKETS:
-            valid = ", ".join(sorted(VALID_BUCKETS))
-            return f"Error: Invalid bucket '{second_bucket}'. Valid buckets: {valid}"
-
-        # Build allScores from individual score parameters
-        all_scores = {
-            "People": people_score,
-            "Projects": projects_score,
-            "Ideas": ideas_score,
-            "Admin": admin_score,
-        }
-
-        # Build ClassificationMeta with top bucket
-        classification_meta = ClassificationMeta(
-            bucket=top_bucket,
-            confidence=top_confidence,
-            allScores=all_scores,
-            classifiedBy="Classifier",
-            agentChain=["Orchestrator", "Classifier"],
-            classifiedAt=datetime.now(UTC),
-        )
-
         # Generate inbox doc ID
         inbox_doc_id = str(uuid4())
 
-        # Create pending Inbox document -- NO bucket container write
+        # Create misunderstood Inbox document -- NO bucket container write
         inbox_doc = InboxDocument(
             id=inbox_doc_id,
             rawText=raw_text,
-            classificationMeta=classification_meta,
             source="text",
-            title=title,
+            title=None,
             filedRecordId=None,
-            status="pending",
-            clarificationText=clarification_text,
+            classificationMeta=None,
+            status="misunderstood",
+            clarificationText=question_text,
         )
 
         # Write ONLY to Inbox container
@@ -212,14 +182,9 @@ class ClassificationTools:
         await inbox_container.create_item(body=inbox_doc.model_dump(mode="json"))
 
         logger.info(
-            "Clarification requested for '%s' (top=%s %.2f, second=%s %.2f)",
-            raw_text[:80],
-            top_bucket,
-            top_confidence,
-            second_bucket,
-            second_confidence,
+            "Misunderstood: '%s' (round %d)", raw_text[:80], follow_up_round
         )
-        return f"Clarification \u2192 {inbox_doc_id} | {clarification_text}"
+        return f"Misunderstood \u2192 {inbox_doc_id} | {question_text}"
 
     @tool
     async def mark_as_junk(
