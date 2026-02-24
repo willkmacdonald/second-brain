@@ -184,6 +184,7 @@ class AGUIWorkflowAdapter:
         response_id = str(_uuid.uuid4())
         detected_confidence: float | None = None
         detected_clarification: tuple[str, str] | None = None
+        saw_request_info = False
 
         logger.info("Starting workflow stream: thread_id=%s", thread_id)
 
@@ -246,11 +247,26 @@ class AGUIWorkflowAdapter:
                             yield update
 
                     if event.type == "request_info":
-                        # The Classifier is not autonomous, so request_info
-                        # fires when it calls request_clarification. The adapter
-                        # detects the clarification text from prior output events
-                        # and emits HITL_REQUIRED after the stream ends.
                         logger.info("request_info received — workflow paused for HITL")
+                        saw_request_info = True
+                        # Extract clarification from the HandoffAgentUserRequest
+                        # which wraps the agent's AgentResponse containing tool results
+                        if detected_clarification is None:
+                            request_data = event.data
+                            request_text = ""
+                            if hasattr(request_data, "response"):
+                                resp = request_data.response
+                                if hasattr(resp, "text"):
+                                    request_text = resp.text
+                            elif hasattr(request_data, "text"):
+                                request_text = request_data.text
+                            if request_text:
+                                clar = self._extract_clarification(request_text)
+                                if clar is not None:
+                                    detected_clarification = clar
+                                    logger.info(
+                                        "Extracted clarification from request_info data"
+                                    )
                         continue
 
                     # Skip other workflow events (status, superstep, etc.)
@@ -294,6 +310,17 @@ class AGUIWorkflowAdapter:
                     "inboxItemId": inbox_item_id,
                     "questionText": clarification_text,
                 },
+            )
+        elif saw_request_info:
+            # request_info fired but clarification regex didn't match —
+            # the workflow paused for user input, so emit HITL_REQUIRED
+            # with threadId only. Client shows generic bucket buttons.
+            logger.info(
+                "request_info without clarification pattern — emitting generic HITL_REQUIRED"
+            )
+            yield CustomEvent(
+                name="HITL_REQUIRED",
+                value={"threadId": thread_id},
             )
         elif (
             detected_confidence is not None
