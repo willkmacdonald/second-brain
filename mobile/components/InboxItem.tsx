@@ -90,13 +90,16 @@ function getStatusDotColor(status: string): string | null {
 export function InboxItem({ item, onPress, onDelete }: InboxItemProps) {
   const swipeableRef = useRef<Swipeable>(null);
   const dotColor = getStatusDotColor(item.status);
-  const isPending = item.status === "pending" || item.status === "low_confidence" || item.status === "misunderstood";
+  const isMisunderstood = item.status === "misunderstood";
+  const isPending = item.status === "pending" || item.status === "low_confidence";
   const isUnresolved = item.status === "unresolved";
-  const bucketLabel = isPending
-    ? "Pending"
-    : isUnresolved
-      ? "Unresolved"
-      : item.classificationMeta?.bucket ?? "Unknown";
+  const bucketLabel = isMisunderstood
+    ? "Needs Clarification"
+    : isPending
+      ? "Pending"
+      : isUnresolved
+        ? "Unresolved"
+        : item.classificationMeta?.bucket ?? "Unknown";
   const preview = item.title || item.rawText.slice(0, 60);
 
   const handleSwipeOpen = () => {
@@ -124,7 +127,7 @@ export function InboxItem({ item, onPress, onDelete }: InboxItemProps) {
             {preview}
           </Text>
           <View style={styles.meta}>
-            <Text style={[styles.bucket, isPending && styles.bucketPending, isUnresolved && styles.bucketUnresolved]}>
+            <Text style={[styles.bucket, (isPending || isMisunderstood) && styles.bucketPending, isUnresolved && styles.bucketUnresolved]}>
               {bucketLabel}
             </Text>
             <Text style={styles.time}>{getRelativeTime(item.createdAt)}</Text>
