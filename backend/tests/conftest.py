@@ -54,6 +54,7 @@ def mock_cosmos_manager() -> CosmosManager:
         container.create_item = AsyncMock()
         container.read_item = AsyncMock()
         container.upsert_item = AsyncMock()
+        container.delete_item = AsyncMock()
         container.query_items = MagicMock()  # Returns an async iterator
         containers[name] = container
 

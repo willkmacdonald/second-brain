@@ -1,4 +1,6 @@
-import { Pressable, View, Text, StyleSheet } from "react-native";
+import { useRef } from "react";
+import { Pressable, View, Text, StyleSheet, Animated } from "react-native";
+import { Swipeable } from "react-native-gesture-handler";
 
 export interface InboxItemData {
   id: string;
@@ -18,6 +20,7 @@ export interface InboxItemData {
 interface InboxItemProps {
   item: InboxItemData;
   onPress: () => void;
+  onDelete?: (id: string) => void;
 }
 
 /**
@@ -42,34 +45,69 @@ function getRelativeTime(dateString: string): string {
 }
 
 /**
+ * Render the red "Delete" action revealed on right-to-left swipe.
+ */
+function renderRightActions(
+  _progress: Animated.AnimatedInterpolation<number>,
+  dragX: Animated.AnimatedInterpolation<number>,
+) {
+  const opacity = dragX.interpolate({
+    inputRange: [-80, -40, 0],
+    outputRange: [1, 0.6, 0],
+    extrapolate: "clamp",
+  });
+
+  return (
+    <Animated.View style={[styles.deleteAction, { opacity }]}>
+      <Text style={styles.deleteText}>Delete</Text>
+    </Animated.View>
+  );
+}
+
+/**
  * Inbox list item with text preview, bucket label, relative time,
  * and an orange dot indicator for pending (low_confidence) items.
+ * Supports right-to-left swipe to reveal delete action.
  */
-export function InboxItem({ item, onPress }: InboxItemProps) {
+export function InboxItem({ item, onPress, onDelete }: InboxItemProps) {
+  const swipeableRef = useRef<Swipeable>(null);
   const isPending = item.status === "pending" || item.status === "low_confidence";
   const bucketLabel = isPending
     ? "Pending"
     : item.classificationMeta?.bucket ?? "Unknown";
   const preview = item.title || item.rawText.slice(0, 60);
 
+  const handleSwipeOpen = () => {
+    swipeableRef.current?.close();
+    onDelete?.(item.id);
+  };
+
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+    <Swipeable
+      ref={swipeableRef}
+      renderRightActions={renderRightActions}
+      onSwipeableOpen={handleSwipeOpen}
+      rightThreshold={80}
+      overshootRight={false}
     >
-      {isPending && <View style={styles.orangeDot} />}
-      <View style={styles.content}>
-        <Text style={styles.preview} numberOfLines={2}>
-          {preview}
-        </Text>
-        <View style={styles.meta}>
-          <Text style={[styles.bucket, isPending && styles.bucketPending]}>
-            {bucketLabel}
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+      >
+        {isPending && <View style={styles.orangeDot} />}
+        <View style={styles.content}>
+          <Text style={styles.preview} numberOfLines={2}>
+            {preview}
           </Text>
-          <Text style={styles.time}>{getRelativeTime(item.createdAt)}</Text>
+          <View style={styles.meta}>
+            <Text style={[styles.bucket, isPending && styles.bucketPending]}>
+              {bucketLabel}
+            </Text>
+            <Text style={styles.time}>{getRelativeTime(item.createdAt)}</Text>
+          </View>
         </View>
-      </View>
-    </Pressable>
+      </Pressable>
+    </Swipeable>
   );
 }
 
@@ -118,5 +156,19 @@ const styles = StyleSheet.create({
   time: {
     fontSize: 12,
     color: "#666",
+  },
+  deleteAction: {
+    backgroundColor: "#dc2626",
+    justifyContent: "center",
+    alignItems: "center",
+    width: 80,
+    borderRadius: 10,
+    marginVertical: 4,
+    marginRight: 16,
+  },
+  deleteText: {
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "600",
   },
 });

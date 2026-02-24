@@ -6,6 +6,7 @@ import {
   RefreshControl,
   Modal,
   Pressable,
+  Alert,
   StyleSheet,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -93,6 +94,35 @@ export default function InboxScreen() {
     setLoadingMore(false);
   }, [loadingMore, hasMore, items.length, fetchInbox]);
 
+  const handleDeleteItem = useCallback(
+    (itemId: string) => {
+      Alert.alert("Delete Item", "This will also remove the filed record.", [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            // Optimistic removal
+            setItems((prev) => prev.filter((i) => i.id !== itemId));
+            try {
+              const res = await fetch(`${API_BASE_URL}/api/inbox/${itemId}`, {
+                method: "DELETE",
+                headers: { Authorization: `Bearer ${API_KEY}` },
+              });
+              if (!res.ok && res.status !== 404) {
+                // Restore on failure — re-fetch to get accurate state
+                void fetchInbox();
+              }
+            } catch {
+              void fetchInbox();
+            }
+          },
+        },
+      ]);
+    },
+    [fetchInbox],
+  );
+
   const handleItemPress = useCallback(
     (item: InboxItemData) => {
       if (item.status === "pending" || item.status === "low_confidence") {
@@ -111,7 +141,11 @@ export default function InboxScreen() {
         data={items}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <InboxItem item={item} onPress={() => handleItemPress(item)} />
+          <InboxItem
+            item={item}
+            onPress={() => handleItemPress(item)}
+            onDelete={handleDeleteItem}
+          />
         )}
         refreshControl={
           <RefreshControl
