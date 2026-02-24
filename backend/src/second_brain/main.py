@@ -534,42 +534,182 @@ async def follow_up_misunderstood(
         yield encoder.encode(RunStartedEvent(thread_id=thread_id, run_id=run_id))
 
         message_id_state: dict[str, str | None] = {"current": None}
+
+        # Track outcomes from custom events
+        classified_event_data: dict | None = None  # From CLASSIFIED event
         misunderstood_detected = False
-        orphaned_inbox_item_id: str | None = None
+        orphaned_inbox_item_id: str | None = None  # From MISUNDERSTOOD event
 
         async for item in stream:
             if isinstance(item, BaseEvent):
-                # Check if this is a MISUNDERSTOOD event
-                if isinstance(item, CustomEvent) and item.name == "MISUNDERSTOOD":
-                    if body.follow_up_round >= 2:
-                        # Max rounds reached -- mark as unresolved
-                        misunderstood_detected = True
-                        # Capture the orphaned inbox item ID created by
-                        # request_misunderstood so we can delete it after
-                        # updating the original item
-                        orphaned_inbox_item_id = (
-                            item.value.get("inboxItemId")
-                            if isinstance(item.value, dict)
-                            else None
+                if isinstance(item, CustomEvent):
+                    if item.name == "CLASSIFIED":
+                        # Workflow successfully classified the combined text.
+                        # Don't yield to client -- handle reconciliation after stream.
+                        classified_event_data = (
+                            item.value if isinstance(item.value, dict) else {}
                         )
-                        # Don't yield the MISUNDERSTOOD event
                         continue
-                    else:
-                        # Pass through -- client will enter next follow-up round
-                        yield encoder.encode(item)
-                        continue
+
+                    if item.name == "MISUNDERSTOOD":
+                        if body.follow_up_round >= 2:
+                            # Max rounds reached -- mark as unresolved
+                            misunderstood_detected = True
+                            orphaned_inbox_item_id = (
+                                item.value.get("inboxItemId")
+                                if isinstance(item.value, dict)
+                                else None
+                            )
+                            continue
+                        else:
+                            # Round 1: still misunderstood. Intercept to update
+                            # original item's clarificationText, then pass event
+                            # to client for next follow-up round.
+                            orphaned_inbox_item_id = (
+                                item.value.get("inboxItemId")
+                                if isinstance(item.value, dict)
+                                else None
+                            )
+                            # Update original item's clarificationText
+                            if cosmos_manager and orphaned_inbox_item_id:
+                                try:
+                                    inbox_container = cosmos_manager.get_container(
+                                        "Inbox"
+                                    )
+                                    existing = await inbox_container.read_item(
+                                        item=body.inbox_item_id,
+                                        partition_key="will",
+                                    )
+                                    question_text = (
+                                        item.value.get("questionText", "")
+                                        if isinstance(item.value, dict)
+                                        else ""
+                                    )
+                                    existing["clarificationText"] = question_text
+                                    existing["updatedAt"] = (
+                                        datetime.now(UTC).isoformat()
+                                    )
+                                    await inbox_container.upsert_item(body=existing)
+                                    logger.info(
+                                        "Updated original %s clarificationText",
+                                        body.inbox_item_id,
+                                    )
+                                    # Delete the orphaned new inbox doc
+                                    if orphaned_inbox_item_id != body.inbox_item_id:
+                                        await inbox_container.delete_item(
+                                            item=orphaned_inbox_item_id,
+                                            partition_key="will",
+                                        )
+                                        logger.info(
+                                            "Deleted orphan misunderstood inbox %s",
+                                            orphaned_inbox_item_id,
+                                        )
+                                except Exception:
+                                    logger.warning(
+                                        "Could not reconcile misunderstood round 1"
+                                        " for %s",
+                                        body.inbox_item_id,
+                                    )
+                            # Emit MISUNDERSTOOD event to client with ORIGINAL item ID
+                            yield encoder.encode(
+                                CustomEvent(
+                                    name="MISUNDERSTOOD",
+                                    value={
+                                        "threadId": thread_id,
+                                        "inboxItemId": body.inbox_item_id,
+                                        "questionText": (
+                                            item.value.get("questionText", "")
+                                            if isinstance(item.value, dict)
+                                            else ""
+                                        ),
+                                    },
+                                )
+                            )
+                            continue
+
                 yield encoder.encode(item)
             elif isinstance(item, AgentResponseUpdate):
                 for event in _convert_update_to_events(item, message_id_state):
                     yield encoder.encode(event)
 
+        # Close open text message
         if message_id_state.get("current"):
             yield encoder.encode(
                 TextMessageEndEvent(message_id=message_id_state["current"])
             )
 
-        if misunderstood_detected:
-            # Update original inbox doc to unresolved, then clean up orphan
+        # --- Post-stream orphan reconciliation ---
+
+        if classified_event_data and cosmos_manager:
+            # Workflow created a new inbox doc + bucket doc via classify_and_file.
+            # Copy classification metadata to original, delete orphaned inbox doc,
+            # update bucket doc's inboxRecordId.
+            orphan_inbox_id = classified_event_data.get("inboxItemId", "")
+            bucket = classified_event_data.get("bucket", "")
+            try:
+                inbox_container = cosmos_manager.get_container("Inbox")
+
+                # Read the orphaned inbox doc to get its classification metadata
+                orphan_doc = await inbox_container.read_item(
+                    item=orphan_inbox_id, partition_key="will"
+                )
+                classification_meta = orphan_doc.get("classificationMeta")
+                filed_record_id = orphan_doc.get("filedRecordId")
+                title = orphan_doc.get("title")
+
+                # Read the original inbox doc
+                existing = await inbox_container.read_item(
+                    item=body.inbox_item_id, partition_key="will"
+                )
+
+                # Copy classification to original
+                existing["classificationMeta"] = classification_meta
+                existing["filedRecordId"] = filed_record_id
+                existing["title"] = title
+                existing["status"] = orphan_doc.get("status", "classified")
+                existing["updatedAt"] = datetime.now(UTC).isoformat()
+                await inbox_container.upsert_item(body=existing)
+                logger.info(
+                    "Copied classification to original %s from orphan %s",
+                    body.inbox_item_id,
+                    orphan_inbox_id,
+                )
+
+                # Delete the orphaned inbox doc
+                if orphan_inbox_id and orphan_inbox_id != body.inbox_item_id:
+                    await inbox_container.delete_item(
+                        item=orphan_inbox_id, partition_key="will"
+                    )
+                    logger.info("Deleted orphan inbox doc %s", orphan_inbox_id)
+
+                # Update the bucket doc's inboxRecordId to point to original
+                if filed_record_id and bucket:
+                    try:
+                        bucket_container = cosmos_manager.get_container(bucket)
+                        bucket_doc = await bucket_container.read_item(
+                            item=filed_record_id, partition_key="will"
+                        )
+                        bucket_doc["inboxRecordId"] = body.inbox_item_id
+                        await bucket_container.upsert_item(body=bucket_doc)
+                        logger.info(
+                            "Updated bucket doc %s inboxRecordId to %s",
+                            filed_record_id,
+                            body.inbox_item_id,
+                        )
+                    except Exception:
+                        logger.warning(
+                            "Could not update bucket doc %s inboxRecordId",
+                            filed_record_id,
+                        )
+
+            except Exception:
+                logger.exception(
+                    "Failed post-stream reconciliation for inbox %s",
+                    body.inbox_item_id,
+                )
+
+        elif misunderstood_detected:
+            # Max rounds reached -- update original to unresolved + clean up orphan
             if cosmos_manager:
                 try:
                     inbox_container = cosmos_manager.get_container("Inbox")
@@ -585,16 +725,14 @@ async def follow_up_misunderstood(
                         body.inbox_item_id,
                     )
 
-                # Delete the orphaned inbox doc created by request_misunderstood
-                # at round 2. The tool creates a new misunderstood inbox item
-                # before the endpoint can intercept, so we clean it up here.
                 if (
                     orphaned_inbox_item_id
                     and orphaned_inbox_item_id != body.inbox_item_id
                 ):
                     try:
                         await inbox_container.delete_item(
-                            item=orphaned_inbox_item_id, partition_key="will"
+                            item=orphaned_inbox_item_id,
+                            partition_key="will",
                         )
                         logger.info(
                             "Deleted orphaned misunderstood inbox item %s",
