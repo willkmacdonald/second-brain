@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-21)
 
 **Core value:** One-tap capture from a phone instantly routes through an agent chain that classifies, files, and sharpens thoughts into concrete next actions -- with zero organizational effort.
-**Current focus:** Phase 04.2 complete -- ready for Phase 05 (Voice Capture)
+**Current focus:** Phase 04.3 in progress -- agent-user UX with unclear item
 
 ## Current Position
 
-Phase: 05 of 9 (Voice Capture) -- NOT STARTED
-Plan: 0 of TBD in current phase
-Status: Phase 04.2 complete (swipe-to-delete); ready for Phase 05 planning
-Last activity: 2026-02-24 -- Phase 04.2 implemented, deployed, and verified on prod
+Phase: 04.3 of 9 (Agent-User UX with unclear item) -- IN PROGRESS
+Plan: 1 of 4 in current phase
+Status: Plan 01 complete (backend dual-threshold classification); 3 plans remaining
+Last activity: 2026-02-24 -- Phase 04.3 Plan 01 executed (misunderstood vs low-confidence backend)
 
-Progress: [#######...] 71%
+Progress: [#######...] 73%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 16
+- Total plans completed: 17
 - Average duration: 4.0 min
-- Total execution time: 1.1 hours
+- Total execution time: 1.2 hours
 
 **By Phase:**
 
@@ -33,10 +33,11 @@ Progress: [#######...] 71%
 | 04-hitl-clarification-and-ag-ui-streaming | 6/6 | 34 min | 5.7 min |
 | 04.1-backend-deployment-to-azure-container-apps | 2/2 | 5 min | 2.5 min |
 | 04.2-swipe-to-delete-inbox-items | 1/1 | 5 min | 5 min |
+| 04.3-agent-user-ux-with-unclear-item | 1/4 | 4 min | 4 min |
 
 **Recent Trend:**
-- Last 5 plans: 04.1-01 (3 min), 04.1-02 (2 min), 04-06 (2 min), 04.2-01 (5 min)
-- Trend: Feature work steady; 04.2 included backend + frontend + tests + deploy
+- Last 5 plans: 04.1-02 (2 min), 04-06 (2 min), 04.2-01 (5 min), 04.3-01 (4 min)
+- Trend: Backend-only plans consistently 3-5 min
 
 *Updated after each plan completion*
 
@@ -117,6 +118,11 @@ Recent decisions affecting current work:
 - [04.2-01]: Cascade delete is non-fatal -- missing bucket doc logged as warning, inbox delete still proceeds
 - [04.2-01]: Optimistic UI removal with re-fetch on API failure; Alert.alert confirmation before delete
 - [04.2-01]: Config fix: api_key_secret_name was "sb-api-key" but Key Vault secret is "second-brain-api-key"
+- [04.3-01]: request_clarification replaced entirely by request_misunderstood -- old tool conflated uncertain-between-buckets with truly-unclear
+- [04.3-01]: Low-confidence items get status="pending" (was "low_confidence") -- consistent with mobile isPendingStatus
+- [04.3-01]: Pending return string "Filed (needs review)" distinct from "Filed" for capture screen toast differentiation
+- [04.3-01]: Misunderstood inbox docs have no classificationMeta and no bucket filing -- truly unclear input has no classification
+- [04.3-01]: Low-confidence HITL_REQUIRED fallback removed from adapter -- pending items complete silently without user interruption
 
 ### Roadmap Evolution
 
@@ -136,6 +142,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-23
-Stopped at: Phase 04.3 context gathered
-Resume file: .planning/phases/04.3-agent-user-ux-with-unclear-item/04.3-CONTEXT.md
+Last session: 2026-02-24
+Stopped at: Completed 04.3-01-PLAN.md
+Resume file: .planning/phases/04.3-agent-user-ux-with-unclear-item/04.3-01-SUMMARY.md
