@@ -89,6 +89,19 @@ Plans:
 - [x] 04-05-PLAN.md — [Gap fix] Mobile: inboxItemId flow, real clarification text, top-2 bucket emphasis
 - [x] 04-06-PLAN.md — [UAT fix] Remove Classifier autonomous mode, fix useCallback closure bug, harden respond endpoint, inbox auto-refresh
 
+### Phase 04.3: agent-user UX with unclear item (INSERTED)
+
+**Goal:** Three distinct classification failure flows: misunderstood (conversational follow-up), low-confidence (silent pending filing), and mis-categorized (inbox recategorize)
+**Depends on:** Phase 4
+**Requirements:** CLAS-04, APPX-04 (extended)
+**Plans:** 4 plans
+
+Plans:
+- [ ] 04.3-01-PLAN.md -- Backend classification tools, classifier instructions, and adapter (misunderstood vs low-confidence)
+- [ ] 04.3-02-PLAN.md -- Backend recategorize endpoint (PATCH inbox item to different bucket)
+- [ ] 04.3-03-PLAN.md -- Follow-up endpoint + mobile capture screen misunderstood conversation flow
+- [ ] 04.3-04-PLAN.md -- Mobile inbox detail card bucket buttons and status dots
+
 ### Phase 04.2: Swipe-to-delete inbox items (INSERTED)
 
 **Goal:** [Urgent work - to be planned]
@@ -199,6 +212,8 @@ Note: Phases 5, 6, 7, and 9 depend only on Phase 3 and can be parallelized, but 
 | 3. Text Classification Pipeline | 2/2 | Complete | 2026-02-22 |
 | 4. HITL Clarification and AG-UI Streaming | 6/6 | Complete | 2026-02-24 |
 | 4.1 Backend Deployment to Azure Container Apps | 2/2 | Complete | 2026-02-23 |
+| 4.2 Swipe-to-delete inbox items | 1/1 | Complete | 2026-02-24 |
+| 4.3 Agent-User UX with unclear item | 0/4 | Planned | - |
 | 5. Voice Capture | 0/3 | Not started | - |
 | 6. Action Sharpening | 0/2 | Not started | - |
 | 7. People CRM and Cross-References | 0/3 | Not started | - |
