@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-21)
 
 **Core value:** One-tap capture from a phone instantly routes through an agent chain that classifies, files, and sharpens thoughts into concrete next actions -- with zero organizational effort.
-**Current focus:** Phase 04 complete -- ready for Phase 05 (Voice Capture)
+**Current focus:** Phase 04.2 complete -- ready for Phase 05 (Voice Capture)
 
 ## Current Position
 
 Phase: 05 of 9 (Voice Capture) -- NOT STARTED
 Plan: 0 of TBD in current phase
-Status: Phase 04 verified and complete; Phase 04.1 already complete; ready for Phase 05 planning
-Last activity: 2026-02-24 -- Phase 04 verified (human_needed -> approved), marked complete
+Status: Phase 04.2 complete (swipe-to-delete); ready for Phase 05 planning
+Last activity: 2026-02-24 -- Phase 04.2 implemented, deployed, and verified on prod
 
 Progress: [#######...] 71%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 15
-- Average duration: 4.1 min
-- Total execution time: 1.04 hours
+- Total plans completed: 16
+- Average duration: 4.0 min
+- Total execution time: 1.1 hours
 
 **By Phase:**
 
@@ -32,10 +32,11 @@ Progress: [#######...] 71%
 | 03-text-classification-pipeline | 2/2 | 7 min | 3.5 min |
 | 04-hitl-clarification-and-ag-ui-streaming | 6/6 | 34 min | 5.7 min |
 | 04.1-backend-deployment-to-azure-container-apps | 2/2 | 5 min | 2.5 min |
+| 04.2-swipe-to-delete-inbox-items | 1/1 | 5 min | 5 min |
 
 **Recent Trend:**
-- Last 5 plans: 04-05 (3 min), 04.1-01 (3 min), 04.1-02 (2 min), 04-06 (2 min)
-- Trend: Bug fix and infrastructure plans executing efficiently
+- Last 5 plans: 04.1-01 (3 min), 04.1-02 (2 min), 04-06 (2 min), 04.2-01 (5 min)
+- Trend: Feature work steady; 04.2 included backend + frontend + tests + deploy
 
 *Updated after each plan completion*
 
@@ -110,10 +111,17 @@ Recent decisions affecting current work:
 - [04-06]: Respond endpoint returns SSE error (not fake success) when inbox_item_id is missing or processing fails
 - [04-06]: Badge count derived in separate useEffect(items) instead of inside fetchInbox to avoid stale closure
 - [04-06]: fetchInbox useCallback has empty dep array since deduplication uses functional state updater
+- [04.2-01]: Swipeable from react-native-gesture-handler (no reanimated dependency needed)
+- [04.2-01]: GestureHandlerRootView wraps root layout for gesture support
+- [04.2-01]: DELETE /api/inbox/{item_id} cascade deletes bucket document via filedRecordId + classificationMeta.bucket
+- [04.2-01]: Cascade delete is non-fatal -- missing bucket doc logged as warning, inbox delete still proceeds
+- [04.2-01]: Optimistic UI removal with re-fetch on API failure; Alert.alert confirmation before delete
+- [04.2-01]: Config fix: api_key_secret_name was "sb-api-key" but Key Vault secret is "second-brain-api-key"
 
 ### Roadmap Evolution
 
 - Phase 04.1 inserted after Phase 4: Backend Deployment to Azure Container Apps (URGENT) — cannot do real UAT without deployed backend
+- Phase 04.2 inserted after Phase 04.1: Swipe-to-delete inbox items (URGENT) — needed for data hygiene during testing
 
 ### Pending Todos
 
@@ -128,5 +136,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-24
-Stopped at: Phase 04 verified and marked complete (all 6 plans, UAT approved)
-Resume file: .planning/phases/04-hitl-clarification-and-ag-ui-streaming/04-VERIFICATION.md
+Stopped at: Phase 04.2 complete -- swipe-to-delete deployed and verified on prod (DELETE 204, 404 tested)
+Resume file: N/A (ready for Phase 05 planning)
