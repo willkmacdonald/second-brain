@@ -218,10 +218,12 @@ class AGUIWorkflowAdapter:
         detected_tool: str | None,
         detected_tool_args: dict[str, Any],
         misunderstood_inbox_id: str | None,
-    ) -> tuple[str | None, dict[str, Any], str | None]:
+        classified_inbox_id: str | None,
+    ) -> tuple[str | None, dict[str, Any], str | None, str | None]:
         """Run function_call detection on an update.
 
-        Returns updated (detected_tool, detected_tool_args, misunderstood_inbox_id).
+        Returns updated (detected_tool, detected_tool_args,
+        misunderstood_inbox_id, classified_inbox_id).
         """
         if detected_tool is None:
             fc = self._extract_function_call_info(update)
@@ -235,7 +237,13 @@ class AGUIWorkflowAdapter:
                 misunderstood_inbox_id = iid
                 logger.info("Extracted misunderstood inbox_id: %s", iid)
 
-        return detected_tool, detected_tool_args, misunderstood_inbox_id
+        if detected_tool == "classify_and_file" and classified_inbox_id is None:
+            iid = self._extract_inbox_id_from_result(update)
+            if iid is not None:
+                classified_inbox_id = iid
+                logger.info("Extracted classified inbox_id: %s", iid)
+
+        return detected_tool, detected_tool_args, misunderstood_inbox_id, classified_inbox_id
 
     async def _stream_updates(
         self,
@@ -265,6 +273,7 @@ class AGUIWorkflowAdapter:
         detected_tool: str | None = None
         detected_tool_args: dict[str, Any] = {}
         misunderstood_inbox_id: str | None = None
+        classified_inbox_id: str | None = None
 
         # Classifier text buffer for chain-of-thought suppression
         classifier_buffer: str = ""
@@ -318,10 +327,12 @@ class AGUIWorkflowAdapter:
                                 detected_tool,
                                 detected_tool_args,
                                 misunderstood_inbox_id,
+                                classified_inbox_id,
                             )
                             detected_tool = result[0]
                             detected_tool_args = result[1]
                             misunderstood_inbox_id = result[2]
+                            classified_inbox_id = result[3]
 
                             # Buffer Classifier text-only updates
                             if self._is_classifier_text(update):
@@ -341,12 +352,13 @@ class AGUIWorkflowAdapter:
                         continue
 
                     # Detect classification tool from function_call
-                    detected_tool, detected_tool_args, misunderstood_inbox_id = (
+                    detected_tool, detected_tool_args, misunderstood_inbox_id, classified_inbox_id = (
                         self._process_update(
                             event,
                             detected_tool,
                             detected_tool_args,
                             misunderstood_inbox_id,
+                            classified_inbox_id,
                         )
                     )
 
@@ -410,8 +422,19 @@ class AGUIWorkflowAdapter:
                 logger.warning(
                     "request_misunderstood detected but no inbox_item_id extracted"
                 )
-        elif detected_tool in ("classify_and_file", "mark_as_junk"):
-            logger.info("Classification completed via %s", detected_tool)
+        elif detected_tool == "classify_and_file":
+            logger.info("Classification completed via classify_and_file")
+            if classified_inbox_id:
+                yield CustomEvent(
+                    name="CLASSIFIED",
+                    value={
+                        "inboxItemId": classified_inbox_id,
+                        "bucket": detected_tool_args.get("bucket", ""),
+                        "confidence": detected_tool_args.get("confidence", 0.0),
+                    },
+                )
+        elif detected_tool == "mark_as_junk":
+            logger.info("Classification completed via mark_as_junk")
         elif detected_tool is None:
             logger.warning(
                 "Classifier stream ended without calling any classification tool"
