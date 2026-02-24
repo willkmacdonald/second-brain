@@ -10,16 +10,16 @@ See: .planning/PROJECT.md (updated 2026-02-21)
 ## Current Position
 
 Phase: 04.3 of 9 (Agent-User UX with unclear item) -- gap closure
-Plan: 7 of 8 in current phase
-Status: Plan 07 complete -- score validation/fallback; Plan 08 remaining
-Last activity: 2026-02-24 -- Phase 04.3 Plan 07 executed (fix 0.00 confidence scores)
+Plan: 8 of 8 in current phase (PHASE COMPLETE)
+Status: Phase 04.3 complete -- all 8 plans executed; ready for UAT retest
+Last activity: 2026-02-24 -- Phase 04.3 Plan 08 executed (follow-up orphan reconciliation)
 
-Progress: [########--] 87%
+Progress: [##########] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 23
+- Total plans completed: 24
 - Average duration: 3.5 min
 - Total execution time: 1.4 hours
 
@@ -33,10 +33,10 @@ Progress: [########--] 87%
 | 04-hitl-clarification-and-ag-ui-streaming | 6/6 | 34 min | 5.7 min |
 | 04.1-backend-deployment-to-azure-container-apps | 2/2 | 5 min | 2.5 min |
 | 04.2-swipe-to-delete-inbox-items | 1/1 | 5 min | 5 min |
-| 04.3-agent-user-ux-with-unclear-item | 7/8 | 20 min | 2.9 min |
+| 04.3-agent-user-ux-with-unclear-item | 8/8 | 23 min | 2.9 min |
 
 **Recent Trend:**
-- Last 5 plans: 04.3-04 (3 min), 04.3-05 (4 min), 04.3-06 (1 min), 04.3-07 (2 min)
+- Last 5 plans: 04.3-05 (4 min), 04.3-06 (1 min), 04.3-07 (2 min), 04.3-08 (3 min)
 - Trend: Consistently 1-4 min per plan
 
 *Updated after each plan completion*
@@ -143,6 +143,9 @@ Recent decisions affecting current work:
 - [04.3-07]: Score params reordered (raw_text/title before optional scores) to satisfy Python no-default-after-default syntax
 - [04.3-07]: Score params made optional (default 0.0) to document Agent Framework stripping behavior
 - [04.3-07]: Confidence 0.0 with valid bucket defaults to 0.75 -- prevents zero-confidence documents
+- [04.3-08]: CLASSIFIED event NOT yielded to client -- used internally for post-stream orphan reconciliation only
+- [04.3-08]: Round 1 MISUNDERSTOOD re-emitted with ORIGINAL inbox_item_id (not orphan) to maintain client follow-up chain
+- [04.3-08]: Non-fatal error handling throughout reconciliation -- orphaned docs are harmless
 
 ### Roadmap Evolution
 
@@ -163,5 +166,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-24
-Stopped at: Completed 04.3-07-PLAN.md (fix 0.00 confidence scores)
-Resume file: .planning/phases/04.3-agent-user-ux-with-unclear-item/04.3-07-SUMMARY.md
+Stopped at: Completed 04.3-08-PLAN.md (follow-up orphan reconciliation) -- Phase 04.3 COMPLETE
+Resume file: .planning/phases/04.3-agent-user-ux-with-unclear-item/04.3-08-SUMMARY.md
