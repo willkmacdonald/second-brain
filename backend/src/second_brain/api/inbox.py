@@ -1,18 +1,30 @@
-"""Inbox API endpoints for listing, retrieving, and deleting captured items.
+"""Inbox API endpoints for listing, retrieving, deleting, and recategorizing items.
 
 Queries Cosmos DB Inbox container for recent captures ordered by createdAt DESC.
 Follows the same pattern as health.py (APIRouter, include_router in main.py).
 """
 
 import logging
+from datetime import UTC, datetime
+from uuid import uuid4
 
 from azure.cosmos.exceptions import CosmosResourceNotFoundError
 from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel
 
+from second_brain.models.documents import CONTAINER_MODELS, ClassificationMeta
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+VALID_BUCKETS = {"People", "Projects", "Ideas", "Admin"}
+
+
+class RecategorizeRequest(BaseModel):
+    """Request body for recategorizing an inbox item to a different bucket."""
+
+    new_bucket: str  # "People", "Projects", "Ideas", or "Admin"  # noqa: N815
 
 
 # Response models use camelCase field names per project convention (Ruff N815 ignore)
@@ -174,3 +186,103 @@ async def delete_inbox_item(request: Request, item_id: str) -> Response:
     logger.info("Deleted inbox item %s", item_id)
 
     return Response(status_code=204)
+
+
+@router.patch("/api/inbox/{item_id}/recategorize")
+async def recategorize_inbox_item(
+    request: Request, item_id: str, body: RecategorizeRequest
+) -> dict:
+    """Move a classified inbox item to a different bucket container.
+
+    Three-step cross-container move: create new bucket doc, update inbox
+    metadata, delete old bucket doc (non-fatal). Returns the updated inbox doc.
+    """
+    cosmos_manager = getattr(request.app.state, "cosmos_manager", None)
+    if cosmos_manager is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Cosmos DB not configured. Inbox is unavailable.",
+        )
+
+    # Validate bucket name
+    if body.new_bucket not in VALID_BUCKETS:
+        valid = ", ".join(sorted(VALID_BUCKETS))
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid bucket '{body.new_bucket}'. Valid buckets: {valid}",
+        )
+
+    # Read the inbox item
+    inbox_container = cosmos_manager.get_container("Inbox")
+    try:
+        item = await inbox_container.read_item(item=item_id, partition_key="will")
+    except CosmosResourceNotFoundError as exc:
+        raise HTTPException(
+            status_code=404, detail=f"Inbox item {item_id} not found"
+        ) from exc
+
+    # Extract old bucket info
+    old_meta = item.get("classificationMeta") or {}
+    old_bucket = old_meta.get("bucket")
+    old_filed_id = item.get("filedRecordId")
+
+    # Same-bucket is a no-op
+    if old_bucket == body.new_bucket:
+        return dict(item)
+
+    # Step 1: Create new bucket document
+    new_bucket_doc_id = str(uuid4())
+
+    # Build fresh ClassificationMeta preserving original confidence/allScores
+    new_agent_chain = list(old_meta.get("agentChain", []))
+    if "User" not in new_agent_chain:
+        new_agent_chain.append("User")
+
+    classification_meta = ClassificationMeta(
+        bucket=body.new_bucket,
+        confidence=old_meta.get("confidence", 0.0),
+        allScores=old_meta.get("allScores", {}),
+        classifiedBy="User",
+        agentChain=new_agent_chain,
+        classifiedAt=datetime.now(UTC),
+    )
+
+    model_class = CONTAINER_MODELS[body.new_bucket]
+    kwargs: dict = {
+        "id": new_bucket_doc_id,
+        "rawText": item.get("rawText", ""),
+        "classificationMeta": classification_meta,
+        "inboxRecordId": item_id,
+    }
+    if body.new_bucket == "People":
+        kwargs["name"] = item.get("title") or "Unnamed"
+    else:
+        kwargs["title"] = item.get("title") or "Untitled"
+
+    bucket_doc = model_class(**kwargs)
+    target_container = cosmos_manager.get_container(body.new_bucket)
+    await target_container.create_item(body=bucket_doc.model_dump(mode="json"))
+
+    # Step 2: Update inbox document
+    item["classificationMeta"] = classification_meta.model_dump(mode="json")
+    item["filedRecordId"] = new_bucket_doc_id
+    item["status"] = "classified"
+    item["updatedAt"] = datetime.now(UTC).isoformat()
+    await inbox_container.upsert_item(body=item)
+
+    # Step 3: Delete old bucket document (non-fatal)
+    if old_filed_id and old_bucket:
+        try:
+            old_container = cosmos_manager.get_container(old_bucket)
+            await old_container.delete_item(item=old_filed_id, partition_key="will")
+        except Exception:
+            logger.warning(
+                "Could not delete old bucket doc %s/%s during recategorize",
+                old_bucket,
+                old_filed_id,
+            )
+
+    logger.info(
+        "Recategorized inbox %s: %s -> %s", item_id, old_bucket, body.new_bucket
+    )
+    return dict(item)
