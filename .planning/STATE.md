@@ -10,17 +10,17 @@ See: .planning/PROJECT.md (updated 2026-02-21)
 ## Current Position
 
 Phase: 04.3 of 9 (Agent-User UX with unclear item) -- IN PROGRESS
-Plan: 1 of 4 in current phase
-Status: Plan 01 complete (backend dual-threshold classification); 3 plans remaining
-Last activity: 2026-02-24 -- Phase 04.3 Plan 01 executed (misunderstood vs low-confidence backend)
+Plan: 2 of 4 in current phase
+Status: Plan 02 complete (recategorize endpoint); 2 plans remaining
+Last activity: 2026-02-24 -- Phase 04.3 Plan 02 executed (PATCH recategorize endpoint)
 
 Progress: [#######...] 73%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 17
-- Average duration: 4.0 min
+- Total plans completed: 18
+- Average duration: 3.9 min
 - Total execution time: 1.2 hours
 
 **By Phase:**
@@ -33,11 +33,11 @@ Progress: [#######...] 73%
 | 04-hitl-clarification-and-ag-ui-streaming | 6/6 | 34 min | 5.7 min |
 | 04.1-backend-deployment-to-azure-container-apps | 2/2 | 5 min | 2.5 min |
 | 04.2-swipe-to-delete-inbox-items | 1/1 | 5 min | 5 min |
-| 04.3-agent-user-ux-with-unclear-item | 1/4 | 4 min | 4 min |
+| 04.3-agent-user-ux-with-unclear-item | 2/4 | 6 min | 3 min |
 
 **Recent Trend:**
-- Last 5 plans: 04.1-02 (2 min), 04-06 (2 min), 04.2-01 (5 min), 04.3-01 (4 min)
-- Trend: Backend-only plans consistently 3-5 min
+- Last 5 plans: 04-06 (2 min), 04.2-01 (5 min), 04.3-01 (4 min), 04.3-02 (2 min)
+- Trend: Backend-only plans consistently 2-5 min
 
 *Updated after each plan completion*
 
@@ -123,6 +123,9 @@ Recent decisions affecting current work:
 - [04.3-01]: Pending return string "Filed (needs review)" distinct from "Filed" for capture screen toast differentiation
 - [04.3-01]: Misunderstood inbox docs have no classificationMeta and no bucket filing -- truly unclear input has no classification
 - [04.3-01]: Low-confidence HITL_REQUIRED fallback removed from adapter -- pending items complete silently without user interruption
+- [04.3-02]: Preserved original confidence/allScores during recategorize to maintain classification context
+- [04.3-02]: Non-fatal old bucket doc deletion -- orphaned doc is harmless per CONTEXT.md research
+- [04.3-02]: User appended to agentChain only if not already present (prevents duplicates on re-recategorize)
 
 ### Roadmap Evolution
 
@@ -143,5 +146,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-24
-Stopped at: Completed 04.3-01-PLAN.md
-Resume file: .planning/phases/04.3-agent-user-ux-with-unclear-item/04.3-01-SUMMARY.md
+Stopped at: Completed 04.3-02-PLAN.md
+Resume file: .planning/phases/04.3-agent-user-ux-with-unclear-item/04.3-02-SUMMARY.md
