@@ -72,8 +72,11 @@ async def test_classify_and_file_high_confidence(mock_cosmos_manager: object) ->
         admin_score=0.03,
     )
 
-    # Verify return string format
-    assert result == "Filed \u2192 Projects (0.85)"
+    # Verify return string format: "Filed -> Bucket (conf) | {uuid}"
+    assert result.startswith("Filed \u2192 Projects (0.85) | ")
+    # Verify UUID suffix is a valid UUID
+    import uuid as _uuid
+    _uuid.UUID(result.split(" | ")[-1])
 
     # Verify Inbox write
     inbox_container = mock_cosmos_manager.get_container("Inbox")
@@ -110,9 +113,12 @@ async def test_classify_and_file_low_confidence(mock_cosmos_manager: object) -> 
         **_BASE_KWARGS,
     )
 
-    # Still filed but with "(needs review)" indicator
-    assert result == "Filed (needs review) \u2192 People (0.45)"
+    # Still filed but with "(needs review)" indicator and UUID suffix
+    assert result.startswith("Filed (needs review) \u2192 People (0.45) | ")
     assert "(needs review)" in result
+    # Verify UUID suffix
+    import uuid as _uuid
+    _uuid.UUID(result.split(" | ")[-1])
 
     inbox_body = _get_body(mock_cosmos_manager, "Inbox")
     assert inbox_body["status"] == "pending"

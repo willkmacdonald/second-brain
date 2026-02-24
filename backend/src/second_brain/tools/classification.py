@@ -187,8 +187,8 @@ class ClassificationTools:
             raw_text[:80],
         )
         if status == "pending":
-            return f"Filed (needs review) \u2192 {bucket} ({confidence:.2f})"
-        return f"Filed \u2192 {bucket} ({confidence:.2f})"
+            return f"Filed (needs review) \u2192 {bucket} ({confidence:.2f}) | {inbox_doc_id}"
+        return f"Filed \u2192 {bucket} ({confidence:.2f}) | {inbox_doc_id}"
 
     @tool
     async def request_misunderstood(
