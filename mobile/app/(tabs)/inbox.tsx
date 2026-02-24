@@ -10,18 +10,20 @@ import {
   StyleSheet,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router, useNavigation, useFocusEffect } from "expo-router";
+import { useNavigation, useFocusEffect } from "expo-router";
 import { API_BASE_URL, API_KEY } from "../../constants/config";
+import { sendClarification } from "../../lib/ag-ui-client";
 import { InboxItem } from "../../components/InboxItem";
 import type { InboxItemData } from "../../components/InboxItem";
 
 const PAGE_SIZE = 20;
+const BUCKETS = ["People", "Projects", "Ideas", "Admin"];
 
 /**
  * Inbox screen displaying all recent captures with classification status.
  *
- * Filed items show a detail card on tap. Pending (low_confidence) items
- * navigate to the conversation screen for HITL resolution.
+ * All items open a detail card with bucket buttons for recategorization
+ * (classified items) or manual resolution (pending items).
  */
 export default function InboxScreen() {
   const [items, setItems] = useState<InboxItemData[]>([]);
@@ -29,6 +31,8 @@ export default function InboxScreen() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [selectedItem, setSelectedItem] = useState<InboxItemData | null>(null);
+  const [isRecategorizing, setIsRecategorizing] = useState(false);
+  const [recategorizeToast, setRecategorizeToast] = useState<string | null>(null);
   const navigation = useNavigation();
 
   const fetchInbox = useCallback(
@@ -74,7 +78,7 @@ export default function InboxScreen() {
   // Derive badge count from items state so it always reflects current data
   useEffect(() => {
     const isPendingStatus = (s: string) =>
-      s === "pending" || s === "low_confidence";
+      s === "pending" || s === "low_confidence" || s === "unresolved";
     const pendingCount = items.filter((i) => isPendingStatus(i.status)).length;
     navigation.setOptions({
       tabBarBadge: pendingCount > 0 ? pendingCount : undefined,
@@ -125,14 +129,105 @@ export default function InboxScreen() {
 
   const handleItemPress = useCallback(
     (item: InboxItemData) => {
-      if (item.status === "pending" || item.status === "low_confidence") {
-        router.push(`/conversation/${item.id}`);
-      } else {
-        setSelectedItem(item);
-      }
+      setSelectedItem(item);
     },
     [],
   );
+
+  const handleRecategorize = useCallback(
+    async (itemId: string, newBucket: string) => {
+      if (isRecategorizing) return;
+      setIsRecategorizing(true);
+
+      try {
+        const res = await fetch(
+          `${API_BASE_URL}/api/inbox/${itemId}/recategorize`,
+          {
+            method: "PATCH",
+            headers: {
+              Authorization: `Bearer ${API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ new_bucket: newBucket }),
+          },
+        );
+
+        if (res.ok) {
+          // Optimistic UI: update item in list
+          setItems((prev) =>
+            prev.map((i) =>
+              i.id === itemId
+                ? {
+                    ...i,
+                    status: "classified",
+                    classificationMeta: i.classificationMeta
+                      ? { ...i.classificationMeta, bucket: newBucket }
+                      : null,
+                  }
+                : i,
+            ),
+          );
+          setSelectedItem(null);
+          setRecategorizeToast(`Moved to ${newBucket}`);
+        }
+      } catch {
+        // Silently fail -- detail card stays open
+      } finally {
+        setIsRecategorizing(false);
+      }
+    },
+    [isRecategorizing],
+  );
+
+  const handlePendingResolve = useCallback(
+    (itemId: string, bucket: string) => {
+      if (isRecategorizing) return;
+      setIsRecategorizing(true);
+
+      const threadId = `resolve-${itemId}`;
+      const cleanup = sendClarification({
+        threadId,
+        bucket,
+        apiKey: API_KEY!,
+        inboxItemId: itemId,
+        callbacks: {
+          onComplete: (result: string) => {
+            void result;
+            setIsRecategorizing(false);
+            // Update item in list optimistically
+            setItems((prev) =>
+              prev.map((i) =>
+                i.id === itemId
+                  ? {
+                      ...i,
+                      status: "classified",
+                      classificationMeta: i.classificationMeta
+                        ? { ...i.classificationMeta, bucket }
+                        : { bucket, confidence: 0.85, agentChain: ["User"] },
+                    }
+                  : i,
+              ),
+            );
+            setSelectedItem(null);
+            setRecategorizeToast(`Filed to ${bucket}`);
+          },
+          onError: () => {
+            setIsRecategorizing(false);
+          },
+        },
+      });
+      // Store cleanup for potential unmount
+      void cleanup;
+    },
+    [isRecategorizing],
+  );
+
+  // Auto-dismiss recategorize toast after 2 seconds
+  useEffect(() => {
+    if (!recategorizeToast) return;
+    const timer = setTimeout(() => setRecategorizeToast(null), 2000);
+    return () => clearTimeout(timer);
+  }, [recategorizeToast]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -167,7 +262,7 @@ export default function InboxScreen() {
         contentContainerStyle={items.length === 0 ? styles.emptyContainer : undefined}
       />
 
-      {/* Detail card modal for filed items */}
+      {/* Detail card modal for all items */}
       <Modal
         visible={selectedItem !== null}
         transparent
@@ -178,7 +273,10 @@ export default function InboxScreen() {
           style={styles.modalOverlay}
           onPress={() => setSelectedItem(null)}
         >
-          <View style={styles.detailCard}>
+          <View
+            style={styles.detailCard}
+            onStartShouldSetResponder={() => true}
+          >
             <Text style={styles.detailLabel}>Captured Text</Text>
             <Text style={styles.detailText}>{selectedItem?.rawText}</Text>
 
@@ -212,6 +310,57 @@ export default function InboxScreen() {
                 : "N/A"}
             </Text>
 
+            {(() => {
+              const isPendingItem =
+                selectedItem?.status === "pending" ||
+                selectedItem?.status === "low_confidence";
+              const isClassifiedItem = selectedItem?.status === "classified";
+              const showBucketButtons = isPendingItem || isClassifiedItem;
+
+              if (!showBucketButtons) return null;
+
+              return (
+                <View style={styles.bucketSection}>
+                  <Text style={styles.detailLabel}>
+                    {isPendingItem ? "File to bucket" : "Move to bucket"}
+                  </Text>
+                  <View style={styles.bucketRow}>
+                    {BUCKETS.map((bucket) => {
+                      const isCurrent =
+                        !isPendingItem &&
+                        selectedItem?.classificationMeta?.bucket === bucket;
+                      return (
+                        <Pressable
+                          key={bucket}
+                          onPress={() =>
+                            isPendingItem
+                              ? handlePendingResolve(selectedItem!.id, bucket)
+                              : handleRecategorize(selectedItem!.id, bucket)
+                          }
+                          disabled={isCurrent || isRecategorizing}
+                          style={({ pressed }) => [
+                            styles.bucketButton,
+                            isCurrent && styles.bucketButtonCurrent,
+                            pressed && !isCurrent && styles.bucketButtonPressed,
+                            isRecategorizing && styles.bucketButtonDisabled,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.bucketButtonText,
+                              isCurrent && styles.bucketButtonTextCurrent,
+                            ]}
+                          >
+                            {bucket}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+              );
+            })()}
+
             <Pressable
               style={styles.closeButton}
               onPress={() => setSelectedItem(null)}
@@ -221,6 +370,12 @@ export default function InboxScreen() {
           </View>
         </Pressable>
       </Modal>
+
+      {recategorizeToast && (
+        <View style={styles.toastBar}>
+          <Text style={styles.toastText}>{recategorizeToast}</Text>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -295,6 +450,38 @@ const styles = StyleSheet.create({
     color: "#ccc",
     lineHeight: 20,
   },
+  bucketSection: {
+    marginTop: 16,
+  },
+  bucketRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 4,
+  },
+  bucketButton: {
+    flex: 1,
+    backgroundColor: "#2a2a4e",
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  bucketButtonCurrent: {
+    backgroundColor: "#4a90d9",
+  },
+  bucketButtonPressed: {
+    opacity: 0.7,
+  },
+  bucketButtonDisabled: {
+    opacity: 0.4,
+  },
+  bucketButtonText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#ccc",
+  },
+  bucketButtonTextCurrent: {
+    color: "#ffffff",
+  },
   closeButton: {
     marginTop: 20,
     backgroundColor: "#2a2a4e",
@@ -306,5 +493,22 @@ const styles = StyleSheet.create({
     color: "#4a90d9",
     fontSize: 15,
     fontWeight: "600",
+  },
+  toastBar: {
+    position: "absolute",
+    bottom: 40,
+    left: 20,
+    right: 20,
+    backgroundColor: "#1a1a2e",
+    borderRadius: 10,
+    padding: 12,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#4a90d9",
+  },
+  toastText: {
+    color: "#4ade80",
+    fontSize: 14,
+    fontWeight: "500",
   },
 });
