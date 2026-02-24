@@ -48,6 +48,11 @@ _CLARIFICATION_RE = re.compile(
     r"Clarification\s*→\s*([a-f0-9\-]+)\s*\|\s*(.+)", re.DOTALL
 )
 
+# Regex to extract (inbox_doc_id, question_text) from request_misunderstood output
+_MISUNDERSTOOD_RE = re.compile(
+    r"Misunderstood\s*→\s*([a-f0-9\-]+)\s*\|\s*(.+)", re.DOTALL
+)
+
 
 class AGUIWorkflowAdapter:
     """Adapter that wraps a workflow definition for AG-UI endpoint compatibility.
@@ -156,6 +161,12 @@ class AGUIWorkflowAdapter:
         match = _CLARIFICATION_RE.search(text)
         return (match.group(1), match.group(2)) if match else None
 
+    @staticmethod
+    def _extract_misunderstood(text: str) -> tuple[str, str] | None:
+        """Extract (inbox_item_id, question_text) from misunderstood output."""
+        match = _MISUNDERSTOOD_RE.search(text)
+        return (match.group(1), match.group(2)) if match else None
+
     async def _stream_updates(
         self,
         messages: str | Message | Sequence[str | Message] | None,
@@ -165,14 +176,11 @@ class AGUIWorkflowAdapter:
         """Stream updates from the workflow with step events and HITL detection.
 
         Yields a mix of AgentResponseUpdate (text/tool content) and AG-UI
-        BaseEvent (StepStarted, StepFinished, Custom HITL_REQUIRED).
+        BaseEvent (StepStarted, StepFinished, Custom HITL_REQUIRED/MISUNDERSTOOD).
 
-        Only the Orchestrator is autonomous. The Classifier pauses the
-        workflow via request_info when it calls request_clarification.
-        The adapter detects clarification text from output events and
-        appends HITL_REQUIRED after the stream ends. For high-confidence
-        cases the Classifier calls classify_and_file and the workflow
-        completes normally.
+        Phase 04.3: Detects both misunderstood (MISUNDERSTOOD event) and
+        clarification (HITL_REQUIRED event) patterns. Low-confidence items
+        are silently filed as pending -- no HITL interruption.
 
         Echo filtering: Only yield text content from the Classifier agent.
         The Orchestrator's text (which echoes user input) is suppressed.
@@ -184,6 +192,7 @@ class AGUIWorkflowAdapter:
         response_id = str(_uuid.uuid4())
         detected_confidence: float | None = None
         detected_clarification: tuple[str, str] | None = None
+        detected_misunderstood: tuple[str, str] | None = None
         saw_request_info = False
 
         logger.info("Starting workflow stream: thread_id=%s", thread_id)
@@ -235,15 +244,23 @@ class AGUIWorkflowAdapter:
                                     update.text[:80] if update.text else "",
                                 )
                                 continue
-                            # Detect clarification or confidence in text
-                            if update.text and detected_clarification is None:
-                                clar = self._extract_clarification(update.text)
-                                if clar is not None:
-                                    detected_clarification = clar
-                                elif detected_confidence is None:
-                                    conf = self._extract_confidence(update.text)
-                                    if conf is not None:
-                                        detected_confidence = conf
+                            # Detect misunderstood, clarification, or confidence in text
+                            if update.text:
+                                if detected_misunderstood is None:
+                                    mis = self._extract_misunderstood(update.text)
+                                    if mis is not None:
+                                        detected_misunderstood = mis
+                                if (
+                                    detected_misunderstood is None
+                                    and detected_clarification is None
+                                ):
+                                    clar = self._extract_clarification(update.text)
+                                    if clar is not None:
+                                        detected_clarification = clar
+                                    elif detected_confidence is None:
+                                        conf = self._extract_confidence(update.text)
+                                        if conf is not None:
+                                            detected_confidence = conf
                             yield update
 
                     if event.type == "request_info":
@@ -278,15 +295,23 @@ class AGUIWorkflowAdapter:
                             event.text[:80] if event.text else "",
                         )
                         continue
-                    # Detect clarification or confidence in text
-                    if event.text and detected_clarification is None:
-                        clar = self._extract_clarification(event.text)
-                        if clar is not None:
-                            detected_clarification = clar
-                        elif detected_confidence is None:
-                            conf = self._extract_confidence(event.text)
-                            if conf is not None:
-                                detected_confidence = conf
+                    # Detect misunderstood, clarification, or confidence in text
+                    if event.text:
+                        if detected_misunderstood is None:
+                            mis = self._extract_misunderstood(event.text)
+                            if mis is not None:
+                                detected_misunderstood = mis
+                        if (
+                            detected_misunderstood is None
+                            and detected_clarification is None
+                        ):
+                            clar = self._extract_clarification(event.text)
+                            if clar is not None:
+                                detected_clarification = clar
+                            elif detected_confidence is None:
+                                conf = self._extract_confidence(event.text)
+                                if conf is not None:
+                                    detected_confidence = conf
                     yield event
 
         except Exception as exc:
@@ -296,8 +321,22 @@ class AGUIWorkflowAdapter:
         if current_agent:
             yield StepFinishedEvent(step_name=current_agent)
 
-        # After workflow completes: emit HITL if clarification was requested
-        if detected_clarification is not None:
+        # After workflow completes: emit custom events based on detection
+        if detected_misunderstood is not None:
+            inbox_item_id, question_text = detected_misunderstood
+            logger.info(
+                "Misunderstood detected for inbox item %s, emitting MISUNDERSTOOD",
+                inbox_item_id,
+            )
+            yield CustomEvent(
+                name="MISUNDERSTOOD",
+                value={
+                    "threadId": thread_id,
+                    "inboxItemId": inbox_item_id,
+                    "questionText": question_text,
+                },
+            )
+        elif detected_clarification is not None:
             inbox_item_id, clarification_text = detected_clarification
             logger.info(
                 "Clarification requested for inbox item %s, emitting HITL_REQUIRED",
@@ -312,26 +351,10 @@ class AGUIWorkflowAdapter:
                 },
             )
         elif saw_request_info:
-            # request_info fired but clarification regex didn't match —
-            # the workflow paused for user input, so emit HITL_REQUIRED
-            # with threadId only. Client shows generic bucket buttons.
+            # request_info fired but neither misunderstood nor clarification
+            # regex matched — emit HITL_REQUIRED with threadId only.
             logger.info(
-                "request_info without clarification pattern — emitting generic HITL_REQUIRED"
-            )
-            yield CustomEvent(
-                name="HITL_REQUIRED",
-                value={"threadId": thread_id},
-            )
-        elif (
-            detected_confidence is not None
-            and detected_confidence < self._classification_threshold
-        ):
-            # Legacy fallback for edge case where classify_and_file
-            # is called at low confidence
-            logger.info(
-                "Low-confidence detected (%.2f < %.2f), emitting HITL_REQUIRED",
-                detected_confidence,
-                self._classification_threshold,
+                "request_info without known pattern — emitting generic HITL_REQUIRED"
             )
             yield CustomEvent(
                 name="HITL_REQUIRED",

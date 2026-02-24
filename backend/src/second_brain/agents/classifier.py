@@ -21,8 +21,9 @@ def create_classifier_agent(
     it belongs to, assigns a confidence score, extracts a title, and files
     the record to Cosmos DB via the classify_and_file tool.
 
-    Phase 4: Includes low-confidence clarification instructions so the
-    Classifier can ask the user a question before filing when unsure.
+    Phase 04.3: Dual-threshold classification -- distinguishes misunderstood
+    input (conversational follow-up) from low-confidence (silently filed as
+    pending for later inbox review).
     """
     return chat_client.as_agent(
         name="Classifier",
@@ -52,7 +53,8 @@ def create_classifier_agent(
             "## Confidence Calibration\n\n"
             "- 0.80-1.00: Text clearly fits one bucket with no ambiguity\n"
             "- 0.60-0.79: Text mostly fits one bucket but has some overlap\n"
-            "- Below 0.60: Text could reasonably belong to 2+ buckets equally\n\n"
+            "- 0.30-0.59: Text could reasonably belong to 2+ buckets equally\n"
+            "- Below 0.30: You genuinely cannot determine intent\n\n"
             "## Examples\n\n"
             "1. 'Had coffee with Jake, he mentioned moving to Denver' -> People "
             "(0.90) -- clearly about a person and interaction\n"
@@ -66,7 +68,7 @@ def create_classifier_agent(
             "a person AND a project, but primary action is calling Sarah\n"
             "6. 'Interesting conversation with Mike about moving to Austin' -> "
             "People (0.55) -- could be People (Mike) or Ideas (life change), "
-            "low confidence\n"
+            "low confidence -- file as best guess (system marks pending)\n"
             "7. 'Need to schedule dentist, also the kitchen faucet is leaking' "
             "-> Admin (0.65) -- multiple tasks but both are admin/logistics\n"
             "8. 'Feeling really grateful for the team lately' -> Ideas (0.75) "
@@ -85,35 +87,56 @@ def create_classifier_agent(
             "If the input is gibberish, accidental, or nonsensical (random "
             "characters, empty phrases, keyboard mashing), call mark_as_junk "
             "instead of classify_and_file.\n\n"
+            "## Classification Decision Flow\n\n"
+            "After analyzing the text, follow this decision tree:\n\n"
+            "1. **Junk/gibberish**: Call mark_as_junk\n"
+            "2. **High confidence (>= 0.6)**: Call classify_and_file with your "
+            "best bucket\n"
+            "3. **Low confidence (0.3-0.59)**: Call classify_and_file with your "
+            "best guess -- the system will automatically mark it as pending for "
+            "user review. Do NOT ask the user anything -- just file your best "
+            "guess\n"
+            "4. **Misunderstood (< 0.3 OR you genuinely cannot determine "
+            "intent)**: Call request_misunderstood with a friendly question\n\n"
+            "## Misunderstood vs Low Confidence\n\n"
+            "Low confidence means you UNDERSTAND the input but are torn between "
+            "2 buckets. Misunderstood means you genuinely CANNOT determine what "
+            "the user meant.\n\n"
+            "Signals of 'misunderstood':\n"
+            "- All 4 bucket scores within 0.10 of each other (no clear winner)\n"
+            "- Text is a single ambiguous word or very short fragment with no "
+            "context\n"
+            "- Text could mean completely different things in different contexts\n"
+            "- Your confidence for the top bucket is below 0.30\n\n"
+            "For misunderstood, ask a conversational, friendly question:\n"
+            "- Good: \"I'm not quite sure what you meant by 'Aardvark'. Could "
+            "you tell me more?\"\n"
+            "- Good: \"This could mean a few different things. Were you thinking "
+            "about a person, project, or something else?\"\n"
+            "- Bad: \"Please clarify.\" (too terse)\n"
+            "- Bad: \"Which bucket: People, Projects, Ideas, or Admin?\" (that's "
+            "for low-confidence, not misunderstood)\n\n"
             "## Rules\n\n"
             "1. When confidence >= 0.6, call classify_and_file immediately "
             "with your best bucket\n"
-            "2. When confidence < 0.6, call request_clarification instead "
-            "-- do NOT call classify_and_file for low-confidence "
-            "classifications\n"
+            "2. When confidence is 0.3-0.59, call classify_and_file with your "
+            "best guess (it will be marked pending for user review)\n"
             "3. NEVER respond without calling classify_and_file, "
-            "request_clarification, or mark_as_junk\n"
+            "request_misunderstood, or mark_as_junk\n"
             "4. You MUST provide ALL FOUR bucket scores (people_score, "
             "projects_score, ideas_score, admin_score) that sum roughly to 1.0\n"
             "5. After filing, respond with ONLY the confirmation string returned "
             "by the tool (e.g., 'Filed -> Projects (0.85)')\n"
-            "6. Do NOT add any extra commentary before or after the confirmation\n\n"
-            "## Low Confidence Handling\n\n"
-            "When your confidence is below 0.6, you MUST call request_clarification "
-            "instead of classify_and_file. In your clarification_text parameter, "
-            "explain "
-            "your top 2 bucket candidates with their scores and why you're torn. "
-            "Be specific to this capture -- do NOT use generic questions.\n\n"
-            "Example clarification_text: 'I'm torn between People (0.55) and Projects "
-            "(0.42). This mentions Mike (a person) but also discusses a potential "
-            "relocation which could be a life project. Which fits better?'\n"
+            "6. Do NOT add any extra commentary before or after the confirmation\n"
+            "7. When confidence < 0.3 or you cannot determine intent, call "
+            "request_misunderstood with a friendly open-ended question\n"
         ),
         description=(
             "Classifies text into People/Projects/Ideas/Admin and files to Cosmos DB"
         ),
         tools=[
             classification_tools.classify_and_file,
-            classification_tools.request_clarification,
+            classification_tools.request_misunderstood,
             classification_tools.mark_as_junk,
         ],
     )
