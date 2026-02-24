@@ -4,6 +4,7 @@ import logging
 import uuid
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 
 from dotenv import load_dotenv
 
@@ -17,6 +18,7 @@ configure_otel_providers()
 
 from ag_ui.core.events import (  # noqa: E402
     BaseEvent,
+    CustomEvent,
     RunFinishedEvent,
     RunStartedEvent,
     TextMessageContentEvent,
@@ -166,6 +168,14 @@ class RespondRequest(BaseModel):
     thread_id: str  # noqa: N815
     response: str
     inbox_item_id: str | None = None  # noqa: N815
+
+
+class FollowUpRequest(BaseModel):
+    """Request body for misunderstood follow-up re-classification."""
+
+    inbox_item_id: str  # noqa: N815
+    follow_up_text: str  # noqa: N815
+    follow_up_round: int = 1  # noqa: N815
 
 
 # ---------------------------------------------------------------------------
@@ -377,8 +387,6 @@ async def respond_to_hitl(request: Request, body: RespondRequest) -> StreamingRe
 
                     if raw_text:
                         # Create bucket document
-                        from datetime import UTC, datetime
-
                         bucket_doc_id = str(uuid.uuid4())
 
                         classification_meta = ClassificationMeta(
@@ -458,6 +466,154 @@ async def respond_to_hitl(request: Request, body: RespondRequest) -> StreamingRe
             yield encoder.encode(TextMessageEndEvent(message_id=msg_id))
 
         yield encoder.encode(RunFinishedEvent(thread_id=body.thread_id, run_id=run_id))
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# Follow-up endpoint for misunderstood re-classification
+# ---------------------------------------------------------------------------
+
+
+@app.post("/api/ag-ui/follow-up", tags=["AG-UI"])
+async def follow_up_misunderstood(
+    request: Request, body: FollowUpRequest
+) -> StreamingResponse:
+    """Re-classify a misunderstood capture with additional user context.
+
+    Combines the original captured text with the user's follow-up
+    clarification and re-runs the classification workflow. If still
+    misunderstood after max rounds (>= 2), marks the inbox item as
+    "unresolved" and emits an UNRESOLVED event instead of MISUNDERSTOOD.
+    """
+    workflow_agent: AGUIWorkflowAdapter = request.app.state.workflow_agent
+    cosmos_manager: CosmosManager | None = request.app.state.cosmos_manager
+    thread_id = f"thread-{uuid.uuid4()}"
+    run_id = f"run-{uuid.uuid4()}"
+
+    # Read the original inbox item to get the raw text
+    original_text = ""
+    if cosmos_manager:
+        try:
+            inbox_container = cosmos_manager.get_container("Inbox")
+            existing = await inbox_container.read_item(
+                item=body.inbox_item_id, partition_key="will"
+            )
+            original_text = existing.get("rawText", "")
+        except Exception:
+            logger.warning(
+                "Could not read inbox item %s for follow-up", body.inbox_item_id
+            )
+
+    # Combine original text with user's clarification
+    combined_text = (
+        f"{original_text}\n\n---\nUser clarification: {body.follow_up_text}"
+        if original_text
+        else body.follow_up_text
+    )
+
+    # Run the workflow with combined text
+    from agent_framework import Message as AFMessage  # noqa: E402
+
+    messages: list[AFMessage] = [AFMessage(role="user", text=combined_text)]
+    thread = workflow_agent.get_new_thread()
+    stream = workflow_agent.run(
+        messages, stream=True, thread=thread, thread_id=thread_id
+    )
+
+    async def generate() -> AsyncGenerator[str, None]:
+        encoder = EventEncoder()
+        yield encoder.encode(RunStartedEvent(thread_id=thread_id, run_id=run_id))
+
+        message_id_state: dict[str, str | None] = {"current": None}
+        misunderstood_detected = False
+        orphaned_inbox_item_id: str | None = None
+
+        async for item in stream:
+            if isinstance(item, BaseEvent):
+                # Check if this is a MISUNDERSTOOD event
+                if isinstance(item, CustomEvent) and item.name == "MISUNDERSTOOD":
+                    if body.follow_up_round >= 2:
+                        # Max rounds reached -- mark as unresolved
+                        misunderstood_detected = True
+                        # Capture the orphaned inbox item ID created by
+                        # request_misunderstood so we can delete it after
+                        # updating the original item
+                        orphaned_inbox_item_id = (
+                            item.value.get("inboxItemId")
+                            if isinstance(item.value, dict)
+                            else None
+                        )
+                        # Don't yield the MISUNDERSTOOD event
+                        continue
+                    else:
+                        # Pass through -- client will enter next follow-up round
+                        yield encoder.encode(item)
+                        continue
+                yield encoder.encode(item)
+            elif isinstance(item, AgentResponseUpdate):
+                for event in _convert_update_to_events(item, message_id_state):
+                    yield encoder.encode(event)
+
+        if message_id_state.get("current"):
+            yield encoder.encode(
+                TextMessageEndEvent(message_id=message_id_state["current"])
+            )
+
+        if misunderstood_detected:
+            # Update original inbox doc to unresolved, then clean up orphan
+            if cosmos_manager:
+                try:
+                    inbox_container = cosmos_manager.get_container("Inbox")
+                    existing = await inbox_container.read_item(
+                        item=body.inbox_item_id, partition_key="will"
+                    )
+                    existing["status"] = "unresolved"
+                    existing["updatedAt"] = datetime.now(UTC).isoformat()
+                    await inbox_container.upsert_item(body=existing)
+                except Exception:
+                    logger.warning(
+                        "Could not update inbox item %s to unresolved",
+                        body.inbox_item_id,
+                    )
+
+                # Delete the orphaned inbox doc created by request_misunderstood
+                # at round 2. The tool creates a new misunderstood inbox item
+                # before the endpoint can intercept, so we clean it up here.
+                if (
+                    orphaned_inbox_item_id
+                    and orphaned_inbox_item_id != body.inbox_item_id
+                ):
+                    try:
+                        await inbox_container.delete_item(
+                            item=orphaned_inbox_item_id, partition_key="will"
+                        )
+                        logger.info(
+                            "Deleted orphaned misunderstood inbox item %s",
+                            orphaned_inbox_item_id,
+                        )
+                    except Exception:
+                        logger.warning(
+                            "Could not delete orphaned inbox item %s",
+                            orphaned_inbox_item_id,
+                        )
+
+            yield encoder.encode(
+                CustomEvent(
+                    name="UNRESOLVED",
+                    value={"inboxItemId": body.inbox_item_id},
+                )
+            )
+
+        yield encoder.encode(RunFinishedEvent(thread_id=thread_id, run_id=run_id))
 
     return StreamingResponse(
         generate(),
