@@ -17,6 +17,8 @@ export interface StreamingCallbacks {
   onStepFinish?: (stepName: string) => void;
   onTextDelta?: (delta: string) => void;
   onHITLRequired?: (threadId: string, questionText: string, inboxItemId?: string) => void;
+  onMisunderstood?: (threadId: string, questionText: string, inboxItemId: string) => void;
+  onUnresolved?: (inboxItemId: string) => void;
   onComplete: (result: string) => void;
   onError: (error: string) => void;
 }
@@ -33,4 +35,12 @@ export interface SendClarificationOptions {
   apiKey: string;
   callbacks: StreamingCallbacks;
   inboxItemId?: string;
+}
+
+export interface SendFollowUpOptions {
+  inboxItemId: string;
+  followUpText: string;
+  followUpRound: number;
+  apiKey: string;
+  callbacks: StreamingCallbacks;
 }

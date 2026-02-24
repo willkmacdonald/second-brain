@@ -4,6 +4,7 @@ import type {
   AGUIEventType,
   SendCaptureOptions,
   SendClarificationOptions,
+  SendFollowUpOptions,
   StreamingCallbacks,
 } from "./types";
 
@@ -71,6 +72,17 @@ function attachCallbacks(
               questionText,
               inboxItemId,
             );
+          }
+          if (parsed.name === "MISUNDERSTOOD" && parsed.value?.inboxItemId) {
+            hitlTriggered = true;
+            callbacks.onMisunderstood?.(
+              parsed.value.threadId ?? "",
+              parsed.value.questionText ?? "",
+              parsed.value.inboxItemId,
+            );
+          }
+          if (parsed.name === "UNRESOLVED" && parsed.value?.inboxItemId) {
+            callbacks.onUnresolved?.(parsed.value.inboxItemId);
           }
           break;
 
@@ -172,6 +184,42 @@ export function sendClarification({
         thread_id: threadId,
         response: bucket,
         inbox_item_id: inboxItemId,
+      }),
+      pollingInterval: 0,
+    },
+  );
+
+  return attachCallbacks(es, callbacks);
+}
+
+/**
+ * Send a follow-up reply for a misunderstood capture to re-classify.
+ *
+ * POSTs to /api/ag-ui/follow-up with the inbox item ID, follow-up text,
+ * and round number. Streams the re-classification events through the same
+ * callback pattern.
+ *
+ * Returns a cleanup function for the SSE connection.
+ */
+export function sendFollowUp({
+  inboxItemId,
+  followUpText,
+  followUpRound,
+  apiKey,
+  callbacks,
+}: SendFollowUpOptions): () => void {
+  const es = new EventSource<AGUIEventType>(
+    `${API_BASE_URL}/api/ag-ui/follow-up`,
+    {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+      body: JSON.stringify({
+        inbox_item_id: inboxItemId,
+        follow_up_text: followUpText,
+        follow_up_round: followUpRound,
       }),
       pollingInterval: 0,
     },

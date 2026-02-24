@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import * as Haptics from "expo-haptics";
 import { Stack } from "expo-router";
-import { sendCapture, sendClarification } from "../../lib/ag-ui-client";
+import { sendCapture, sendClarification, sendFollowUp } from "../../lib/ag-ui-client";
 import { API_KEY } from "../../constants/config";
 import { AgentSteps } from "../../components/AgentSteps";
 
@@ -35,6 +35,10 @@ export default function TextCaptureScreen() {
   const [hitlInboxItemId, setHitlInboxItemId] = useState<string | null>(null);
   const [hitlTopBuckets, setHitlTopBuckets] = useState<string[]>([]);
   const [isResolving, setIsResolving] = useState(false);
+  const [followUpRound, setFollowUpRound] = useState(0);
+  const [agentQuestion, setAgentQuestion] = useState<string | null>(null);
+  const [misunderstoodInboxItemId, setMisunderstoodInboxItemId] = useState<string | null>(null);
+  const [isReclassifying, setIsReclassifying] = useState(false);
   const cleanupRef = useRef<(() => void) | null>(null);
 
   // Clear toast after 2 seconds
@@ -64,9 +68,72 @@ export default function TextCaptureScreen() {
     setHitlThreadId(null);
     setHitlInboxItemId(null);
     setHitlTopBuckets([]);
+    setFollowUpRound(0);
+    setAgentQuestion(null);
+    setMisunderstoodInboxItemId(null);
+    setIsReclassifying(false);
   }, []);
 
+  const handleFollowUpSubmit = useCallback(() => {
+    if (!thought.trim() || isReclassifying || !misunderstoodInboxItemId) return;
+
+    setIsReclassifying(true);
+    setShowSteps(true);
+    setCurrentStep(null);
+    setCompletedSteps([]);
+    setStreamedText("");
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    const cleanup = sendFollowUp({
+      inboxItemId: misunderstoodInboxItemId,
+      followUpText: thought.trim(),
+      followUpRound: followUpRound,
+      apiKey: API_KEY!,
+      callbacks: {
+        onStepStart: (stepName: string) => {
+          setCurrentStep(stepName);
+        },
+        onStepFinish: (stepName: string) => {
+          setCompletedSteps((prev) => [...prev, stepName]);
+          setCurrentStep(null);
+        },
+        onTextDelta: (delta: string) => {
+          setStreamedText((prev) => prev + delta);
+        },
+        onMisunderstood: (_threadId: string, questionText: string, _inboxItemId: string) => {
+          // Still misunderstood -- show next question
+          setAgentQuestion(questionText);
+          setFollowUpRound((prev) => prev + 1);
+          setThought("");
+          setIsReclassifying(false);
+          setShowSteps(false);
+        },
+        onUnresolved: (_inboxItemId: string) => {
+          setIsReclassifying(false);
+          setToast({ message: "Couldn\u2019t classify. Check inbox later.", type: "error" });
+          setTimeout(resetState, AUTO_RESET_MS);
+        },
+        onComplete: (result: string) => {
+          setIsReclassifying(false);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          setToast({ message: result || "Filed", type: "success" });
+          setTimeout(resetState, AUTO_RESET_MS);
+        },
+        onError: () => {
+          setIsReclassifying(false);
+          setToast({ message: "Couldn\u2019t classify. Try again.", type: "error" });
+        },
+      },
+    });
+    cleanupRef.current = cleanup;
+  }, [thought, isReclassifying, misunderstoodInboxItemId, followUpRound, resetState]);
+
   const handleSubmit = useCallback(() => {
+    if (followUpRound > 0) {
+      handleFollowUpSubmit();
+      return;
+    }
+
     if (!thought.trim() || sending) return;
 
     if (!API_KEY) {
@@ -104,6 +171,20 @@ export default function TextCaptureScreen() {
         onTextDelta: (delta: string) => {
           setStreamedText((prev) => prev + delta);
         },
+        onMisunderstood: (threadId: string, questionText: string, inboxItemId: string) => {
+          void threadId;
+          setAgentQuestion(questionText);
+          setMisunderstoodInboxItemId(inboxItemId);
+          setFollowUpRound(1);
+          setThought(""); // Clear input for user's reply
+          setSending(false);
+          setShowSteps(false); // Hide step dots during conversation
+        },
+        onUnresolved: (_inboxItemId: string) => {
+          setSending(false);
+          setToast({ message: "Couldn\u2019t classify. Check inbox later.", type: "error" });
+          setTimeout(resetState, AUTO_RESET_MS);
+        },
         onHITLRequired: (threadId: string, questionText: string, inboxItemId?: string) => {
           setHitlThreadId(threadId);
           setHitlQuestion(questionText);
@@ -138,7 +219,7 @@ export default function TextCaptureScreen() {
       },
     });
     cleanupRef.current = captureResult.cleanup;
-  }, [thought, sending, hitlThreadId, resetState]);
+  }, [thought, sending, hitlThreadId, followUpRound, handleFollowUpSubmit, resetState]);
 
   const handleBucketSelect = useCallback(
     (bucket: string) => {
@@ -176,7 +257,7 @@ export default function TextCaptureScreen() {
     [hitlThreadId, hitlInboxItemId, isResolving, resetState],
   );
 
-  const sendDisabled = !thought.trim() || sending;
+  const sendDisabled = !thought.trim() || sending || isReclassifying;
 
   return (
     <View style={styles.container}>
@@ -213,18 +294,27 @@ export default function TextCaptureScreen() {
                   sendDisabled && styles.headerSendTextDisabled,
                 ]}
               >
-                {sending ? "Sending..." : "Send"}
+                {isReclassifying ? "Classifying..." : sending ? "Sending..." : followUpRound > 0 ? "Reply" : "Send"}
               </Text>
             </Pressable>
           ),
         }}
       />
 
+      {agentQuestion && (
+        <View style={styles.agentQuestionBubble}>
+          <Text style={styles.agentQuestionText}>{agentQuestion}</Text>
+          <Text style={styles.followUpHint}>
+            Reply below (follow-up {followUpRound} of 2)
+          </Text>
+        </View>
+      )}
+
       <TextInput
         style={styles.input}
         value={thought}
         onChangeText={setThought}
-        placeholder="What's on your mind?"
+        placeholder={followUpRound > 0 ? "Add more context..." : "What's on your mind?"}
         placeholderTextColor="#666"
         multiline
         autoFocus
@@ -368,6 +458,24 @@ const styles = StyleSheet.create({
     color: "#4a90d9",
     textAlign: "center",
     marginTop: 8,
+  },
+  agentQuestionBubble: {
+    backgroundColor: "#1a1a2e",
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: "#4a90d9",
+  },
+  agentQuestionText: {
+    fontSize: 15,
+    color: "#ccc",
+    lineHeight: 22,
+  },
+  followUpHint: {
+    fontSize: 12,
+    color: "#666",
+    marginTop: 6,
   },
   headerTitle: {
     color: "#ffffff",
