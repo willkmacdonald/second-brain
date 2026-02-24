@@ -65,16 +65,38 @@ function renderRightActions(
 }
 
 /**
+ * Determine the status dot color based on item classification status.
+ * Orange for items needing user attention, red for agent-abandoned items,
+ * null (no dot) for successfully classified items.
+ */
+function getStatusDotColor(status: string): string | null {
+  switch (status) {
+    case "pending":
+    case "low_confidence":
+    case "misunderstood":
+      return "#f97316"; // Orange -- needs user attention
+    case "unresolved":
+      return "#ef4444"; // Red -- agent gave up
+    default:
+      return null; // No dot for classified/other
+  }
+}
+
+/**
  * Inbox list item with text preview, bucket label, relative time,
- * and an orange dot indicator for pending (low_confidence) items.
+ * and color-coded status dot indicator.
  * Supports right-to-left swipe to reveal delete action.
  */
 export function InboxItem({ item, onPress, onDelete }: InboxItemProps) {
   const swipeableRef = useRef<Swipeable>(null);
-  const isPending = item.status === "pending" || item.status === "low_confidence";
+  const dotColor = getStatusDotColor(item.status);
+  const isPending = item.status === "pending" || item.status === "low_confidence" || item.status === "misunderstood";
+  const isUnresolved = item.status === "unresolved";
   const bucketLabel = isPending
     ? "Pending"
-    : item.classificationMeta?.bucket ?? "Unknown";
+    : isUnresolved
+      ? "Unresolved"
+      : item.classificationMeta?.bucket ?? "Unknown";
   const preview = item.title || item.rawText.slice(0, 60);
 
   const handleSwipeOpen = () => {
@@ -94,13 +116,15 @@ export function InboxItem({ item, onPress, onDelete }: InboxItemProps) {
         onPress={onPress}
         style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
       >
-        {isPending && <View style={styles.orangeDot} />}
+        {dotColor && (
+          <View style={[styles.statusDot, { backgroundColor: dotColor }]} />
+        )}
         <View style={styles.content}>
           <Text style={styles.preview} numberOfLines={2}>
             {preview}
           </Text>
           <View style={styles.meta}>
-            <Text style={[styles.bucket, isPending && styles.bucketPending]}>
+            <Text style={[styles.bucket, isPending && styles.bucketPending, isUnresolved && styles.bucketUnresolved]}>
               {bucketLabel}
             </Text>
             <Text style={styles.time}>{getRelativeTime(item.createdAt)}</Text>
@@ -124,11 +148,10 @@ const styles = StyleSheet.create({
   rowPressed: {
     opacity: 0.7,
   },
-  orangeDot: {
+  statusDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "#f97316",
     marginRight: 10,
   },
   content: {
@@ -152,6 +175,9 @@ const styles = StyleSheet.create({
   },
   bucketPending: {
     color: "#f97316",
+  },
+  bucketUnresolved: {
+    color: "#ef4444",
   },
   time: {
     fontSize: 12,
