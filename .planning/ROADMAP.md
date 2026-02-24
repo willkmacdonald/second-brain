@@ -89,6 +89,15 @@ Plans:
 - [x] 04-05-PLAN.md — [Gap fix] Mobile: inboxItemId flow, real clarification text, top-2 bucket emphasis
 - [x] 04-06-PLAN.md — [UAT fix] Remove Classifier autonomous mode, fix useCallback closure bug, harden respond endpoint, inbox auto-refresh
 
+### Phase 04.2: Swipe-to-delete inbox items (INSERTED)
+
+**Goal:** [Urgent work - to be planned]
+**Depends on:** Phase 4
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 04.2 to break down)
+
 ### Phase 04.1: Backend Deployment to Azure Container Apps (INSERTED)
 
 **Goal:** The FastAPI backend is containerized, deployed to Azure Container Apps, and accessible over HTTPS with automated CI/CD on push to main

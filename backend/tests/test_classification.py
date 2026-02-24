@@ -19,9 +19,7 @@ def _make_tools(
     threshold: float = 0.6,
 ) -> ClassificationTools:
     """Create a ClassificationTools instance with mock manager."""
-    return ClassificationTools(
-        mock_cosmos_manager, classification_threshold=threshold
-    )
+    return ClassificationTools(mock_cosmos_manager, classification_threshold=threshold)
 
 
 def _echo_body(*, body: dict) -> dict:
