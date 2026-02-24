@@ -10,17 +10,17 @@ See: .planning/PROJECT.md (updated 2026-02-21)
 ## Current Position
 
 Phase: 04.3 of 9 (Agent-User UX with unclear item) -- gap closure
-Plan: 9 of 10 in current phase (gap closure)
-Status: Phase 04.3 gap closure -- plan 09 executed (toast confidence fix); plan 10 remaining
-Last activity: 2026-02-24 -- Phase 04.3 Plan 09 executed (toast confidence fix via return string parsing)
+Plan: 10 of 10 in current phase (gap closure) -- PHASE COMPLETE
+Status: Phase 04.3 gap closure complete -- all 10 plans executed
+Last activity: 2026-02-24 -- Phase 04.3 Plan 10 executed (junk/misunderstood overlap fix)
 
-Progress: [#########-] 90%
+Progress: [##########] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 25
-- Average duration: 3.4 min
+- Total plans completed: 26
+- Average duration: 3.3 min
 - Total execution time: 1.4 hours
 
 **By Phase:**
@@ -33,10 +33,10 @@ Progress: [#########-] 90%
 | 04-hitl-clarification-and-ag-ui-streaming | 6/6 | 34 min | 5.7 min |
 | 04.1-backend-deployment-to-azure-container-apps | 2/2 | 5 min | 2.5 min |
 | 04.2-swipe-to-delete-inbox-items | 1/1 | 5 min | 5 min |
-| 04.3-agent-user-ux-with-unclear-item | 9/10 | 25 min | 2.8 min |
+| 04.3-agent-user-ux-with-unclear-item | 10/10 | 26 min | 2.6 min |
 
 **Recent Trend:**
-- Last 5 plans: 04.3-06 (1 min), 04.3-07 (2 min), 04.3-08 (3 min), 04.3-09 (2 min)
+- Last 5 plans: 04.3-07 (2 min), 04.3-08 (3 min), 04.3-09 (2 min), 04.3-10 (1 min)
 - Trend: Consistently 1-4 min per plan
 
 *Updated after each plan completion*
@@ -148,6 +148,9 @@ Recent decisions affecting current work:
 - [04.3-08]: Non-fatal error handling throughout reconciliation -- orphaned docs are harmless
 - [04.3-09]: Tool return string is authoritative source for confidence -- not function_call.arguments (pre-fallback 0.00)
 - [04.3-09]: Fallback to detected_tool_args if return string not parseable (safety net for unexpected formats)
+- [04.3-10]: Junk restricted to keyboard mashing, random chars, empty input, repeated chars -- removed "nonsensical" overlap
+- [04.3-10]: Decision flow reordered: high confidence -> low confidence -> misunderstood -> junk (was junk first)
+- [04.3-10]: Dual tiebreaker placement: in decision flow step 3 AND in dedicated paragraph after misunderstood signals
 
 ### Roadmap Evolution
 
@@ -168,5 +171,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-24
-Stopped at: Completed 04.3-09-PLAN.md (toast confidence fix via return string parsing)
-Resume file: .planning/phases/04.3-agent-user-ux-with-unclear-item/04.3-09-SUMMARY.md
+Stopped at: Completed 04.3-10-PLAN.md (junk/misunderstood overlap fix) -- Phase 04.3 COMPLETE
+Resume file: .planning/phases/04.3-agent-user-ux-with-unclear-item/04.3-10-SUMMARY.md
