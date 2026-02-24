@@ -4,6 +4,10 @@ Includes an AG-UI adapter that wraps Workflow for AG-UI endpoint compatibility.
 Phase 4 additions: HITL support (low-confidence detection + respond endpoint),
 AG-UI step events (StepStarted/StepFinished on agent transitions), and
 Orchestrator echo filtering.
+
+Phase 04.3-05: Classifier text buffering (suppress chain-of-thought reasoning,
+yield only tool result lines) and misunderstood detection via request_info data
+and function_call/function_result content inspection.
 """
 
 from __future__ import annotations
@@ -25,6 +29,7 @@ from agent_framework import (
     AgentResponse,
     AgentResponseUpdate,
     AgentThread,
+    Content,
     Message,
     Workflow,
     WorkflowAgent,
@@ -51,6 +56,18 @@ _CLARIFICATION_RE = re.compile(
 # Regex to extract (inbox_doc_id, question_text) from request_misunderstood output
 _MISUNDERSTOOD_RE = re.compile(
     r"Misunderstood\s*→\s*([a-f0-9\-]+)\s*\|\s*(.+)", re.DOTALL
+)
+
+# Combined regex matching any known Classifier tool result line.
+# Used to extract the clean tool result from the Classifier text buffer,
+# suppressing all chain-of-thought reasoning tokens.
+_TOOL_RESULT_RE = re.compile(
+    r"("
+    r"Filed\s*(?:\(needs review\)\s*)?→\s*\w+\s*\(\d+\.\d+\)"
+    r"|Misunderstood\s*→\s*[a-f0-9\-]+\s*\|.+"
+    r"|Clarification\s*→\s*[a-f0-9\-]+\s*\|.+"
+    r")",
+    re.DOTALL,
 )
 
 
@@ -150,6 +167,60 @@ class AGUIWorkflowAdapter:
         return False
 
     @staticmethod
+    def _is_classifier_text(update: AgentResponseUpdate) -> bool:
+        """Check if an update is text-only content from the Classifier.
+
+        Returns True when the update's author_name matches 'Classifier'
+        (case-insensitive) and ALL content items are of type 'text'.
+        This is used to buffer Classifier chain-of-thought reasoning
+        and suppress it from the SSE stream.
+        """
+        if (
+            update.author_name
+            and update.author_name.lower() == "classifier"
+            and update.contents
+        ):
+            return all(getattr(c, "type", None) == "text" for c in update.contents)
+        return False
+
+    @staticmethod
+    def _has_misunderstood_tool_call(update: AgentResponseUpdate) -> bool:
+        """Check for request_misunderstood function_call/result.
+
+        Returns True if any content item is a function_call or
+        function_result with name 'request_misunderstood'. This is a
+        reliable alternative to regex-based detection on streamed text,
+        since tool return values are consumed internally by the LLM.
+        """
+        for content in update.contents or []:
+            if getattr(content, "type", None) in (
+                "function_call",
+                "function_result",
+            ) and getattr(content, "name", None) == "request_misunderstood":
+                return True
+        return False
+
+    @staticmethod
+    def _extract_misunderstood_from_content(
+        update: AgentResponseUpdate,
+    ) -> tuple[str, str] | None:
+        """Extract misunderstood data from function_result content items.
+
+        Looks for a function_result with name='request_misunderstood' and
+        parses the result string using _MISUNDERSTOOD_RE.
+        """
+        for content in update.contents or []:
+            if (
+                getattr(content, "type", None) == "function_result"
+                and getattr(content, "name", None) == "request_misunderstood"
+            ):
+                result_str = str(getattr(content, "result", "") or "")
+                match = _MISUNDERSTOOD_RE.search(result_str)
+                if match:
+                    return (match.group(1), match.group(2))
+        return None
+
+    @staticmethod
     def _extract_confidence(text: str) -> float | None:
         """Extract confidence from 'Filed → Bucket (0.XX)' text."""
         match = _FILED_CONFIDENCE_RE.search(text)
@@ -167,6 +238,62 @@ class AGUIWorkflowAdapter:
         match = _MISUNDERSTOOD_RE.search(text)
         return (match.group(1), match.group(2)) if match else None
 
+    def _run_detection_on_text(
+        self,
+        text: str,
+        detected_misunderstood: tuple[str, str] | None,
+        detected_clarification: tuple[str, str] | None,
+        detected_confidence: float | None,
+    ) -> tuple[
+        tuple[str, str] | None,
+        tuple[str, str] | None,
+        float | None,
+    ]:
+        """Run misunderstood/clarification/confidence extraction on text.
+
+        Returns updated (detected_misunderstood, detected_clarification,
+        detected_confidence) tuple.
+        """
+        if detected_misunderstood is None:
+            mis = self._extract_misunderstood(text)
+            if mis is not None:
+                detected_misunderstood = mis
+        if detected_misunderstood is None and detected_clarification is None:
+            clar = self._extract_clarification(text)
+            if clar is not None:
+                detected_clarification = clar
+            elif detected_confidence is None:
+                conf = self._extract_confidence(text)
+                if conf is not None:
+                    detected_confidence = conf
+        return detected_misunderstood, detected_clarification, detected_confidence
+
+    def _extract_request_info_text(self, request_data: Any) -> str:
+        """Extract all text from a request_info event's data payload.
+
+        Broadens extraction beyond just .response.text or .text to also
+        iterate over response content items (which may contain tool results
+        in .text or .result fields).
+        """
+        parts: list[str] = []
+
+        # Try .response.text
+        if hasattr(request_data, "response"):
+            resp = request_data.response
+            if hasattr(resp, "text") and resp.text:
+                parts.append(resp.text)
+            # Also iterate response content items for tool results
+            if hasattr(resp, "content"):
+                for content in resp.content or []:
+                    if hasattr(content, "text") and content.text:
+                        parts.append(content.text)
+                    if hasattr(content, "result") and content.result:
+                        parts.append(str(content.result))
+        elif hasattr(request_data, "text") and request_data.text:
+            parts.append(request_data.text)
+
+        return "\n".join(parts)
+
     async def _stream_updates(
         self,
         messages: str | Message | Sequence[str | Message] | None,
@@ -182,8 +309,13 @@ class AGUIWorkflowAdapter:
         clarification (HITL_REQUIRED event) patterns. Low-confidence items
         are silently filed as pending -- no HITL interruption.
 
-        Echo filtering: Only yield text content from the Classifier agent.
-        The Orchestrator's text (which echoes user input) is suppressed.
+        Echo filtering: Orchestrator text is suppressed. Classifier text is
+        BUFFERED (chain-of-thought reasoning suppressed); only the clean tool
+        result line (e.g., "Filed -> Admin (0.90)") is yielded at stream end.
+
+        Misunderstood detection: Uses multiple strategies -- regex on buffered
+        text, function_call/function_result content inspection, and request_info
+        data extraction -- because tool return values may not appear in text.
         """
         workflow = self._create_workflow()
         converter = self._get_converter()
@@ -194,6 +326,10 @@ class AGUIWorkflowAdapter:
         detected_clarification: tuple[str, str] | None = None
         detected_misunderstood: tuple[str, str] | None = None
         saw_request_info = False
+        # Buffer for Classifier text content -- accumulates all text deltas
+        # from the Classifier so chain-of-thought reasoning is suppressed.
+        # Only the clean tool result line is yielded after the stream ends.
+        classifier_buffer: str = ""
 
         logger.info("Starting workflow stream: thread_id=%s", thread_id)
 
@@ -244,40 +380,81 @@ class AGUIWorkflowAdapter:
                                     update.text[:80] if update.text else "",
                                 )
                                 continue
-                            # Detect misunderstood, clarification, or confidence in text
+
+                            # Check for misunderstood tool call/result in content
+                            if self._has_misunderstood_tool_call(update):
+                                logger.info(
+                                    "Detected request_misunderstood tool call in update"
+                                )
+                            if detected_misunderstood is None:
+                                mis = self._extract_misunderstood_from_content(update)
+                                if mis is not None:
+                                    detected_misunderstood = mis
+                                    logger.info(
+                                        "Extracted misunderstood from function_result"
+                                    )
+
+                            # Buffer Classifier text-only updates
+                            if self._is_classifier_text(update):
+                                classifier_buffer += update.text or ""
+                                # Run detection on accumulated buffer
+                                (
+                                    detected_misunderstood,
+                                    detected_clarification,
+                                    detected_confidence,
+                                ) = self._run_detection_on_text(
+                                    classifier_buffer,
+                                    detected_misunderstood,
+                                    detected_clarification,
+                                    detected_confidence,
+                                )
+                                logger.debug(
+                                    "Buffering Classifier text (%d chars total)",
+                                    len(classifier_buffer),
+                                )
+                                continue  # Do NOT yield -- buffered
+
+                            # Non-Classifier, non-Orchestrator updates: detect and yield
                             if update.text:
-                                if detected_misunderstood is None:
-                                    mis = self._extract_misunderstood(update.text)
-                                    if mis is not None:
-                                        detected_misunderstood = mis
-                                if (
-                                    detected_misunderstood is None
-                                    and detected_clarification is None
-                                ):
-                                    clar = self._extract_clarification(update.text)
-                                    if clar is not None:
-                                        detected_clarification = clar
-                                    elif detected_confidence is None:
-                                        conf = self._extract_confidence(update.text)
-                                        if conf is not None:
-                                            detected_confidence = conf
+                                (
+                                    detected_misunderstood,
+                                    detected_clarification,
+                                    detected_confidence,
+                                ) = self._run_detection_on_text(
+                                    update.text,
+                                    detected_misunderstood,
+                                    detected_clarification,
+                                    detected_confidence,
+                                )
                             yield update
 
                     if event.type == "request_info":
                         logger.info("request_info received — workflow paused for HITL")
                         saw_request_info = True
-                        # Extract clarification from the HandoffAgentUserRequest
-                        # which wraps the agent's AgentResponse containing tool results
-                        if detected_clarification is None:
-                            request_data = event.data
-                            request_text = ""
-                            if hasattr(request_data, "response"):
-                                resp = request_data.response
-                                if hasattr(resp, "text"):
-                                    request_text = resp.text
-                            elif hasattr(request_data, "text"):
-                                request_text = request_data.text
-                            if request_text:
+                        # Extract text from the HandoffAgentUserRequest which
+                        # wraps the agent's AgentResponse containing tool results
+                        request_data = event.data
+                        logger.info(
+                            "request_info data type=%s",
+                            type(request_data).__name__,
+                        )
+                        request_text = self._extract_request_info_text(request_data)
+
+                        if request_text:
+                            # Check misunderstood FIRST (higher priority)
+                            if detected_misunderstood is None:
+                                mis = self._extract_misunderstood(request_text)
+                                if mis is not None:
+                                    detected_misunderstood = mis
+                                    logger.info(
+                                        "Extracted misunderstood from request_info data"
+                                    )
+
+                            # Then check clarification
+                            if (
+                                detected_misunderstood is None
+                                and detected_clarification is None
+                            ):
                                 clar = self._extract_clarification(request_text)
                                 if clar is not None:
                                     detected_clarification = clar
@@ -295,23 +472,51 @@ class AGUIWorkflowAdapter:
                             event.text[:80] if event.text else "",
                         )
                         continue
-                    # Detect misunderstood, clarification, or confidence in text
+
+                    # Check for misunderstood tool call/result in content
+                    if self._has_misunderstood_tool_call(event):
+                        logger.info(
+                            "Detected request_misunderstood tool call in direct update"
+                        )
+                    if detected_misunderstood is None:
+                        mis = self._extract_misunderstood_from_content(event)
+                        if mis is not None:
+                            detected_misunderstood = mis
+                            logger.info(
+                                "Extracted misunderstood from direct function_result"
+                            )
+
+                    # Buffer Classifier text-only updates
+                    if self._is_classifier_text(event):
+                        classifier_buffer += event.text or ""
+                        (
+                            detected_misunderstood,
+                            detected_clarification,
+                            detected_confidence,
+                        ) = self._run_detection_on_text(
+                            classifier_buffer,
+                            detected_misunderstood,
+                            detected_clarification,
+                            detected_confidence,
+                        )
+                        logger.debug(
+                            "Buffering direct Classifier text (%d chars total)",
+                            len(classifier_buffer),
+                        )
+                        continue  # Do NOT yield -- buffered
+
+                    # Non-Classifier, non-Orchestrator updates: detect and yield
                     if event.text:
-                        if detected_misunderstood is None:
-                            mis = self._extract_misunderstood(event.text)
-                            if mis is not None:
-                                detected_misunderstood = mis
-                        if (
-                            detected_misunderstood is None
-                            and detected_clarification is None
-                        ):
-                            clar = self._extract_clarification(event.text)
-                            if clar is not None:
-                                detected_clarification = clar
-                            elif detected_confidence is None:
-                                conf = self._extract_confidence(event.text)
-                                if conf is not None:
-                                    detected_confidence = conf
+                        (
+                            detected_misunderstood,
+                            detected_clarification,
+                            detected_confidence,
+                        ) = self._run_detection_on_text(
+                            event.text,
+                            detected_misunderstood,
+                            detected_clarification,
+                            detected_confidence,
+                        )
                     yield event
 
         except Exception as exc:
@@ -320,6 +525,35 @@ class AGUIWorkflowAdapter:
         # Final step finished for any open step
         if current_agent:
             yield StepFinishedEvent(step_name=current_agent)
+
+        # Flush Classifier buffer: extract and yield only the clean tool result
+        if classifier_buffer:
+            # Run final detection on the complete buffer
+            detected_misunderstood, detected_clarification, detected_confidence = (
+                self._run_detection_on_text(
+                    classifier_buffer,
+                    detected_misunderstood,
+                    detected_clarification,
+                    detected_confidence,
+                )
+            )
+            # Extract tool result line from buffer
+            tool_match = _TOOL_RESULT_RE.search(classifier_buffer)
+            if tool_match:
+                clean_result = tool_match.group(1).strip()
+                logger.info(
+                    "Yielding clean Classifier tool result: %s", clean_result[:80]
+                )
+                yield AgentResponseUpdate(
+                    contents=[Content.from_text(clean_result)],
+                    author_name="Classifier",
+                    response_id=response_id,
+                )
+            else:
+                logger.debug(
+                    "Classifier buffer (%d chars) contained no tool result pattern",
+                    len(classifier_buffer),
+                )
 
         # After workflow completes: emit custom events based on detection
         if detected_misunderstood is not None:
