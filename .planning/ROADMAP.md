@@ -94,7 +94,7 @@ Plans:
 **Goal:** Three distinct classification failure flows: misunderstood (conversational follow-up), low-confidence (silent pending filing), and mis-categorized (inbox recategorize)
 **Depends on:** Phase 4
 **Requirements:** CLAS-04, APPX-04 (extended)
-**Plans:** 8/8 plans complete
+**Plans:** 10 plans
 
 Plans:
 - [x] 04.3-01-PLAN.md -- Backend classification tools, classifier instructions, and adapter (misunderstood vs low-confidence)
@@ -105,6 +105,8 @@ Plans:
 - [x] 04.3-06-PLAN.md -- [UAT fix] Mobile: inbox bucket buttons for all statuses, misunderstood display fixes
 - [x] 04.3-07-PLAN.md -- [Gap fix] Backend: score validation/fallback for 0.00 confidence scores
 - [x] 04.3-08-PLAN.md -- [Gap fix] Backend: follow-up orphan reconciliation (update original, delete duplicates)
+- [ ] 04.3-09-PLAN.md -- [Gap fix] Backend: parse tool return string for corrected confidence in toast
+- [ ] 04.3-10-PLAN.md -- [Gap fix] Backend: narrow junk definition and reorder classifier decision flow
 
 ### Phase 04.2: Swipe-to-delete inbox items (INSERTED)
 
@@ -217,7 +219,7 @@ Note: Phases 5, 6, 7, and 9 depend only on Phase 3 and can be parallelized, but 
 | 4. HITL Clarification and AG-UI Streaming | 6/6 | Complete | 2026-02-24 |
 | 4.1 Backend Deployment to Azure Container Apps | 2/2 | Complete | 2026-02-23 |
 | 4.2 Swipe-to-delete inbox items | 1/1 | Complete | 2026-02-24 |
-| 4.3 Agent-User UX with unclear item | 6/8 | In Progress | - |
+| 4.3 Agent-User UX with unclear item | 8/10 | In Progress | - |
 | 5. Voice Capture | 0/3 | Not started | - |
 | 6. Action Sharpening | 0/2 | Not started | - |
 | 7. People CRM and Cross-References | 0/3 | Not started | - |
