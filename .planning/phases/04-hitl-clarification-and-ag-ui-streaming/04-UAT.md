@@ -1,9 +1,9 @@
 ---
-status: diagnosed
+status: resolved
 phase: 04-hitl-clarification-and-ag-ui-streaming
 source: [04-01-SUMMARY.md, 04-02-SUMMARY.md, 04-03-SUMMARY.md, 04-04-SUMMARY.md, 04-05-SUMMARY.md]
 started: 2026-02-23T15:55:00Z
-updated: 2026-02-23T16:10:00Z
+updated: 2026-02-24T00:00:00Z
 ---
 
 ## Current Test
@@ -76,7 +76,7 @@ skipped: 1
 ## Gaps
 
 - truth: "Ambiguous capture triggers HITL clarifying question on capture screen"
-  status: failed
+  status: resolved
   reason: "User reported: did not trigger a clarifying question"
   severity: major
   test: 5
@@ -90,7 +90,7 @@ skipped: 1
   debug_session: ".planning/debug/hitl-not-triggering.md"
 
 - truth: "Selecting a bucket on conversation screen files the capture and removes pending status"
-  status: failed
+  status: resolved
   reason: "User reported: Can select tab, it says its filing it, but it remains pending. Also getting an error on the screen - 'encountered two children with the same key'. Items from local dev appear in Cosmos DB environment, suggesting app may still be running locally"
   severity: major
   test: 11
