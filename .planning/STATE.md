@@ -122,6 +122,7 @@ Recent decisions affecting current work:
 
 - Phase 04.1 inserted after Phase 4: Backend Deployment to Azure Container Apps (URGENT) — cannot do real UAT without deployed backend
 - Phase 04.2 inserted after Phase 04.1: Swipe-to-delete inbox items (URGENT) — needed for data hygiene during testing
+- Phase 04.3 inserted after Phase 4: agent-user UX with unclear item (URGENT)
 
 ### Pending Todos
 
@@ -135,6 +136,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-24
-Stopped at: Phase 04.2 complete -- swipe-to-delete deployed and verified on prod (DELETE 204, 404 tested)
-Resume file: N/A (ready for Phase 05 planning)
+Last session: 2026-02-23
+Stopped at: Phase 04.3 context gathered
+Resume file: .planning/phases/04.3-agent-user-ux-with-unclear-item/04.3-CONTEXT.md
