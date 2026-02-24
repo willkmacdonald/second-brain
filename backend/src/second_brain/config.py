@@ -17,7 +17,7 @@ class Settings(BaseSettings):
 
     # Azure Key Vault
     key_vault_url: str = ""
-    api_key_secret_name: str = "sb-api-key"
+    api_key_secret_name: str = "second-brain-api-key"
 
     # Classification
     classification_threshold: float = 0.6
