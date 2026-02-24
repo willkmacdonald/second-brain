@@ -78,7 +78,7 @@ export default function InboxScreen() {
   // Derive badge count from items state so it always reflects current data
   useEffect(() => {
     const isPendingStatus = (s: string) =>
-      s === "pending" || s === "low_confidence" || s === "unresolved";
+      s === "pending" || s === "low_confidence" || s === "unresolved" || s === "misunderstood";
     const pendingCount = items.filter((i) => isPendingStatus(i.status)).length;
     navigation.setOptions({
       tabBarBadge: pendingCount > 0 ? pendingCount : undefined,
@@ -280,28 +280,41 @@ export default function InboxScreen() {
             <Text style={styles.detailLabel}>Captured Text</Text>
             <Text style={styles.detailText}>{selectedItem?.rawText}</Text>
 
-            <View style={styles.detailRow}>
-              <View style={styles.detailCol}>
-                <Text style={styles.detailLabel}>Bucket</Text>
+            {selectedItem?.classificationMeta ? (
+              <>
+                <View style={styles.detailRow}>
+                  <View style={styles.detailCol}>
+                    <Text style={styles.detailLabel}>Bucket</Text>
+                    <Text style={styles.detailValue}>
+                      {selectedItem.classificationMeta.bucket}
+                    </Text>
+                  </View>
+                  <View style={styles.detailCol}>
+                    <Text style={styles.detailLabel}>Confidence</Text>
+                    <Text style={styles.detailValue}>
+                      {Math.round(selectedItem.classificationMeta.confidence * 100)}%
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.detailLabel}>Agent Chain</Text>
                 <Text style={styles.detailValue}>
-                  {selectedItem?.classificationMeta?.bucket ?? "Unknown"}
+                  {selectedItem.classificationMeta.agentChain?.join(" -> ") ?? "N/A"}
                 </Text>
-              </View>
-              <View style={styles.detailCol}>
-                <Text style={styles.detailLabel}>Confidence</Text>
-                <Text style={styles.detailValue}>
-                  {selectedItem?.classificationMeta?.confidence != null
-                    ? `${Math.round(selectedItem.classificationMeta.confidence * 100)}%`
-                    : "N/A"}
+              </>
+            ) : (
+              <>
+                <Text style={styles.detailLabel}>Status</Text>
+                <Text style={[styles.detailValue, { color: selectedItem?.status === "unresolved" ? "#ef4444" : "#f97316" }]}>
+                  {selectedItem?.status === "unresolved" ? "Unresolved" : "Needs Clarification"}
                 </Text>
-              </View>
-            </View>
-
-            <Text style={styles.detailLabel}>Agent Chain</Text>
-            <Text style={styles.detailValue}>
-              {selectedItem?.classificationMeta?.agentChain?.join(" -> ") ??
-                "N/A"}
-            </Text>
+                {selectedItem?.clarificationText && (
+                  <>
+                    <Text style={styles.detailLabel}>Agent Question</Text>
+                    <Text style={styles.detailValue}>{selectedItem.clarificationText}</Text>
+                  </>
+                )}
+              </>
+            )}
 
             <Text style={styles.detailLabel}>Timestamp</Text>
             <Text style={styles.detailValue}>
@@ -313,16 +326,16 @@ export default function InboxScreen() {
             {(() => {
               const isPendingItem =
                 selectedItem?.status === "pending" ||
-                selectedItem?.status === "low_confidence";
+                selectedItem?.status === "low_confidence" ||
+                selectedItem?.status === "misunderstood" ||
+                selectedItem?.status === "unresolved";
               const isClassifiedItem = selectedItem?.status === "classified";
-              const showBucketButtons = isPendingItem || isClassifiedItem;
-
-              if (!showBucketButtons) return null;
+              // Always show bucket buttons -- all items can be manually categorized
 
               return (
                 <View style={styles.bucketSection}>
                   <Text style={styles.detailLabel}>
-                    {isPendingItem ? "File to bucket" : "Move to bucket"}
+                    {isClassifiedItem ? "Move to bucket" : "File to bucket"}
                   </Text>
                   <View style={styles.bucketRow}>
                     {BUCKETS.map((bucket) => {
