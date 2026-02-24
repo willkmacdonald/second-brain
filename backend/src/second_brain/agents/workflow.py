@@ -584,9 +584,12 @@ class AGUIWorkflowAdapter:
                     "questionText": clarification_text,
                 },
             )
-        elif saw_request_info:
-            # request_info fired but neither misunderstood nor clarification
-            # regex matched — emit HITL_REQUIRED with threadId only.
+        elif saw_request_info and detected_confidence is None:
+            # request_info fired but neither misunderstood, clarification,
+            # nor confidence was detected — emit generic HITL_REQUIRED.
+            # When confidence IS detected, the Classifier successfully filed
+            # the item and no HITL is needed (request_info fires because
+            # the Classifier is non-autonomous, not because it needs input).
             logger.info(
                 "request_info without known pattern — emitting generic HITL_REQUIRED"
             )
