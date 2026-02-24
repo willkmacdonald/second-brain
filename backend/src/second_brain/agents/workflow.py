@@ -185,19 +185,23 @@ class AGUIWorkflowAdapter:
 
     @staticmethod
     def _has_misunderstood_tool_call(update: AgentResponseUpdate) -> bool:
-        """Check for request_misunderstood function_call/result.
+        """Check for request_misunderstood function_call or function_result.
 
-        Returns True if any content item is a function_call or
-        function_result with name 'request_misunderstood'. This is a
-        reliable alternative to regex-based detection on streamed text,
-        since tool return values are consumed internally by the LLM.
+        For function_call: checks name == 'request_misunderstood'.
+        For function_result: checks if the result string matches the
+        misunderstood pattern (function_result has call_id but no name).
         """
         for content in update.contents or []:
-            if getattr(content, "type", None) in (
-                "function_call",
-                "function_result",
-            ) and getattr(content, "name", None) == "request_misunderstood":
+            ctype = getattr(content, "type", None)
+            if (
+                ctype == "function_call"
+                and getattr(content, "name", None) == "request_misunderstood"
+            ):
                 return True
+            if ctype == "function_result":
+                result_str = str(getattr(content, "result", "") or "")
+                if _MISUNDERSTOOD_RE.search(result_str):
+                    return True
         return False
 
     @staticmethod
@@ -206,14 +210,12 @@ class AGUIWorkflowAdapter:
     ) -> tuple[str, str] | None:
         """Extract misunderstood data from function_result content items.
 
-        Looks for a function_result with name='request_misunderstood' and
-        parses the result string using _MISUNDERSTOOD_RE.
+        function_result has call_id (not name), so we match the result
+        string against _MISUNDERSTOOD_RE to identify request_misunderstood
+        tool results.
         """
         for content in update.contents or []:
-            if (
-                getattr(content, "type", None) == "function_result"
-                and getattr(content, "name", None) == "request_misunderstood"
-            ):
+            if getattr(content, "type", None) == "function_result":
                 result_str = str(getattr(content, "result", "") or "")
                 match = _MISUNDERSTOOD_RE.search(result_str)
                 if match:
