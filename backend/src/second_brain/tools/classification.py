@@ -24,6 +24,16 @@ logger = logging.getLogger(__name__)
 VALID_BUCKETS = {"People", "Projects", "Ideas", "Admin"}
 
 
+def _derive_scores_from_bucket(bucket: str, confidence: float) -> dict[str, float]:
+    """Derive synthetic allScores from bucket + confidence.
+
+    The primary bucket gets the confidence value; the remaining probability
+    is split evenly among the other three buckets.
+    """
+    remainder = (1.0 - confidence) / 3.0
+    return {b: confidence if b == bucket else remainder for b in VALID_BUCKETS}
+
+
 class ClassificationTools:
     """Classification tools bound to a CosmosManager instance.
 
@@ -50,12 +60,12 @@ class ClassificationTools:
             str, "Classification bucket: People, Projects, Ideas, or Admin"
         ],
         confidence: Annotated[float, "Confidence score 0.0-1.0 for the primary bucket"],
-        people_score: Annotated[float, "Score 0.0-1.0 for People bucket"],
-        projects_score: Annotated[float, "Score 0.0-1.0 for Projects bucket"],
-        ideas_score: Annotated[float, "Score 0.0-1.0 for Ideas bucket"],
-        admin_score: Annotated[float, "Score 0.0-1.0 for Admin bucket"],
         raw_text: Annotated[str, "The original captured text"],
         title: Annotated[str, "Brief title extracted from the text (3-6 words)"],
+        people_score: Annotated[float, "Score 0.0-1.0 for People bucket"] = 0.0,
+        projects_score: Annotated[float, "Score 0.0-1.0 for Projects bucket"] = 0.0,
+        ideas_score: Annotated[float, "Score 0.0-1.0 for Ideas bucket"] = 0.0,
+        admin_score: Annotated[float, "Score 0.0-1.0 for Admin bucket"] = 0.0,
     ) -> str:
         """Classify captured text and file to Cosmos DB.
 
@@ -63,6 +73,20 @@ class ClassificationTools:
         exactly one bucket with a confidence score. Files to both Inbox
         (with full metadata) and the target bucket container.
         """
+        # Debug: log all received argument values
+        logger.debug(
+            "classify_and_file called: bucket=%s confidence=%.4f "
+            "people=%.4f projects=%.4f ideas=%.4f admin=%.4f raw_text=%s title=%s",
+            bucket,
+            confidence,
+            people_score,
+            projects_score,
+            ideas_score,
+            admin_score,
+            raw_text[:80],
+            title,
+        )
+
         # Validate bucket
         if bucket not in VALID_BUCKETS:
             valid = ", ".join(sorted(VALID_BUCKETS))
@@ -71,13 +95,38 @@ class ClassificationTools:
         # Clamp confidence
         confidence = max(0.0, min(1.0, confidence))
 
-        # Build allScores from individual score parameters
-        all_scores = {
-            "People": people_score,
-            "Projects": projects_score,
-            "Ideas": ideas_score,
-            "Admin": admin_score,
-        }
+        # If confidence is 0.0 but a valid bucket was chosen, apply a default
+        if confidence == 0.0 and bucket in VALID_BUCKETS:
+            confidence = 0.75
+            logger.warning(
+                "confidence was 0.0 with valid bucket '%s' -- defaulting to 0.75",
+                bucket,
+            )
+
+        # Check if the LLM actually provided non-zero scores
+        scores_provided = not (
+            people_score == 0.0
+            and projects_score == 0.0
+            and ideas_score == 0.0
+            and admin_score == 0.0
+        )
+
+        # Build allScores: use provided scores or derive from bucket + confidence
+        if scores_provided:
+            all_scores = {
+                "People": people_score,
+                "Projects": projects_score,
+                "Ideas": ideas_score,
+                "Admin": admin_score,
+            }
+        else:
+            all_scores = _derive_scores_from_bucket(bucket, confidence)
+            logger.warning(
+                "All four scores were 0.0 -- derived from bucket=%s confidence=%.2f: %s",
+                bucket,
+                confidence,
+                all_scores,
+            )
 
         # Build ClassificationMeta
         classification_meta = ClassificationMeta(

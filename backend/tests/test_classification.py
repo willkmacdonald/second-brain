@@ -172,26 +172,17 @@ async def test_classify_and_file_invalid_bucket(mock_cosmos_manager: object) -> 
         container.create_item.assert_not_called()
 
 
-@pytest.mark.parametrize(
-    "input_confidence,expected_clamped",
-    [
-        (1.5, 1.0),
-        (-0.1, 0.0),
-    ],
-)
-async def test_classify_and_file_confidence_clamping(
+async def test_classify_and_file_confidence_clamping_high(
     mock_cosmos_manager: object,
-    input_confidence: float,
-    expected_clamped: float,
 ) -> None:
-    """Confidence values outside 0.0-1.0 are clamped."""
+    """Confidence > 1.0 is clamped to 1.0."""
     _setup_echo(mock_cosmos_manager, "Inbox")
     _setup_echo(mock_cosmos_manager, "Projects")
 
     tools = _make_tools(mock_cosmos_manager)
     result = await tools.classify_and_file(
         bucket="Projects",
-        confidence=input_confidence,
+        confidence=1.5,
         raw_text="Test clamping",
         title="Clamp Test",
         people_score=0.1,
@@ -200,10 +191,36 @@ async def test_classify_and_file_confidence_clamping(
         admin_score=0.05,
     )
 
-    assert f"({expected_clamped:.2f})" in result
+    assert "(1.00)" in result
 
     inbox_body = _get_body(mock_cosmos_manager, "Inbox")
-    assert inbox_body["classificationMeta"]["confidence"] == expected_clamped
+    assert inbox_body["classificationMeta"]["confidence"] == 1.0
+
+
+async def test_classify_and_file_confidence_clamping_negative(
+    mock_cosmos_manager: object,
+) -> None:
+    """Confidence < 0.0 is clamped to 0.0 then defaulted to 0.75 (valid bucket fallback)."""
+    _setup_echo(mock_cosmos_manager, "Inbox")
+    _setup_echo(mock_cosmos_manager, "Projects")
+
+    tools = _make_tools(mock_cosmos_manager)
+    result = await tools.classify_and_file(
+        bucket="Projects",
+        confidence=-0.1,
+        raw_text="Test clamping",
+        title="Clamp Test",
+        people_score=0.1,
+        projects_score=0.8,
+        ideas_score=0.05,
+        admin_score=0.05,
+    )
+
+    # After clamping -0.1 -> 0.0, the 0.0 fallback logic applies: default to 0.75
+    assert "(0.75)" in result
+
+    inbox_body = _get_body(mock_cosmos_manager, "Inbox")
+    assert inbox_body["classificationMeta"]["confidence"] == 0.75
 
 
 async def test_classification_meta_fields(mock_cosmos_manager: object) -> None:
