@@ -1,0 +1,29 @@
+# Virtual environment (built fresh in Docker)
+.venv/
+__pycache__/
+*.pyc
+
+# Environment files (secrets, local config)
+.env
+.env.*
+
+# Testing (not needed in production image)
+tests/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Development tools
+.ruff_cache/
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+
+# Documentation
+*.md
