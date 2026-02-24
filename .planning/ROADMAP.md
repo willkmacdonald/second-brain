@@ -103,8 +103,8 @@ Plans:
 - [x] 04.3-04-PLAN.md -- Mobile inbox detail card bucket buttons and status dots
 - [x] 04.3-05-PLAN.md -- [UAT fix] Backend: filter Classifier reasoning text, fix misunderstood event detection
 - [x] 04.3-06-PLAN.md -- [UAT fix] Mobile: inbox bucket buttons for all statuses, misunderstood display fixes
-- [ ] 04.3-07-PLAN.md -- [Gap fix] Backend: score validation/fallback for 0.00 confidence scores
-- [ ] 04.3-08-PLAN.md -- [Gap fix] Backend: follow-up orphan reconciliation (update original, delete duplicates)
+- [x] 04.3-07-PLAN.md -- [Gap fix] Backend: score validation/fallback for 0.00 confidence scores
+- [x] 04.3-08-PLAN.md -- [Gap fix] Backend: follow-up orphan reconciliation (update original, delete duplicates)
 
 ### Phase 04.2: Swipe-to-delete inbox items (INSERTED)
 
