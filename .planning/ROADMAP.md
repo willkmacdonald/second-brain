@@ -140,7 +140,7 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 05-01-PLAN.md -- Backend infra: Blob Storage manager, Whisper transcription tool, Perception Agent
+- [x] 05-01-PLAN.md -- Backend infra: Blob Storage manager, Whisper transcription tool, Perception Agent
 - [ ] 05-02-PLAN.md -- Backend wiring: POST /api/voice-capture endpoint, Orchestrator update
 - [ ] 05-03-PLAN.md -- Mobile: voice recording screen (expo-audio), upload client, Voice button enabled
 
@@ -220,7 +220,7 @@ Note: Phases 5, 6, 7, and 9 depend only on Phase 3 and can be parallelized, but 
 | 4.1 Backend Deployment to Azure Container Apps | 2/2 | Complete | 2026-02-23 |
 | 4.2 Swipe-to-delete inbox items | 1/1 | Complete | 2026-02-24 |
 | 4.3 Agent-User UX with unclear item | 8/10 | In Progress | - |
-| 5. Voice Capture | 0/3 | Planned | - |
+| 5. Voice Capture | 1/3 | In Progress | - |
 | 6. Action Sharpening | 0/2 | Not started | - |
 | 7. People CRM and Cross-References | 0/3 | Not started | - |
 | 8. Digests and Notifications | 0/3 | Not started | - |

@@ -20,14 +20,14 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **CAPT-01**: User can type a thought in the Expo app and submit it with one tap
 - [x] **CAPT-02**: User receives real-time visual feedback showing the agent chain processing their capture (Orchestrator → Classifier → Action)
 - [ ] **CAPT-03**: User can record a voice note in the Expo app which is transcribed by the Perception Agent via Whisper
-- [ ] **CAPT-04**: User sees transcribed text and classification result after voice capture
+- [x] **CAPT-04**: User sees transcribed text and classification result after voice capture
 - [x] **CAPT-05**: Expo app runs on both iOS and Android
 
 ### Orchestration
 
 - [x] **ORCH-01**: Orchestrator Agent receives all input and routes to the correct specialist agent based on input type and context
 - [x] **ORCH-02**: Orchestrator routes text input directly to Classifier Agent
-- [ ] **ORCH-03**: Orchestrator routes audio input to Perception Agent first, then Classifier Agent
+- [x] **ORCH-03**: Orchestrator routes audio input to Perception Agent first, then Classifier Agent
 - [ ] **ORCH-04**: Orchestrator routes classified Projects/Admin items to Action Agent for sharpening
 - [ ] **ORCH-05**: Orchestrator routes digest/summary requests to Digest Agent
 - [x] **ORCH-06**: Orchestrator provides brief confirmation when the full agent chain completes
@@ -129,11 +129,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CAPT-01 | Phase 2 | Complete |
 | CAPT-02 | Phase 4 | Complete |
 | CAPT-03 | Phase 5 | Pending |
-| CAPT-04 | Phase 5 | Pending |
+| CAPT-04 | Phase 5 | Complete |
 | CAPT-05 | Phase 2 | Complete |
 | ORCH-01 | Phase 3 | Complete |
 | ORCH-02 | Phase 3 | Complete |
-| ORCH-03 | Phase 5 | Pending |
+| ORCH-03 | Phase 5 | Complete |
 | ORCH-04 | Phase 6 | Pending |
 | ORCH-05 | Phase 8 | Pending |
 | ORCH-06 | Phase 3 | Complete |

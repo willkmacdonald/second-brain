@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-21)
 
 **Core value:** One-tap capture from a phone instantly routes through an agent chain that classifies, files, and sharpens thoughts into concrete next actions -- with zero organizational effort.
-**Current focus:** Phase 04.3 gap closure -- agent-user UX with unclear item
+**Current focus:** Phase 05 -- Voice Capture
 
 ## Current Position
 
-Phase: 04.3 of 9 (Agent-User UX with unclear item) -- gap closure
-Plan: 10 of 10 in current phase (gap closure) -- PHASE COMPLETE
-Status: Phase 04.3 gap closure complete -- all 10 plans executed
-Last activity: 2026-02-24 -- Phase 04.3 Plan 10 executed (junk/misunderstood overlap fix)
+Phase: 05 of 9 (Voice Capture)
+Plan: 2 of 3 in current phase
+Status: Executing Phase 05 plans
+Last activity: 2026-02-25 -- Phase 05 Plan 02 executed (voice-capture endpoint wiring)
 
-Progress: [##########] 100%
+Progress: [######----] 67%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 26
-- Average duration: 3.3 min
-- Total execution time: 1.4 hours
+- Total plans completed: 28
+- Average duration: 3.2 min
+- Total execution time: 1.5 hours
 
 **By Phase:**
 
@@ -34,10 +34,11 @@ Progress: [##########] 100%
 | 04.1-backend-deployment-to-azure-container-apps | 2/2 | 5 min | 2.5 min |
 | 04.2-swipe-to-delete-inbox-items | 1/1 | 5 min | 5 min |
 | 04.3-agent-user-ux-with-unclear-item | 10/10 | 26 min | 2.6 min |
+| 05-voice-capture | 2/3 | 7 min | 3.5 min |
 
 **Recent Trend:**
-- Last 5 plans: 04.3-07 (2 min), 04.3-08 (3 min), 04.3-09 (2 min), 04.3-10 (1 min)
-- Trend: Consistently 1-4 min per plan
+- Last 5 plans: 04.3-09 (2 min), 04.3-10 (1 min), 05-01 (5 min), 05-02 (2 min)
+- Trend: Consistently 1-5 min per plan
 
 *Updated after each plan completion*
 
@@ -152,6 +153,16 @@ Recent decisions affecting current work:
 - [04.3-10]: Decision flow reordered: high confidence -> low confidence -> misunderstood -> junk (was junk first)
 - [04.3-10]: Dual tiebreaker placement: in decision flow step 3 AND in dedicated paragraph after misunderstood signals
 
+- [05-01]: BlobStorageManager follows same singleton pattern as CosmosManager (init in lifespan, store on app.state)
+- [05-01]: transcribe_audio is SYNC -- callers wrap in asyncio.to_thread() since OpenAI sync client blocks
+- [05-01]: Whisper uses cognitiveservices.azure.com scope (not ai.azure.com) for token auth
+- [05-01]: Perception Agent is a thin module -- actual transcription happens in endpoint with synthetic step events
+- [05-01]: Non-fatal blob delete -- orphaned blobs are harmless
+- [05-02]: Manual SSE lifecycle (not _stream_sse helper) to avoid duplicate RunStarted/RunFinished -- voice-capture mixes synthetic Perception step with workflow stream
+- [05-02]: Blob deleted immediately after successful transcription per CONTEXT.md decision (no permanent audio storage)
+- [05-02]: Settings stored on app.state so voice-capture endpoint can access Whisper deployment name and Azure OpenAI endpoint
+- [05-02]: B008 ruff noqa for File(...) default -- standard FastAPI multipart pattern
+
 ### Roadmap Evolution
 
 - Phase 04.1 inserted after Phase 4: Backend Deployment to Azure Container Apps (URGENT) — cannot do real UAT without deployed backend
@@ -171,5 +182,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-25
-Stopped at: Phase 5 context gathered
-Resume file: .planning/phases/05-voice-capture/05-CONTEXT.md
+Stopped at: Completed 05-02-PLAN.md
+Resume file: .planning/phases/05-voice-capture/05-02-SUMMARY.md
