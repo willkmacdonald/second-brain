@@ -5,6 +5,7 @@ import type {
   SendCaptureOptions,
   SendClarificationOptions,
   SendFollowUpOptions,
+  SendVoiceCaptureOptions,
   StreamingCallbacks,
 } from "./types";
 
@@ -226,4 +227,140 @@ export function sendFollowUp({
   );
 
   return attachCallbacks(es, callbacks);
+}
+
+/**
+ * Send a voice capture (audio file) to the backend via multipart upload.
+ *
+ * Uses fetch + ReadableStream for SSE parsing because react-native-sse
+ * EventSource doesn't support multipart uploads. The SSE parsing logic
+ * mirrors attachCallbacks for consistency.
+ *
+ * Returns a cleanup/abort function.
+ */
+export function sendVoiceCapture({
+  audioUri,
+  apiKey,
+  callbacks,
+}: SendVoiceCaptureOptions): () => void {
+  let aborted = false;
+  const abortController = new AbortController();
+
+  (async () => {
+    try {
+      // Build multipart form data
+      const formData = new FormData();
+      formData.append("file", {
+        uri: audioUri,
+        type: "audio/m4a",
+        name: "voice-capture.m4a",
+      } as any);
+
+      // POST multipart -- response is SSE stream
+      const response = await fetch(`${API_BASE_URL}/api/voice-capture`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          // Do NOT set Content-Type -- fetch sets it with multipart boundary
+        },
+        body: formData,
+        signal: abortController.signal,
+      });
+
+      if (!response.ok) {
+        callbacks.onError(`Upload failed: ${response.status}`);
+        return;
+      }
+
+      // Read SSE stream from response body
+      const reader = response.body?.getReader();
+      if (!reader) {
+        callbacks.onError("No response stream");
+        return;
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let result = "";
+      let hitlTriggered = false;
+
+      while (!aborted) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        // Parse SSE events from buffer (events separated by \n\n)
+        const events = buffer.split("\n\n");
+        buffer = events.pop() || ""; // Keep incomplete event in buffer
+
+        for (const eventStr of events) {
+          if (!eventStr.trim()) continue;
+          const dataMatch = eventStr.match(/^data:\s*(.+)$/m);
+          if (!dataMatch) continue;
+
+          try {
+            const parsed = JSON.parse(dataMatch[1]);
+            switch (parsed.type) {
+              case "STEP_STARTED":
+                callbacks.onStepStart?.(parsed.stepName ?? "Unknown");
+                break;
+              case "STEP_FINISHED":
+                callbacks.onStepFinish?.(parsed.stepName ?? "Unknown");
+                break;
+              case "TEXT_MESSAGE_CONTENT":
+                if (parsed.delta) {
+                  result += parsed.delta;
+                  callbacks.onTextDelta?.(parsed.delta);
+                }
+                break;
+              case "CUSTOM":
+                if (parsed.name === "HITL_REQUIRED" && parsed.value?.threadId) {
+                  hitlTriggered = true;
+                  callbacks.onHITLRequired?.(
+                    parsed.value.threadId,
+                    parsed.value.questionText || result,
+                    parsed.value.inboxItemId,
+                  );
+                }
+                if (
+                  parsed.name === "MISUNDERSTOOD" &&
+                  parsed.value?.inboxItemId
+                ) {
+                  hitlTriggered = true;
+                  callbacks.onMisunderstood?.(
+                    parsed.value.threadId ?? "",
+                    parsed.value.questionText ?? "",
+                    parsed.value.inboxItemId,
+                  );
+                }
+                if (parsed.name === "UNRESOLVED" && parsed.value?.inboxItemId) {
+                  callbacks.onUnresolved?.(parsed.value.inboxItemId);
+                }
+                break;
+              case "RUN_FINISHED":
+                if (!hitlTriggered) {
+                  callbacks.onComplete(result);
+                }
+                break;
+              case "RUN_ERROR":
+                callbacks.onError("Run failed");
+                break;
+            }
+          } catch {
+            // Ignore malformed JSON
+          }
+        }
+      }
+    } catch (err: any) {
+      if (!aborted) {
+        callbacks.onError(err?.message || "Voice capture failed");
+      }
+    }
+  })();
+
+  return () => {
+    aborted = true;
+    abortController.abort();
+  };
 }

@@ -6,6 +6,7 @@ interface CaptureButtonProps {
   icon: string;
   onPress: () => void;
   disabled?: boolean;
+  active?: boolean;
 }
 
 export function CaptureButton({
@@ -13,6 +14,7 @@ export function CaptureButton({
   icon,
   onPress,
   disabled,
+  active,
 }: CaptureButtonProps) {
   const handlePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -27,6 +29,7 @@ export function CaptureButton({
         styles.button,
         pressed && styles.pressed,
         disabled && styles.disabled,
+        active && styles.active,
       ]}
     >
       <Text style={styles.icon}>{icon}</Text>
@@ -50,6 +53,10 @@ const styles = StyleSheet.create({
   },
   disabled: {
     opacity: 0.4,
+  },
+  active: {
+    borderWidth: 2,
+    borderColor: "#4a90d9",
   },
   icon: {
     fontSize: 48,
