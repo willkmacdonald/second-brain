@@ -1,5 +1,6 @@
 """FastAPI app with AG-UI endpoint, capture pipeline, and OpenTelemetry tracing."""
 
+import asyncio
 import logging
 import uuid
 from collections.abc import AsyncGenerator
@@ -21,6 +22,8 @@ from ag_ui.core.events import (  # noqa: E402
     CustomEvent,
     RunFinishedEvent,
     RunStartedEvent,
+    StepFinishedEvent,
+    StepStartedEvent,
     TextMessageContentEvent,
     TextMessageEndEvent,
     TextMessageStartEvent,
@@ -36,7 +39,7 @@ from azure.identity.aio import (  # noqa: E402, I001
     DefaultAzureCredential as AsyncDefaultAzureCredential,
 )
 from azure.keyvault.secrets.aio import SecretClient as KeyVaultSecretClient  # noqa: E402
-from fastapi import FastAPI, Request  # noqa: E402
+from fastapi import FastAPI, File, Request, UploadFile  # noqa: E402
 from fastapi.responses import StreamingResponse  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
@@ -51,7 +54,9 @@ from second_brain.api.health import router as health_router  # noqa: E402
 from second_brain.api.inbox import router as inbox_router  # noqa: E402
 from second_brain.auth import APIKeyMiddleware  # noqa: E402
 from second_brain.config import get_settings  # noqa: E402
+from second_brain.db.blob_storage import BlobStorageManager  # noqa: E402
 from second_brain.db.cosmos import CosmosManager  # noqa: E402
+from second_brain.tools.transcription import transcribe_audio  # noqa: E402
 from second_brain.models.documents import (  # noqa: E402
     CONTAINER_MODELS,
     ClassificationMeta,
@@ -225,6 +230,24 @@ async def lifespan(app: FastAPI):
         )
         app.state.cosmos_manager = None
 
+    # Initialize Blob Storage manager (for voice capture)
+    blob_manager: BlobStorageManager | None = None
+    if settings.blob_storage_url:
+        blob_mgr = BlobStorageManager(account_url=settings.blob_storage_url)
+        try:
+            await blob_mgr.initialize()
+            blob_manager = blob_mgr
+            app.state.blob_manager = blob_manager
+            logger.info("Blob Storage manager initialized")
+        except Exception:
+            logger.warning(
+                "Could not initialize Blob Storage. "
+                "Voice capture will not be available."
+            )
+            app.state.blob_manager = None
+    else:
+        app.state.blob_manager = None
+
     # Create shared chat client (sync credential -- AzureOpenAIChatClient expects
     # TokenCredential, not AsyncTokenCredential, per Phase 1 decision)
     try:
@@ -253,6 +276,7 @@ async def lifespan(app: FastAPI):
         )
         app.state.workflow_agent = workflow_agent
         app.state.classification_tools = classification_tools
+        app.state.settings = settings
         logger.info("Capture pipeline created and stored on app.state")
     except Exception:
         logger.warning(
@@ -264,6 +288,10 @@ async def lifespan(app: FastAPI):
         app.state.classification_tools = None
 
     yield
+
+    # Cleanup Blob Storage
+    if getattr(app.state, "blob_manager", None) is not None:
+        await app.state.blob_manager.close()
 
     # Cleanup Cosmos DB
     if app.state.cosmos_manager is not None:
@@ -586,9 +614,9 @@ async def follow_up_misunderstood(
                                         else ""
                                     )
                                     existing["clarificationText"] = question_text
-                                    existing["updatedAt"] = (
-                                        datetime.now(UTC).isoformat()
-                                    )
+                                    existing["updatedAt"] = datetime.now(
+                                        UTC
+                                    ).isoformat()
                                     await inbox_container.upsert_item(body=existing)
                                     logger.info(
                                         "Updated original %s clarificationText",
@@ -749,6 +777,229 @@ async def follow_up_misunderstood(
                     name="UNRESOLVED",
                     value={"inboxItemId": body.inbox_item_id},
                 )
+            )
+
+        yield encoder.encode(RunFinishedEvent(thread_id=thread_id, run_id=run_id))
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# Voice capture endpoint
+# ---------------------------------------------------------------------------
+
+_MAX_AUDIO_SIZE = 25 * 1024 * 1024  # 25 MB (Whisper limit)
+_MIN_AUDIO_SIZE = 1024  # 1 KB — anything smaller is likely an accidental tap
+
+
+@app.post("/api/voice-capture", tags=["Capture"])
+async def voice_capture(
+    request: Request,
+    file: UploadFile = File(...),  # noqa: B008
+) -> StreamingResponse:
+    """Accept multipart audio upload, transcribe via Whisper, classify via pipeline.
+
+    SSE stream includes a synthetic Perception step (upload + transcribe + delete)
+    followed by the existing Orchestrator -> Classifier workflow steps.
+    """
+    thread_id = f"thread-{uuid.uuid4()}"
+    run_id = f"run-{uuid.uuid4()}"
+
+    audio_bytes = await file.read()
+
+    # Validate audio size
+    if len(audio_bytes) < _MIN_AUDIO_SIZE:
+        encoder = EventEncoder()
+
+        async def _error_short() -> AsyncGenerator[str, None]:
+            yield encoder.encode(RunStartedEvent(thread_id=thread_id, run_id=run_id))
+            msg_id = str(uuid.uuid4())
+            yield encoder.encode(
+                TextMessageStartEvent(message_id=msg_id, role="assistant")
+            )
+            yield encoder.encode(
+                TextMessageContentEvent(message_id=msg_id, delta="Recording too short")
+            )
+            yield encoder.encode(TextMessageEndEvent(message_id=msg_id))
+            yield encoder.encode(RunFinishedEvent(thread_id=thread_id, run_id=run_id))
+
+        return StreamingResponse(
+            _error_short(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            },
+        )
+
+    if len(audio_bytes) > _MAX_AUDIO_SIZE:
+        encoder = EventEncoder()
+
+        async def _error_large() -> AsyncGenerator[str, None]:
+            yield encoder.encode(RunStartedEvent(thread_id=thread_id, run_id=run_id))
+            msg_id = str(uuid.uuid4())
+            yield encoder.encode(
+                TextMessageStartEvent(message_id=msg_id, role="assistant")
+            )
+            yield encoder.encode(
+                TextMessageContentEvent(
+                    message_id=msg_id,
+                    delta="Recording too large (max 25 MB)",
+                )
+            )
+            yield encoder.encode(TextMessageEndEvent(message_id=msg_id))
+            yield encoder.encode(RunFinishedEvent(thread_id=thread_id, run_id=run_id))
+
+        return StreamingResponse(
+            _error_large(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            },
+        )
+
+    blob_manager: BlobStorageManager | None = getattr(
+        request.app.state, "blob_manager", None
+    )
+    workflow_agent: AGUIWorkflowAdapter | None = getattr(
+        request.app.state, "workflow_agent", None
+    )
+    settings = getattr(request.app.state, "settings", None)
+    filename = file.filename or "voice-capture.m4a"
+
+    async def generate() -> AsyncGenerator[str, None]:
+        encoder = EventEncoder()
+        yield encoder.encode(RunStartedEvent(thread_id=thread_id, run_id=run_id))
+
+        # Guard: blob manager required
+        if blob_manager is None:
+            msg_id = str(uuid.uuid4())
+            yield encoder.encode(
+                TextMessageStartEvent(message_id=msg_id, role="assistant")
+            )
+            yield encoder.encode(
+                TextMessageContentEvent(
+                    message_id=msg_id,
+                    delta="Voice capture not available (Blob Storage not configured)",
+                )
+            )
+            yield encoder.encode(TextMessageEndEvent(message_id=msg_id))
+            yield encoder.encode(RunFinishedEvent(thread_id=thread_id, run_id=run_id))
+            return
+
+        # Guard: workflow agent required
+        if workflow_agent is None or settings is None:
+            msg_id = str(uuid.uuid4())
+            yield encoder.encode(
+                TextMessageStartEvent(message_id=msg_id, role="assistant")
+            )
+            yield encoder.encode(
+                TextMessageContentEvent(
+                    message_id=msg_id,
+                    delta="Voice capture not available (pipeline not configured)",
+                )
+            )
+            yield encoder.encode(TextMessageEndEvent(message_id=msg_id))
+            yield encoder.encode(RunFinishedEvent(thread_id=thread_id, run_id=run_id))
+            return
+
+        # --- Perception step (synthetic) ---
+        perception_started = False
+        blob_url: str | None = None
+        transcription: str | None = None
+        try:
+            yield encoder.encode(StepStartedEvent(step_name="Perception"))
+            perception_started = True
+
+            # Upload audio to Blob Storage
+            blob_url = await blob_manager.upload_audio(audio_bytes, filename)
+
+            # Transcribe via Whisper (sync function -> run in thread)
+            transcription = await asyncio.to_thread(
+                transcribe_audio,
+                audio_bytes,
+                filename,
+                settings.azure_openai_whisper_deployment_name,
+                settings.azure_openai_endpoint,
+            )
+
+            # Delete blob after transcription (per CONTEXT.md)
+            await blob_manager.delete_audio(blob_url)
+            blob_url = None  # Mark as deleted
+
+            yield encoder.encode(StepFinishedEvent(step_name="Perception"))
+            perception_started = False
+
+        except Exception:
+            logger.exception("Perception step failed")
+            # Clean up blob if uploaded but transcription failed
+            if blob_url is not None:
+                await blob_manager.delete_audio(blob_url)
+            if perception_started:
+                yield encoder.encode(StepFinishedEvent(step_name="Perception"))
+
+            msg_id = str(uuid.uuid4())
+            yield encoder.encode(
+                TextMessageStartEvent(message_id=msg_id, role="assistant")
+            )
+            yield encoder.encode(
+                TextMessageContentEvent(
+                    message_id=msg_id,
+                    delta="Transcription failed. Please try again.",
+                )
+            )
+            yield encoder.encode(TextMessageEndEvent(message_id=msg_id))
+            yield encoder.encode(RunFinishedEvent(thread_id=thread_id, run_id=run_id))
+            return
+
+        # Guard: empty transcription
+        if not transcription or not transcription.strip():
+            msg_id = str(uuid.uuid4())
+            yield encoder.encode(
+                TextMessageStartEvent(message_id=msg_id, role="assistant")
+            )
+            yield encoder.encode(
+                TextMessageContentEvent(
+                    message_id=msg_id,
+                    delta="Could not transcribe audio. Please try again.",
+                )
+            )
+            yield encoder.encode(TextMessageEndEvent(message_id=msg_id))
+            yield encoder.encode(RunFinishedEvent(thread_id=thread_id, run_id=run_id))
+            return
+
+        # --- Classification pipeline ---
+        from agent_framework import Message as AFMessage  # noqa: E402
+
+        messages: list[AFMessage] = [AFMessage(role="user", text=transcription)]
+        thread = workflow_agent.get_new_thread()
+        stream = workflow_agent.run(
+            messages, stream=True, thread=thread, thread_id=thread_id
+        )
+
+        message_id_state: dict[str, str | None] = {"current": None}
+        async for item in stream:
+            if isinstance(item, BaseEvent):
+                yield encoder.encode(item)
+            elif isinstance(item, AgentResponseUpdate):
+                for event in _convert_update_to_events(item, message_id_state):
+                    yield encoder.encode(event)
+
+        # Close any open text message
+        if message_id_state.get("current"):
+            yield encoder.encode(
+                TextMessageEndEvent(message_id=message_id_state["current"])
             )
 
         yield encoder.encode(RunFinishedEvent(thread_id=thread_id, run_id=run_id))
