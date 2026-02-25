@@ -263,11 +263,11 @@ export default function CaptureScreen() {
             setTimeout(resetVoiceState, AUTO_RESET_MS);
           },
           onError: (error: string) => {
-            void error;
+            console.error("Voice capture error:", error);
             setProcessing(false);
             setShowSteps(false);
             setToast({
-              message: "Couldn\u2019t file your capture. Try again.",
+              message: error || "Couldn\u2019t file your capture. Try again.",
               type: "error",
             });
           },
@@ -304,7 +304,7 @@ export default function CaptureScreen() {
       inboxItemId: misunderstoodInboxItemId,
       followUpText: followUpText.trim(),
       followUpRound: followUpRound,
-      apiKey: API_KEY!,
+      apiKey: API_KEY,
       callbacks: {
         onStepStart: (stepName: string) => {
           setCurrentStep(stepName);
@@ -369,7 +369,7 @@ export default function CaptureScreen() {
       const cleanup = sendClarification({
         threadId: hitlThreadId,
         bucket,
-        apiKey: API_KEY!,
+        apiKey: API_KEY,
         inboxItemId: hitlInboxItemId ?? undefined,
         callbacks: {
           onTextDelta: (delta: string) => {

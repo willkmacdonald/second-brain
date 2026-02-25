@@ -945,7 +945,10 @@ async def voice_capture(
             logger.exception("Perception step failed")
             # Clean up blob if uploaded but transcription failed
             if blob_url is not None:
-                await blob_manager.delete_audio(blob_url)
+                try:
+                    await blob_manager.delete_audio(blob_url)
+                except Exception:
+                    logger.warning("Failed to clean up blob after transcription error")
             if perception_started:
                 yield encoder.encode(StepFinishedEvent(step_name="Perception"))
 
