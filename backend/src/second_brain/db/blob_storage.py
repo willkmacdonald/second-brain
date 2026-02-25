@@ -9,6 +9,7 @@ import logging
 from uuid import uuid4
 
 from azure.identity.aio import DefaultAzureCredential
+from azure.storage.blob import ContentSettings
 from azure.storage.blob.aio import BlobServiceClient
 
 logger = logging.getLogger(__name__)
@@ -72,7 +73,7 @@ class BlobStorageManager:
 
         await blob_client.upload_blob(
             audio_bytes,
-            content_settings={"content_type": "audio/m4a"},
+            content_settings=ContentSettings(content_type="audio/m4a"),
             overwrite=True,
         )
 
