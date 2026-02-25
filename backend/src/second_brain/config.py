@@ -19,6 +19,12 @@ class Settings(BaseSettings):
     key_vault_url: str = ""
     api_key_secret_name: str = "second-brain-api-key"
 
+    # Azure Blob Storage (voice recordings)
+    blob_storage_url: str = ""
+
+    # Azure OpenAI Whisper (transcription)
+    azure_openai_whisper_deployment_name: str = "whisper"
+
     # Classification
     classification_threshold: float = 0.6
 

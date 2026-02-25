@@ -12,8 +12,11 @@ dependencies = [
     "azure-cosmos",
     "azure-identity",
     "azure-keyvault-secrets",
+    "azure-storage-blob",
     # Async HTTP transport (required by azure-identity async credentials)
     "aiohttp",
+    # Required by FastAPI for UploadFile
+    "python-multipart",
     # Configuration
     "pydantic-settings",
     "python-dotenv",
