@@ -63,6 +63,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: Phase 6 context gathered
-Resume file: .planning/phases/06-foundry-infrastructure/06-CONTEXT.md
-Resume action: /gsd:plan-phase 6
+Stopped at: Phase 6 planned (3 plans, 3 waves, verified with 2 revision iterations)
+Resume file: .planning/phases/06-foundry-infrastructure/06-01-PLAN.md
+Resume action: /gsd:execute-phase 6
