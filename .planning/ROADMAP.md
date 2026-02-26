@@ -173,11 +173,12 @@ Plans:
   3. HandoffBuilder, AGUIWorkflowAdapter, Orchestrator agent, Perception Agent, and Whisper code are deleted with no import errors remaining
   4. All new environment variables (`AZURE_AI_PROJECT_ENDPOINT`, `AZURE_AI_CLASSIFIER_AGENT_ID`, `APPLICATIONINSIGHTS_CONNECTION_STRING`, specialist agent IDs) are configured in `.env` and `config.py`
   5. The backend starts without errors after async credential swap (`azure.identity.aio.DefaultAzureCredential`)
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 06-01: TBD
-- [ ] 06-02: TBD
+- [ ] 06-01-PLAN.md -- Delete old orchestration code (agents, workflow, AG-UI endpoints, tests)
+- [ ] 06-02-PLAN.md -- Add Foundry SDK + AppInsights deps, config.py update, AzureAIAgentClient init, enhanced health endpoint
+- [ ] 06-03-PLAN.md -- RBAC configuration, AppInsights connection, deployment validation
 
 ### Phase 7: Classifier Agent Baseline
 **Goal**: The Classifier is a persistent Foundry-registered agent that executes local @tool functions and writes to Cosmos DB, validated in isolation before touching the live streaming pipeline
