@@ -1,236 +1,150 @@
 # Feature Research
 
-**Domain:** Azure AI Foundry Agent Service migration (multi-agent capture app)
+**Domain:** Proactive multi-agent personal assistant — specialist agents with follow-up behaviors on mobile
 **Researched:** 2026-02-25
-**Confidence:** HIGH — all critical claims verified against official Microsoft docs (updated 2026-02-17 to 2026-02-26)
+**Confidence:** HIGH for behavioral patterns and UX norms (well-established domain); MEDIUM for geofencing (known Expo limitations); HIGH for notification infrastructure (official Expo docs verified)
 
 ---
 
 ## Context: What This Research Covers
 
-This is a migration milestone, not a new product. v1 features (text/voice capture, HITL, AG-UI streaming, inbox) already exist and are NOT being rebuilt. This research answers: what does migrating from `AzureOpenAIChatClient + HandoffBuilder` to `AzureAIAgentClient` (Foundry Agent Service) actually change, what stays the same, and what are the open questions resolved by evidence.
+This is the NEW feature layer for v2.0. The existing v1 features (text/voice capture, HITL classification, AG-UI streaming, inbox) already exist and are not being rebuilt. This research answers: what do proactive personal assistant agents actually do, what UX patterns do users expect from nudges and follow-ups in a mobile app, and what is the right feature set for the four specialist agents (Admin, Ideas, Projects, People)?
+
+The downstream consumer is the roadmap. Features are mapped to agents. Complexity ratings inform phase sizing. Dependencies identify ordering constraints.
 
 ---
 
 ## Feature Landscape
 
-### Table Stakes (Must Work After Migration)
+### Table Stakes (Users Expect These)
 
-Features that already exist and must continue to work identically after migration. Missing any = regression.
+Features users assume will exist once an agent calls itself "proactive." Missing any of these = the product feels like a filing cabinet with badges, not an intelligent assistant.
 
-| Feature | Why Table Stakes | Complexity | Migration Notes |
-|---------|-----------------|------------|-----------------|
-| Text capture → Orchestrator → Classifier → Cosmos DB | Core pipeline; entire product fails without it | MEDIUM | Client swap + workflow replacement. Tool functions unchanged. |
-| Voice capture → Perception → classify pipeline | Existing feature; voice users notice immediately | LOW | Perception step stays synthetic (not a Foundry agent). No change needed. |
-| HITL: low-confidence captures filed as pending, inbox bucket buttons | Existing HITL path; users depend on it | MEDIUM | Cosmos DB path unchanged. No agent involvement in the respond endpoint. |
-| HITL: misunderstood captures → conversational follow-up | Existing HITL path; involves re-running the workflow | HIGH | CUSTOM EVENT detection approach must survive. See Q2 below. |
-| AG-UI SSE streaming (StepStarted, StepFinished, Custom events) | Mobile app depends on AG-UI protocol exactly | HIGH | Streaming surface changes: no WorkflowEvent in direct agent.run(). Custom event emission strategy must be rebuilt around WorkflowBuilder events. |
-| Inbox view: list, detail cards, swipe-to-delete | Cosmos DB reads; no agent involvement | LOW | Zero change — pure Cosmos DB layer. |
-| Recategorize from inbox (bucket buttons) | HITL respond endpoint — no agent involvement | LOW | Zero change — direct Cosmos DB write, no workflow needed. |
-| API key auth middleware | Security boundary | LOW | Zero change — middleware unchanged. |
+| Feature | Why Expected | Complexity | Notes |
+|---------|--------------|------------|-------|
+| Push notifications delivered to device | No nudge is real without device delivery. If the agent notices something, the user must learn about it. | LOW | Expo Push Service + APNs/FCM. Server sends to stored push token. `expo-server-sdk-python` or direct Expo Push API from FastAPI backend. |
+| Notification content is specific, not generic | "You have a reminder" is ignored. "Haven't talked to Sarah in 3 weeks — her birthday is next month" gets opened. | LOW | Requires agent to read Cosmos DB records before generating message text. Content specificity is entirely in prompt engineering. |
+| Notification taps deep-link into the relevant item | User taps notification → lands in the relevant capture/person/project, not the app home screen. | MEDIUM | Expo notifications support `data` payload with item ID. Expo Router handles deep links via notification handler. Requires notification handler setup in Expo app. |
+| User can dismiss/snooze a nudge | 4/4 users in UX research wanted confirmation of snooze and granular control. Notification fatigue is real — 62% of users report annoyance at excessive notifications. | MEDIUM | Two options: (1) Expo notification action buttons ("Done", "Snooze 1 week") — works via `setNotificationCategoryAsync`. (2) Server-side: mark nudge as snoozed in Cosmos DB, skip on next agent run. Both are needed. |
+| Push token stored server-side at app startup | Agent cannot send notifications without a device token. No token = silent failure. | LOW | App registers on startup with `getExpoPushTokenAsync()`, sends token to `/api/device/register` POST endpoint. Backend stores token in Cosmos DB user profile or simple KV. |
+| Notifications respect quiet hours (no 2am nudges) | Basic hygiene. Users who get 2am "any thoughts on your idea?" will disable notifications. | LOW | Server-side: time-zone-aware scheduling. All scheduled jobs check current hour before firing. Default quiet window: 9pm–8am (configurable). |
+| Notification frequency is bounded | U.S. users receive ~46 push messages/day across all apps. 2–5 agent-initiated nudges per week is the acceptable ceiling before opt-out spikes. | LOW | Per-agent rate limiting: each specialist agent can send at most N nudges per week. Enforced in scheduler logic, not per-notification. |
 
-### Differentiators (What the Migration Enables)
+### Differentiators (Competitive Advantage)
 
-New capabilities that become possible after migrating to Foundry Agent Service. Not strictly required for parity, but the whole point of the migration.
+Features that make this feel like a genuine thinking partner rather than a fancier reminder app.
 
-| Feature | Value Proposition | Complexity | Migration Notes |
-|---------|-------------------|------------|-----------------|
-| Persistent agents (server-registered with IDs) | Agents survive restarts; visible in AI Foundry portal; manageable without code changes | MEDIUM | Create agents once in lifespan() using `AIProjectClient.agents.create_agent()`. Store agent IDs on `app.state`. The `as_agent()` async context manager creates + deletes — NOT suitable for a long-running server. |
-| Server-managed conversation threads (`AgentSession` with `service_session_id`) | Conversation history lives in Foundry service, not ephemeral memory. Multi-turn interactions (misunderstood follow-up) can resume the same thread. | MEDIUM | AG-UI supports service-managed session continuity as of 1.0.0b260116. Thread IDs map to `service_session_id` in `AgentSession`. Coexists with Cosmos DB — different concerns. |
-| Portal visibility: view agents, threads, tool calls in AI Foundry portal | Debugging and monitoring without log grep. See classification outcomes, token usage, agent handoffs. | LOW | Requires AI Foundry project + Azure AI User RBAC. No code change. Zero friction visibility. |
-| Application Insights observability: per-agent traces, token usage, cost | Real metrics vs log-scraping. Run rates, errors, cost per classification. | MEDIUM | Requires `APPLICATIONINSIGHTS_CONNECTION_STRING` env var. `configure_otel_providers()` already called at startup — just needs the connection string. Real-time cost charts in Foundry portal. |
-| Content safety filters applied at service boundary | Built-in content moderation without custom code | LOW | Automatic once on Foundry. Configurable via RAI policy in portal. No code needed. |
-| Enterprise identity: Entra ID, RBAC, audit logs | Production-grade security posture | LOW | Already using `DefaultAzureCredential`. RBAC role change: Cognitive Services User → Azure AI User. |
+| Feature | Value Proposition | Complexity | Notes |
+|---------|-------------------|------------|-------|
+| Admin Agent: errand timing intelligence | "Buy milk" nudged on Saturday morning (near stores, not during a workday meeting). Context-aware scheduling beats dumb time-based reminders. | MEDIUM | Agent reads Admin bucket captures, extracts errand-type tasks, schedules nudge for weekend morning window. No geofencing required for v2.0 — time-window heuristic is simpler and reliable. Weekend = Sat 9am, Weekday = 6pm. |
+| Admin Agent: Friday evening weekend planning digest | Single weekly digest notification at Friday 5–6pm summarizing pending Admin items. Enables intentional weekend planning without daily noise. | LOW | APScheduler cron job: Friday 5pm local time. Agent reads all Admin captures with status "pending_action", generates ranked summary. One notification per week. |
+| Ideas Agent: weekly nudge per idea | Each captured idea gets a weekly "any new thoughts on X?" check-in. Prevents ideas from becoming a graveyard. Keeps creative thinking alive between captures. | LOW | APScheduler weekly job per-idea. Agent reads Ideas bucket, picks one idea per week (round-robin or stalest), generates contextual prompt. Max one nudge per week total across all ideas. |
+| Projects Agent: action item extraction from captures | When a Project capture comes in, the agent identifies action items embedded in the text ("I need to call the accountant", "book the venue by March"). Files them as structured sub-tasks. | HIGH | Requires Projects Agent with Cosmos DB tools to write action items. Agent runs immediately after classification (triggered by CLASSIFIED event with bucket=Projects). Adds a new document type: `action_item` linked to parent capture. |
+| Projects Agent: progress check-in ("are you on track?") | Weekly accountability check per active project. "Last week you captured 3 things about the website redesign. 2 action items are open. Are you on track?" | MEDIUM | APScheduler weekly job. Agent reads Projects bucket, groups by project/theme, summarizes open action items, generates check-in notification. Requires action item tracking (dependency on extraction feature). |
+| People Agent: interaction tracking | Every People bucket capture is treated as an interaction log entry. Captures "talked to [person]" or "met [person]" update the last-interaction timestamp. Used for nudge timing. | LOW | Cosmos DB write on classification: update `last_interaction` field on People document. Classifier already creates People documents on classification. Add `last_interaction` timestamp update in `classify_and_file` tool. |
+| People Agent: relationship nudge ("haven't talked to X in Y weeks") | Proactive nudge when interaction gap exceeds threshold. "It's been 5 weeks since you last mentioned Emma. Worth checking in?" | LOW | APScheduler daily job scans People documents. If `last_interaction` > threshold (default: 4 weeks, configurable per person), fire nudge. Clay and Covve — leading personal CRM apps — use this exact pattern. Users in the domain expect it. |
+| Actionable notification buttons | Notification includes "Done ✓" and "Remind me later" buttons. One tap dismisses without opening app. | MEDIUM | Expo `setNotificationCategoryAsync` with action buttons. Backend `/api/nudge/respond` endpoint receives action. Simple to implement but requires backend endpoint + Expo category registration. |
+| Agent-generated notification copy | Agent writes the notification text, not a template. "It's been 3 weeks since you talked to Marcus — you mentioned he was going through a job change" beats "Reminder: contact Marcus". | LOW | Pure prompt engineering. Agent has access to the capture history. The LLM generates natural copy. This is the core value of using an agent vs. a cron job with templates. |
 
-### Anti-Features (Avoid These During Migration)
+### Anti-Features (Commonly Requested, Often Problematic)
 
-Features that seem like obvious improvements but create problems in the migration context.
+Features that seem like obvious additions but create real problems for this single-user personal use case.
 
 | Feature | Why Requested | Why Problematic | Alternative |
 |---------|---------------|-----------------|-------------|
-| Connected Agents: Orchestrator → Classifier via Foundry-native invocation | Seems like the "right" Foundry architecture. Portal-visible agent-to-agent calls. | Official docs confirm: "Connected agents cannot call local functions using the function calling tool." The Classifier's entire value is its `@tool` decorated Python functions (`classify_and_file`, `request_misunderstood`, `mark_as_junk`). Moving these to Azure Functions adds significant infrastructure complexity and a new failure domain. | Use `WorkflowBuilder` with `AzureAIAgentClient` agents + local tool execution. Foundry-registered agents + local tool execution + server-managed threads = full observability value without Connected Agents constraints. |
-| Rewrite AG-UI adapter to use `workflow.as_agent()` + `add_agent_framework_fastapi_endpoint()` | Simpler, uses framework helper | The framework's `add_agent_framework_fastapi_endpoint` suppresses the custom CLASSIFIED/MISUNDERSTOOD/UNRESOLVED events the mobile app depends on. Also loses Classifier chain-of-thought buffering and outcome detection logic. | Keep the custom AG-UI endpoint and `_stream_sse` pipeline. Replace the `AGUIWorkflowAdapter` internals (client + workflow builder) while preserving the external interface. |
-| Use Foundry threads as the conversation data store | Server-managed threads seem like they could replace Cosmos DB | Foundry threads are LLM conversation context (ephemeral, bounded to a session). Cosmos DB inbox items are domain data (persistent, user-queryable, pageable). They serve different purposes. Using Foundry threads as the primary data store would break inbox queries, pagination, and all domain queries. | Use Foundry threads for classification conversation context only. Cosmos DB remains the source of truth for all domain data. These coexist without conflict. |
-| Create agents fresh on every request | Simpler lifecycle, no persistent state to manage | Defeats the purpose of Foundry's persistent agent feature. Creates a new agent registration per request — accumulates in portal, incurs overhead, loses traceability. | Create agents once at startup in `lifespan()`, store IDs on `app.state`, reference by ID on every request. Delete on shutdown if ephemerality is intentional. |
-| Migrate all 7 planned agents simultaneously | "Complete the architecture" | Phases 3-7 agents (Action, Digest, Entity Resolution, Evaluation) do not exist yet. Migrating non-existent agents wastes time and creates dead code. | Migrate only Orchestrator + Classifier (the two that exist). Other agents follow the same pattern when built in future milestones. |
-
----
-
-## Resolved Open Questions
-
-The 5 open questions from `fas-rearchitect.md` are answered here with evidence from official docs.
-
-### Q1: Connected Agents + HITL
-
-**Question:** How does `request_info` (pause for user input) work with Connected Agents?
-
-**Answer:** Not applicable for this project. Connected Agents **cannot call local function tools**. The official docs state: "Connected agents cannot call local functions using the function calling tool. We recommend using the OpenAPI tool or Azure Functions instead."
-
-The HITL pattern is implemented entirely through local `@tool` functions (`request_misunderstood` writes to Cosmos DB, returns inbox item ID). Since Connected Agents cannot use these tools, Connected Agents is not a viable orchestration path for Orchestrator → Classifier unless tools are moved to Azure Functions or OpenAPI endpoints.
-
-HITL itself (low-confidence inbox + respond endpoint, misunderstood follow-up endpoint) does NOT involve the Foundry agent at the pause/resume step. The `respond` and `follow-up` endpoints write directly to Cosmos DB — they do not call the agent. HITL works identically regardless of which agent client is used for the initial classification run.
-
-**Confidence:** HIGH
-**Source:** https://learn.microsoft.com/en-us/azure/ai-foundry/agents/how-to/connected-agents
-
-### Q2: AG-UI Adapter Changes
-
-**Question:** What changes with `AzureAIAgentClient` streaming?
-
-**Answer:** With `AzureAIAgentClient` + `WorkflowBuilder`, streaming produces `WorkflowEvent` objects — the same event surface the current `AGUIWorkflowAdapter` already handles. Event types (`"output"`, `"executor_invoked"`, `"executor_completed"`, `"request_info"`) are produced identically whether the agents are backed by `AzureOpenAIChatClient` or `AzureAIAgentClient`. The `_stream_updates` method processes this same `WorkflowEvent` + `AgentResponseUpdate` contract.
-
-The key change: `AGUIWorkflowAdapter._create_workflow()` replaces `HandoffBuilder` with `WorkflowBuilder`. The adapter's external `run(stream=True)` interface is preserved. The outcome detection logic (function_call.name inspection for CLASSIFIED/MISUNDERSTOOD/UNRESOLVED events), chain-of-thought buffering, and clean result construction are all preserved.
-
-Additional: AG-UI supports service-managed session continuity as of 1.0.0b260116. The `thread_id` from the AG-UI request can be preserved as the `service_session_id`, enabling thread resumption across HTTP requests for multi-turn HITL flows.
-
-**Confidence:** HIGH — docs confirmed WorkflowEvent surface unchanged between providers.
-**Source:** https://learn.microsoft.com/en-us/agent-framework/workflows/agents-in-workflows
-
-### Q3: Agent Lifecycle Management
-
-**Question:** Create at deploy time? At startup? How to handle instruction updates?
-
-**Answer:**
-- **Recommended pattern (startup):** Create agents in the FastAPI `lifespan()` context manager using `AIProjectClient.agents.create_agent()`. Store returned agent IDs on `app.state`. Reference by ID on every request. Delete on shutdown.
-- **Why NOT the async context manager pattern:** `AzureAIAgentClient(...).as_agent(name, instructions)` used as `async with` creates AND deletes the agent when the context exits. This creates + destroys the agent per-request if used in request handlers — not what we want.
-- **Why NOT pre-created by ID:** Storing agent IDs in env vars means instruction updates require a manual API call or portal edit. Startup creation is simpler for a learning project — instructions are always current after each deploy.
-- **Instruction updates:** If created at startup, each deploy re-creates with current instructions. If created by ID, portal or API update required when instructions change.
-
-**Confidence:** HIGH — official docs show both patterns with code examples.
-**Sources:**
-- https://learn.microsoft.com/en-us/agent-framework/user-guide/agents/agent-types/azure-ai-foundry-agent
-- https://learn.microsoft.com/en-us/azure/ai-foundry/agents/how-to/manage-hosted-agent
-
-### Q4: Thread Management
-
-**Question:** Server-managed threads vs Cosmos DB inbox items — how do they coexist?
-
-**Answer:** They serve different purposes and coexist without conflict:
-
-- **Foundry threads** (`AgentSession` with `service_session_id`): LLM conversation context. The agent's memory for "what was said in this conversation." Scoped to a classification session (one capture → one thread). The `service_session_id` can be stored and reused to resume a thread for multi-turn HITL follow-up.
-- **Cosmos DB inbox items**: Domain data. The classified capture as a business object with status, bucket, confidence, filed record ID. Queryable by the inbox view. Persistent indefinitely.
-
-A capture flow uses both: one Foundry thread (conversation context for classification) + one Cosmos DB inbox document (the result). The thread ID and inbox item ID are separate identifiers serving separate concerns. The `request_misunderstood` tool writes to Cosmos DB; the follow-up endpoint can resume the Foundry thread via `service_session_id` to maintain LLM conversation context.
-
-**Confidence:** HIGH
-**Source:** https://learn.microsoft.com/en-us/agent-framework/agents/conversations/session
-
-### Q5: Tool Execution — Local or Server-Side?
-
-**Question (implicit from fas-rearchitect.md):** `@tool` decorated functions — do they execute locally or server-side?
-
-**Answer:** **Local execution, always.** Even with `AzureAIAgentClient`, Python `@tool` functions execute in the FastAPI process. The Foundry service requests the tool call (returns a tool_call event), the local process executes the function and returns the result, the service incorporates the result and continues. This is the same tool call loop as OpenAI function calling.
-
-The HandoffBuilder constraint is that it requires agents with "local tools execution" — this means `AzureAIAgentClient` agents CAN be used with HandoffBuilder because their tools still execute locally. However, HandoffBuilder uses synthetic handoff tool calls to route between agents, which conflicts with the server-side tool call management in `AzureAIAgentClient`. The safer replacement is `WorkflowBuilder` which uses direct edges rather than synthetic tool calls.
-
-Connected Agents is different: subagent invocation is server-side, which is why local Python functions are excluded.
-
-**Confidence:** HIGH — function calling docs confirm local execution loop.
-**Source:** https://learn.microsoft.com/en-us/azure/ai-foundry/agents/how-to/tools/function-calling?view=foundry
-
----
-
-## Critical Breaking Change: AgentThread → AgentSession
-
-**The current codebase uses `AgentThread` throughout.** This was removed as a breaking change in `1.0.0b260212` (February 2026). The framework is now at Release Candidate status (1.0.0rc1, 2026-02-19), so `AgentSession` is the stable API.
-
-| Old API | New API |
-|---------|---------|
-| `AgentThread` | `AgentSession` |
-| `agent.get_new_thread()` | `agent.create_session()` |
-| `agent.get_new_thread(service_thread_id=...)` | `agent.get_session(service_session_id=...)` |
-| `thread=thread` in `agent.run()` | `session=session` in `agent.run()` |
-| `from agent_framework import AgentThread` | `from agent_framework import AgentSession` |
-
-**Affected files:** `workflow.py` (uses `AgentThread` type hints and `get_new_thread()`), `main.py` (calls `workflow_agent.get_new_thread()`).
-
-This breaking change must be addressed during migration regardless of which agent client is used. It is not optional — the RC packages removed `AgentThread`.
-
-**Source:** https://learn.microsoft.com/en-us/agent-framework/support/upgrade/python-2026-significant-changes
-
----
-
-## Package Dependency Changes
-
-The migration requires adding `agent-framework-azure-ai` to `pyproject.toml`. The current `pyproject.toml` has `agent-framework-orchestrations` (for `HandoffBuilder`) but not `agent-framework-azure-ai` (for `AzureAIAgentClient`).
-
-| Package | Current Status | After Migration |
-|---------|---------------|-----------------|
-| `agent-framework-ag-ui` | In pyproject.toml | Keep — unchanged |
-| `agent-framework-orchestrations` | In pyproject.toml | Keep (HandoffBuilder still available; WorkflowBuilder may be in core) OR remove if WorkflowBuilder is in agent-framework core |
-| `agent-framework-azure-ai` | NOT in pyproject.toml | **Add** — provides `AzureAIAgentClient` |
-| `azure-ai-projects` | NOT in pyproject.toml | **Add** — provides `AIProjectClient` for agent lifecycle management |
-
-Also: `azure_openai_endpoint` and `azure_openai_chat_deployment_name` in `config.py` become `azure_ai_project_endpoint` and `azure_ai_model_deployment_name`.
+| Background geofencing for errand reminders | "Remind me when I'm near Tesco" sounds great. Location-triggered errands are genuinely useful. | Expo managed workflow does not support background geofencing; bare workflow or dev build required. iOS limits simultaneous monitored regions to 20. Android won't restart terminated apps on geofence events. Known open issue (#25875) with Expo geofencing. Adds significant infrastructure complexity (location permission flows, background task registration, testing). | Weekend morning time window heuristic covers 80% of the value with 5% of the complexity. Defer geofencing to v3.0 as an explicit enhancement once the agent layer is proven. |
+| Per-person nudge frequency customization in-app | "Let me set Emma to every 2 weeks and John to every 3 months" | Adds a settings UI surface that doesn't exist yet. For a single user, the overhead of maintaining these settings is often higher than the value. Users in personal CRM research noted settings creep as a usability problem. | Use sensible defaults (4 weeks general, 2 weeks for frequently-mentioned contacts based on capture frequency). Add customization only when Will explicitly asks for it. |
+| Real-time streaming SSE for nudge delivery | Consistent with existing AG-UI streaming pattern; seems architecturally clean. | Nudges are not interactive conversations. A push notification needs a device token and APNs/FCM, not an SSE stream to a browser tab. SSE requires an active HTTP connection; push notifications work when app is closed. | Push notifications via Expo Push Service for all proactive nudges. SSE stays exclusively for capture/classification flows. |
+| AI-generated calendar integration | "Block time on my calendar to act on these action items." | Requires OAuth calendar access (Google/Apple/Outlook). Complex auth flow, token refresh, scope management — a completely different infrastructure concern from the current system. Scope creep. | Projects Agent surfacing action items via push notification is the right boundary. User acts on the notification. Calendar integration is a v4.0+ concern. |
+| Digest as a chat/conversation | User receives digest → replies in conversational thread → agent responds → back-and-forth. | The existing HITL conversational follow-up already provides this for individual captures. A digest-as-conversation adds significant complexity to what is a one-way weekly summary. AG-UI threading would need to be redesigned for asynchronous digest flows. | Digest is a one-way push notification with deep link to inbox. If user wants to act on something in the digest, they tap through to the item. Conversation mode only for explicit capture follow-ups (already exists). |
+| Multiple agents notifying independently | Admin Agent, People Agent, Projects Agent, Ideas Agent each fire independently. | Uncoordinated agents create notification storms. User sees 4 notifications in 10 minutes on Friday evening. Leads to opt-out. | Orchestrator coordinates notification scheduling: a single daily/weekly "budget" per agent. All agents compete for a shared slot. Max 3 nudges per day total across all agents. |
 
 ---
 
 ## Feature Dependencies
 
 ```
-[Foundry Infrastructure Setup]
-    └──required by──> [AzureAIAgentClient initialization]
-                          └──required by──> [Persistent Orchestrator agent]
-                          └──required by──> [Persistent Classifier agent]
-                                                └──required by──> [WorkflowBuilder orchestration]
-                                                                       └──required by──> [AG-UI streaming]
-                                                                       └──required by──> [HITL classification flows]
+[Push token registration (device → backend)]
+    └──required by──> [All proactive push notifications]
+                          └──required by──> [Admin digest]
+                          └──required by──> [Ideas nudge]
+                          └──required by──> [Projects check-in]
+                          └──required by──> [People nudge]
 
-[AgentThread → AgentSession migration]
-    └──required by──> [Any agent.run() call — breaking change in RC packages]
+[APScheduler in FastAPI lifespan]
+    └──required by──> [Scheduled proactive agent runs]
+                          └──required by──> [All nudge types above]
 
-[Application Insights connection string]
-    └──enables──> [Foundry portal traces and token usage metrics]
+[Specialist agents created in Foundry at startup]
+    └──required by──> [Agent-generated notification copy]
+                          └──built on──> [Foundry Agent Service (v1 migration)]
 
-[Connected Agents]
-    └──conflicts with──> [Local @tool functions on Classifier]
-    (NOT viable without moving tools to Azure Functions — v3.0+ concern)
+[People bucket captures with last_interaction tracking]
+    └──required by──> [People Agent relationship nudges]
 
-[WorkflowBuilder]
-    └──replaces──> [HandoffBuilder] for Foundry agents
-    └──preserves──> [Same WorkflowEvent stream surface for AGUIWorkflowAdapter]
+[Projects Agent action item extraction]
+    └──required by──> [Projects Agent progress check-in]
+    (check-in references open action items; extraction must exist first)
+
+[Notification action buttons (Expo categories)]
+    └──enhances──> [Snooze/dismiss behavior]
+    └──requires──> [Backend /api/nudge/respond endpoint]
+
+[Notification deep links]
+    └──requires──> [Expo Router deep link configuration]
+    └──requires──> [Notification data payload with item ID]
+
+[Foundry Agent Service infrastructure (v1 migration output)]
+    └──required by──> [All specialist agents]
+    (specialist agents use AzureAIAgentClient, same as Classifier)
+
+[Notification frequency budget / rate limiting]
+    └──conflicts with──> [Independent per-agent scheduling]
+    (agents must coordinate through shared budget, not fire independently)
 ```
 
 ### Dependency Notes
 
-- **Foundry Infrastructure is Day 1 blocker:** AI Foundry project + Azure AI User RBAC + Application Insights must exist before any agent code can be tested. Infrastructure setup is Phase 1, not Phase 3.
-- **AgentThread removal is a prerequisite:** RC packages break any code using `AgentThread`. Must migrate `workflow.py` and `main.py` before or during client migration.
-- **WorkflowBuilder replaces HandoffBuilder for Foundry agents:** HandoffBuilder's synthetic tool call approach conflicts with server-side tool management in AzureAIAgentClient. WorkflowBuilder uses direct edges and is confirmed compatible via official Python samples.
-- **AG-UI custom events depend on workflow event inspection:** The CLASSIFIED/MISUNDERSTOOD/UNRESOLVED events are detected by inspecting `function_call.name` in the workflow event stream. This pattern is preserved with WorkflowBuilder because the same `WorkflowEvent` types are emitted for tool calls.
-- **HITL respond/follow-up endpoints are independent:** These endpoints write directly to Cosmos DB and do not invoke the agent. They are unaffected by the client migration.
+- **Push token registration is Day 1:** Nothing proactive works without the device token stored server-side. This is the first thing to build in the proactive layer, before any agent scheduler.
+- **APScheduler is the trigger layer:** Foundry Agent Service has no built-in scheduled triggers. Azure Logic Apps connectors are the official path but add infrastructure overhead. APScheduler in FastAPI lifespan is the correct pattern — it is lightweight, integrates with async FastAPI, and requires zero additional Azure resources. Official documentation confirms Logic Apps as the trigger path for Foundry agents, but APScheduler with direct agent calls is simpler and appropriate for a single-user app.
+- **Projects check-in requires action item extraction:** The check-in message "2 action items are open" requires that action items were extracted and stored. Build extraction first, check-in second.
+- **People Agent requires last_interaction field:** The nudge fires based on interaction gap. This field must be written on every People classification. It is a small Cosmos DB schema addition to the existing `classify_and_file` tool.
+- **Notification coordination required:** All agents must route through a shared notification budget before firing. This prevents notification storms. Implement as a simple `NotificationBudget` utility that checks per-day counts before sending.
 
 ---
 
 ## MVP Definition
 
-### Launch With (v2.0 — migration parity)
+### Launch With (v2.0 — Proactive Second Brain)
 
-The migration is complete when all of these are true:
+Minimum viable proactive layer. Validates the core shift from filing cabinet to thinking partner.
 
-- [ ] AI Foundry project created, Application Insights connected, RBAC configured (Azure AI User role)
-- [ ] `agent-framework-azure-ai` and `azure-ai-projects` added to `pyproject.toml`
-- [ ] `azure_ai_project_endpoint` and `azure_ai_model_deployment_name` in `config.py` + `.env`
-- [ ] `AzureAIAgentClient` replaces `AzureOpenAIChatClient` in `main.py` lifespan
-- [ ] Orchestrator + Classifier created as persistent Foundry agents at startup (visible in portal)
-- [ ] `WorkflowBuilder` replaces `HandoffBuilder` in `AGUIWorkflowAdapter._create_workflow()`
-- [ ] `AgentThread` → `AgentSession` migration complete in `workflow.py` and `main.py`
-- [ ] All three HITL paths verified: low-confidence pending → inbox bucket buttons → classify; misunderstood → follow-up; recategorize
-- [ ] AG-UI SSE streaming verified: StepStarted/StepFinished, CLASSIFIED, MISUNDERSTOOD, UNRESOLVED custom events unchanged
-- [ ] Application Insights traces visible in AI Foundry portal for a classification run
-- [ ] Token usage and cost metrics visible for at least one run
+- [ ] **Push token registration** — App registers on startup, token stored in Cosmos DB. Without this, nothing works.
+- [ ] **APScheduler in FastAPI lifespan** — Cron-based trigger for all scheduled agent runs.
+- [ ] **People Agent: relationship nudge** — Scan People documents daily, fire nudge if last_interaction > 4 weeks. This is the highest-value agent for a personal system. Single user — Will gets nudged about specific people he's captured. Uses existing People captures from v1.
+- [ ] **Admin Agent: Friday evening digest** — One notification per week summarizing pending Admin captures. Low complexity, high visible value. Proves the digest pattern.
+- [ ] **Admin Agent: errand timing** — Classify errand-type Admin captures, surface on weekend morning vs weekday evening. Time-window heuristic only (no geofencing).
+- [ ] **Ideas Agent: weekly nudge** — Pick one idea per week, generate "any new thoughts on X?" notification. Keeps the Ideas bucket alive.
+- [ ] **Notification frequency budget** — Max 3 nudges/day total, max 2/week per agent. Prevents notification storms.
+- [ ] **Quiet hours enforcement** — No notifications 9pm–8am. Server-side check in scheduler.
 
 ### Add After Validation (v2.x)
 
-- [ ] Thread resumption via `service_session_id` for misunderstood follow-up (Foundry remembers classification context, not just Cosmos DB)
-- [ ] Foundry portal evaluation run (baseline quality metrics now that traces exist)
-- [ ] Content safety RAI policy configured
+Features to add once the core proactive loop is proven working and Will is actually opening notifications.
+
+- [ ] **Projects Agent: action item extraction** — Trigger: CLASSIFIED event with bucket=Projects. Adds structured action items. High value but requires new Cosmos DB document type.
+- [ ] **Projects Agent: progress check-in** — Weekly "are you on track?" notification. Requires action item extraction to exist first.
+- [ ] **Notification action buttons** — "Done" and "Snooze 1 week" buttons on push notifications. Requires Expo category setup + backend respond endpoint.
+- [ ] **Notification deep links** — Tap notification → land in relevant item. Requires Expo Router configuration.
+- [ ] **last_interaction field on People documents** — Written by `classify_and_file` tool when bucket=People. Required for accurate nudge timing (currently would use capture date as proxy).
 
 ### Future Consideration (v3.0+)
 
-- [ ] Move `classify_and_file` / `request_misunderstood` / `mark_as_junk` to Azure Functions — prerequisite for Connected Agents
-- [ ] Connected Agents: Orchestrator as Foundry-native orchestrator, Classifier as connected subagent
-- [ ] Action Agent (sharpens vague thoughts) — new agent, same Foundry pattern
-- [ ] Additional agents from PRD (Digest, Entity Resolution, Evaluation)
+- [ ] **Background geofencing** — Location-triggered errand reminders. Requires Expo bare workflow or dev build. Defer until time-window approach proves insufficient.
+- [ ] **Per-person nudge frequency settings** — Customizable thresholds. Defer until Will asks for it explicitly.
+- [ ] **Calendar integration** — Block time for action items. Requires OAuth calendar scope.
+- [ ] **Digest as conversation** — Reply to weekly digest and get agent response. Complex threading redesign.
+- [ ] **People Agent: upcoming occasions awareness** — "Emma's birthday is in 3 weeks — you mentioned it in a capture last year." Requires date extraction from capture text.
 
 ---
 
@@ -238,41 +152,149 @@ The migration is complete when all of these are true:
 
 | Feature | User Value | Implementation Cost | Priority |
 |---------|------------|---------------------|----------|
-| Foundry infrastructure setup | LOW (invisible) | MEDIUM | P1 — Day 1 blocker |
-| AzureAIAgentClient + persistent agents | LOW (invisible to end user) | MEDIUM | P1 — core migration goal |
-| WorkflowBuilder replacement for HandoffBuilder | LOW (invisible) | MEDIUM | P1 — HandoffBuilder incompatibility risk |
-| AgentThread → AgentSession migration | LOW (invisible) | LOW | P1 — breaking change in RC packages |
-| Application Insights observability | MEDIUM (Will only) | LOW | P1 — explicit learning goal |
-| Portal agent/thread visibility | MEDIUM (Will only) | LOW | P1 — explicit learning goal |
-| AG-UI streaming parity | HIGH (users notice if broken) | MEDIUM | P1 — must not regress |
-| HITL flow parity | HIGH (users notice if broken) | LOW | P1 — must not regress |
-| Thread resumption via service_session_id | LOW (subtle) | MEDIUM | P2 — enhancement |
-| Content safety RAI policy | LOW | LOW | P2 — good practice |
-| Connected Agents pattern | LOW (invisible) | HIGH | P3 — requires Azure Functions infrastructure |
+| Push token registration | HIGH (blocker) | LOW | P1 |
+| APScheduler integration | HIGH (blocker) | LOW | P1 |
+| People Agent: relationship nudge | HIGH | LOW | P1 |
+| Admin Agent: Friday digest | HIGH | LOW | P1 |
+| Admin Agent: errand timing | MEDIUM | LOW | P1 |
+| Ideas Agent: weekly nudge | MEDIUM | LOW | P1 |
+| Notification frequency budget | HIGH (prevents opt-out) | LOW | P1 |
+| Quiet hours enforcement | HIGH (prevents opt-out) | LOW | P1 |
+| Notification action buttons (snooze/done) | MEDIUM | MEDIUM | P2 |
+| Notification deep links | MEDIUM | MEDIUM | P2 |
+| last_interaction field on People | HIGH | LOW | P2 |
+| Projects Agent: action item extraction | HIGH | HIGH | P2 |
+| Projects Agent: progress check-in | HIGH | MEDIUM | P2 (after extraction) |
+| Background geofencing | MEDIUM | HIGH | P3 |
+| Per-person nudge frequency settings | LOW | MEDIUM | P3 |
+| Calendar integration | LOW | HIGH | P3 |
 
 **Priority key:**
-- P1: Required for v2.0 to be called complete
-- P2: Add when core is stable and verified
-- P3: Requires additional infrastructure or is future milestone work
+- P1: Must have for v2.0 to deliver on "proactive" promise
+- P2: Add when core loop is validated and working
+- P3: Defer — adds complexity before core is proven
+
+---
+
+## Agent Behavior Specifications
+
+### Admin Agent
+
+**Trigger 1: Friday evening digest**
+- Schedule: Friday 5:00pm (user's local timezone, default UTC+0)
+- Data: All Admin bucket Cosmos DB documents with `status != "archived"`
+- Behavior: Agent reads Admin captures, ranks by urgency/type (errands > appointments > admin tasks), generates a 3–5 item digest summary
+- Notification: Single push notification with title "Weekend planning" and body listing top items
+- Rate: Once per week maximum
+
+**Trigger 2: Errand timing nudge**
+- Schedule: Saturday 9am (weekend), Friday 6pm (weekday alternative)
+- Data: Admin captures classified as errand-type (e.g., "buy", "pick up", "drop off", "get")
+- Behavior: Agent reads errand captures, generates contextual reminder
+- Notification: "You have 3 errands captured — good time to knock them out" with item list
+- Rate: Once per weekend maximum; skip if digest already covered them
+
+### Ideas Agent
+
+**Trigger: Weekly idea check-in**
+- Schedule: Random day Tuesday–Thursday (avoids Monday cold start, avoids Friday digest noise), 10am
+- Data: Ideas bucket captures, sorted by `last_nudged_at` ascending (oldest first)
+- Behavior: Agent reads the stalest idea, generates a natural "any new thoughts?" prompt referencing the original capture text
+- Notification: "Still thinking about [idea excerpt]? Any new angles?"
+- Rate: One idea per week; mark `last_nudged_at` after send to rotate through all ideas
+
+### Projects Agent
+
+**Trigger: Weekly progress check-in**
+- Schedule: Monday 9am (start of week framing is effective for accountability)
+- Data: Projects captures grouped by inferred project name; open action items
+- Behavior: Agent reads project captures from past 2 weeks, identifies open action items, generates accountability check-in
+- Notification: "You have 2 open items on [project]. Are you on track this week?"
+- Rate: Once per active project per week; skip projects with no activity in 30 days
+
+**Trigger: Action item extraction (real-time)**
+- Trigger: CLASSIFIED event with bucket=Projects (not a scheduled job — runs immediately after classification)
+- Data: The newly classified Projects capture text
+- Behavior: Agent reads the capture, extracts explicit action items ("I need to...", "have to...", "must..."), writes them as `action_item` documents to Cosmos DB
+- Rate: Fires on every Projects classification
+
+### People Agent
+
+**Trigger: Relationship gap nudge**
+- Schedule: Daily scan at 8am; only fires notification if someone exceeds gap threshold
+- Data: All People bucket documents; `last_interaction` timestamp (or capture `created_at` as fallback)
+- Behavior: Agent reads People documents, finds contacts where gap > threshold, generates personalized reconnect nudge referencing last capture content
+- Notification: "It's been 6 weeks since you mentioned Marcus. Worth a check-in? Last you noted: [excerpt]"
+- Default threshold: 4 weeks
+- Rate: Maximum 1 People nudge per day total across all contacts
+
+---
+
+## Notification Infrastructure Requirements
+
+### Backend (FastAPI)
+
+| Component | Purpose | Implementation |
+|-----------|---------|----------------|
+| `POST /api/device/register` | Store Expo push token per user | Cosmos DB write; update on every app startup |
+| `GET /api/nudge/pending` | List pending nudges | For app-side badge count |
+| `POST /api/nudge/respond` | Mark nudge done/snoozed | Updates Cosmos DB nudge record; resets last_nudged_at |
+| APScheduler setup in lifespan | Run scheduled agent jobs | `AsyncIOScheduler` started in FastAPI `lifespan()` context manager |
+| `NotificationBudget` utility | Enforce per-agent and total frequency limits | Reads nudge history from Cosmos DB before each send |
+
+### Expo App
+
+| Component | Purpose | Implementation |
+|-----------|---------|----------------|
+| Push token registration | Register device on startup | `getExpoPushTokenAsync()` on app load, POST to backend |
+| Notification handler | Process incoming notifications | `addNotificationResponseReceivedListener` |
+| Deep link handler | Navigate to item on tap | Expo Router + notification `data.itemId` |
+| Notification categories | Action buttons (snooze/done) | `setNotificationCategoryAsync` — P2 feature |
+
+### Scheduling Infrastructure
+
+APScheduler is the correct choice for this project (MEDIUM confidence, multiple sources confirm pattern):
+
+- `AsyncIOScheduler` integrates with FastAPI's async event loop
+- Started/stopped in `lifespan()` context manager alongside AI client
+- Cron triggers for time-based jobs (Friday digest, weekly check-ins)
+- Interval trigger for daily scans (People Agent gap check)
+- Each scheduled job: authenticate to Cosmos DB → create Foundry agent session → run agent → send notification via Expo Push API
+
+**Alternative considered:** Azure Logic Apps triggered Foundry agents (official Microsoft recommendation). Rejected for this project: adds Azure resource overhead, requires Logic Apps configuration management, and provides no advantage for a single-user app with simple scheduling needs. APScheduler keeps all scheduling logic in Python, visible in code, and requires zero additional infrastructure.
+
+---
+
+## Competitor Feature Analysis
+
+| Feature | Clay (personal CRM) | Todoist AI | Our Approach |
+|---------|---------------------|------------|--------------|
+| Relationship nudges | Syncs contacts, timeline of interactions, smart reconnect reminders | N/A | Same pattern — capture-driven, not contact-import-driven. No OAuth required. |
+| Idea tracking | N/A | N/A | Weekly check-in nudge is unique — no mainstream app does this well |
+| Project accountability | N/A | Smart scheduling, AI task suggestions | Our agent reads Will's own captures — more personal context than Todoist |
+| Digest / weekly summary | N/A | Weekly review feature | Friday evening framing is deliberate — matches planning mental model |
+| Errand timing | N/A | Location reminders (requires GPS permission) | Time-window heuristic is simpler and avoids permission friction |
+| Notification copy | Template-based | Template-based | Agent-generated copy referencing actual capture content is the differentiator |
 
 ---
 
 ## Sources
 
-- [Azure AI Foundry Agents — Microsoft Agent Framework](https://learn.microsoft.com/en-us/agent-framework/user-guide/agents/agent-types/azure-ai-foundry-agent) — AzureAIAgentClient patterns, async context manager, streaming, tools (updated 2026-02-17)
-- [How to use Connected Agents — Microsoft Foundry](https://learn.microsoft.com/en-us/azure/ai-foundry/agents/how-to/connected-agents?view=foundry-classic) — Connected Agents, Python SDK, **local function limitation confirmed** (updated 2026-02-25)
-- [HandoffBuilder Orchestrations — Microsoft Agent Framework](https://learn.microsoft.com/en-us/agent-framework/workflows/orchestrations/handoff) — HandoffBuilder, local tools requirement, HITL tool approval, autonomous mode (updated 2026-02-13)
-- [Agents in Workflows — Microsoft Agent Framework](https://learn.microsoft.com/en-us/agent-framework/workflows/agents-in-workflows) — **WorkflowBuilder + AzureAIAgentClient integration confirmed**, Python samples (updated 2026-02-26)
-- [Python 2026 Significant Changes — Microsoft Agent Framework](https://learn.microsoft.com/en-us/agent-framework/support/upgrade/python-2026-significant-changes) — **AgentThread removal**, AgentSession API, WorkflowBuilder changes, credential parameter changes (updated 2026-02-23)
-- [Running Agents — Microsoft Agent Framework](https://learn.microsoft.com/en-us/agent-framework/agents/running-agents) — ResponseStream, AgentResponseUpdate, streaming surface (updated 2026-02-13)
-- [Human-in-the-Loop Workflows — Microsoft Agent Framework](https://learn.microsoft.com/en-us/agent-framework/workflows/human-in-the-loop) — request_info pattern, WorkflowBuilder HITL, response_handler
-- [Human-in-the-Loop with AG-UI — Microsoft Agent Framework](https://learn.microsoft.com/en-us/agent-framework/integrations/ag-ui/human-in-the-loop) — AG-UI HITL, approval_mode, @tool decorator patterns
-- [Function Calling — Microsoft Foundry](https://learn.microsoft.com/en-us/azure/ai-foundry/agents/how-to/tools/function-calling?view=foundry) — Local function execution pattern, tool call loop, 10-minute run expiration (updated 2026-02-25)
-- [Agent Session — Microsoft Agent Framework](https://learn.microsoft.com/en-us/agent-framework/agents/conversations/session) — AgentSession, service_session_id, serialization (updated 2026-02-13)
-- [Agent Providers Overview — Microsoft Agent Framework](https://learn.microsoft.com/en-us/agent-framework/user-guide/agents/agent-types/) — Provider comparison matrix, function tool support per provider
-- [Application Insights for AI Agents](https://learn.microsoft.com/en-us/azure/azure-monitor/app/agents-view) — Observability, token usage, cost tracking, fleet monitoring
-- [GitHub Issue #3097 — HandoffBuilder + AzureAIClient payload error](https://github.com/microsoft/agent-framework/issues/3097) — HandoffBuilder compatibility evidence
+- [Expo Notifications SDK documentation](https://docs.expo.dev/versions/latest/sdk/notifications/) — push token, local scheduling, background handling, Android 12+ permissions
+- [Expo Location SDK — geofencing capabilities and limitations](https://docs.expo.dev/versions/latest/sdk/location/) — 20-region iOS limit, Android terminated-app limitation, background task requirements
+- [Expo Geofencing issue #25875](https://github.com/expo/expo/issues/25875) — Android geofencing not working as expected (open issue)
+- [Shape of AI — Nudge UX Patterns](https://www.shapeof.ai/patterns/nudges) — contextual nudges, frequency restraint, "too many nudges crowd the surface"
+- [Smashing Magazine — Designing for Agentic AI](https://www.smashingmagazine.com/2026/02/designing-agentic-ai-practical-ux-patterns/) — autonomy dial, intent preview, escalation pathway, action audit
+- [OneSignal — Frequency Capping](https://onesignal.com/blog/prevent-overmessaging-frequency-capping/) — notification fatigue, 2–5 notifications/week optimal ceiling
+- [Clarify — Top Personal CRM Apps 2025](https://www.getclarify.ai/blog/top-personal-crm-apps-to-boost-your-relationship-management-in-2025) — Clay, Dex, Covve reconnect nudge patterns
+- [Personal CRM blog — relationship maintenance system](https://blog.annabyang.com/system-to-maintain-relationships/) — reconnect frequency configuration, monthly vs weekly cadences
+- [Gravitec — Weekly Digest Automation](https://gravitec.net/blog/automation-features-daily-and-weekly-digests/) — Friday 9pm digest cadence evidence
+- [MoEngage — Push Notification Best Practices 2025](https://www.moengage.com/learn/push-notification-best-practices/) — 2–5 per week limit, timing optimization, personalization impact
+- [FastAPI APScheduler pattern](https://rajansahu713.medium.com/implementing-background-job-scheduling-in-fastapi-with-apscheduler-6f5fdabf3186) — AsyncIOScheduler with FastAPI lifespan
+- [Azure AI Foundry triggers documentation](https://github.com/MicrosoftDocs/azure-ai-docs/blob/main/articles/ai-foundry/agents/how-to/triggers.md) — Logic Apps as official trigger path (APScheduler chosen as simpler alternative)
+- [Proactive AI Agents Guide 2025](https://www.emilingemarkarlsson.com/blog/proactive-ai-agents-guide-2025/) — trigger-action-feedback loop, polling vs event-driven patterns
+- [CleverTap — 62% notification annoyance statistic](https://clevertap.com/blog/push-notification-metrics-ctr-open-rate/) — notification fatigue data point
 
 ---
-*Feature research for: Azure AI Foundry Agent Service migration — The Active Second Brain v2.0*
+*Feature research for: The Active Second Brain — v2.0 Proactive Specialist Agents*
 *Researched: 2026-02-25*

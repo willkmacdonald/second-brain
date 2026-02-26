@@ -1,195 +1,242 @@
 # Project Research Summary
 
-**Project:** Active Second Brain — Foundry Agent Service Migration (v2.0)
-**Domain:** Azure AI Foundry Agent Service migration of an existing FastAPI multi-agent capture system
+**Project:** Active Second Brain — v2.0 Foundry Migration + Proactive Specialist Agents
+**Domain:** Multi-agent proactive personal knowledge management (FastAPI + Expo + Azure AI Foundry)
 **Researched:** 2026-02-25
-**Confidence:** HIGH — all four researchers independently verified findings against official Microsoft Learn docs (updated 2026-02-13 to 2026-02-26)
+**Confidence:** MEDIUM-HIGH overall. Stack and features are grounded in official sources. Architecture has one confirmed design element that requires empirical validation (FoundrySSEAdapter event surface). Pitfalls are thoroughly documented with recovery strategies and phase mappings.
+
+---
 
 ## Executive Summary
 
-This is a targeted migration, not a rebuild. The existing capture pipeline (text/voice input, HITL classification, Cosmos DB storage, AG-UI SSE streaming to the Expo mobile app) stays functionally identical. What changes is the agent infrastructure underneath it: `AzureOpenAIChatClient` + `HandoffBuilder` are replaced by `AzureAIAgentClient` backed by Azure AI Foundry Agent Service. The goals are persistent server-registered agents, server-managed conversation threads, and Application Insights observability — none of which affect end-user behavior.
+The Active Second Brain v2.0 encompasses two milestones in one research cycle: (1) migrating the existing capture pipeline from `HandoffBuilder` + `AGUIWorkflowAdapter` to Azure AI Foundry Agent Service with persistent specialist agents, and (2) adding a proactive notification layer driven by APScheduler-triggered specialist agents. The single most critical finding across all four research files is unanimous: **HandoffBuilder and AzureAIAgentClient are fundamentally incompatible and cannot coexist**. The Orchestrator agent is eliminated entirely. FastAPI becomes the code-based orchestrator via `if/elif` routing after classification — this replaces `HandoffBuilder` with approximately 20 lines of Python.
 
-The single biggest finding across all four researchers is unanimous and well-sourced: **Connected Agents cannot call local Python `@tool` functions**. The official Microsoft docs state this explicitly. Since the Classifier agent's entire value is its three `@tool` functions that write to Cosmos DB (`classify_and_file`, `request_misunderstood`, `mark_as_junk`), Connected Agents is not a viable orchestration pattern for this system without first moving those functions to Azure Functions — a v3.0 concern. The recommended approach for v2.0 is direct `AzureAIAgentClient` on the Classifier, with the Orchestrator eliminated, and code-based request routing in the FastAPI endpoint replacing the `HandoffBuilder` multi-agent chain.
+The proactive notification layer is architecturally straightforward once the Foundry migration stabilizes, but carries one irreversible UX risk: notification fatigue. If Will disables iOS notifications for the app, the permission cannot be re-granted programmatically. This means throttling and quiet hours must be built into the notification dispatcher before any agent scheduler is connected to push delivery — not added as a polish step. Beyond that constraint, the proactive layer follows standard patterns: APScheduler in-process (not Container App Jobs, which cannot share initialized agent connections), Expo Push Service for APNs/FCM delivery, and agent-generated copy that reads current Cosmos DB state at nudge time. Geofencing is explicitly deferred to v3.0 in favor of a weekend-morning time-window heuristic that delivers 80% of the value with 5% of the complexity.
 
-The migration is simpler than originally planned. The `HandoffBuilder` + `AGUIWorkflowAdapter` complex is replaced by a single `FoundrySSEAdapter` of approximately 100-150 lines that wraps one `classifier_agent.run()` call. The Orchestrator agent can be eliminated entirely. The core outcome-detection logic (inspecting `function_call.name` to emit `CLASSIFIED`/`MISUNDERSTOOD`/`UNRESOLVED` custom events) is preserved verbatim — only the surrounding framework event types change. Three mandatory breaking changes must be addressed regardless of architecture choice: `AgentThread` → `AgentSession` migration, sync → async credential (`azure.identity.aio`), and `HandoffBuilder` removal. These are prerequisites to any Foundry client code working at all on the RC packages.
+The recommended implementation sequence has a hard dependency chain: Foundry infrastructure and credentials first, then single-agent Classifier baseline, then FoundrySSEAdapter rewrite, then HITL validation, then the four specialist agents, then push notification infrastructure, then proactive scheduling. Each phase validates independently before the next adds complexity. The v2.0 MVP delivers people nudges, Friday digest, ideas check-ins, and errand timing — all backed by agent-generated copy referencing the user's actual captured content.
+
+---
 
 ## Key Findings
 
 ### Recommended Stack
 
-The existing validated stack (FastAPI, Expo/React Native, Cosmos DB, Blob Storage, Azure Container Apps, uv, Ruff) is unchanged. The migration adds three packages: `agent-framework-azure-ai` (RC1, install with `--prerelease=allow`), `azure-ai-projects>=1.0.0` (GA), and `azure-monitor-opentelemetry>=1.8.6` (GA). The `azure-ai-agents>=1.1.0` package should be pinned explicitly as it is a transitive dependency of `azure-ai-projects`. No packages are removed from `pyproject.toml`, though `agent-framework-orchestrations` can be removed once `HandoffBuilder` is deleted.
+See `.planning/research/STACK.md` for full details.
 
-A new Azure resource type is required: a **Microsoft Foundry Account** (`Microsoft.CognitiveServices/accounts`), distinct from the old hub-based `Microsoft.MachineLearningServices/workspaces`. The project endpoint format is `https://<account>.services.ai.azure.com/api/projects/<project>`. Application Insights requires a connection string in `APPLICATIONINSIGHTS_CONNECTION_STRING`. The existing Azure OpenAI resource and deployment remain in use for Whisper transcription — these are separate concerns.
+The existing validated stack (FastAPI, Expo/React Native 0.81.5 SDK 54, Cosmos DB, Azure Container Apps, uv, Ruff) is unchanged. Six new capability areas add targeted packages.
 
 **Core technologies added:**
-- `agent-framework-azure-ai` (RC1): Provides `AzureAIAgentClient` — the Foundry-backed agent client replacing `AzureOpenAIChatClient`
-- `azure-ai-projects` (GA 1.0.0): `AIProjectClient` for agent lifecycle management (create, list, delete persistent agents)
-- `azure-monitor-opentelemetry` (GA 1.8.6): One-call Application Insights setup via `configure_azure_monitor()`
-- Microsoft Foundry Account + Project: New Azure resource providing the project endpoint, server-managed threads, and portal observability
+- `agent-framework-azure-ai 1.0.0rc1`: `AzureAIAgentClient` connector to Foundry Agent Service — required for persistent server-side agents. Install with `--prerelease=allow`. RC1 promoted February 19, 2026; stable enough for production.
+- `azure-ai-projects 1.0.0` + `azure-ai-agents 1.1.0`: Agent lifecycle management (CRUD for persistent agents). Both GA as of July-August 2025. Pin both together to avoid version drift.
+- `APScheduler 3.11.2`: `AsyncIOScheduler` with cron triggers for Friday digests, weekly nudges, daily People scans. Use v3 only — v4 is still alpha (4.0.0a6). Starts in FastAPI lifespan; shares initialized agent connections.
+- `azure-monitor-opentelemetry 1.6.0`: One-call Application Insights setup via `configure_azure_monitor()`. Do not pin `opentelemetry-sdk` directly — let the distro manage it.
+- `exponent-server-sdk 2.2.0`: Expo Push Service Python SDK (sync). Called from APScheduler jobs, not async FastAPI routes.
+- `expo-notifications ~0.32.x` + `expo-device ~7.0.x`: Expo SDK 54 push notification packages. Require development build — Expo Go insufficient for production push tokens.
+- `gpt-4o-transcribe`: Drop-in replacement for Whisper via same `audio.transcriptions.create()` API. Requires `api_version="2025-03-01-preview"`. Currently East US2 global standard only.
 
-**Version compatibility note:** RC2 (Feb 26, 2026) is the current release of `agent-framework-core`. The `agent-framework-azure-ai` RC2 status is unconfirmed — it may still be on RC1. Validate with `uv pip show agent-framework-azure-ai` after install.
+**Critical version constraint:** `agent-framework-azure-ai` RC1 requires `azure.identity.aio.DefaultAzureCredential` (async), not the sync variant from `azure.identity`. This is a silent breaking change from the existing codebase and must be addressed before any Foundry SDK code runs.
+
+**What NOT to add:** `APScheduler 4.x` (alpha), `HandoffBuilder` or `AGUIWorkflowAdapter` (dead code after migration), `ConnectedAgentTool` for specialist routing (local `@tool` functions unsupported), `expo-background-fetch` (removed in SDK 53+), Hub-based AI Foundry projects (deprecated May 2025).
 
 ### Expected Features
 
-**Must have (table stakes — must not regress after migration):**
-- Text capture → Classifier → Cosmos DB: core pipeline, same user-facing behavior
-- Voice capture → Perception (Blob + Whisper) → Classifier → Cosmos DB: Perception step unchanged
-- HITL low-confidence: pending inbox items, bucket buttons for re-categorization (direct Cosmos write, no agent involved)
-- HITL misunderstood: conversational follow-up endpoint (re-runs classification with fresh Foundry thread)
-- AG-UI SSE streaming: `StepStarted`, `StepFinished`, `CLASSIFIED`, `MISUNDERSTOOD`, `UNRESOLVED` custom events unchanged
-- Inbox CRUD: zero change, pure Cosmos DB layer
+See `.planning/research/FEATURES.md` for full details.
 
-**Should have (migration differentiators — the point of the migration):**
-- Persistent agents visible in AI Foundry portal with stable IDs across restarts
-- Server-managed conversation threads (`AgentSession` with `service_session_id`)
-- Application Insights traces: per-run token usage, cost, classification outcomes visible in portal
-- Content safety RAI policy (automatic once on Foundry, zero code)
+**Must have for v2.0 (P1 — table stakes for the "proactive" promise):**
+- Push token registration on app startup — nothing proactive works without the device token stored server-side
+- APScheduler in FastAPI lifespan — trigger mechanism for all scheduled agent runs
+- People Agent relationship nudge — daily 8am scan; fire if `last_interaction` > 4 weeks; highest-value agent for personal system
+- Admin Agent Friday evening digest — one notification/week summarizing pending Admin captures; proves the digest pattern
+- Admin Agent errand timing — surface errand captures Saturday 9am (time-window heuristic, not geofencing)
+- Ideas Agent weekly check-in — "any new thoughts on X?" for the stalest idea; prevents Ideas from becoming a graveyard
+- Notification frequency budget — max 3 nudges/day total, max 2/week per agent; must be built before any scheduler connects to push delivery
+- Quiet hours enforcement — no notifications 9pm-8am (UTC-adjusted); server-side check in scheduler
 
-**Defer to v2.x (post-parity enhancements):**
-- Thread resumption via `service_session_id` for misunderstood follow-up (Foundry remembers context)
-- Foundry portal evaluation runs for baseline quality metrics
+**Should have (P2 — add after core proactive loop is validated):**
+- Projects Agent action item extraction — real-time trigger on Projects classification; new `action_item` Cosmos DB document type
+- Projects Agent weekly progress check-in — "2 open items on [project]. On track?" — requires action item extraction first
+- `last_interaction` field on People documents — written by `classify_and_file` when bucket=People; currently uses capture date as proxy
+- Notification action buttons — Expo `setNotificationCategoryAsync` with "Done" + "Snooze 1 week"; backend `/api/nudge/respond` endpoint
+- Notification deep links — tap notification lands in relevant capture, not app home screen
 
-**Defer to v3.0+:**
-- Connected Agents pattern (requires moving `classify_and_file` etc. to Azure Functions first)
-- Action Agent, Digest Agent, Entity Resolution Agent (do not exist yet; same Foundry pattern when built)
+**Defer to v3.0+ (P3):**
+- Background geofencing — Android terminated-app limitation makes it unreliable for errand reminders; weekend morning time-window covers the value
+- Per-person nudge frequency settings — settings creep; add only when explicitly requested
+- Calendar integration — OAuth scope complexity; out of bounds for v2.0
+- Digest as conversation — complex AG-UI threading redesign not justified for one-way weekly summary
+
+**Key anti-feature to avoid:** Independent per-agent notification scheduling without a shared budget. Four agents firing independently create notification storms that cause iOS notification opt-out — an action that cannot be reversed programmatically.
 
 ### Architecture Approach
 
-The migration collapses the two-agent HandoffBuilder chain (Orchestrator → Classifier) into a single persistent `AzureAIAgentClient`-backed Classifier agent. The Orchestrator is eliminated — it was only needed to route to the Classifier, and with code-based orchestration the FastAPI endpoint calls the Classifier directly. The `AGUIWorkflowAdapter` (340 lines, HandoffBuilder-dependent) is replaced with a `FoundrySSEAdapter` (~100-150 lines) that wraps `classifier_agent.run(stream=True)`. The adapter's outcome detection logic (inspect `function_call.name` for `classify_and_file`/`request_misunderstood`/`mark_as_junk`), text buffering, and custom event emission are preserved verbatim. The adapter is a rewrite of the surrounding plumbing, not of the detection logic.
+See `.planning/research/ARCHITECTURE.md` for full details.
 
-**Major components that change:**
-1. `main.py` lifespan — replace `AzureOpenAIChatClient` construction with `AzureAIAgentClient`; use `should_cleanup_agent=False`; store `classifier_agent` and `ai_client` on `app.state`
-2. `agents/workflow.py` — full replacement: `AGUIWorkflowAdapter` → `FoundrySSEAdapter`
-3. `config.py` — add `azure_ai_project_endpoint`, `azure_ai_model_deployment_name`, `azure_ai_classifier_agent_id`, `applicationinsights_connection_string`
-4. `agents/orchestrator.py` — deleted (Orchestrator eliminated)
-5. `agents/classifier.py` — import swap: `AzureOpenAIChatClient` → `AzureAIAgentClient`
+The v2.0 architecture centers on five persistent Foundry-backed agents (Classifier + Admin, Projects, People, Ideas specialists) all invoked directly by the FastAPI process. Connected Agents are explicitly ruled out for v2.0 because they cannot call local Python `@tool` functions, and every specialist agent needs Cosmos DB write access via `@tool`. FastAPI acts as the code-based orchestrator: after Classifier determines the bucket, `if/elif` logic selects which specialist to invoke for enrichment.
 
-6. `tools/transcription.py` — rewritten: `transcribe_audio` becomes a `@tool` using `gpt-4o-transcribe` via `AsyncAzureOpenAI` (replaces sync Whisper via Cognitive Services). The Classifier agent calls this tool when processing voice input.
-7. `agents/perception.py` — deleted (Perception Agent eliminated; transcription is now a tool callable by Classifier)
-8. Middleware — `AgentMiddleware` for audit logging, `FunctionMiddleware` for tool validation/timing (e.g., `TranscriptionGuardMiddleware` validates file extension and size before calling `gpt-4o-transcribe`)
+**Major components:**
+1. `AzureAIAgentClient` (in FastAPI lifespan): Single shared client, all five agents created at startup with `should_cleanup_agent=False`. Agent IDs stored in environment variables and reused on restart.
+2. `FoundrySSEAdapter` (~150 lines, replaces 340-line `AGUIWorkflowAdapter`): Wraps `classifier_agent.run(stream=True)`, processes `AgentResponseUpdate` events (not `WorkflowEvent`), emits AG-UI events. Complete rewrite of surrounding plumbing; outcome-detection logic and custom event emission are preserved in concept.
+3. `APScheduler AsyncIOScheduler` (in FastAPI lifespan): Cron-based triggers for Friday digest, weekly nudges, daily People scans. Shares initialized Cosmos connections and agent objects — this is why Container App Jobs are not used.
+4. `PushNotificationService` (`services/push_notifications.py`): Async `httpx` wrapper around Expo Push HTTP API. Fetches stored token from Cosmos Admin container on first call, caches it. Called by scheduler jobs.
+5. Specialist agents (`agents/people.py`, `agents/projects.py`, `agents/ideas.py`, `agents/admin.py`): Foundry-backed agents with domain-specific `@tool` functions registered at `as_agent()` creation time.
+6. New API endpoints: `POST /api/push-token` (device registration), `POST /api/geofence` (deferred), `POST /api/nudge/respond` (v2.x).
 
-**Components that do not change (majority of codebase):**
-- `tools/classification.py` — all `@tool` functions unchanged
-- `db/cosmos.py`, `db/blob_storage.py` — unchanged
-- `api/inbox.py`, `api/health.py`, `auth.py` — unchanged
-- Mobile Expo app — unchanged
-- AG-UI SSE protocol and event format — unchanged
-- `/api/ag-ui/respond` endpoint — unchanged (direct Cosmos write, no agent involvement)
+**Confirmed architectural patterns:**
+- Tool registration happens at `as_agent(tools=[...])` creation time, not at `run()` time — this is a documented breaking change from `AzureOpenAIChatClient`
+- HITL follow-up always creates a fresh Foundry thread to avoid conversation history contamination from the first failed classification pass
+- `should_cleanup_agent=False` is mandatory for all persistent agents; agent IDs stored as env vars from day one
+- FastAPI is the orchestrator via `if/elif`, not Foundry Connected Agents
 
-**Key patterns confirmed:**
-- `AzureAIAgentClient` requires `azure.identity.aio.DefaultAzureCredential` (async), not the sync variant
-- `should_cleanup_agent=False` is mandatory for persistent agents in a FastAPI lifespan
-- Tools must be registered at `as_agent()` creation time, not at `run()` call time
-- Store `ai_client` on `app.state` alongside `classifier_agent` to keep the HTTP connection alive
-- HITL follow-up: always create a fresh Foundry thread (new `thread_id`) to avoid conversation history contamination from the first failed classification pass
-- Transcription is a `@tool` callable by the agent, using `gpt-4o-transcribe` via `AsyncAzureOpenAI` — the agent decides when to transcribe, not the endpoint code
-- Three middleware layers available: `AgentMiddleware` (whole run), `FunctionMiddleware` (tool calls), `ChatMiddleware` (LLM API calls) — use `call_next()` pattern to proceed or block
-- Middleware can be added at agent creation time AND per-run (for dynamic behavior)
+**Deleted components:** `agents/orchestrator.py` (Orchestrator eliminated), `agents/workflow.py` (AGUIWorkflowAdapter replaced by FoundrySSEAdapter).
 
 ### Critical Pitfalls
 
-All pitfalls are HIGH confidence, sourced from official docs or confirmed GitHub issues (issue #3097 for HandoffBuilder incompatibility, official Connected Agents docs for local function limitation).
+See `.planning/research/PITFALLS.md` for full details. 13 pitfalls documented; top 7 are critical.
 
-1. **HandoffBuilder is fundamentally incompatible with `AzureAIAgentClient`** — HandoffBuilder's synthetic transfer tools fail Azure's JSON schema validation (HTTP 400, "invalid payload") when the Foundry service validates the conversation history payload. Do not attempt to use HandoffBuilder with any Foundry client. Delete it before writing any migration code. The architecture fix is to eliminate HandoffBuilder entirely and call the Classifier directly.
+1. **HandoffBuilder + AzureAIAgentClient incompatibility** — Delete `HandoffBuilder` and `AGUIWorkflowAdapter` before writing any migration code. They cannot coexist. HTTP 400 "invalid payload" on multi-agent runs is the symptom (confirmed GitHub issue #3097). Replacement is code-based FastAPI routing to sequential `agent.run()` calls.
 
-2. **Connected Agents cannot call local `@tool` functions** — Official docs state this explicitly. Sub-agent tool calls in Connected Agents are handled server-side; the FastAPI process never receives the `requires_action` callback. The Classifier's Cosmos DB writes will silently never execute. Do not use Connected Agents in v2.0. This is the unanimous finding across all four research files.
+2. **Connected Agents cannot call local @tool functions** — Confirmed in official docs. Sub-agent `requires_action` events are handled server-side; the FastAPI process never receives the callback. The Classifier's Cosmos DB writes silently never execute. Do not use Connected Agents in v2.0. Reserve for v3.0 with Azure Functions.
 
-3. **`should_cleanup_agent=True` (default) destroys agent persistence** — The default context manager deletes the Foundry agent on exit. Every Container App restart creates a new agent with a new ID, accumulating stale agents in the portal and invalidating any stored ID references. Always pass `should_cleanup_agent=False` for long-lived FastAPI deployments.
+3. **`should_cleanup_agent=True` (default) destroys persistent agents** — Default deletes the server-side agent resource on `close()`. Container App scale-to-zero triggers cleanup, accumulating hundreds of stale agents and invalidating stored IDs. Use `should_cleanup_agent=False` for all agents.
 
-4. **Sync `DefaultAzureCredential` fails with `AzureAIAgentClient`** — `AzureAIAgentClient` requires `AsyncTokenCredential` from `azure.identity.aio`. Passing the sync credential causes silent auth failures or `TypeError` at runtime. Update all credential imports before writing any Foundry client code.
+4. **AGUIWorkflowAdapter is a complete rewrite, not a migration** — The existing adapter checks `WorkflowEvent` types that do not exist in the `AzureAIAgentClient` stream. The new `FoundrySSEAdapter` must handle `AgentResponseUpdate` objects. The outcome-detection logic is reusable in concept but all event-type handling is a replacement. Budget ~150 lines and a full test cycle against the mobile client.
 
-5. **RBAC requires three separate role assignments** — Developer Entra ID → Azure AI User on Foundry project; Container App managed identity → Azure AI User on Foundry project; Foundry project managed identity → Cognitive Services User on Azure OpenAI resource. Missing any one causes 403/401 errors that appear only in specific contexts (local dev vs. deployed).
+5. **Notification fatigue is irreversible** — iOS notification permission, once revoked, cannot be re-granted programmatically. Build frequency throttling (max 1/agent/day, 3/day total) and quiet hours (9pm-8am) into the notification dispatcher before connecting any scheduler to push delivery. CHI 2025 research confirms: even a modest increase in suggestion frequency can cut user preference for a proactive assistant by half.
 
-6. **`AGUIWorkflowAdapter` is a complete rewrite, not a migration** — The existing adapter references `WorkflowEvent`, `executor_invoked`, `executor_completed` types that do not exist in the `AzureAIAgentClient` stream. The stream produces `AgentResponseUpdate` objects. The detection logic is reusable; all event-type handling must be rewritten around `AgentResponseUpdate`.
+6. **Async credential mismatch** — `AzureAIAgentClient` requires `azure.identity.aio.DefaultAzureCredential`. The existing codebase uses the sync version. Update all credential imports before writing any Foundry client code. Do not share credential objects between the Foundry client and other sync Azure clients.
+
+7. **Three RBAC assignments required** — Developer Entra ID + Container App managed identity need "Azure AI User" on Foundry project; Foundry project managed identity needs "Cognitive Services User" on the Azure OpenAI resource. Missing any one causes 403/401 errors that surface only in specific deployment contexts.
+
+---
 
 ## Implications for Roadmap
 
-Based on combined research, the migration decomposes into four natural phases. The hard dependency ordering is: infrastructure before code, credentials before client, client before adapter, adapter before HITL validation.
+The research establishes a clear dependency chain that determines phase ordering. Foundry infrastructure prerequisites block all SDK work. The Classifier baseline validates the tool execution model before building the adapter. The FoundrySSEAdapter must be proven before HITL validation adds complexity. Push notification infrastructure must be proven before scheduler logic is connected. Throttling must exist before any agent fires a push.
 
-### Phase 1: Infrastructure and Prerequisites
-**Rationale:** Nothing else can be tested without a Foundry project endpoint, RBAC assignments, and Application Insights connection string. The RC breaking changes (`AgentThread` → `AgentSession`, sync → async credential) must also be applied before any Foundry client code compiles. This phase has no code risk — it is environment setup and surgical API updates. It also includes deleting `HandoffBuilder` and `AGUIWorkflowAdapter` before they can cause confusion.
-**Delivers:** Working Foundry project with model deployment; Application Insights instance connected; `AgentThread` → `AgentSession` migration complete in `workflow.py` and `main.py`; async credentials in place (`azure.identity.aio`); `HandoffBuilder` and `AGUIWorkflowAdapter` deleted; new env vars in `.env` and `config.py`; `agent-framework-azure-ai` installed and import verified
-**Avoids:** Pitfall 4 (credential), Pitfall 5 (RBAC) — all three role assignments before a single SDK call; RC breaking changes that silently break the existing codebase
+### Phase 1: Foundry Infrastructure and Prerequisites
+**Rationale:** Before any code, Azure resources and RBAC must be correct. Three separate RBAC assignments, async credential type, and agent persistence strategy have all caused silent failures that are expensive to diagnose mid-implementation. This phase also includes deleting `HandoffBuilder` and `AGUIWorkflowAdapter` before they can cause confusion — they are dead code from the first line of Foundry migration code.
+**Delivers:** AI Foundry Account + Project provisioned; gpt-4o-transcribe deployed in East US2; Application Insights instance wired; all three RBAC assignments verified independently; async credentials in codebase (`azure.identity.aio`); `HandoffBuilder` and `AGUIWorkflowAdapter` deleted; new env vars in `.env` and `config.py`; `agent-framework-azure-ai` installed and import verified.
+**Avoids:** Pitfalls 6 (credential mismatch), 7 (RBAC — three assignments), 3 (agent persistence strategy locked in before first agent is created).
 
 ### Phase 2: Single-Agent Classifier Baseline
-**Rationale:** Before touching `main.py` or the SSE adapter, validate that `AzureAIAgentClient` can authenticate to Foundry, create a persistent Classifier agent, and execute local `@tool` functions. Specifically: confirm that `classify_and_file` writes to Cosmos DB when called by the Foundry service. This is the highest-risk validation step — if tool execution does not work as documented, the architecture needs to change. A standalone test script (not FastAPI) validates this independently without risk to the running service.
-**Delivers:** Classifier agent visible in Foundry portal with stable ID across restarts; `classify_and_file` confirmed executing locally during a Foundry-managed run; agent ID captured for `AZURE_AI_CLASSIFIER_AGENT_ID` env var; `classifier.py` updated with `AzureAIAgentClient`; `should_cleanup_agent=False` confirmed working
-**Avoids:** Pitfall 2 (tool execution confirmed before building the adapter); Pitfall 3 (agent ID management strategy locked in); discovery of fundamental incompatibility after a full adapter rewrite
+**Rationale:** Validate `AzureAIAgentClient` with the existing Classifier before introducing any new agents. This is the lowest-risk entry point — the Classifier is already functionally proven; only the client type changes. Critically: confirm that `classify_and_file` writes to Cosmos DB when called by the Foundry service. If tool execution fails here, the architecture changes before any adapter or specialist agent work is done.
+**Delivers:** Classifier agent visible in Foundry portal with stable ID across restarts; `classify_and_file` confirmed writing to Cosmos DB during a Foundry-managed run; agent ID captured for `AZURE_AI_CLASSIFIER_AGENT_ID` env var; `classifier.py` updated with `AzureAIAgentClient`; `should_cleanup_agent=False` verified working.
+**Avoids:** Pitfalls 1 (HandoffBuilder already gone), 2 (tool execution confirmed before building multi-agent layer), 4 (tools registered at creation time, not run time).
+**Uses:** `agent-framework-azure-ai`, `azure-ai-projects`, `azure.identity.aio`.
 
 ### Phase 3: FoundrySSEAdapter and FastAPI Integration
-**Rationale:** With the Classifier baseline confirmed, replace the AG-UI plumbing. `HandoffBuilder` and `AGUIWorkflowAdapter` are already gone. The `FoundrySSEAdapter` is a focused rewrite (~100-150 lines) that wires `classifier_agent.run(stream=True)` to the existing `_stream_sse()` helper in `main.py`. The outcome-detection logic, text buffering, and custom event emission are copied from the old adapter and adapted for `AgentResponseUpdate` event types. Wire into `main.py` lifespan. End-to-end test: text capture → SSE stream → Cosmos DB write → `CLASSIFIED` event received by mobile app. Then validate voice capture (Perception step → same adapter).
-**Delivers:** `FoundrySSEAdapter` replacing `AGUIWorkflowAdapter`; `main.py` lifespan migrated to `AzureAIAgentClient`; Orchestrator deleted; text and voice capture pipelines working end-to-end; `CLASSIFIED`/`MISUNDERSTOOD`/`UNRESOLVED` custom events verified against mobile app; `_stream_sse()` and `_convert_update_to_events()` helpers unchanged
-**Uses:** `AzureAIAgentClient`, `should_cleanup_agent=False`, `AgentSession`, `AgentResponseUpdate` stream
-**Avoids:** Pitfall 6 (AGUIWorkflowAdapter rewrite correctly scoped); HITL thread isolation strategy decided before implementation
+**Rationale:** With the Classifier baseline confirmed, replace the AG-UI streaming layer. The `FoundrySSEAdapter` (~150 lines) is the riskiest migration component — silent SSE failures are hard to debug once specialist agents add noise to the picture. Validating against the mobile client at this stage means any streaming problems are attributable to the adapter alone.
+**Delivers:** `FoundrySSEAdapter` replacing `AGUIWorkflowAdapter`; `main.py` lifespan migrated to `AzureAIAgentClient`; Orchestrator deleted; text and voice capture pipelines working end-to-end; `CLASSIFIED`/`MISUNDERSTOOD`/`UNRESOLVED` custom events verified against mobile app; HITL follow-up confirmed using fresh Foundry threads.
+**Avoids:** Pitfall 4 (AGUIWorkflowAdapter rewrite correctly scoped as complete replacement), Pitfall 13 (HITL thread contamination — fresh thread strategy validated here).
+**Implements:** `FoundrySSEAdapter` architecture component.
 
 ### Phase 4: HITL Validation and Observability
-**Rationale:** HITL flows are the highest functional risk because they depend on the adapter's custom event emission and thread management. Validate all three HITL paths explicitly: low-confidence pending → inbox bucket buttons; misunderstood → follow-up (fresh thread confirmed); recategorize. Then wire Application Insights and verify traces and token usage appear in the Foundry portal. This phase completes the v2.0 definition of done.
-**Delivers:** All three HITL flows verified end-to-end; HITL follow-up confirmed using fresh Foundry threads (no conversation history contamination); Application Insights traces visible in portal for a classification run; token usage and cost metrics confirmed; v2.0 migration declared complete
-**Uses:** `configure_azure_monitor()` with `APPLICATIONINSIGHTS_CONNECTION_STRING`; fresh `thread_id` generation on follow-up endpoint
+**Rationale:** HITL flows are the highest functional risk because they depend on the adapter's custom event emission and thread management. Validate all three HITL paths explicitly before declaring migration complete. Wire Application Insights and confirm traces, token usage, and cost metrics appear in the Foundry portal.
+**Delivers:** All three HITL flows verified end-to-end (low-confidence bucket buttons; misunderstood follow-up with fresh thread; recategorize); Application Insights traces in portal for a classification run; token usage and cost metrics confirmed; v2.0 Foundry migration declared complete.
+**Uses:** `configure_azure_monitor()` with `APPLICATIONINSIGHTS_CONNECTION_STRING`; fresh `thread_id` per follow-up endpoint call.
+
+### Phase 5: Specialist Agents (People, Projects, Ideas, Admin)
+**Rationale:** With infrastructure, Classifier baseline, and streaming layer proven, the four specialist agents can be added using the same creation pattern. Each agent follows the tool-at-creation-time rule. FastAPI routing code (`if/elif` on classified bucket) is straightforward. Adding agents one at a time and verifying Cosmos DB writes after each reduces debugging surface.
+**Delivers:** Four persistent Foundry-backed specialist agents created with IDs stored in env vars; domain tools wired at creation time (`log_interaction`, `add_action_item`, `enrich_idea`, `schedule_reminder`); post-classification enrichment routing in FastAPI endpoint handler; Cosmos DB writes verified for each specialist.
+**Avoids:** Pitfall 2 (explicit decision: code-based routing, not Connected Agents), Pitfall 4 (tool registration at creation time).
+**Implements:** `agents/people.py`, `agents/projects.py`, `agents/ideas.py`, `agents/admin.py` and corresponding `tools/` files.
+
+### Phase 6: Push Notification Infrastructure
+**Rationale:** The entire proactive feature depends on push delivery. This infrastructure phase proves the full cycle (token registration → Expo Push API → APNs/FCM → device) before any agent scheduling is connected. Push receipt polling for `DeviceNotRegistered` detection must be implemented here — not as a later polish step — because silent delivery failures are the second biggest proactive feature risk after notification fatigue.
+**Delivers:** `POST /api/push-token` endpoint; `PushNotificationService` with token storage in Cosmos Admin container; Expo push token registration on app startup; receipt polling for `DeviceNotRegistered` detection; notification frequency budget utility (max 3/day total, max 2/week per agent); quiet hours enforcement (9pm-8am); end-to-end push delivery verified with development build (not Expo Go).
+**Avoids:** Pitfalls 6 (permission sequence before `getExpoPushTokenAsync()`), 7 (two-stage receipt system implemented), 9 (notification budget built before any scheduler connects).
+**Uses:** `exponent-server-sdk 2.2.0`, `expo-notifications`, `expo-device`.
+
+### Phase 7: Proactive Agent Scheduling (APScheduler + Nudge Logic)
+**Rationale:** Only after push infrastructure is proven and the notification budget is in place should the scheduler be connected. All specialist agents and the push pipeline are independently proven; this phase composes them into the proactive loop. `gpt-4o-transcribe` replaces Whisper in this phase as well (drop-in, same API call).
+**Delivers:** `AsyncIOScheduler` in FastAPI lifespan; Friday digest (Admin Agent, 5pm UTC Friday); People nudge (daily 8am scan, 4-week threshold); Ideas check-in (weekly, stalest idea, Tue-Thu rotation); errand timing (Saturday 9am); quiet hours enforced in all job functions; gpt-4o-transcribe deployed and wired.
+**Avoids:** Pitfall 9 (notification fatigue — budget utility from Phase 6 gates all sends), Pitfall 10 (APScheduler timezone configuration with `timezone="Europe/London"` for DST handling).
+**Uses:** `APScheduler 3.11.2`, `PushNotificationService`, all specialist agents from Phase 5.
+**Implements:** `services/scheduler.py` with all job functions.
 
 ### Phase Ordering Rationale
 
-- Phase 1 before everything else: The Foundry project endpoint must exist before any SDK call. The RC breaking changes cause import errors in the existing codebase. Three-scope RBAC must be complete before local dev validation is meaningful. There is zero ambiguity about this ordering.
-- Phase 2 before Phase 3: Tool execution must be confirmed in isolation via standalone test script. If `classify_and_file` does not execute locally with `AzureAIAgentClient`, the architecture is wrong and Phase 3 would need to be redesigned. Isolation catches this failure before a full adapter rewrite, saving significant time.
-- Phase 3 before Phase 4: The `FoundrySSEAdapter` must exist for HITL flows to be testable. HITL validation is meaningless against the old adapter (which is already deleted by Phase 1).
-- Observability in Phase 4: Application Insights is a one-line setup (`configure_azure_monitor()`). It does not block migration completion but should be confirmed working before v2.0 is declared done.
+- **Infrastructure before code:** Foundry RBAC, credential type, and resource provisioning are preconditions for all Foundry SDK work. Wrong credential type causes silent failures that obscure real bugs in subsequent phases.
+- **One agent before many:** Validating the Classifier in isolation proves the `AzureAIAgentClient` + `@tool` pattern cheaply. Adding four specialist agents to a broken baseline multiplies debugging surface.
+- **Streaming adapter early:** The FoundrySSEAdapter is the riskiest migration component and the most mobile-app-visible. Validating it before specialist agents means streaming problems are attributable to the adapter, not to agent interactions.
+- **HITL validation before specialist agents:** HITL flows depend on the adapter. Confirming them before Phase 5 means specialist agent work starts from a fully validated foundation.
+- **Push infrastructure before scheduling:** Proving delivery independently means scheduling failures are attributable to scheduler code, not to push infrastructure.
+- **Throttling before scheduling:** The notification budget utility is built in Phase 6 (push infrastructure) and gates all sends in Phase 7. The order of operations prevents notification fatigue at launch.
 
 ### Research Flags
 
-All four phases can proceed without additional research-phase invocations. The migration is well-documented in official Microsoft Learn sources updated through February 2026.
+Phases likely needing `/gsd:research-phase` during planning:
+- **Phase 3 (FoundrySSEAdapter):** The exact structure of `AgentResponseUpdate` events from a live Foundry agent stream needs empirical validation during Phase 2 standalone testing before writing the Phase 3 event handler. This is a 5-minute smoke test, not a full research phase — but the finding should be documented before Phase 3 planning begins.
+- **Phase 7 (APScheduler timezone):** Whether `timezone="Europe/London"` in `AsyncIOScheduler` handles DST correctly in the Azure Container Apps environment is a configuration decision. APScheduler's DST handling is the better default (avoids manual cron updates twice a year), but needs a decision documented before scheduler implementation begins.
 
-**Phases with standard patterns — skip research-phase:**
-- **Phase 1:** Entirely mechanical changes (package install, env vars, API migration). All changes are in the official 2026 Significant Changes migration guide.
-- **Phase 2:** `AzureAIAgentClient` + local `@tool` pattern is documented in official samples with code. No ambiguity.
-- **Phase 3:** `FoundrySSEAdapter` design is clear. `AgentResponseUpdate` event types are confirmed stable across providers in official AG-UI integration docs.
-- **Phase 4:** HITL thread strategy (fresh thread per follow-up) is explicitly chosen based on research. Application Insights is `configure_azure_monitor()` with one env var.
+Phases with standard patterns (skip research-phase):
+- **Phase 1:** Entirely documented via official Azure portal flows and `az cli` commands, plus the official 2026 Significant Changes migration guide.
+- **Phase 2:** `AzureAIAgentClient` + local `@tool` pattern documented in official Agent Framework samples with code.
+- **Phase 4:** Application Insights is `configure_azure_monitor()` with one env var. HITL thread strategy is an explicit architectural decision, not a research question.
+- **Phase 5:** Same creation pattern as Phase 2, repeated four times with domain-specific tools.
+- **Phase 6:** Expo push setup extensively documented; receipt polling pattern is well-known from Expo official docs.
 
-**One empirical validation needed during Phase 2 (not a research-phase, a smoke test):**
-- Confirm that `classifier_agent.run(stream=True)` emits `AgentResponseUpdate` objects (not `WorkflowEvent` types) when using `AzureAIAgentClient`. The docs say this, and the `AgentResponseUpdate` stream surface is confirmed unchanged across providers in official docs. Verify empirically during Phase 2 standalone testing before writing the `FoundrySSEAdapter` event handler in Phase 3.
+---
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | All packages verified on PyPI with confirmed versions. `agent-framework-azure-ai` RC2 status is the only open item — minor, just confirm installed version after install. |
-| Features | HIGH | All 5 open questions from `fas-rearchitect.md` answered with official source citations. Connected Agents limitation confirmed from four independent sources. Migration scope (only Orchestrator + Classifier exist; migrate only those) is unambiguous. |
-| Architecture | HIGH | `FoundrySSEAdapter` design derived from official `AgentResponseUpdate` streaming docs. `should_cleanup_agent=False` confirmed in API reference. Orchestrator elimination follows directly and cleanly from the Connected Agents ruling. Component boundary analysis is high confidence — SDK source inspection confirmed `AzureAIAgentClient` lazy import from `agent_framework_azure_ai`. |
-| Pitfalls | HIGH | 8 critical pitfalls documented with official sources, warning signs, recovery strategies, and phase-to-pitfall mapping. All four research files independently reach the same conclusions on the top three pitfalls (HandoffBuilder incompatibility, Connected Agents local function limitation, `should_cleanup_agent` default). |
+| Stack | HIGH | Official PyPI versions, official Expo SDK 54 docs, official Microsoft Learn docs. The only LOW-confidence item is gpt-4o-transcribe East US2 availability — validate at deployment time. `agent-framework-azure-ai` RC2 status (vs. RC1) is minor version-tracking, not architectural risk. |
+| Features | HIGH | Notification UX patterns backed by CHI 2025 research and industry benchmarks (OneSignal, CleverTap). Geofencing limitations confirmed via official Expo docs and open GitHub issues. Agent behavior specifications are prompt engineering decisions, not technical unknowns. |
+| Architecture | MEDIUM-HIGH | Foundry integration patterns confirmed via official docs (updated Feb 2026). FoundrySSEAdapter design is sound but `AgentResponseUpdate` event surface needs empirical confirmation during Phase 2. Agent ID persistence, RBAC, and code-based orchestration patterns are high confidence. |
+| Pitfalls | HIGH | 13 pitfalls documented with confirmed causes, warning signs, recovery strategies, and phase mappings. HandoffBuilder incompatibility confirmed via GitHub issue #3097. Connected Agents @tool limitation confirmed in official docs. Notification fatigue backed by CHI 2025 research. All four research files independently reach the same conclusions on the top pitfalls. |
 
-**Overall confidence: HIGH**
+**Overall confidence:** MEDIUM-HIGH
 
 ### Gaps to Address
 
-Three items require empirical validation during execution. None are blockers for planning.
+- **FoundrySSEAdapter event surface:** Confirm that `classifier_agent.run(stream=True)` produces `AgentResponseUpdate` objects (not `WorkflowEvent` types) during Phase 2 standalone testing. This takes 5 minutes and removes ambiguity from the Phase 3 implementation. Document the exact content types found in `update.contents` before writing the Phase 3 event handler.
 
-- **`agent-framework-azure-ai` RC2 version:** RC2 release notes do not explicitly confirm `agent-framework-azure-ai` was updated alongside `agent-framework-core`. Run `uv pip show agent-framework-azure-ai` after install and note the actual version. Both RC1 and RC2 are compatible with the migration approach — this is a version-tracking item, not an architectural risk.
+- **APScheduler timezone handling:** `AsyncIOScheduler` supports `timezone="Europe/London"` (via `pytz` or `zoneinfo`) which handles DST automatically. Validate that this works correctly in the Azure Container Apps environment before committing to it in Phase 7. The alternative (UTC offset hardcoded) requires manual cron updates twice a year — documenting this decision explicitly prevents future confusion.
 
-- **Streaming event types from `AzureAIAgentClient`:** During Phase 2 standalone testing, confirm that `classifier_agent.run(stream=True)` produces `AgentResponseUpdate` objects. This is documented but worth confirming empirically before writing the `FoundrySSEAdapter` event handler in Phase 3. It takes five minutes to verify and removes ambiguity from the Phase 3 implementation.
+- **gpt-4o-transcribe region availability:** Currently East US2 global standard only. If the Foundry project is in a different region, validate availability at Phase 7 deployment time. Region expansion is ongoing but not guaranteed for all target regions.
 
-- **Foundry project vs. existing Azure OpenAI resource:** Confirm whether an existing Azure OpenAI resource can be wired to a new Foundry project, or whether a separate model deployment is needed within the Foundry project. The endpoint format `https://<account>.services.ai.azure.com/api/projects/<project>` is distinct from `https://<resource>.openai.azure.com/`. Whisper stays on the Azure OpenAI endpoint; the Classifier agent uses the Foundry project endpoint. Validate both can coexist in the same Container App deployment before Phase 1 is declared complete.
+- **4 specialist agents + APScheduler memory stability:** Running 5 persistent Foundry agent connections + APScheduler in the same FastAPI lifespan has not been validated in production. Monitor Application Insights for memory growth and thread contention during Phase 7 testing.
+
+- **Android geofencing after force-quit:** Confirmed platform limitation (deferred to v3.0). If v3.0 pursues geofencing, Android OEM behavior (Samsung, Xiaomi, OnePlus treat force-quit as hard kill) must be surfaced in UX design as "best effort" not reliable trigger.
+
+---
 
 ## Sources
 
-### Primary (HIGH confidence — official Microsoft Learn, updated Feb 2026)
+### Primary (HIGH confidence — official docs, PyPI releases)
 
-- [AzureAIAgentClient API Reference](https://learn.microsoft.com/en-us/python/api/agent-framework-core/agent_framework.azure.azureaiagentclient) — constructor params, `should_cleanup_agent`, `as_agent()`
-- [Microsoft Foundry Agents with Agent Framework](https://learn.microsoft.com/en-us/agent-framework/agents/providers/azure-ai-foundry) — `AzureAIAgentClient` quickstart, lifespan pattern, env vars (updated 2026-02-23)
-- [Python 2026 Significant Changes Guide](https://learn.microsoft.com/en-us/agent-framework/support/upgrade/python-2026-significant-changes) — RC1 breaking changes: `AgentThread` → `AgentSession`, unified credential, `pydantic-settings` removal (updated 2026-02-23)
-- [Connected Agents How-To](https://learn.microsoft.com/en-us/azure/ai-foundry/agents/how-to/connected-agents?view=foundry-classic) — local function limitation explicitly stated (updated 2026-02-25)
-- [Agents in Workflows](https://learn.microsoft.com/en-us/agent-framework/workflows/agents-in-workflows) — `WorkflowBuilder` + `AzureAIAgentClient` confirmed compatible (updated 2026-02-26)
-- [Foundry Agent Service Quickstart](https://learn.microsoft.com/en-us/azure/ai-foundry/agents/quickstart?view=foundry-classic) — project endpoint format, RBAC roles, model deployment
-- [RBAC for Azure AI Foundry](https://learn.microsoft.com/en-us/azure/ai-foundry/concepts/rbac-foundry?view=foundry-classic) — "Azure AI User" role requirements and scope
-- [Function Calling with Foundry Agent Service](https://learn.microsoft.com/en-us/azure/ai-foundry/agents/how-to/tools/function-calling?view=foundry) — local execution loop, `requires_action` pattern (updated 2026-02-25)
-- [azure-ai-projects on PyPI](https://pypi.org/project/azure-ai-projects/) — Version 1.0.0 GA (July 2025)
-- [azure-monitor-opentelemetry on PyPI](https://pypi.org/project/azure-monitor-opentelemetry/) — Version 1.8.6 (February 2026)
-- [Agent Framework Releases (GitHub)](https://github.com/microsoft/agent-framework/releases) — RC1 (Feb 20, 2026), RC2 (Feb 26, 2026)
+- [Microsoft Learn — Azure AI Foundry Provider (Agent Framework)](https://learn.microsoft.com/en-us/agent-framework/agents/providers/azure-ai-foundry) — `AzureAIAgentClient`, `should_cleanup_agent`, credential pattern; updated 2026-02-23
+- [Microsoft Learn — Python 2026 Significant Changes Guide](https://learn.microsoft.com/en-us/agent-framework/support/upgrade/python-2026-significant-changes) — RC1 breaking changes: unified credential param, `AgentSession` API
+- [Microsoft Learn — Connected Agents How-To](https://learn.microsoft.com/en-us/azure/ai-foundry/agents/how-to/connected-agents?view=foundry-classic) — max depth 2, no local @tool support; updated 2026-02-25
+- [Microsoft Learn — Container Apps Jobs](https://learn.microsoft.com/en-us/azure/container-apps/jobs) — scheduled jobs, UTC-only cron limitation; updated 2026-01-28
+- [azure-ai-projects on PyPI](https://pypi.org/project/azure-ai-projects/) — v1.0.0 GA, July 31, 2025
+- [azure-ai-agents on PyPI](https://pypi.org/project/azure-ai-agents/) — v1.1.0, August 5, 2025
+- [APScheduler on PyPI](https://pypi.org/project/APScheduler/) — v3.11.2 stable; v4.0.0a6 alpha only
+- [exponent-server-sdk on PyPI](https://pypi.org/project/exponent-server-sdk/) — v2.2.0, July 3, 2025
+- [Expo Notifications SDK docs](https://docs.expo.dev/versions/latest/sdk/notifications/) — push token, SDK 54 requirements, dev build required
+- [Expo Push Notifications setup](https://docs.expo.dev/push-notifications/push-notifications-setup/) — FCM for Android, APNs for iOS
+- [Expo Location SDK docs](https://docs.expo.dev/versions/latest/sdk/location/) — geofencing limitations, iOS 20-region limit, Android force-quit behavior
+- [Azure OpenAI Audio Models blog](https://devblogs.microsoft.com/foundry/get-started-azure-openai-advanced-audio-models/) — `gpt-4o-transcribe`, API version, East US2
+- [azure-monitor-opentelemetry on PyPI](https://pypi.org/project/azure-monitor-opentelemetry/) — latest stable
 
-### Secondary (MEDIUM confidence — GitHub issues, community sources)
+### Secondary (MEDIUM confidence — multiple sources agree)
 
-- [Issue #3097: HandoffBuilder + AzureAIClient Invalid Payload](https://github.com/microsoft/agent-framework/issues/3097) — HandoffBuilder incompatibility root cause confirmed, resolved Feb 9 via PR #4083; architecture is still incompatible by design
-- [Connected Agents Removed from New Portal](https://learn.microsoft.com/en-us/answers/questions/5631003/new-ai-foundry-experience-no-more-connected-agents) — Community Q&A confirming deprecation in new Foundry experience
-- [Agent Accumulation Discussion](https://github.com/orgs/azure-ai-foundry/discussions/18) — Community confirmation of agent accumulation with `should_cleanup_agent` default
-- Local SDK inspection: `second-brain/backend/.venv/.../agent_framework/azure/__init__.py` — confirmed `AzureAIAgentClient` lazy import from `agent_framework_azure_ai`; confirmed package not yet installed in current venv
+- Agent Framework GitHub issue #3097 — HandoffBuilder + AzureAIAgentClient incompatibility confirmed via PR #4083
+- APScheduler + FastAPI lifespan integration — consistent across multiple tutorials; `AsyncIOScheduler` with `CronTrigger` is established pattern
+- Expo SDK 54 + expo-notifications dev build requirement — confirmed by SDK 53 and 54 changelogs
+- CHI 2025 — "Need Help? Designing Proactive AI Assistants" — notification frequency preference research (frequency increase halves user preference)
+- OneSignal — frequency capping research (2-5 notifications/week optimal ceiling)
+- [Clarify — Top Personal CRM Apps 2025](https://www.getclarify.ai/blog/top-personal-crm-apps) — Clay, Dex, Covve reconnect nudge patterns
+- [Expo Geofencing issue #25875](https://github.com/expo/expo/issues/25875) — Android geofencing not working as expected (open issue)
+
+### Tertiary (LOW confidence — needs validation in implementation)
+
+- 4 specialist agents + APScheduler memory stability in production: not validated; monitor during Phase 7
+- FoundrySSEAdapter `AgentResponseUpdate` exact event surface: designed from documentation but needs empirical confirmation during Phase 2 standalone testing
+- gpt-4o-transcribe availability outside East US2: regions expand regularly; validate at deployment time
+- APScheduler `timezone="Europe/London"` behavior in Azure Container Apps: standard Python behavior but validate in target environment
 
 ---
 *Research completed: 2026-02-25*
