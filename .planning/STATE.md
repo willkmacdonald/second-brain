@@ -63,6 +63,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: v2.0 roadmap created (7 phases: 6-12, 42 requirements mapped)
-Resume file: None
+Stopped at: Phase 6 context gathered
+Resume file: .planning/phases/06-foundry-infrastructure/06-CONTEXT.md
 Resume action: /gsd:plan-phase 6
