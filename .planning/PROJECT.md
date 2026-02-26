@@ -8,29 +8,46 @@ A personal capture-and-intelligence system that turns fleeting thoughts — voic
 
 One-tap capture from a phone instantly routes through an agent chain that classifies, files, and sharpens thoughts into concrete next actions — with zero organizational effort from the user.
 
+## Current Milestone: v2.0 Foundry Agent Service Migration
+
+**Goal:** Rearchitect the entire backend agent layer from `AzureOpenAIChatClient` + `HandoffBuilder` (local orchestration) to `AzureAIAgentClient` with Connected Agents, persistent agents, server-managed threads, and Foundry portal observability. Same features as v1, rebuilt on the proper infrastructure.
+
+**Target features:**
+- Persistent, server-registered agents (visible in AI Foundry portal)
+- Connected Agents pattern (Foundry-native multi-agent invocation)
+- Server-managed threads for conversation history
+- Application Insights observability (per-agent traces, token usage, cost)
+- All v1 capture flows working on new foundation (text, voice, HITL)
+- Mobile app unchanged (AG-UI SSE interface is the same)
+
 ## Requirements
 
-### Validated
+### Validated (v1.0)
 
-(None yet — ship to validate)
+- [x] Text capture from Expo app routes through Orchestrator → Classifier → filed to Cosmos DB
+- [x] Voice capture transcribed by Perception Agent, then classified and filed
+- [x] Classifier Agent classifies into People/Projects/Ideas/Admin with confidence scoring
+- [x] Low-confidence captures trigger clarification conversation with the user (HITL)
+- [x] AG-UI protocol streams real-time agent handoff visibility to the app
+- [x] Misunderstood captures trigger conversational follow-up
+- [x] Inbox view with detail cards and recategorize capability
 
-### Active
+### Active (v2.0)
 
-- [ ] Text capture from Expo app routes through Orchestrator → Classifier → filed to Cosmos DB
-- [ ] Voice capture transcribed by Perception Agent, then classified and filed
-- [ ] Photo/video capture processed by Perception Agent (vision + transcription)
-- [ ] Classifier Agent classifies into People/Projects/Ideas/Admin with confidence scoring
-- [ ] Low-confidence captures trigger clarification conversation with the user (HITL)
-- [ ] Action Agent sharpens vague thoughts into executable next actions for Projects/Admin
-- [ ] Cross-references extracted (people mentioned in projects, projects mentioned with people)
-- [ ] Daily digest delivered at 6:30 AM CT with top actions, blockers, and wins (<150 words)
-- [ ] Weekly review digest on Sunday 9 AM CT
-- [ ] Ad-hoc "what's on my plate" queries answered via Digest Agent
-- [ ] Entity Resolution Agent runs nightly to merge duplicate People records
-- [ ] Evaluation Agent produces weekly system health reports (Phase 4)
-- [ ] AG-UI protocol streams real-time agent handoff visibility to the app
-- [ ] OpenTelemetry tracing across all agent handoffs
-- [ ] Push notifications only for clarification requests and digests
+*Defined in .planning/REQUIREMENTS.md*
+
+### Future (v3.0+)
+
+- Photo/video capture processed by Perception Agent (vision + transcription)
+- Action Agent sharpens vague thoughts into executable next actions for Projects/Admin
+- Cross-references extracted (people mentioned in projects, projects mentioned with people)
+- Daily digest delivered at 6:30 AM CT with top actions, blockers, and wins (<150 words)
+- Weekly review digest on Sunday 9 AM CT
+- Ad-hoc "what's on my plate" queries answered via Digest Agent
+- Entity Resolution Agent runs nightly to merge duplicate People records
+- Evaluation Agent produces weekly system health reports
+- Push notifications only for clarification requests and digests
+- OpenTelemetry tracing across all agent handoffs (partially done — Foundry migration will improve)
 
 ### Out of Scope
 
@@ -38,9 +55,9 @@ One-tap capture from a phone instantly routes through an agent chain that classi
 - Offline capture — requires connectivity
 - Real-time chat — not core to the capture loop
 - Cost ceiling optimization — optimize for capability
-- Full-text search — deferred to Phase 4
-- Share sheet extension — deferred to Phase 4
-- Video keyframe extraction — deferred to Phase 4
+- Full-text search — deferred to v3.0+
+- Share sheet extension — deferred to v3.0+
+- Video keyframe extraction — deferred to v3.0+
 
 ## Context
 
@@ -65,12 +82,14 @@ One-tap capture from a phone instantly routes through an agent chain that classi
 
 ## Constraints
 
-- **Tech stack**: Microsoft Agent Framework (Python), Azure OpenAI GPT-5.2, Expo/React Native, Azure Container Apps, Cosmos DB, Blob Storage
+- **Tech stack**: Microsoft Agent Framework (Python), Azure AI Foundry Agent Service, Expo/React Native, Azure Container Apps, Cosmos DB, Blob Storage
+- **Agent client**: `AzureAIAgentClient` from `agent-framework-azure-ai` (Foundry Agent Service — NOT `AzureOpenAIChatClient`)
 - **Protocol**: AG-UI (SSE event stream) for agent-to-frontend communication
 - **LLM**: Azure OpenAI GPT-4o (with Vision for Perception Agent, Whisper for transcription)
 - **Platform**: iOS and Android via Expo
 - **Single user**: No multi-tenancy design needed — hardcode `userId: "will"`
-- **Observability**: OpenTelemetry built into Agent Framework, DevUI for development
+- **Observability**: Application Insights + Foundry portal (replaces DevUI-only observability)
+- **Infrastructure**: AI Foundry project required (project endpoint, Azure AI User RBAC)
 - **First-time framework**: Will is learning Agent Framework through this project — expect discovery and iteration
 
 ## Key Decisions
@@ -86,6 +105,9 @@ One-tap capture from a phone instantly routes through an agent chain that classi
 | GPT-4o for all agents | Proven model, native Agent Framework support, lower cost than GPT-5.2 | — Pending |
 | Evaluation Agent in Phase 4 | Needs weeks of data before patterns emerge | — Pending |
 | Claude Code + GSD methodology | Development approach; fallback to spec-driven if GSD impedes | — Pending |
+| AzureOpenAIChatClient + HandoffBuilder for v1 | Simplest option to learn Agent Framework basics first | ✓ Good — learned fundamentals, now graduating |
+| Foundry Agent Service migration (v2.0) | Learning goal demands real infrastructure: persistent agents, server threads, Connected Agents, portal observability | — Pending |
+| v2.0 scope = migration only | Same features as v1 rebuilt on Foundry. Action/People/Digests/Search deferred to v3.0 | — Pending |
 
 ---
-*Last updated: 2026-02-21 after requirements definition (LLM changed to GPT-4o)*
+*Last updated: 2026-02-25 after v2.0 milestone start (Foundry Agent Service migration)*
