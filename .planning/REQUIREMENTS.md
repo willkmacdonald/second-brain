@@ -64,7 +64,7 @@ Migrate the backend agent layer from `AzureOpenAIChatClient` + `HandoffBuilder` 
 - [x] **ORCH-03**: Orchestrator routes audio to Perception then Classifier — Phase 5
 - [x] **ORCH-06**: Orchestrator provides confirmation when agent chain completes — Phase 3
 - [x] **CLAS-01**: Classifier classifies into People/Projects/Ideas/Admin — Phase 3
-- [x] **CLAS-02**: Classifier assigns confidence score (0.0–1.0) — Phase 3
+- [x] **CLAS-02**: Classifier assigns confidence score (0.0-1.0) — Phase 3
 - [x] **CLAS-03**: Confidence >= 0.6 silently files and confirms — Phase 3
 - [x] **CLAS-04**: Confidence < 0.6 triggers clarifying question — Phase 4
 - [x] **CLAS-07**: Every capture logged to Inbox with classification details — Phase 3
@@ -111,32 +111,32 @@ Migrate the backend agent layer from `AzureOpenAIChatClient` + `HandoffBuilder` 
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INFRA-10 | TBD | Pending |
-| INFRA-11 | TBD | Pending |
-| INFRA-12 | TBD | Pending |
-| INFRA-13 | TBD | Pending |
-| AGNT-01 | TBD | Pending |
-| AGNT-02 | TBD | Pending |
-| AGNT-03 | TBD | Pending |
-| AGNT-04 | TBD | Pending |
-| AGNT-05 | TBD | Pending |
-| AGNT-06 | TBD | Pending |
-| STRM-01 | TBD | Pending |
-| STRM-02 | TBD | Pending |
-| STRM-03 | TBD | Pending |
-| HITL-01 | TBD | Pending |
-| HITL-02 | TBD | Pending |
-| HITL-03 | TBD | Pending |
-| OBSV-01 | TBD | Pending |
-| OBSV-02 | TBD | Pending |
-| DPLY-01 | TBD | Pending |
-| DPLY-02 | TBD | Pending |
+| INFRA-10 | Phase 6 | Pending |
+| INFRA-11 | Phase 6 | Pending |
+| INFRA-12 | Phase 6 | Pending |
+| INFRA-13 | Phase 6 | Pending |
+| AGNT-01 | Phase 7 | Pending |
+| AGNT-02 | Phase 7 | Pending |
+| AGNT-03 | Phase 7 | Pending |
+| AGNT-04 | Phase 6 | Pending |
+| AGNT-05 | Phase 7 | Pending |
+| AGNT-06 | Phase 7 | Pending |
+| STRM-01 | Phase 8 | Pending |
+| STRM-02 | Phase 8 | Pending |
+| STRM-03 | Phase 8 | Pending |
+| HITL-01 | Phase 9 | Pending |
+| HITL-02 | Phase 9 | Pending |
+| HITL-03 | Phase 9 | Pending |
+| OBSV-01 | Phase 9 | Pending |
+| OBSV-02 | Phase 9 | Pending |
+| DPLY-01 | Phase 9 | Pending |
+| DPLY-02 | Phase 9 | Pending |
 
 **Coverage:**
 - v2.0 requirements: 20 total
-- Mapped to phases: 0 (pending roadmap)
-- Unmapped: 20
+- Mapped to phases: 20/20
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-25*
-*Last updated: 2026-02-25 after v2.0 milestone definition*
+*Last updated: 2026-02-25 after v2.0 roadmap creation*

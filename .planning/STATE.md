@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-25)
 
 **Core value:** One-tap capture from a phone instantly routes through an agent chain that classifies, files, and sharpens thoughts into concrete next actions -- with zero organizational effort.
-**Current focus:** Milestone v2.0 -- Foundry Agent Service Migration
+**Current focus:** Phase 6 -- Infrastructure and Prerequisites (v2.0 Foundry Migration)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements for v2.0 milestone
-Last activity: 2026-02-25 -- Milestone v2.0 started (Foundry Agent Service migration)
+Phase: 6 of 9 (Infrastructure and Prerequisites)
+Plan: 0 of TBD in current phase
+Status: Ready to plan
+Last activity: 2026-02-25 -- Roadmap created for v2.0 milestone (Phases 6-9)
 
-Progress: [----------] 0%
+Progress: [######----] 60% (v1.0 complete, v2.0 starting)
 
 ## Performance Metrics
 
@@ -23,45 +23,28 @@ Progress: [----------] 0%
 - Average duration: 3.2 min
 - Total execution time: 1.5 hours
 
-*v2.0 metrics will be tracked here once execution begins*
+**v2.0:** No plans executed yet.
 
 ## Accumulated Context
 
-### v1.0 Decisions (Carried Forward)
+### Decisions
 
-Key patterns and decisions from v1.0 that inform v2.0 migration:
+Decisions are logged in PROJECT.md Key Decisions table.
+Recent decisions affecting current work:
 
-**Data layer (unchanged):**
-- Cosmos DB with 5 containers (Inbox, People, Projects, Ideas, Admin), partitioned by /userId
-- CosmosCrudTools class-based pattern to bind container references
-- Graceful fallback pattern: server starts without Cosmos/Blob/OpenAI configured
-- BlobStorageManager singleton pattern for voice capture storage
+- [v2.0 Roadmap]: Orchestrator eliminated -- code-based routing in FastAPI replaces HandoffBuilder
+- [v2.0 Roadmap]: Connected Agents deferred to v3.0 -- cannot call local @tool functions
+- [v2.0 Roadmap]: transcribe_audio becomes a @tool on the Classifier (Perception Agent eliminated)
+- [v2.0 Roadmap]: 4-phase migration: infrastructure -> classifier baseline -> adapter -> HITL + deploy
 
-**Mobile app (unchanged):**
-- Expo/React Native with expo-router tab navigation
-- AG-UI SSE streaming via react-native-sse (EventSource<AGUIEventType>)
-- sendVoiceCapture uses fetch + ReadableStream (not EventSource) for multipart upload + SSE
-- In-place voice recording mode on main capture screen
-- HITL flows: misunderstood (conversation), low-confidence (silent pending), recategorize (inbox)
+### Research Findings (Critical)
 
-**Backend patterns (CHANGING in v2.0):**
-- AzureOpenAIChatClient + HandoffBuilder → AzureAIAgentClient + Connected Agents
-- AGUIWorkflowAdapter → to be replaced
-- workflow.py → to be replaced entirely
-- Custom AG-UI endpoint with echo filter → to be redesigned for Foundry streaming
-- API key auth middleware → unchanged
-- Ruff per-file ignores for main.py (E402, I001) and camelCase Cosmos fields (N815)
-
-**Infrastructure (evolving):**
-- Azure Container Apps deployment with CI/CD (GitHub Actions, OIDC, SHA-tagged images)
-- Key Vault for secrets with graceful fallback
-- NEW: AI Foundry project, Application Insights, Azure AI User RBAC
-
-### Roadmap Evolution (v1.0)
-
-- Phases 1-5 executed (5 partially complete)
-- Inserted phases: 4.1 (deployment), 4.2 (swipe-delete), 4.3 (agent-user UX)
-- 28 plans completed across all phases
+- HandoffBuilder is incompatible with AzureAIAgentClient (HTTP 400 on JSON schema validation)
+- Connected Agents cannot call local @tool functions (server-side execution only)
+- should_cleanup_agent=False required for persistent agents in FastAPI lifespan
+- AzureAIAgentClient requires azure.identity.aio.DefaultAzureCredential (async, not sync)
+- Three RBAC assignments required: dev Entra ID, Container App MI, Foundry project MI
+- AGUIWorkflowAdapter is a complete rewrite (~150 lines), not a migration
 
 ### Pending Todos
 
@@ -69,14 +52,14 @@ None.
 
 ### Blockers/Concerns
 
-- [Open]: Connected Agents + HITL integration — how does request_info / request_misunderstood work with server-managed agents?
-- [Open]: AG-UI adapter redesign — current AGUIWorkflowAdapter wraps Workflow stream; Connected Agents may emit different events
-- [Open]: Agent lifecycle management — create at deploy time? At startup? How to handle instruction updates?
-- [Open]: Thread management — server-managed threads vs Cosmos DB inbox items coexistence
-- [Open]: Foundry Agent Service pricing vs Chat Completions pricing
+- [Resolved]: Connected Agents + HITL -- resolved by eliminating Connected Agents in v2.0
+- [Resolved]: AG-UI adapter redesign -- FoundrySSEAdapter approach confirmed by research
+- [Resolved]: Agent lifecycle -- should_cleanup_agent=False with stable agent IDs
+- [Resolved]: Thread management -- fresh Foundry thread per follow-up, no history contamination
+- [Open]: Foundry pricing vs Chat Completions pricing -- monitor during v2.0 execution
 
 ## Session Continuity
 
 Last session: 2026-02-25
-Stopped at: Milestone v2.0 started, defining requirements
-Resume file: .planning/fas-rearchitect.md
+Stopped at: v2.0 roadmap created (Phases 6-9), ready to plan Phase 6
+Resume file: None

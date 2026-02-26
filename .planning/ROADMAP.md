@@ -1,8 +1,9 @@
 # Roadmap: The Active Second Brain
 
-## Overview
+## Milestones
 
-This roadmap delivers a multi-agent capture-and-intelligence system in 9 phases, progressing from backend infrastructure through the core text capture-classify loop, then layering on multimodal input, action sharpening, people CRM, digests, and search. The build order is driven by the research finding that proving one agent works with real daily captures before adding the next is the single most important risk mitigation. Phases 1-4 deliver a usable daily text capture system; Phases 5-9 expand capabilities on that proven foundation.
+- [x] **v1.0 Text & Voice Capture Loop** - Phases 1-5 plus 4.1, 4.2, 4.3 (shipped 2026-02-25, partial)
+- [ ] **v2.0 Foundry Agent Service Migration** - Phases 6-9 (in progress)
 
 ## Phases
 
@@ -12,17 +13,33 @@ This roadmap delivers a multi-agent capture-and-intelligence system in 9 phases,
 
 Decimal phases appear between their surrounding integers in numeric order.
 
+<details>
+<summary>v1.0 Text & Voice Capture Loop (Phases 1-5) - SHIPPED 2026-02-25</summary>
+
 - [x] **Phase 1: Backend Foundation** - FastAPI server with AG-UI endpoint, Cosmos DB, API auth, and OpenTelemetry tracing
 - [x] **Phase 2: Expo App Shell** - Mobile app with text input, main capture screen, and cross-platform support
-- [ ] **Phase 3: Text Classification Pipeline** - Orchestrator and Classifier agents that route text input to the correct bucket in Cosmos DB
+- [x] **Phase 3: Text Classification Pipeline** - Orchestrator and Classifier agents that route text input to the correct bucket in Cosmos DB
 - [x] **Phase 4: HITL Clarification and AG-UI Streaming** - Real-time agent chain visibility and clarification conversation for low-confidence classifications
-- [ ] **Phase 5: Voice Capture** - Voice recording with Whisper transcription routed through the Perception Agent
-- [ ] **Phase 6: Action Sharpening** - Action Agent that converts vague Projects/Admin captures into concrete next actions
-- [ ] **Phase 7: People CRM and Cross-References** - People records with automatic relationship tracking and cross-reference extraction
-- [ ] **Phase 8: Digests and Notifications** - Daily/weekly briefings, ad-hoc queries, and push notifications
-- [ ] **Phase 9: Search** - Keyword search across all buckets with result snippets
+- [x] **Phase 4.1: Backend Deployment to Azure Container Apps** (INSERTED) - Containerized deployment with CI/CD
+- [x] **Phase 4.2: Swipe-to-delete inbox items** (INSERTED) - Inbox management UX
+- [x] **Phase 4.3: Agent-User UX with unclear item** (INSERTED) - Three distinct classification failure flows
+- [x] **Phase 5: Voice Capture** - Voice recording with Whisper transcription routed through the Perception Agent
+
+</details>
+
+### v2.0 Foundry Agent Service Migration (Phases 6-9)
+
+**Milestone Goal:** Rearchitect the backend agent layer from `AzureOpenAIChatClient` + `HandoffBuilder` to `AzureAIAgentClient` with persistent agents, server-managed threads, and Application Insights observability. Same features as v1, rebuilt on managed Foundry infrastructure.
+
+- [ ] **Phase 6: Infrastructure and Prerequisites** - Foundry project connectivity, RBAC, Application Insights, RC breaking changes, Orchestrator/HandoffBuilder deletion
+- [ ] **Phase 7: Single-Agent Classifier Baseline** - Persistent Classifier agent registered in Foundry, local @tool execution validated, transcription as tool, middleware
+- [ ] **Phase 8: FoundrySSEAdapter and FastAPI Integration** - New SSE adapter, main.py migration, text and voice capture end-to-end on Foundry
+- [ ] **Phase 9: HITL Validation, Observability, and Deployment** - All three HITL flows verified, Application Insights traces, Container App deployment with updated CI/CD
 
 ## Phase Details
+
+<details>
+<summary>v1.0 Phase Details (Phases 1-5)</summary>
 
 ### Phase 1: Backend Foundation
 **Goal**: The backend server is running, accepting requests, persisting data, and producing observable traces
@@ -36,9 +53,9 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 3 plans
 
 Plans:
-- [x] 01-01-PLAN.md — Project scaffold + AG-UI server with echo agent + OpenTelemetry
-- [x] 01-02-PLAN.md — Cosmos DB data layer (models, singleton client, CRUD tools)
-- [x] 01-03-PLAN.md — API key auth middleware + end-to-end integration verification
+- [x] 01-01-PLAN.md -- Project scaffold + AG-UI server with echo agent + OpenTelemetry
+- [x] 01-02-PLAN.md -- Cosmos DB data layer (models, singleton client, CRUD tools)
+- [x] 01-03-PLAN.md -- API key auth middleware + end-to-end integration verification
 
 ### Phase 2: Expo App Shell
 **Goal**: Will can open the app on his phone, type a thought, and send it to the backend
@@ -51,8 +68,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [x] 02-01-PLAN.md — Expo project scaffold + main capture screen with four buttons
-- [x] 02-02-PLAN.md — Text capture flow with AG-UI backend connectivity
+- [x] 02-01-PLAN.md -- Expo project scaffold + main capture screen with four buttons
+- [x] 02-02-PLAN.md -- Text capture flow with AG-UI backend connectivity
 
 ### Phase 3: Text Classification Pipeline
 **Goal**: A typed thought is automatically classified into the correct bucket and filed in Cosmos DB without any user effort
@@ -61,36 +78,53 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. A text capture submitted from the app is routed by the Orchestrator to the Classifier Agent
   2. The Classifier assigns the capture to exactly one of the four buckets (People, Projects, Ideas, Admin) with a confidence score
-  3. When confidence is >= 0.6, the capture is silently filed and the user sees a confirmation (e.g., "Filed -> Projects (0.85)")
+  3. When confidence is >= 0.6, the capture is silently filed and the user sees a confirmation
   4. Every capture is logged to the Inbox container with full classification details and agent chain metadata
   5. The Orchestrator provides a brief confirmation when the full agent chain completes
 **Plans**: 2 plans
 
 Plans:
-- [x] 03-01-PLAN.md — Backend classification pipeline (models, tools, agents, workflow, main.py wiring)
-- [x] 03-02-PLAN.md — Mobile classification result toast + backend classification tests
+- [x] 03-01-PLAN.md -- Backend classification pipeline (models, tools, agents, workflow, main.py wiring)
+- [x] 03-02-PLAN.md -- Mobile classification result toast + backend classification tests
 
 ### Phase 4: HITL Clarification and AG-UI Streaming
 **Goal**: Will can see agents working in real time and respond to clarification questions when the system is unsure
 **Depends on**: Phase 3
 **Requirements**: CLAS-04, CAPT-02, APPX-02, APPX-04
 **Success Criteria** (what must be TRUE):
-  1. User sees real-time visual feedback showing the agent chain processing their capture (Orchestrator -> Classifier -> Action)
+  1. User sees real-time visual feedback showing the agent chain processing their capture
   2. When classification confidence is < 0.6, the user is asked a focused clarifying question before filing
   3. Inbox view shows recent captures with the agent chain that processed each one
   4. Conversation view opens when a specialist needs clarification, showing a focused chat
-**Plans**: 6 plans (3 original + 3 gap closure)
+**Plans**: 6 plans
 
 Plans:
-- [x] 04-01-PLAN.md — Backend HITL workflow, AG-UI step events, echo filter, respond endpoint, Inbox API
-- [x] 04-02-PLAN.md — Mobile tab navigation, capture screen with step dots, streaming text, inline HITL bucket buttons
-- [x] 04-03-PLAN.md — Inbox list view with detail cards and conversation screen for pending clarifications
-- [x] 04-04-PLAN.md — [Gap fix] Backend: request_clarification tool, classifier instructions, adapter HITL detection, respond endpoint fix
-- [x] 04-05-PLAN.md — [Gap fix] Mobile: inboxItemId flow, real clarification text, top-2 bucket emphasis
-- [x] 04-06-PLAN.md — [UAT fix] Remove Classifier autonomous mode, fix useCallback closure bug, harden respond endpoint, inbox auto-refresh
+- [x] 04-01-PLAN.md -- Backend HITL workflow, AG-UI step events, echo filter, respond endpoint, Inbox API
+- [x] 04-02-PLAN.md -- Mobile tab navigation, capture screen with step dots, streaming text, inline HITL bucket buttons
+- [x] 04-03-PLAN.md -- Inbox list view with detail cards and conversation screen for pending clarifications
+- [x] 04-04-PLAN.md -- [Gap fix] Backend: request_clarification tool, classifier instructions, adapter HITL detection, respond endpoint fix
+- [x] 04-05-PLAN.md -- [Gap fix] Mobile: inboxItemId flow, real clarification text, top-2 bucket emphasis
+- [x] 04-06-PLAN.md -- [UAT fix] Remove Classifier autonomous mode, fix useCallback closure bug, harden respond endpoint, inbox auto-refresh
 
-### Phase 04.3: agent-user UX with unclear item (INSERTED)
+### Phase 04.1: Backend Deployment to Azure Container Apps (INSERTED)
+**Goal:** The FastAPI backend is containerized, deployed to Azure Container Apps, and accessible over HTTPS with automated CI/CD on push to main
+**Depends on:** Phase 4
+**Requirements:** INFRA-01
+**Plans:** 2/2 plans complete
 
+Plans:
+- [x] 04.1-01-PLAN.md -- Backend containerization (Dockerfile + .dockerignore with multi-stage uv build)
+- [x] 04.1-02-PLAN.md -- CI/CD pipeline and deployment (GitHub Actions workflow, Azure infra setup, deploy verification)
+
+### Phase 04.2: Swipe-to-delete inbox items (INSERTED)
+**Goal:** Users can swipe to delete inbox items
+**Depends on:** Phase 4
+**Plans:** 1/1 plan complete
+
+Plans:
+- [x] 04.2-01-PLAN.md -- Swipe-to-delete implementation
+
+### Phase 04.3: Agent-User UX with unclear item (INSERTED)
 **Goal:** Three distinct classification failure flows: misunderstood (conversational follow-up), low-confidence (silent pending filing), and mis-categorized (inbox recategorize)
 **Depends on:** Phase 4
 **Requirements:** CLAS-04, APPX-04 (extended)
@@ -105,28 +139,8 @@ Plans:
 - [x] 04.3-06-PLAN.md -- [UAT fix] Mobile: inbox bucket buttons for all statuses, misunderstood display fixes
 - [x] 04.3-07-PLAN.md -- [Gap fix] Backend: score validation/fallback for 0.00 confidence scores
 - [x] 04.3-08-PLAN.md -- [Gap fix] Backend: follow-up orphan reconciliation (update original, delete duplicates)
-- [ ] 04.3-09-PLAN.md -- [Gap fix] Backend: parse tool return string for corrected confidence in toast
-- [ ] 04.3-10-PLAN.md -- [Gap fix] Backend: narrow junk definition and reorder classifier decision flow
-
-### Phase 04.2: Swipe-to-delete inbox items (INSERTED)
-
-**Goal:** [Urgent work - to be planned]
-**Depends on:** Phase 4
-**Plans:** 0 plans
-
-Plans:
-- [ ] TBD (run /gsd:plan-phase 04.2 to break down)
-
-### Phase 04.1: Backend Deployment to Azure Container Apps (INSERTED)
-
-**Goal:** The FastAPI backend is containerized, deployed to Azure Container Apps, and accessible over HTTPS with automated CI/CD on push to main
-**Depends on:** Phase 4
-**Requirements:** INFRA-01
-**Plans:** 6/6 plans complete
-
-Plans:
-- [x] 04.1-01-PLAN.md -- Backend containerization (Dockerfile + .dockerignore with multi-stage uv build)
-- [x] 04.1-02-PLAN.md -- CI/CD pipeline and deployment (GitHub Actions workflow, Azure infra setup, deploy verification)
+- [x] 04.3-09-PLAN.md -- [Gap fix] Backend: parse tool return string for corrected confidence in toast
+- [x] 04.3-10-PLAN.md -- [Gap fix] Backend: narrow junk definition and reorder classifier decision flow
 
 ### Phase 5: Voice Capture
 **Goal**: Will can speak a thought into the app and have it transcribed, classified, and filed automatically
@@ -141,87 +155,90 @@ Plans:
 
 Plans:
 - [x] 05-01-PLAN.md -- Backend infra: Blob Storage manager, Whisper transcription tool, Perception Agent
-- [ ] 05-02-PLAN.md -- Backend wiring: POST /api/voice-capture endpoint, Orchestrator update
-- [ ] 05-03-PLAN.md -- Mobile: voice recording screen (expo-audio), upload client, Voice button enabled
+- [x] 05-02-PLAN.md -- Backend wiring: POST /api/voice-capture endpoint, Orchestrator update
+- [x] 05-03-PLAN.md -- Mobile: voice recording screen (expo-audio), upload client, Voice button enabled
 
-### Phase 6: Action Sharpening
-**Goal**: Vague project and admin captures are automatically sharpened into specific, executable next actions
-**Depends on**: Phase 3
-**Requirements**: ACTN-01, ACTN-02, ACTN-03, ACTN-04, ORCH-04
+</details>
+
+### Phase 6: Infrastructure and Prerequisites
+**Goal**: The Foundry project endpoint is reachable, RBAC allows both local dev and deployed Container App to authenticate, Application Insights is connected, and all RC breaking changes are applied so the codebase compiles against the new SDK
+**Depends on**: Phase 5 (v1.0 complete)
+**Requirements**: INFRA-10, INFRA-11, INFRA-12, INFRA-13, AGNT-04
 **Success Criteria** (what must be TRUE):
-  1. Items classified as Projects or Admin are routed to the Action Agent after classification
-  2. The Action Agent converts vague thoughts into specific next actions and updates the record
-  3. When a thought is too vague, the Action Agent asks one clarifying question ("What's the first concrete step?")
-  4. People and Ideas captures skip the Action Agent entirely
+  1. `AzureAIAgentClient` can authenticate to the Foundry project endpoint from local dev using developer Entra ID credentials
+  2. Application Insights instance is connected to the Foundry project and accepting telemetry
+  3. HandoffBuilder and Orchestrator agent code are deleted from the codebase with no import errors
+  4. The backend starts without errors after `AgentThread` to `AgentSession` migration and async credential swap
+  5. All new environment variables (`AZURE_AI_PROJECT_ENDPOINT`, `AZURE_AI_CLASSIFIER_AGENT_ID`, `APPLICATIONINSIGHTS_CONNECTION_STRING`) are configured in `.env` and `config.py`
 **Plans**: TBD
 
 Plans:
 - [ ] 06-01: TBD
 - [ ] 06-02: TBD
 
-### Phase 7: People CRM and Cross-References
-**Goal**: Will's People records are automatically created, updated, and linked to other captures
-**Depends on**: Phase 3
-**Requirements**: PEOP-01, PEOP-02, PEOP-03, PEOP-04, CLAS-05, CLAS-06
+### Phase 7: Single-Agent Classifier Baseline
+**Goal**: The Classifier agent is a persistent, Foundry-registered agent that executes local @tool functions and is validated in isolation before touching the live FastAPI service
+**Depends on**: Phase 6
+**Requirements**: AGNT-01, AGNT-02, AGNT-03, AGNT-05, AGNT-06
 **Success Criteria** (what must be TRUE):
-  1. People records store name, context, contact details, birthday, lastInteraction, interactionHistory, and followUps
-  2. When a capture mentions a known person, their record is updated with the interaction
-  3. When a capture mentions an unknown person, a new People record is created
-  4. Cross-references are extracted linking People and Projects mentioned in each other's captures
-  5. User can view People records in the Expo app
+  1. Classifier agent is visible in the AI Foundry portal with a stable ID that survives Container App restarts
+  2. A standalone test script confirms `classify_and_file` executes locally and writes to Cosmos DB when invoked by the Foundry service
+  3. `transcribe_audio` works as a @tool callable by the Classifier, producing text from a voice recording via `gpt-4o-transcribe`
+  4. `AgentMiddleware` and `FunctionMiddleware` fire during agent runs (audit log entry and tool timing visible in console output)
 **Plans**: TBD
 
 Plans:
 - [ ] 07-01: TBD
 - [ ] 07-02: TBD
-- [ ] 07-03: TBD
 
-### Phase 8: Digests and Notifications
-**Goal**: Will receives automated daily and weekly briefings and can ask "what's on my plate" at any time
-**Depends on**: Phase 6, Phase 7
-**Requirements**: DGST-01, DGST-02, DGST-03, DGST-04, DGST-05, DGST-06, ORCH-05, APPX-03
+### Phase 8: FoundrySSEAdapter and FastAPI Integration
+**Goal**: Text and voice captures flow end-to-end through the Foundry-backed Classifier, producing the same AG-UI SSE events the mobile app already consumes
+**Depends on**: Phase 7
+**Requirements**: STRM-01, STRM-02, STRM-03
 **Success Criteria** (what must be TRUE):
-  1. A daily briefing under 150 words is composed at 6:30 AM CT with Today's Focus, Unblock This, and Small Win sections
-  2. A weekly review is composed on Sunday 9 AM CT summarizing activity, stalled projects, and neglected relationships
-  3. User can ask "what's on my plate" at any time and receive an ad-hoc summary
-  4. Push notification is sent for daily digest, weekly review, and when an agent needs clarification
-  5. All other capture confirmations are silent (badge update only)
+  1. Text capture from the Expo app produces `StepStarted`, `StepFinished`, and `CLASSIFIED`/`MISUNDERSTOOD`/`UNRESOLVED` custom events identical to v1 behavior
+  2. Voice capture uploads to Blob Storage, the Classifier invokes `transcribe_audio` as a tool, and the result streams back as AG-UI events with Perception step + classification result
+  3. The `FoundrySSEAdapter` replaces `AGUIWorkflowAdapter` and the mobile app works without any code changes
 **Plans**: TBD
 
 Plans:
 - [ ] 08-01: TBD
 - [ ] 08-02: TBD
-- [ ] 08-03: TBD
 
-### Phase 9: Search
-**Goal**: Will can find any capture or record by searching across all buckets
-**Depends on**: Phase 3
-**Requirements**: SRCH-01, SRCH-02
+### Phase 9: HITL Validation, Observability, and Deployment
+**Goal**: All three HITL flows work on the Foundry backend, Application Insights shows per-classification traces, and the migrated system is deployed to Azure Container Apps
+**Depends on**: Phase 8
+**Requirements**: HITL-01, HITL-02, HITL-03, OBSV-01, OBSV-02, DPLY-01, DPLY-02
 **Success Criteria** (what must be TRUE):
-  1. User can search across all buckets by keyword matching on rawText, titles, names, and task descriptions
-  2. Search results show the bucket, record title/name, and a snippet of matching text
+  1. Low-confidence captures are filed as pending with bucket buttons appearing in the mobile inbox for recategorization
+  2. Misunderstood captures trigger conversational follow-up using a fresh Foundry thread (no conversation history contamination from the first classification pass)
+  3. Recategorize from inbox detail card writes to Cosmos DB and updates the mobile UI
+  4. Application Insights shows traces for Foundry agent runs with token usage, cost, and classification outcome visible per capture
+  5. The migrated backend is deployed to Azure Container Apps with updated CI/CD pipeline including `agent-framework-azure-ai` and `azure-monitor-opentelemetry` dependencies
 **Plans**: TBD
 
 Plans:
 - [ ] 09-01: TBD
+- [ ] 09-02: TBD
+- [ ] 09-03: TBD
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9
-Note: Phases 5, 6, 7, and 9 depend only on Phase 3 and can be parallelized, but serial execution is recommended for a solo developer.
+- v1.0: 1 -> 2 -> 3 -> 4 -> 4.1 -> 4.2 -> 4.3 -> 5 (complete)
+- v2.0: 6 -> 7 -> 8 -> 9
 
-| Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 1. Backend Foundation | 3/3 | Complete | 2026-02-21 |
-| 2. Expo App Shell | 2/2 | Complete    | 2026-02-22 |
-| 3. Text Classification Pipeline | 2/2 | Complete | 2026-02-22 |
-| 4. HITL Clarification and AG-UI Streaming | 6/6 | Complete | 2026-02-24 |
-| 4.1 Backend Deployment to Azure Container Apps | 2/2 | Complete | 2026-02-23 |
-| 4.2 Swipe-to-delete inbox items | 1/1 | Complete | 2026-02-24 |
-| 4.3 Agent-User UX with unclear item | 8/10 | In Progress | - |
-| 5. Voice Capture | 1/3 | In Progress | - |
-| 6. Action Sharpening | 0/2 | Not started | - |
-| 7. People CRM and Cross-References | 0/3 | Not started | - |
-| 8. Digests and Notifications | 0/3 | Not started | - |
-| 9. Search | 0/1 | Not started | - |
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 1. Backend Foundation | v1.0 | 3/3 | Complete | 2026-02-21 |
+| 2. Expo App Shell | v1.0 | 2/2 | Complete | 2026-02-22 |
+| 3. Text Classification Pipeline | v1.0 | 2/2 | Complete | 2026-02-22 |
+| 4. HITL Clarification and AG-UI Streaming | v1.0 | 6/6 | Complete | 2026-02-24 |
+| 4.1 Backend Deployment to Azure Container Apps | v1.0 | 2/2 | Complete | 2026-02-23 |
+| 4.2 Swipe-to-delete inbox items | v1.0 | 1/1 | Complete | 2026-02-24 |
+| 4.3 Agent-User UX with unclear item | v1.0 | 10/10 | Complete | 2026-02-25 |
+| 5. Voice Capture | v1.0 | 3/3 | Complete | 2026-02-25 |
+| 6. Infrastructure and Prerequisites | v2.0 | 0/TBD | Not started | - |
+| 7. Single-Agent Classifier Baseline | v2.0 | 0/TBD | Not started | - |
+| 8. FoundrySSEAdapter and FastAPI Integration | v2.0 | 0/TBD | Not started | - |
+| 9. HITL Validation, Observability, and Deployment | v2.0 | 0/TBD | Not started | - |
