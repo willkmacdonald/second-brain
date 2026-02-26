@@ -1,175 +1,142 @@
 # Requirements: The Active Second Brain
 
-**Defined:** 2026-02-21
-**Core Value:** One-tap capture from a phone instantly routes through an agent chain that classifies, files, and sharpens thoughts into concrete next actions — with zero organizational effort.
+**Defined:** 2026-02-25
+**Core Value:** One-tap capture from a phone instantly routes through an agent chain that classifies, files, and sharpens thoughts into concrete next actions — with zero organizational effort from the user.
 
-## v1 Requirements
+## v2.0 Requirements — Foundry Agent Service Migration
 
-Requirements for initial release. Each maps to roadmap phases.
+Migrate the backend agent layer from `AzureOpenAIChatClient` + `HandoffBuilder` to `AzureAIAgentClient` (Azure AI Foundry Agent Service). Same features as v1.0, rebuilt on managed infrastructure with persistent agents, server-managed threads, and Application Insights observability.
+
+**Foundry project endpoint:** `https://second-brain-foundry-resource.services.ai.azure.com/api/projects/second-brain`
 
 ### Infrastructure
 
-- [x] **INFRA-01**: Agent Framework server runs on Azure Container Apps with AG-UI endpoint accepting HTTP POST and streaming SSE responses
-- [x] **INFRA-02**: Cosmos DB provisioned with 5 containers (Inbox, People, Projects, Ideas, Admin) partitioned by `/userId`
-- [ ] **INFRA-03**: Azure Blob Storage configured for media file uploads (voice recordings)
-- [x] **INFRA-04**: OpenTelemetry tracing enabled across all agent handoffs with traces viewable in Agent Framework DevUI
-- [x] **INFRA-05**: API key authentication protects the AG-UI endpoint (key stored in Expo Secure Store)
+- [ ] **INFRA-10**: AI Foundry project connectivity validated with model deployment accessible from project endpoint
+- [ ] **INFRA-11**: Application Insights instance created and connected to the Foundry project
+- [ ] **INFRA-12**: RBAC configured: developer Entra ID (Azure AI User on project), Container App managed identity (Azure AI User on project), Foundry project managed identity (Cognitive Services User on OpenAI resource)
+- [ ] **INFRA-13**: New environment variables configured in `.env`, `config.py`, and deployed Container App (`AZURE_AI_PROJECT_ENDPOINT`, `AZURE_AI_CLASSIFIER_AGENT_ID`, `APPLICATIONINSIGHTS_CONNECTION_STRING`)
 
-### Capture
+### Agent Migration
 
-- [x] **CAPT-01**: User can type a thought in the Expo app and submit it with one tap
-- [x] **CAPT-02**: User receives real-time visual feedback showing the agent chain processing their capture (Orchestrator → Classifier → Action)
-- [ ] **CAPT-03**: User can record a voice note in the Expo app which is transcribed by the Perception Agent via Whisper
-- [x] **CAPT-04**: User sees transcribed text and classification result after voice capture
-- [x] **CAPT-05**: Expo app runs on both iOS and Android
+- [ ] **AGNT-01**: Classifier agent registered as a persistent Foundry agent with stable ID visible in AI Foundry portal
+- [ ] **AGNT-02**: Classifier agent executes local `@tool` functions (`classify_and_file`, `request_misunderstood`, `mark_as_junk`) through Foundry service with results written to Cosmos DB
+- [ ] **AGNT-03**: `AzureAIAgentClient` with `should_cleanup_agent=False` manages agent lifecycle — agent persists across Container App restarts
+- [ ] **AGNT-04**: Orchestrator agent eliminated; code-based routing in FastAPI endpoint replaces HandoffBuilder orchestration
+- [ ] **AGNT-05**: `transcribe_audio` is a `@tool` callable by the Classifier agent, using `gpt-4o-transcribe` via `AsyncAzureOpenAI` (replaces sync Whisper via Cognitive Services)
+- [ ] **AGNT-06**: Agent middleware wired: `AgentMiddleware` for audit logging, `FunctionMiddleware` for tool validation/timing
 
-### Orchestration
+### Streaming
 
-- [x] **ORCH-01**: Orchestrator Agent receives all input and routes to the correct specialist agent based on input type and context
-- [x] **ORCH-02**: Orchestrator routes text input directly to Classifier Agent
-- [x] **ORCH-03**: Orchestrator routes audio input to Perception Agent first, then Classifier Agent
-- [ ] **ORCH-04**: Orchestrator routes classified Projects/Admin items to Action Agent for sharpening
-- [ ] **ORCH-05**: Orchestrator routes digest/summary requests to Digest Agent
-- [x] **ORCH-06**: Orchestrator provides brief confirmation when the full agent chain completes
+- [ ] **STRM-01**: `FoundrySSEAdapter` replaces `AGUIWorkflowAdapter`, streaming `AgentResponseUpdate` events to AG-UI SSE format
+- [ ] **STRM-02**: Text capture produces same AG-UI events as v1 (`StepStarted`, `StepFinished`, `CLASSIFIED`/`MISUNDERSTOOD`/`UNRESOLVED`, `RUN_FINISHED`)
+- [ ] **STRM-03**: Voice capture produces same AG-UI events as v1 (Perception step + classification stream)
 
-### Classification
+### HITL Parity
 
-- [x] **CLAS-01**: Classifier Agent classifies input into exactly one of four buckets: People, Projects, Ideas, or Admin
-- [x] **CLAS-02**: Classifier assigns a confidence score (0.0–1.0) to each classification
-- [x] **CLAS-03**: When confidence >= 0.6, Classifier silently files the record and confirms (e.g., "Filed → Projects (0.85)")
-- [x] **CLAS-04**: When confidence < 0.6, Classifier asks the user a focused clarifying question before filing
-- [ ] **CLAS-05**: Classifier checks existing People and Projects records before creating new ones
-- [ ] **CLAS-06**: Classifier extracts cross-references (people mentioned in project captures, projects mentioned in people captures) and links them
-- [x] **CLAS-07**: Every capture is logged to the Inbox container with full classification details and agent chain metadata
+- [ ] **HITL-01**: Low-confidence captures filed as pending with bucket buttons for recategorization (direct Cosmos write, unchanged)
+- [ ] **HITL-02**: Misunderstood captures trigger conversational follow-up using fresh Foundry thread (no conversation history contamination)
+- [ ] **HITL-03**: Recategorize from inbox detail card works end-to-end (direct Cosmos write, unchanged)
 
-### Action Sharpening
+### Observability
 
-- [ ] **ACTN-01**: Action Agent receives items classified as Projects or Admin and sharpens vague thoughts into specific, executable next actions
-- [ ] **ACTN-02**: Action Agent updates the Project's `nextAction` field or the Admin task's description with the sharpened action
-- [ ] **ACTN-03**: When a thought is too vague to actionize, Action Agent asks one clarifying question ("What's the first concrete step?")
-- [ ] **ACTN-04**: People and Ideas captures skip the Action Agent entirely
+- [ ] **OBSV-01**: Application Insights receives traces from Foundry agent runs with per-classification visibility
+- [ ] **OBSV-02**: Token usage and cost metrics visible in Foundry portal or Application Insights
 
-### People (Personal CRM)
+### Deployment
 
-- [ ] **PEOP-01**: People records store name, context, contact details, birthday, lastInteraction, interactionHistory, and followUps
-- [ ] **PEOP-02**: When a capture mentions a known person, their record is updated with the interaction
-- [ ] **PEOP-03**: When a capture mentions an unknown person, a new People record is created
-- [ ] **PEOP-04**: User can view People records in the Expo app
+- [ ] **DPLY-01**: Migrated backend deployed to Azure Container Apps with all new env vars and dependencies
+- [ ] **DPLY-02**: CI/CD pipeline updated for new dependencies (`agent-framework-azure-ai`, `azure-monitor-opentelemetry`)
 
-### Digests
+## v1.0 Requirements (Completed)
 
-- [ ] **DGST-01**: Digest Agent composes a daily briefing under 150 words at 6:30 AM CT with Today's Focus (top 3 actions), Unblock This (one stuck item), and Small Win (recent progress)
-- [ ] **DGST-02**: User can ask "what's on my plate" at any time and receive an ad-hoc summary from the Digest Agent
-- [ ] **DGST-03**: Digest Agent composes a weekly review on Sunday 9 AM CT summarizing activity, stalled projects, and neglected relationships
-- [ ] **DGST-04**: Push notification sent for daily digest and weekly review
-- [ ] **DGST-05**: Push notification sent when an agent needs clarification (HITL)
-- [ ] **DGST-06**: All other capture confirmations are silent (badge update only)
+### Validated (shipped in v1.0)
 
-### Search
+- [x] **INFRA-01**: Agent Framework server runs on Azure Container Apps with AG-UI endpoint — Phase 1
+- [x] **INFRA-02**: Cosmos DB provisioned with 5 containers partitioned by `/userId` — Phase 1
+- [x] **INFRA-04**: OpenTelemetry tracing enabled across all agent handoffs — Phase 1
+- [x] **INFRA-05**: API key authentication protects the AG-UI endpoint — Phase 1
+- [x] **CAPT-01**: User can type a thought and submit with one tap — Phase 2
+- [x] **CAPT-02**: Real-time visual feedback showing agent chain processing — Phase 4
+- [x] **CAPT-04**: User sees transcribed text and classification result after voice capture — Phase 5
+- [x] **CAPT-05**: Expo app runs on both iOS and Android — Phase 2
+- [x] **ORCH-01**: Orchestrator routes to correct specialist agent — Phase 3
+- [x] **ORCH-02**: Orchestrator routes text to Classifier — Phase 3
+- [x] **ORCH-03**: Orchestrator routes audio to Perception then Classifier — Phase 5
+- [x] **ORCH-06**: Orchestrator provides confirmation when agent chain completes — Phase 3
+- [x] **CLAS-01**: Classifier classifies into People/Projects/Ideas/Admin — Phase 3
+- [x] **CLAS-02**: Classifier assigns confidence score (0.0–1.0) — Phase 3
+- [x] **CLAS-03**: Confidence >= 0.6 silently files and confirms — Phase 3
+- [x] **CLAS-04**: Confidence < 0.6 triggers clarifying question — Phase 4
+- [x] **CLAS-07**: Every capture logged to Inbox with classification details — Phase 3
+- [x] **APPX-01**: Main screen shows capture buttons — Phase 2
+- [x] **APPX-02**: Inbox view shows recent captures — Phase 4
+- [x] **APPX-04**: Conversation view for clarification — Phase 4
 
-- [ ] **SRCH-01**: User can search across all buckets by keyword matching on rawText, titles, names, and task descriptions
-- [ ] **SRCH-02**: Search results show the bucket, record title/name, and a snippet of matching text
+### Partially Complete (v1.0)
 
-### App UX
+- [ ] **INFRA-03**: Azure Blob Storage for media uploads — configured, voice working, photo/video deferred
+- [ ] **CAPT-03**: Voice recording in Expo app via Whisper — backend working, mobile UAT incomplete
 
-- [x] **APPX-01**: Main screen shows four large capture buttons (Voice, Photo, Video, Text) — no settings, folders, or tags visible
-- [x] **APPX-02**: Inbox view shows recent captures with the agent chain that processed each one
-- [ ] **APPX-03**: Digest view displays the morning briefing, opened via push notification
-- [x] **APPX-04**: Conversation view opens when a specialist needs clarification, showing a focused chat
+## v3.0+ Requirements (Deferred)
 
-## v2 Requirements
+### Connected Agents
+- **CONN-01**: `classify_and_file` tool moved to Azure Functions for server-side execution
+- **CONN-02**: Orchestrator re-introduced as Connected Agent invoking Classifier as sub-agent
 
-Deferred to future release. Tracked but not in current roadmap.
+### New Agents
+- **ORCH-04**: Orchestrator routes classified Projects/Admin to Action Agent
+- **ORCH-05**: Orchestrator routes digest/summary requests to Digest Agent
+- **ACTN-01** through **ACTN-04**: Action Agent sharpening
+- **PEOP-01** through **PEOP-04**: People CRM
+- **DGST-01** through **DGST-06**: Digests and notifications
+- **CLAS-05**, **CLAS-06**: Cross-references and duplicate checking
 
-### Media
-
-- **MDIA-01**: User can capture and process photos with Vision understanding (OCR, scene description)
-- **MDIA-02**: User can capture and process video clips with keyframe extraction
-- **MDIA-03**: Share sheet extension for capturing from other apps
-
-### Intelligence
-
-- **INTL-01**: Entity Resolution Agent runs nightly to merge duplicate People records via fuzzy name matching
-- **INTL-02**: Evaluation Agent produces weekly system health reports (classification accuracy, stale content, action quality, system performance)
-- **INTL-03**: Full-text / semantic search with embeddings across all buckets
-- **INTL-04**: Correction feedback loop — clarification history used as few-shot examples to improve classification
-
-### Data
-
-- **DATA-01**: JSON export of all records (data portability)
+### Features
+- **SRCH-01**, **SRCH-02**: Search across all buckets
+- **MDIA-01** through **MDIA-03**: Photo/video capture, share sheet
+- **APPX-03**: Digest view in mobile app
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| Folder/tag taxonomy | Contradicts zero-organization principle; forces decisions at capture time |
-| Rich text editor | This is a capture app, not a writing app; degrades capture speed |
-| Bi-directional links / graph view | Eye candy requiring thousands of notes; cross-references serve the same purpose |
-| Offline capture | Core value (AI processing) requires cloud; Will's capture contexts have connectivity |
-| Custom bucket types | Scope creep; 4 buckets are deliberately "painfully small" per Principle 9 |
-| Real-time collaboration | Single-user system; zero benefit from multi-user complexity |
-| Calendar integration | System captures thoughts, not schedules; Admin bucket handles time-sensitive tasks |
-| Web clipper | Captures other people's content, not Will's thoughts; creates hoarding pattern |
-| Template system | Pre-structured forms oppose frictionless capture; agents apply structure after capture |
-| Plugin ecosystem | Single-user hobby project; adds maintenance burden for zero benefit |
-| Gamification | Streaks/badges create guilt; contradicts "Design for Restart" principle |
-| Multi-tenancy | Built for Will only; `userId: "will"` is hardcoded |
+| Connected Agents pattern | Requires moving @tool functions to Azure Functions — v3.0 scope |
+| New agent types (Action, Digest, People, Entity Resolution) | Not part of migration milestone |
+| Orchestrator agent | Eliminated — code-based routing with single destination agent |
+| Mobile app changes | AG-UI SSE interface unchanged; zero mobile code changes needed |
+| Multi-user / multi-tenancy | Single-user system for Will only |
+| Offline capture | Requires connectivity |
 
 ## Traceability
 
-Which phases cover which requirements. Updated during roadmap creation.
-
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INFRA-01 | Phase 1 | Complete |
-| INFRA-02 | Phase 1 | Complete |
-| INFRA-03 | Phase 5 | Pending |
-| INFRA-04 | Phase 1 | Complete |
-| INFRA-05 | Phase 1 | Complete |
-| CAPT-01 | Phase 2 | Complete |
-| CAPT-02 | Phase 4 | Complete |
-| CAPT-03 | Phase 5 | Pending |
-| CAPT-04 | Phase 5 | Complete |
-| CAPT-05 | Phase 2 | Complete |
-| ORCH-01 | Phase 3 | Complete |
-| ORCH-02 | Phase 3 | Complete |
-| ORCH-03 | Phase 5 | Complete |
-| ORCH-04 | Phase 6 | Pending |
-| ORCH-05 | Phase 8 | Pending |
-| ORCH-06 | Phase 3 | Complete |
-| CLAS-01 | Phase 3 | Complete |
-| CLAS-02 | Phase 3 | Complete |
-| CLAS-03 | Phase 3 | Complete |
-| CLAS-04 | Phase 4 | Complete |
-| CLAS-05 | Phase 7 | Pending |
-| CLAS-06 | Phase 7 | Pending |
-| CLAS-07 | Phase 3 | Complete |
-| ACTN-01 | Phase 6 | Pending |
-| ACTN-02 | Phase 6 | Pending |
-| ACTN-03 | Phase 6 | Pending |
-| ACTN-04 | Phase 6 | Pending |
-| PEOP-01 | Phase 7 | Pending |
-| PEOP-02 | Phase 7 | Pending |
-| PEOP-03 | Phase 7 | Pending |
-| PEOP-04 | Phase 7 | Pending |
-| DGST-01 | Phase 8 | Pending |
-| DGST-02 | Phase 8 | Pending |
-| DGST-03 | Phase 8 | Pending |
-| DGST-04 | Phase 8 | Pending |
-| DGST-05 | Phase 8 | Pending |
-| DGST-06 | Phase 8 | Pending |
-| SRCH-01 | Phase 9 | Pending |
-| SRCH-02 | Phase 9 | Pending |
-| APPX-01 | Phase 2 | Complete |
-| APPX-02 | Phase 4 | Complete |
-| APPX-03 | Phase 8 | Pending |
-| APPX-04 | Phase 4 | Complete |
+| INFRA-10 | TBD | Pending |
+| INFRA-11 | TBD | Pending |
+| INFRA-12 | TBD | Pending |
+| INFRA-13 | TBD | Pending |
+| AGNT-01 | TBD | Pending |
+| AGNT-02 | TBD | Pending |
+| AGNT-03 | TBD | Pending |
+| AGNT-04 | TBD | Pending |
+| AGNT-05 | TBD | Pending |
+| AGNT-06 | TBD | Pending |
+| STRM-01 | TBD | Pending |
+| STRM-02 | TBD | Pending |
+| STRM-03 | TBD | Pending |
+| HITL-01 | TBD | Pending |
+| HITL-02 | TBD | Pending |
+| HITL-03 | TBD | Pending |
+| OBSV-01 | TBD | Pending |
+| OBSV-02 | TBD | Pending |
+| DPLY-01 | TBD | Pending |
+| DPLY-02 | TBD | Pending |
 
 **Coverage:**
-- v1 requirements: 43 total
-- Mapped to phases: 43
-- Unmapped: 0
+- v2.0 requirements: 20 total
+- Mapped to phases: 0 (pending roadmap)
+- Unmapped: 20
 
 ---
-*Requirements defined: 2026-02-21*
-*Last updated: 2026-02-21 after roadmap creation (traceability updated)*
+*Requirements defined: 2026-02-25*
+*Last updated: 2026-02-25 after v2.0 milestone definition*

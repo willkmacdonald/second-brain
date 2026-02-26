@@ -64,15 +64,17 @@ The migration collapses the two-agent HandoffBuilder chain (Orchestrator → Cla
 4. `agents/orchestrator.py` — deleted (Orchestrator eliminated)
 5. `agents/classifier.py` — import swap: `AzureOpenAIChatClient` → `AzureAIAgentClient`
 
+6. `tools/transcription.py` — rewritten: `transcribe_audio` becomes a `@tool` using `gpt-4o-transcribe` via `AsyncAzureOpenAI` (replaces sync Whisper via Cognitive Services). The Classifier agent calls this tool when processing voice input.
+7. `agents/perception.py` — deleted (Perception Agent eliminated; transcription is now a tool callable by Classifier)
+8. Middleware — `AgentMiddleware` for audit logging, `FunctionMiddleware` for tool validation/timing (e.g., `TranscriptionGuardMiddleware` validates file extension and size before calling `gpt-4o-transcribe`)
+
 **Components that do not change (majority of codebase):**
 - `tools/classification.py` — all `@tool` functions unchanged
 - `db/cosmos.py`, `db/blob_storage.py` — unchanged
 - `api/inbox.py`, `api/health.py`, `auth.py` — unchanged
-- `tools/transcription.py` — unchanged (Whisper stays on Azure OpenAI)
 - Mobile Expo app — unchanged
 - AG-UI SSE protocol and event format — unchanged
 - `/api/ag-ui/respond` endpoint — unchanged (direct Cosmos write, no agent involvement)
-- `/api/voice-capture` Perception step — unchanged (Blob upload + Whisper)
 
 **Key patterns confirmed:**
 - `AzureAIAgentClient` requires `azure.identity.aio.DefaultAzureCredential` (async), not the sync variant
@@ -80,6 +82,9 @@ The migration collapses the two-agent HandoffBuilder chain (Orchestrator → Cla
 - Tools must be registered at `as_agent()` creation time, not at `run()` call time
 - Store `ai_client` on `app.state` alongside `classifier_agent` to keep the HTTP connection alive
 - HITL follow-up: always create a fresh Foundry thread (new `thread_id`) to avoid conversation history contamination from the first failed classification pass
+- Transcription is a `@tool` callable by the agent, using `gpt-4o-transcribe` via `AsyncAzureOpenAI` — the agent decides when to transcribe, not the endpoint code
+- Three middleware layers available: `AgentMiddleware` (whole run), `FunctionMiddleware` (tool calls), `ChatMiddleware` (LLM API calls) — use `call_next()` pattern to proceed or block
+- Middleware can be added at agent creation time AND per-run (for dynamic behavior)
 
 ### Critical Pitfalls
 
