@@ -1,11 +1,11 @@
 # Requirements: The Active Second Brain
 
-**Defined:** 2026-02-25
-**Core Value:** One-tap capture from a phone instantly routes through an agent chain that classifies, files, and sharpens thoughts into concrete next actions — with zero organizational effort from the user.
+**Defined:** 2026-02-26
+**Core Value:** One-tap capture from a phone instantly routes through an agent chain that classifies, files, and proactively follows up — with zero organizational effort from the user.
 
-## v2.0 Requirements — Foundry Agent Service Migration
+## v2.0 Requirements — Proactive Second Brain
 
-Migrate the backend agent layer from `AzureOpenAIChatClient` + `HandoffBuilder` to `AzureAIAgentClient` (Azure AI Foundry Agent Service). Same features as v1.0, rebuilt on managed infrastructure with persistent agents, server-managed threads, and Application Insights observability.
+Transform the Second Brain from a filing cabinet into a proactive thinking partner. Rebuild on Foundry Agent Service with four specialist agents that follow up over time via push notifications.
 
 **Foundry project endpoint:** `https://second-brain-foundry-resource.services.ai.azure.com/api/projects/second-brain`
 
@@ -14,22 +14,23 @@ Migrate the backend agent layer from `AzureOpenAIChatClient` + `HandoffBuilder` 
 - [ ] **INFRA-10**: AI Foundry project connectivity validated with model deployment accessible from project endpoint
 - [ ] **INFRA-11**: Application Insights instance created and connected to the Foundry project
 - [ ] **INFRA-12**: RBAC configured: developer Entra ID (Azure AI User on project), Container App managed identity (Azure AI User on project), Foundry project managed identity (Cognitive Services User on OpenAI resource)
-- [ ] **INFRA-13**: New environment variables configured in `.env`, `config.py`, and deployed Container App (`AZURE_AI_PROJECT_ENDPOINT`, `AZURE_AI_CLASSIFIER_AGENT_ID`, `APPLICATIONINSIGHTS_CONNECTION_STRING`)
+- [ ] **INFRA-13**: New environment variables configured in `.env`, `config.py`, and deployed Container App (`AZURE_AI_PROJECT_ENDPOINT`, `AZURE_AI_CLASSIFIER_AGENT_ID`, `APPLICATIONINSIGHTS_CONNECTION_STRING`, specialist agent IDs)
+- [ ] **INFRA-14**: Old orchestration code deleted: HandoffBuilder, AGUIWorkflowAdapter, Orchestrator agent, Perception Agent, Whisper integration
 
 ### Agent Migration
 
 - [ ] **AGNT-01**: Classifier agent registered as a persistent Foundry agent with stable ID visible in AI Foundry portal
-- [ ] **AGNT-02**: Classifier agent executes local `@tool` functions (`classify_and_file`, `request_misunderstood`, `mark_as_junk`) through Foundry service with results written to Cosmos DB
+- [ ] **AGNT-02**: Classifier agent executes in-process Python `@tool` functions (`classify_and_file`, `request_misunderstood`, `mark_as_junk`) through Foundry callback mechanism with results written to Cosmos DB
 - [ ] **AGNT-03**: `AzureAIAgentClient` with `should_cleanup_agent=False` manages agent lifecycle — agent persists across Container App restarts
 - [ ] **AGNT-04**: Orchestrator agent eliminated; code-based routing in FastAPI endpoint replaces HandoffBuilder orchestration
-- [ ] **AGNT-05**: `transcribe_audio` is a `@tool` callable by the Classifier agent, using `gpt-4o-transcribe` via `AsyncAzureOpenAI` (replaces sync Whisper via Cognitive Services)
+- [ ] **AGNT-05**: `transcribe_audio` is a `@tool` callable by the Classifier agent, using `gpt-4o-transcribe` via `AsyncAzureOpenAI` (replaces Whisper)
 - [ ] **AGNT-06**: Agent middleware wired: `AgentMiddleware` for audit logging, `FunctionMiddleware` for tool validation/timing
 
 ### Streaming
 
 - [ ] **STRM-01**: `FoundrySSEAdapter` replaces `AGUIWorkflowAdapter`, streaming `AgentResponseUpdate` events to AG-UI SSE format
 - [ ] **STRM-02**: Text capture produces same AG-UI events as v1 (`StepStarted`, `StepFinished`, `CLASSIFIED`/`MISUNDERSTOOD`/`UNRESOLVED`, `RUN_FINISHED`)
-- [ ] **STRM-03**: Voice capture produces same AG-UI events as v1 (Perception step + classification stream)
+- [ ] **STRM-03**: Voice capture produces same AG-UI events as v1 (transcription step + classification stream)
 
 ### HITL Parity
 
@@ -42,10 +43,40 @@ Migrate the backend agent layer from `AzureOpenAIChatClient` + `HandoffBuilder` 
 - [ ] **OBSV-01**: Application Insights receives traces from Foundry agent runs with per-classification visibility
 - [ ] **OBSV-02**: Token usage and cost metrics visible in Foundry portal or Application Insights
 
+### Specialist Agents
+
+- [ ] **SPEC-01**: Admin Agent registered as persistent Foundry agent with domain-specific `@tool` functions for Admin bucket operations
+- [ ] **SPEC-02**: Ideas Agent registered as persistent Foundry agent with domain-specific `@tool` functions for Ideas bucket operations
+- [ ] **SPEC-03**: People Agent registered as persistent Foundry agent with domain-specific `@tool` functions for People bucket operations (including `log_interaction` updating `last_interaction` timestamp)
+- [ ] **SPEC-04**: Projects Agent registered as persistent Foundry agent (stub — action item extraction deferred to v2.1)
+- [ ] **SPEC-05**: Post-classification routing: FastAPI `if/elif` routes classified captures to the appropriate specialist agent for domain enrichment
+- [ ] **SPEC-06**: Each specialist agent's Cosmos DB writes verified independently (Admin → Admin container, People → People container, etc.)
+
+### Push Notifications
+
+- [ ] **PUSH-01**: User's Expo push token registered on app startup via `POST /api/push-token` and stored in Cosmos DB
+- [ ] **PUSH-02**: Backend can send push notifications to the user's device via Expo Push Service (APNs/FCM)
+- [ ] **PUSH-03**: Notification frequency budget enforced: maximum 3 nudges per day total across all agents
+- [ ] **PUSH-04**: Quiet hours enforced: no notifications between 9pm and 8am (user's timezone)
+- [ ] **PUSH-05**: Push receipt polling detects `DeviceNotRegistered` and stops sending to invalid tokens
+- [ ] **PUSH-06**: User taps notification and deep-links to the relevant capture/person/idea in the app (not home screen)
+- [ ] **PUSH-07**: Notifications include action buttons: "Done" (marks complete) and "Snooze 1 week" (reschedules)
+- [ ] **PUSH-08**: Backend `POST /api/nudge/respond` endpoint processes Done/Snooze actions from notification buttons
+
+### Proactive Scheduling
+
+- [ ] **SCHED-01**: APScheduler `AsyncIOScheduler` runs in FastAPI lifespan, sharing initialized agent connections and Cosmos client
+- [ ] **SCHED-02**: Admin Agent sends Friday evening digest (5pm) summarizing pending Admin captures ranked by urgency
+- [ ] **SCHED-03**: Admin Agent sends Saturday morning errand nudge (9am) for errand-type Admin captures
+- [ ] **SCHED-04**: Ideas Agent sends weekly check-in (Tuesday-Thursday, 10am) for the stalest un-nudged idea with contextual "any new thoughts?" message
+- [ ] **SCHED-05**: People Agent runs daily scan (8am) and sends relationship nudge when interaction gap exceeds 4-week threshold (max 1 People nudge per day)
+- [ ] **SCHED-06**: All scheduled agent notifications use agent-generated copy referencing actual capture content (not templates)
+
 ### Deployment
 
 - [ ] **DPLY-01**: Migrated backend deployed to Azure Container Apps with all new env vars and dependencies
-- [ ] **DPLY-02**: CI/CD pipeline updated for new dependencies (`agent-framework-azure-ai`, `azure-monitor-opentelemetry`)
+- [ ] **DPLY-02**: CI/CD pipeline updated for new dependencies (`agent-framework-azure-ai`, `azure-monitor-opentelemetry`, `APScheduler`, `exponent-server-sdk`)
+- [ ] **DPLY-03**: Expo development build created for push notification and notification action testing (Expo Go insufficient)
 
 ## v1.0 Requirements (Completed)
 
@@ -77,66 +108,56 @@ Migrate the backend agent layer from `AzureOpenAIChatClient` + `HandoffBuilder` 
 - [ ] **INFRA-03**: Azure Blob Storage for media uploads — configured, voice working, photo/video deferred
 - [ ] **CAPT-03**: Voice recording in Expo app via Whisper — backend working, mobile UAT incomplete
 
+## v2.1 Requirements (Deferred)
+
+### Projects Agent Intelligence
+
+- **PROJ-01**: Projects Agent extracts action items from Project captures in real-time (new `action_item` Cosmos DB document type)
+- **PROJ-02**: Projects Agent sends weekly progress check-in: "2 open items on [project]. Are you on track?" (requires PROJ-01)
+
 ## v3.0+ Requirements (Deferred)
 
 ### Connected Agents
 - **CONN-01**: `classify_and_file` tool moved to Azure Functions for server-side execution
 - **CONN-02**: Orchestrator re-introduced as Connected Agent invoking Classifier as sub-agent
 
-### New Agents
-- **ORCH-04**: Orchestrator routes classified Projects/Admin to Action Agent
-- **ORCH-05**: Orchestrator routes digest/summary requests to Digest Agent
-- **ACTN-01** through **ACTN-04**: Action Agent sharpening
-- **PEOP-01** through **PEOP-04**: People CRM
-- **DGST-01** through **DGST-06**: Digests and notifications
-- **CLAS-05**, **CLAS-06**: Cross-references and duplicate checking
+### Geofencing
+- **GEO-01**: Background geofencing for errand reminders (requires Expo dev build, known Android limitations)
+- **GEO-02**: Location-aware nudges: "You're near CVS" when entering geofence region
 
 ### Features
 - **SRCH-01**, **SRCH-02**: Search across all buckets
 - **MDIA-01** through **MDIA-03**: Photo/video capture, share sheet
 - **APPX-03**: Digest view in mobile app
+- **DGST-01** through **DGST-06**: Comprehensive digest system
+- **CLAS-05**, **CLAS-06**: Cross-references and duplicate checking
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
+| Background geofencing | Expo managed workflow limitations, iOS force-quit kills it, Android doesn't restart. Time-window heuristic covers 80% of value. Deferred to v3.0 |
 | Connected Agents pattern | Requires moving @tool functions to Azure Functions — v3.0 scope |
-| New agent types (Action, Digest, People, Entity Resolution) | Not part of migration milestone |
-| Orchestrator agent | Eliminated — code-based routing with single destination agent |
-| Mobile app changes | AG-UI SSE interface unchanged; zero mobile code changes needed |
+| Projects Agent action item extraction | HIGH complexity, new document type. Deferred to v2.1 after core agents proven |
+| Per-person nudge frequency settings | Settings creep — add only when explicitly requested |
+| Calendar integration | OAuth scope complexity out of bounds for v2.0 |
+| Digest as conversation | Complex AG-UI threading redesign not justified for one-way summaries |
 | Multi-user / multi-tenancy | Single-user system for Will only |
 | Offline capture | Requires connectivity |
 
 ## Traceability
 
+*Updated during roadmap creation.*
+
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INFRA-10 | Phase 6 | Pending |
-| INFRA-11 | Phase 6 | Pending |
-| INFRA-12 | Phase 6 | Pending |
-| INFRA-13 | Phase 6 | Pending |
-| AGNT-01 | Phase 7 | Pending |
-| AGNT-02 | Phase 7 | Pending |
-| AGNT-03 | Phase 7 | Pending |
-| AGNT-04 | Phase 6 | Pending |
-| AGNT-05 | Phase 7 | Pending |
-| AGNT-06 | Phase 7 | Pending |
-| STRM-01 | Phase 8 | Pending |
-| STRM-02 | Phase 8 | Pending |
-| STRM-03 | Phase 8 | Pending |
-| HITL-01 | Phase 9 | Pending |
-| HITL-02 | Phase 9 | Pending |
-| HITL-03 | Phase 9 | Pending |
-| OBSV-01 | Phase 9 | Pending |
-| OBSV-02 | Phase 9 | Pending |
-| DPLY-01 | Phase 9 | Pending |
-| DPLY-02 | Phase 9 | Pending |
+| (populated by roadmapper) | | |
 
 **Coverage:**
-- v2.0 requirements: 20 total
-- Mapped to phases: 20/20
-- Unmapped: 0
+- v2.0 requirements: 39 total
+- Mapped to phases: 0 (pending roadmap)
+- Unmapped: 39
 
 ---
-*Requirements defined: 2026-02-25*
-*Last updated: 2026-02-25 after v2.0 roadmap creation*
+*Requirements defined: 2026-02-26*
+*Last updated: 2026-02-26 after v2.0 scope redefinition (proactive specialist agents)*
