@@ -1,193 +1,248 @@
 # Stack Research
 
 **Domain:** Multi-agent personal knowledge management / second brain system
-**Project:** Active Second Brain
-**Researched:** 2026-02-21
-**Confidence:** MEDIUM-HIGH (Agent Framework is Release Candidate, not GA; AG-UI protocol still evolving)
+**Project:** Active Second Brain — Foundry Agent Service Migration
+**Researched:** 2026-02-25
+**Confidence:** HIGH for packages and versions; MEDIUM for orchestration strategy (Connected Agents vs HandoffBuilder interaction requires validation)
 
 ---
 
-## Recommended Stack
+## Context: What This Covers
 
-### Core Technologies — Backend (Python)
-
-| Technology | Version | Purpose | Why Recommended | Confidence |
-|------------|---------|---------|-----------------|------------|
-| Microsoft Agent Framework (Python) | 1.0.0b260210 (RC) | Multi-agent orchestration, handoff patterns | The official Microsoft successor to Semantic Kernel + AutoGen. Unified Python/.NET API, built-in handoff/sequential/concurrent/group-chat orchestration, OpenTelemetry tracing, AG-UI integration. Released as RC on 2026-02-18 — API surface is stable and all 1.0 features complete. | HIGH |
-| FastAPI | >=0.129.0 | HTTP API server, AG-UI SSE endpoint | Agent Framework's AG-UI integration (`agent-framework-ag-ui`) uses FastAPI natively via `add_agent_framework_fastapi_endpoint()`. ASGI = async, type hints, dependency injection. Already your default web framework. | HIGH |
-| Azure OpenAI (via Agent Framework) | GPT-5.2 (2025-12-11) | LLM for all 7 agents | GPT-5.2 is GA on Azure AI Foundry since Dec 2025. Purpose-built for enterprise agent scenarios — structured outputs, reliable tool use, governed integrations. Agent Framework's `AzureOpenAIChatClient` connects directly. | HIGH |
-| AG-UI Protocol (Python SDK) | ag-ui-protocol 0.1.11 | Frontend-backend streaming protocol | Open, lightweight, event-based protocol for real-time agent-to-UI communication over SSE. First-party integration with Agent Framework via `agent-framework-ag-ui` package. Pydantic models for all events. 3.9M monthly PyPI downloads — strong adoption. | MEDIUM |
-| Python | >=3.12 | Runtime | Agent Framework requires 3.10+. Python 3.12 recommended for performance improvements (per-interpreter GIL, faster comprehensions). 3.13 acceptable if available. | HIGH |
-
-### Core Technologies — Mobile (Expo/React Native)
-
-| Technology | Version | Purpose | Why Recommended | Confidence |
-|------------|---------|---------|-----------------|------------|
-| Expo SDK | 54 | Mobile app framework | Latest stable SDK (with React Native 0.81, React 19.1). New Architecture enabled by default. Precompiled RN for iOS = faster builds. `TextDecoderStream`/`TextEncoderStream` added to native runtime for fetch streaming (critical for SSE). | HIGH |
-| React Native | 0.81 (via Expo SDK 54) | Cross-platform native UI | Bundled with Expo SDK 54. New Architecture is the only supported path going forward (Legacy removed in SDK 55). | HIGH |
-| expo-router | v6 (via Expo SDK 54) | File-based navigation | Built into Expo SDK 54. File-based routing, typed routes, deep linking. Link previews, server middleware support. | HIGH |
-| expo-audio | latest (via SDK 54) | Voice capture/recording | Replaces deprecated `expo-av` (removed in SDK 55). `useAudioRecorder` hook + `RecordingPresets`. The only supported audio library going forward. | HIGH |
-| expo-camera | latest (via SDK 54) | Photo capture | `CameraView` component for photo/video. Config plugin support for permissions. | HIGH |
-| react-native-sse | >=1.x | AG-UI SSE client | EventSource implementation for React Native. Uses XMLHttpRequest — no native module required. Works with Expo. Needed because React Native lacks native EventSource. | MEDIUM |
-
-### Core Technologies — Azure Storage
-
-| Technology | Version | Purpose | Why Recommended | Confidence |
-|------------|---------|---------|-----------------|------------|
-| Azure Cosmos DB (NoSQL API) | Python SDK azure-cosmos >=4.14.0 | Document storage (captures, records, agent state) | Serverless mode for single-user = minimal cost. JSON-native, flexible schema for evolving capture types. Vector embedding support (4.7.0+) for future semantic search. Async client available. | HIGH |
-| Azure Blob Storage | Python SDK azure-storage-blob >=12.27.1 | Media storage (voice recordings, photos) | Standard object storage for binary media. SAS token generation for mobile upload. Lifecycle policies for cost control. | HIGH |
-
-### Core Technologies — Infrastructure
-
-| Technology | Version | Purpose | Why Recommended | Confidence |
-|------------|---------|---------|-----------------|------------|
-| Azure Container Apps | N/A (managed service) | Hosting the FastAPI + Agent backend | Scale-to-zero (single user = near-zero idle cost). Managed identity for Azure services. Custom domains with free managed TLS. Dapr sidecar available if needed. You already have ACA experience from prior projects. | HIGH |
-| Azure Identity | azure-identity >=1.16.1 | Authentication to all Azure services | `DefaultAzureCredential` for local dev (az login) and production (managed identity). Single auth pattern across Cosmos, Blob, OpenAI. | HIGH |
-
-### Supporting Libraries — Python Backend
-
-| Library | Version | Purpose | When to Use |
-|---------|---------|---------|-------------|
-| agent-framework-core | 1.0.0b260210 | Core agent abstractions, chat clients | Always — base package for Agent, Message, tools |
-| agent-framework-orchestrations | --pre | Workflow orchestration (Sequential, Handoff, etc.) | When composing multi-agent workflows (your 7-agent handoff pattern) |
-| agent-framework-ag-ui | --pre | AG-UI FastAPI endpoint integration | When exposing agents via AG-UI protocol to the mobile app |
-| pydantic | >=2.12.5 | Data validation, API models | Always — Agent Framework and AG-UI both depend on Pydantic v2 |
-| pydantic-settings | >=2.13.1 | Environment variable configuration | For loading `.env` configuration cleanly |
-| python-dotenv | >=1.0.0 | .env file loading | Local development env var loading |
-| uvicorn | >=0.30.0 | ASGI server | Running the FastAPI app locally and in containers |
-| gunicorn | >=22.0.0 | Production ASGI process manager | Production deployment with uvicorn workers |
-| ruff | >=0.8.0 | Linting + formatting | Always — per your global CLAUDE.md preferences |
-| pytest | >=8.0.0 | Testing framework | Always — for agent and integration tests |
-| httpx | >=0.27.0 | Async HTTP client | Agent Framework uses httpx internally; also useful for testing AG-UI endpoints |
-| opentelemetry-sdk | >=1.27.0 | Distributed tracing | Agent Framework has built-in OpenTelemetry support. Use for debugging multi-agent flows |
-
-### Supporting Libraries — Mobile
-
-| Library | Version | Purpose | When to Use |
-|---------|---------|---------|-------------|
-| expo-file-system | latest (SDK 54) | File operations | Handling captured media before upload. New API is now the default (old API at `expo-file-system/legacy`). |
-| expo-secure-store | latest (SDK 54) | Secure credential storage | Storing user API tokens/auth tokens on device |
-| expo-image | latest (SDK 54) | Optimized image display | Rendering captured photos and thumbnails in the app |
-| @tanstack/react-query | >=5.x | Server state management | Caching and syncing capture data with backend |
-| zustand | >=5.x | Client state management | Local UI state, capture queue management |
-
-### Development Tools
-
-| Tool | Purpose | Notes |
-|------|---------|-------|
-| uv | Python package management | Your preferred package manager. `uv pip install`, `uv venv`. |
-| EAS Build | Expo cloud builds | For creating development and production builds. Free tier available. |
-| Docker | Container builds | For building ACA container images locally. |
-| Azure CLI | Azure resource management | `az containerapp up` for deployment. `az login` for local auth. |
-| AG-UI Dojo | Agent testing UI | Interactive test environment at dojo.ag-ui.com. Clone AG-UI repo for local testing. |
+This is a migration-focused stack update. The existing validated stack (FastAPI, Expo/React Native, Cosmos DB, Blob Storage, Azure Container Apps, Ruff, uv) is unchanged. This document covers **only what changes or gets added** for the migration from `AzureOpenAIChatClient` + `HandoffBuilder` (local orchestration) to `AzureAIAgentClient` (Azure AI Foundry Agent Service) with Connected Agents, persistent agents, server-managed threads, and Application Insights observability.
 
 ---
 
-## Installation
+## Packages: What Changes
 
-### Python Backend
+### Add These Packages
 
-```bash
-# Create virtual environment
-uv venv .venv
-source .venv/bin/activate
+| Package | Version | Purpose | Why |
+|---------|---------|---------|-----|
+| `agent-framework-azure-ai` | `1.0.0rc1` (RC, install `--pre`) | Provides `AzureAIAgentClient` and `AzureAIProjectAgentProvider` | The Agent Framework package that wires the Python framework to the Foundry Agent Service. Not included in the base `agent-framework-core`. Promoted to RC alongside `agent-framework-core` on Feb 19, 2026. |
+| `azure-ai-projects` | `1.0.0` (GA) | `AIProjectClient` for agent lifecycle management (create, delete, list persistent agents and threads) | Required for managing agent resources in Foundry. The `AzureAIAgentClient` can accept a pre-created `AIProjectClient` for lifecycle control. Released July 2025 as stable GA. |
+| `azure-ai-agents` | `1.1.0` (GA) | Lower-level Foundry Agents SDK (threads, runs, messages, `ConnectedAgentTool`) | Pulled in transitively by `azure-ai-projects` but pin it explicitly for `ConnectedAgentTool` model imports. Released August 2025 as GA. |
+| `azure-monitor-opentelemetry` | `1.8.6` (GA) | Application Insights via OpenTelemetry distro (`configure_azure_monitor()`) | One-call setup for traces, logs, and metrics routed to Application Insights. The official Azure Monitor distro supercedes the deprecated `azure-monitor-opentelemetry-distro` package. Released February 4, 2026. |
 
-# Core Agent Framework (RC - requires --pre)
-uv pip install agent-framework --pre
+### Keep These Packages (No Change)
 
-# Or selective install (lighter)
-uv pip install agent-framework-core --pre
-uv pip install agent-framework-orchestrations --pre
-uv pip install agent-framework-ag-ui --pre
+| Package | Notes |
+|---------|-------|
+| `agent-framework-core` | Still required — provides `Agent`, `Message`, `tool`, `HandoffBuilder`, sessions |
+| `agent-framework-orchestrations` | Still required — `HandoffBuilder` remains the local orchestration layer |
+| `agent-framework-ag-ui` | Still required — AG-UI SSE endpoint unchanged |
+| `azure-identity` | Still required — `DefaultAzureCredential` / `AzureCliCredential` |
+| `azure-cosmos`, `azure-storage-blob`, `azure-keyvault-secrets` | All unchanged |
+| `openai` | Still required for Whisper transcription (separate from Agent Framework) |
+| `fastapi`, `uvicorn`, `aiohttp` | Unchanged |
+| `pydantic-settings`, `python-dotenv` | Note: Agent Framework RC dropped `pydantic-settings` from its own internals (replaced with TypedDict + `load_settings()`), but your own `Settings` class still uses `pydantic-settings` normally |
 
-# Azure services
-uv pip install azure-cosmos azure-storage-blob azure-identity
+### Remove or Avoid
 
-# Server
-uv pip install fastapi uvicorn gunicorn
+| Package | Why |
+|---------|-----|
+| Nothing is removed from `pyproject.toml` | The migration adds packages; existing packages stay |
+| `azure-monitor-opentelemetry-distro` | Deprecated name — the current package is `azure-monitor-opentelemetry` |
 
-# Configuration
-uv pip install pydantic-settings python-dotenv
+---
 
-# Observability
-uv pip install opentelemetry-sdk opentelemetry-exporter-otlp
+## pyproject.toml Changes
 
-# Dev dependencies
-uv pip install ruff pytest pytest-asyncio httpx
+```toml
+dependencies = [
+    # Agent Framework + AG-UI (RC - requires --prerelease=allow)
+    "agent-framework-ag-ui",
+    "agent-framework-orchestrations",
+    # NEW: Foundry Agent Service integration
+    "agent-framework-azure-ai",
+    # Azure services (existing)
+    "azure-cosmos",
+    "azure-identity",
+    "azure-keyvault-secrets",
+    "azure-storage-blob",
+    # NEW: Foundry Agent lifecycle management
+    "azure-ai-projects>=1.0.0",
+    "azure-ai-agents>=1.1.0",
+    # NEW: Application Insights via OTel distro
+    "azure-monitor-opentelemetry>=1.8.6",
+    # Unchanged
+    "aiohttp",
+    "python-multipart",
+    "pydantic-settings",
+    "python-dotenv",
+]
 ```
 
-### Mobile App
+Install:
 
 ```bash
-# Create Expo project (SDK 54)
-npx create-expo-app@latest active-second-brain --template blank-typescript
-
-# Core dependencies
-npx expo install expo-router expo-audio expo-camera expo-file-system expo-secure-store expo-image
-
-# SSE client for AG-UI
-npm install react-native-sse
-
-# State management
-npm install @tanstack/react-query zustand
-
-# Dev dependencies
-npm install -D typescript @types/react
+uv pip install agent-framework-azure-ai --prerelease=allow
+uv pip install "azure-ai-projects>=1.0.0" "azure-ai-agents>=1.1.0"
+uv pip install "azure-monitor-opentelemetry>=1.8.6"
 ```
 
 ---
 
-## Alternatives Considered
+## Azure Resources: What Must Be Provisioned
 
-| Recommended | Alternative | When to Use Alternative |
-|-------------|-------------|-------------------------|
-| Microsoft Agent Framework | LangGraph (Python) | If you need more granular control over graph-based agent flows, or if Agent Framework 1.0 GA is delayed and you need production-ready now. LangGraph is mature and has its own AG-UI integration (`ag-ui-langgraph`). |
-| Microsoft Agent Framework | CrewAI | If you want a more opinionated multi-agent framework with role-based agents. Less flexible than Agent Framework's handoff pattern but faster to prototype. |
-| Microsoft Agent Framework | OpenAI Agents SDK | If you were using OpenAI directly (not Azure). The OpenAI Agents SDK (0.9.3) implements the Swarm/handoff pattern natively. Not ideal for Azure OpenAI. |
-| AG-UI Protocol | Custom WebSocket | If you need full-duplex communication (e.g., real-time collaborative editing). AG-UI over SSE is simpler and sufficient for agent streaming. |
-| Expo SDK 54 | React Native CLI + bare workflow | Only if you need native modules not supported by Expo. SDK 54 covers audio, camera, file system. Expo simplifies builds and OTA updates. |
-| Azure Cosmos DB | Azure Table Storage | If your data is simple key-value and you want absolute minimum cost. Cosmos gives you richer queries, vector search, and future-proofing. |
-| Azure Cosmos DB | PostgreSQL (Azure Flexible Server) | If you prefer SQL and relational modeling. Cosmos is better for flexible schemas and JSON documents typical of knowledge management. |
-| react-native-sse | @copilotkit/react-native | CopilotKit does NOT have official React Native support (React + Angular only as of Feb 2026). Do not use for mobile. |
-| zustand | Redux Toolkit | Only if you need middleware-heavy state management. Zustand is simpler for a single-user mobile app. |
+This is the most significant non-code change. Foundry Agent Service requires a **Microsoft Foundry resource** (new type), not a hub-based project.
+
+### New Azure Resources Required
+
+| Resource | Type | Notes |
+|----------|------|-------|
+| Microsoft Foundry Account | `Microsoft.CognitiveServices/accounts` | New resource type (NOT the old `Microsoft.MachineLearningServices/workspaces` Hub). Created via Foundry portal or `az cognitiveservices account create`. |
+| Foundry Project | Child of the Foundry Account | Provides the project endpoint in the format `https://<account>.services.ai.azure.com/api/projects/<project>` |
+| Model Deployment | GPT-5.2 or gpt-4o | Deployed within the Foundry project. The deployment name becomes `MODEL_DEPLOYMENT_NAME` env var. |
+| Application Insights | `Microsoft.Insights/components` | Connected to the Container App for observability. Connection string goes in env var `APPLICATIONINSIGHTS_CONNECTION_STRING`. |
+
+### RBAC Roles Required
+
+| Role | Scope | Purpose |
+|------|-------|---------|
+| `Azure AI User` | Foundry Project scope | Required for creating/running agents. Minimum: `agents/*/read`, `agents/*/action`, `agents/*/delete` |
+| `Azure AI Account Owner` (or Contributor) | Subscription scope | Required for the identity that creates the Foundry resource and project |
+
+### Environment Variables: New Additions
+
+| Variable | Format | Source |
+|----------|--------|--------|
+| `AZURE_AI_PROJECT_ENDPOINT` | `https://<account>.services.ai.azure.com/api/projects/<project>` | Foundry portal → Project overview → Libraries → Foundry |
+| `AZURE_AI_MODEL_DEPLOYMENT_NAME` | e.g. `gpt-4o` or `gpt-5.2-2025-12-11` | Foundry portal → Models + Endpoints |
+| `APPLICATIONINSIGHTS_CONNECTION_STRING` | `InstrumentationKey=...;IngestionEndpoint=...` | Azure portal → Application Insights → Overview |
+
+**Existing variables that stay:**
+
+`AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_DEPLOYMENT_NAME`, `COSMOS_*`, `AZURE_STORAGE_*`, `KEY_VAULT_URI` — all unchanged (AzureOpenAIChatClient for non-Foundry agents, Cosmos, Blob all continue using their existing env vars).
 
 ---
 
-## What NOT to Use
+## SDK Integration Points
 
-| Avoid | Why | Use Instead |
-|-------|-----|-------------|
-| AutoGen (standalone) | Deprecated. Merged into Microsoft Agent Framework. Migration guides available. AutoGen docs still exist but point to Agent Framework. | Microsoft Agent Framework |
-| Semantic Kernel (standalone) | Merged into Agent Framework. Semantic Kernel was the "enterprise" path; Agent Framework is the convergence. | Microsoft Agent Framework |
-| expo-av | Deprecated in SDK 53, removed from Expo Go. Will be fully removed in SDK 55. | expo-audio (recording), expo-video (playback) |
-| CopilotKit for mobile | No React Native support. CopilotKit targets React web + Angular only. | Direct AG-UI SSE integration with react-native-sse |
-| Flask/Django for API | No native async. Agent Framework requires async patterns (all agents are async). FastAPI is the only supported AG-UI integration. | FastAPI |
-| LangChain (full framework) | Heavy, opinionated, unnecessary abstraction when using Agent Framework directly. Agent Framework already handles prompt management, tool calling, and orchestration. | Agent Framework + direct Azure OpenAI |
-| firebase/react-native-firebase | Google ecosystem. Adds complexity when you are already on Azure. | Azure Cosmos DB + Blob Storage |
-| API keys for Azure auth | Fragile, security risk, not rotatable via managed identity. | DefaultAzureCredential (azure-identity) |
-| expo-file-system/legacy | Old API, will be removed in SDK 55. | expo-file-system (new default API in SDK 54) |
-| JSC (JavaScriptCore) | First-party support removed from React Native 0.81. Community-maintained, no config plugin yet. | Hermes (default, bundled with React Native) |
+### AzureAIAgentClient vs AzureOpenAIChatClient
+
+| Aspect | `AzureOpenAIChatClient` (current) | `AzureAIAgentClient` (migration target) |
+|--------|----------------------------------|----------------------------------------|
+| Package | `agent-framework-core` | `agent-framework-azure-ai` |
+| Thread management | Local (in-memory `AgentSession`) | Server-side (Foundry stores threads in the service) |
+| Agent persistence | Ephemeral (recreated per request) | Persistent (agent has a stable ID in Foundry) |
+| Credential param | `credential=` (since RC1 unified cred) | `credential=` (same unified pattern) |
+| Import | `from agent_framework.azure import AzureOpenAIChatClient` | `from agent_framework.azure import AzureAIAgentClient` |
+| HandoffBuilder compat | Fully supported | Conditionally supported — resolved as of Feb 9, 2026 (issue #3097 closed). Validate with RC2. |
+| Runtime tool override | Supported | NOT supported — tools are set at agent creation time. Foundry logs a warning if you try. Use `AzureOpenAIResponsesClient` if dynamic tool overrides are needed. |
+| Connected Agents | Not applicable | Supported via `ConnectedAgentTool` from `azure-ai-agents` |
+
+### AzureAIAgentClient: Core Usage Pattern
+
+```python
+from agent_framework.azure import AzureAIAgentClient
+from azure.identity.aio import DefaultAzureCredential
+
+# Simplest form: uses AZURE_AI_PROJECT_ENDPOINT + AZURE_AI_MODEL_DEPLOYMENT_NAME env vars
+async with (
+    DefaultAzureCredential() as credential,
+    AzureAIAgentClient(credential=credential).as_agent(
+        name="TriageAgent",
+        instructions="You are a capture triage agent...",
+        tools=[my_tool],
+    ) as agent,
+):
+    result = await agent.run("Classify this capture")
+```
+
+### Connected Agents Pattern (multi-agent orchestration)
+
+Used when the Foundry service manages delegation — the parent agent calls subagents as tools.
+
+```python
+from azure.ai.projects import AIProjectClient
+from azure.ai.agents.models import ConnectedAgentTool
+from azure.identity.aio import DefaultAzureCredential
+
+async with (
+    DefaultAzureCredential() as credential,
+    AIProjectClient(
+        endpoint=os.environ["AZURE_AI_PROJECT_ENDPOINT"],
+        credential=credential,
+    ) as project_client,
+):
+    # Create a persistent subagent
+    voice_agent = await project_client.agents.create_agent(
+        model=os.environ["AZURE_AI_MODEL_DEPLOYMENT_NAME"],
+        name="voice_classifier",
+        instructions="You classify voice captures into knowledge categories.",
+    )
+
+    # Wire it as a tool for the parent agent
+    connected_voice = ConnectedAgentTool(
+        id=voice_agent.id,
+        name="voice_classifier",
+        description="Classifies voice captures into categories",
+    )
+
+    # Parent agent with Connected Agent tool
+    parent_agent = await project_client.agents.create_agent(
+        model=os.environ["AZURE_AI_MODEL_DEPLOYMENT_NAME"],
+        name="triage_orchestrator",
+        instructions="Route captures to specialist agents.",
+        tools=connected_voice.definitions,
+    )
+```
+
+**CRITICAL LIMITATION:** Connected Agents have a maximum depth of 2. A parent agent can have multiple subagent siblings, but subagents cannot have their own subagents. Exceeding this depth results in `Assistant Tool Call Depth Error`. For 7 agents with hierarchy deeper than parent + siblings, use HandoffBuilder (client-side) instead of Connected Agents (server-side).
+
+### Application Insights: One-Line Setup
+
+```python
+from azure.monitor.opentelemetry import configure_azure_monitor
+
+# Called once at app startup (before FastAPI app creation)
+configure_azure_monitor(
+    connection_string=os.environ["APPLICATIONINSIGHTS_CONNECTION_STRING"]
+)
+```
+
+Agent Framework's existing OpenTelemetry integration automatically routes spans to Application Insights once `configure_azure_monitor()` is called. No changes to agent code.
+
+### RC1 Breaking Change: Credential Pattern
+
+The RC1 release (Feb 19, 2026) unified credential handling across all Azure packages. If any existing code uses the old `azure_ad_token_provider` pattern, it must be updated:
+
+```python
+# BEFORE (will fail on RC1+)
+from azure.identity import AzureCliCredential, get_bearer_token_provider
+token_provider = get_bearer_token_provider(AzureCliCredential(), "https://cognitiveservices.azure.com/.default")
+client = AzureOpenAIChatClient(azure_ad_token_provider=token_provider, ...)
+
+# AFTER (RC1+ unified pattern)
+from azure.identity import AzureCliCredential
+client = AzureOpenAIChatClient(credential=AzureCliCredential(), ...)
+```
+
+### RC1 Breaking Change: Session API
+
+```python
+# BEFORE (removed in python-1.0.0b260212)
+thread = agent.get_new_thread()
+response = await agent.run("Hello", thread=thread)
+
+# AFTER
+session = agent.create_session()
+response = await agent.run("Hello", session=session)
+```
 
 ---
 
-## Stack Patterns by Variant
+## Orchestration Strategy: HandoffBuilder vs Connected Agents
 
-**For local development (Will's machine):**
-- Use `AzureCliCredential` via `az login` (DefaultAzureCredential picks this up)
-- Run FastAPI with `uvicorn server:app --reload --port 8000`
-- Use Expo Go or dev client on physical device for mobile testing
-- Cosmos DB emulator OR serverless tier for dev
+The migration has a choice between two multi-agent patterns, and the choice depends on depth requirements:
 
-**For production (Azure Container Apps):**
-- Use managed identity (DefaultAzureCredential picks this up automatically on ACA)
-- Run with `gunicorn -k uvicorn.workers.UvicornWorker`
-- Scale-to-zero with min replicas = 0 (single user, intermittent usage)
-- Custom domain with managed TLS certificate
+| Strategy | When to Use | Pros | Cons |
+|----------|-------------|------|------|
+| **HandoffBuilder (local)** | Multi-agent flows with >2 hierarchy levels, or when agents need local function tools | Unlimited depth, full function tool support, works today | Orchestration happens in the backend container (no Foundry dashboard visibility) |
+| **Connected Agents (server-side)** | Flat multi-agent: 1 parent + N subagents (max depth 2) | Foundry manages threads, dashboard observability, no orchestration code | Max depth 2, subagents CANNOT call local function tools (must use OpenAPI or Azure Functions instead) |
 
-**For AG-UI integration:**
-- Backend: `add_agent_framework_fastapi_endpoint(app, agent, "/agent")` — one line
-- Mobile: POST to `/agent` endpoint, consume SSE stream via `react-native-sse`
-- Thread IDs maintained automatically by AG-UI protocol for conversation continuity
+**Recommendation:** Use `AzureAIAgentClient` for all agents (for persistent state and server-managed threads), but keep `HandoffBuilder` for local orchestration if the current 7-agent system has any nesting deeper than parent + flat siblings. Only migrate to Connected Agents if the architecture is verified to be depth ≤ 2 AND agents do not need local Python function tools.
 
 ---
 
@@ -195,60 +250,53 @@ npm install -D typescript @types/react
 
 | Package A | Compatible With | Notes |
 |-----------|-----------------|-------|
-| agent-framework 1.0.0b260210 | Python >=3.10 | Tested with 3.10, 3.11, 3.12. Recommend 3.12. |
-| agent-framework 1.0.0b260210 | pydantic >=2.11.2 | ag-ui-protocol requires pydantic <3.0.0,>=2.11.2 |
-| agent-framework-ag-ui --pre | FastAPI >=0.100.0 | Uses FastAPI's native SSE support |
-| azure-cosmos >=4.14.0 | Python >=3.8 | Async client requires aiohttp |
-| azure-storage-blob >=12.27.1 | Python >=3.8 | Supports service version 2026-02-06 |
-| azure-identity >=1.16.1 | Python >=3.8 | DefaultAzureCredential chain |
-| Expo SDK 54 | React Native 0.81, React 19.1 | New Architecture only (Legacy Architecture final in SDK 54) |
-| Expo SDK 54 | Node >=20.19.4 | Minimum Node version bumped |
-| Expo SDK 54 | TypeScript ~5.9.2 | Recommended TypeScript version |
-| react-native-sse | Expo SDK 54 | JS-only, no native module needed |
+| `agent-framework-core 1.0.0rc1` | `agent-framework-azure-ai 1.0.0rc1` | Both promoted to RC1 together on Feb 19, 2026. Install same RC tag. |
+| `agent-framework-core 1.0.0rc2` | `agent-framework-azure-ai` (rc2) | RC2 released Feb 26, 2026. `agent-framework-azure-ai` not explicitly listed in rc2 release notes — may still be on rc1. Verify with `uv pip show agent-framework-azure-ai` after install. |
+| `azure-ai-projects 1.0.0` | `azure-ai-agents 1.1.0` | `azure-ai-agents` is a dependency of `azure-ai-projects`. Pin both to avoid drift. |
+| `azure-monitor-opentelemetry 1.8.6` | `opentelemetry-sdk` (any recent) | The distro pins its own OTel SDK. Do not manually pin `opentelemetry-sdk` in your `pyproject.toml` — let the distro control it to avoid conflicts. |
+| `AzureAIAgentClient` | Python `>=3.10` | Same as `agent-framework-core` minimum. |
+| `azure-ai-projects 1.0.0` | Python `>=3.9` | Broader than Agent Framework — no conflict. |
 
 ---
 
-## Key Architecture Decisions Driven by Stack
+## What NOT to Add
 
-1. **Async everywhere in Python**: Agent Framework is fully async. FastAPI is async. Cosmos DB has async client. This is non-negotiable — every I/O operation must use `await`.
-
-2. **AG-UI over SSE, not WebSockets**: The AG-UI protocol uses HTTP POST + SSE for streaming. This is simpler, firewall-friendly, and matches how Agent Framework's `agent-framework-ag-ui` package works. No WebSocket infrastructure needed.
-
-3. **Handoff orchestration for 7 agents**: Agent Framework's `HandoffBuilder` or `SequentialBuilder` from `agent-framework-orchestrations` provides the pattern. Each agent gets `instructions` and `tools`, and the orchestrator manages delegation.
-
-4. **Mobile captures go to Blob Storage first**: Voice recordings and photos upload directly to Azure Blob Storage (via SAS token generated by backend). Cosmos DB stores metadata + reference to blob URI. This keeps Cosmos costs low.
-
-5. **Single FastAPI app serves everything**: One FastAPI application with multiple AG-UI endpoints (one per agent or one unified endpoint). No microservices needed for a single-user system.
+| Avoid | Why | Use Instead |
+|-------|-----|-------------|
+| `azure-monitor-opentelemetry-distro` | Deprecated package name | `azure-monitor-opentelemetry` |
+| Direct `opentelemetry-sdk` pin in `pyproject.toml` | Version conflicts with `azure-monitor-opentelemetry` distro's internal pins | Let the distro manage OTel versions |
+| Hub-based AI Foundry project (old type) | Deprecated — hub-based projects cannot use current SDK or REST API versions (since May 2025) | New Microsoft Foundry resource (`Microsoft.CognitiveServices/accounts`) |
+| `azure-ai-agents` as the sole agent management SDK (bypassing Agent Framework) | Bypasses the Agent Framework session, middleware, streaming, and AG-UI integration | `AzureAIAgentClient` from `agent-framework-azure-ai` wrapping `azure-ai-projects` |
+| `AzureOpenAIAssistantsClient` | Older Assistants API client, separate from Foundry Agent Service | `AzureAIAgentClient` |
 
 ---
 
 ## Sources
 
-### HIGH Confidence (Official docs, PyPI, release announcements)
-- [Microsoft Agent Framework RC Announcement (Feb 18, 2026)](https://devblogs.microsoft.com/foundry/microsoft-agent-framework-reaches-release-candidate) — RC status, API stable, 1.0 features complete
-- [agent-framework on PyPI](https://pypi.org/project/agent-framework/) — Version 1.0.0b260210, Python >=3.10
-- [AG-UI Integration with Agent Framework (Microsoft Learn)](https://learn.microsoft.com/en-us/agent-framework/integrations/ag-ui/) — Official AG-UI + FastAPI integration docs
-- [AG-UI Getting Started (Microsoft Learn)](https://learn.microsoft.com/en-us/agent-framework/integrations/ag-ui/getting-started) — `agent-framework-ag-ui` package, SSE streaming, FastAPI endpoint
-- [ag-ui-protocol on PyPI](https://pypi.org/project/ag-ui-protocol/) — Version 0.1.11, Pydantic >=2.11.2
-- [GPT-5.2 on Azure AI Foundry (Dec 2025)](https://azure.microsoft.com/en-us/blog/introducing-gpt-5-2-in-microsoft-foundry-the-new-standard-for-enterprise-ai/) — GA availability
-- [Expo SDK 54 Changelog](https://expo.dev/changelog/sdk-54) — React Native 0.81, React 19.1, TextDecoderStream support
-- [azure-cosmos on PyPI](https://pypi.org/project/azure-cosmos/) — Version 4.14.0 with vector embeddings, semantic reranking
-- [azure-storage-blob on PyPI](https://pypi.org/project/azure-storage-blob/) — Version 12.27.1 stable
-- [azure-identity on PyPI](https://pypi.org/project/azure-identity/) — Version 1.16.1 stable
-- [FastAPI on PyPI](https://pypi.org/project/fastapi/) — Version 0.129.0
-- [Pydantic v2.12.5](https://pypi.org/project/pydantic/) — Latest stable
+### HIGH Confidence (Official docs, PyPI, official release notes)
 
-### MEDIUM Confidence (Community sources, blogs)
-- [Building an AI Agent Server with AG-UI and Microsoft Agent Framework](https://baeke.info/2025/12/07/building-an-ai-agent-server-with-ag-ui-and-microsoft-agent-framework/) — Real-world AG-UI + Agent Framework implementation
-- [Building Interactive Agent UIs with AG-UI (Microsoft Tech Community)](https://techcommunity.microsoft.com/blog/azuredevcommunityblog/building-interactive-agent-uis-with-ag-ui-and-microsoft-agent-framework/4488249) — AG-UI patterns and architecture
-- [react-native-sse on npm](https://www.npmjs.com/package/react-native-sse) — SSE implementation for React Native
-- [AutoGen to Agent Framework Migration Guide](https://learn.microsoft.com/en-us/agent-framework/migration-guide/from-autogen/) — Handoff pattern documentation
+- [agent-framework-azure-ai API Reference (Microsoft Learn)](https://learn.microsoft.com/en-us/python/api/agent-framework-core/agent_framework.azure.azureaiagentclient?view=agent-framework-python-latest) — `AzureAIAgentClient` class, constructor params, `as_agent()` usage, credential pattern
+- [Microsoft Foundry Agents with Agent Framework (Microsoft Learn)](https://learn.microsoft.com/en-us/agent-framework/agents/providers/azure-ai-foundry) — `AzureAIAgentClient` quickstart, environment variables, `AzureAIProjectAgentProvider`, persistent agent lifecycle, updated 2026-02-23
+- [Python 2026 Significant Changes Guide (Microsoft Learn)](https://learn.microsoft.com/en-us/agent-framework/support/upgrade/python-2026-significant-changes) — RC1 breaking changes: unified credential parameter, `AgentThread`→`AgentSession`, exception hierarchy redesign, `pydantic-settings` removal from AF internals
+- [Agent Framework Releases — python-1.0.0rc2 (GitHub)](https://github.com/microsoft/agent-framework/releases) — RC2 Feb 26, 2026; RC1 Feb 20, 2026; lists packages promoted to RC
+- [HandoffBuilder Documentation (Microsoft Learn)](https://learn.microsoft.com/en-us/agent-framework/workflows/orchestrations/handoff) — HandoffBuilder with `AzureOpenAIChatClient`, Python code examples with `from agent_framework.azure import AzureOpenAIChatClient`
+- [Connected Agents How-To (Microsoft Learn)](https://learn.microsoft.com/en-us/azure/ai-foundry/agents/how-to/connected-agents?view=foundry-classic) — `ConnectedAgentTool`, max depth 2 limitation, no local function tools, Python code with `azure-ai-projects`, updated 2026-02-25
+- [Foundry Agent Service Quickstart (Microsoft Learn)](https://learn.microsoft.com/en-us/azure/ai-foundry/agents/quickstart?view=foundry-classic) — `PROJECT_ENDPOINT` format `https://<account>.services.ai.azure.com/api/projects/<project>`, `MODEL_DEPLOYMENT_NAME`, RBAC roles, `azure-ai-projects` install
+- [azure-ai-projects on PyPI](https://pypi.org/project/azure-ai-projects/) — Version 1.0.0 GA, released July 31, 2025
+- [azure-ai-agents on PyPI](https://pypi.org/project/azure-ai-agents/) — Version 1.1.0, released August 5, 2025
+- [azure-monitor-opentelemetry on PyPI](https://pypi.org/project/azure-monitor-opentelemetry/) — Version 1.8.6, released February 4, 2026
+
+### MEDIUM Confidence (GitHub issues, community sources)
+
+- [Issue #3097: HandoffBuilder + AzureAIClient Invalid Payload (GitHub)](https://github.com/microsoft/agent-framework/issues/3097) — Bug where HandoffBuilder failed with 400 errors when using Azure Foundry v2 client. Marked RESOLVED/COMPLETED Feb 9, 2026, via PR #4083 (reasoning model serialization fix). Validate against RC1/RC2 before committing to HandoffBuilder + AzureAIAgentClient in production.
+- [Providers Overview (Microsoft Learn)](https://learn.microsoft.com/en-us/agent-framework/agents/providers/) — Feature matrix: all providers (Azure OpenAI, Foundry, Anthropic, etc.). Foundry provider listed as "Persistent server-side agents with managed chat history."
 
 ### LOW Confidence (Needs validation)
-- CopilotKit React Native support: Could not find evidence of official React Native client. Web (React) and Angular confirmed. Mobile AG-UI client must be custom-built with react-native-sse.
-- azure-cosmos 4.14.0: Version reported by Visual Studio Magazine article (Oct 2025). PyPI page served cached 4.7.0 data. Validate with `uv pip install azure-cosmos` to confirm latest.
+
+- `agent-framework-azure-ai` RC2 status: RC2 release notes (Feb 26, 2026) mention `agent-framework-azure-ai-search` improvements but do not explicitly list `agent-framework-azure-ai` as updated. May still be on RC1. Validate actual installed version after `uv pip install agent-framework-azure-ai --prerelease=allow`.
+- HandoffBuilder + `AzureAIAgentClient` in production: Issue #3097 is closed as of Feb 9, but it involved earlier beta versions. The fix landed in RC1 via PR #4083. This combination has not been validated in this specific project. Phase 1 should include an integration test before committing to the architecture.
 
 ---
 
-*Stack research for: Active Second Brain — multi-agent personal knowledge management system*
-*Researched: 2026-02-21*
+*Stack research for: Active Second Brain — Foundry Agent Service migration (AzureAIAgentClient + Connected Agents + Application Insights)*
+*Researched: 2026-02-25*

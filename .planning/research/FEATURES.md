@@ -1,225 +1,278 @@
 # Feature Research
 
-**Domain:** Personal Knowledge Management / Second Brain / AI-Powered Capture-and-Intelligence System
-**Researched:** 2026-02-21
-**Confidence:** MEDIUM-HIGH (multiple competitor products analyzed; feature patterns consistent across sources; some AI-agentic features are emergent and less battle-tested)
+**Domain:** Azure AI Foundry Agent Service migration (multi-agent capture app)
+**Researched:** 2026-02-25
+**Confidence:** HIGH — all critical claims verified against official Microsoft docs (updated 2026-02-17 to 2026-02-26)
+
+---
+
+## Context: What This Research Covers
+
+This is a migration milestone, not a new product. v1 features (text/voice capture, HITL, AG-UI streaming, inbox) already exist and are NOT being rebuilt. This research answers: what does migrating from `AzureOpenAIChatClient + HandoffBuilder` to `AzureAIAgentClient` (Foundry Agent Service) actually change, what stays the same, and what are the open questions resolved by evidence.
+
+---
 
 ## Feature Landscape
 
-### Table Stakes (Users Expect These)
+### Table Stakes (Must Work After Migration)
 
-Features users assume exist. Missing these = product feels incomplete.
+Features that already exist and must continue to work identically after migration. Missing any = regression.
 
-| Feature | Why Expected | Complexity | Notes |
-|---------|--------------|------------|-------|
-| **Quick text capture** | Every PKM/capture app has one-tap text entry. Users will not tolerate friction at the moment of thought. Braintoss, Drafts, Apple Notes all set this bar. | LOW | Expo text input + POST to AG-UI. Already in PRD. Must feel instant (<200ms to "captured" confirmation). |
-| **Voice capture with transcription** | Otter, Whisper Notes, Tana, Mem 2.0, Reflect, Apple Journal all offer voice-to-text. This is table stakes in 2026 for any capture app. | MEDIUM | Azure OpenAI Whisper via Perception Agent. Already in PRD. Accuracy must be high for proper nouns (Will's contacts, project names). |
-| **Photo capture with understanding** | Apple Journal, Tana, and multimodal AI tools all process images. Users expect OCR + scene description at minimum. | MEDIUM | GPT-5.2 Vision via Perception Agent. Already in PRD. Key: extracting text from whiteboards, business cards, receipts. |
-| **Automatic classification/routing** | Mem pioneered "zero-organization" with AI auto-tagging. Tana supertags auto-classify. Notion AI agents auto-organize. Users of AI-first tools expect the system to file things without manual effort. | HIGH | Classifier Agent with confidence scoring. Core value prop of the system. The 4-bucket model (People/Projects/Ideas/Admin) is simpler than most competitors — this is a strength, not a weakness. |
-| **Cross-device sync** | Every modern app (Notion, Obsidian Sync, Reflect, Apple Journal) syncs across devices. Data must be available wherever you are. | LOW | Cosmos DB is the single source of truth; Expo app is a thin client. Already architected this way. |
-| **Search across all captures** | Notion, Obsidian, Mem, Capacities, and every PKM tool has search. Users need to find things they captured previously. | MEDIUM | Cosmos DB queries + optional full-text index. PRD defers to Phase 4 — consider moving basic search earlier (keyword match on rawText + title fields). |
-| **Push notifications for important events** | Standard mobile app expectation. Users need to know when the system needs their input or has a digest ready. | LOW | Expo Push Notifications. Already in PRD (HITL clarification + digests only). Restrained approach is correct. |
-| **Data export / portability** | Obsidian (Markdown files), Logseq (plain text), Monica (REST API) all emphasize data ownership. Users fear lock-in — especially power users. | LOW | Cosmos DB JSON export. Not in PRD but trivial to add. Include a "download my data" function early. |
-| **Confirmation feedback** | Users need to know their capture was received and processed. Every capture app provides immediate visual/haptic feedback. | LOW | AG-UI SSE stream already provides real-time agent chain visibility. Already in PRD. |
-| **Daily digest / briefing** | Apple Journal has daily prompts, Notion AI summarizes, Limitless generates daily summaries. Users expect the system to surface what matters without asking. | HIGH | Digest Agent with morning briefing. Already in PRD. The <150 word constraint is a strong differentiator vs verbose competitors. |
+| Feature | Why Table Stakes | Complexity | Migration Notes |
+|---------|-----------------|------------|-----------------|
+| Text capture → Orchestrator → Classifier → Cosmos DB | Core pipeline; entire product fails without it | MEDIUM | Client swap + workflow replacement. Tool functions unchanged. |
+| Voice capture → Perception → classify pipeline | Existing feature; voice users notice immediately | LOW | Perception step stays synthetic (not a Foundry agent). No change needed. |
+| HITL: low-confidence captures filed as pending, inbox bucket buttons | Existing HITL path; users depend on it | MEDIUM | Cosmos DB path unchanged. No agent involvement in the respond endpoint. |
+| HITL: misunderstood captures → conversational follow-up | Existing HITL path; involves re-running the workflow | HIGH | CUSTOM EVENT detection approach must survive. See Q2 below. |
+| AG-UI SSE streaming (StepStarted, StepFinished, Custom events) | Mobile app depends on AG-UI protocol exactly | HIGH | Streaming surface changes: no WorkflowEvent in direct agent.run(). Custom event emission strategy must be rebuilt around WorkflowBuilder events. |
+| Inbox view: list, detail cards, swipe-to-delete | Cosmos DB reads; no agent involvement | LOW | Zero change — pure Cosmos DB layer. |
+| Recategorize from inbox (bucket buttons) | HITL respond endpoint — no agent involvement | LOW | Zero change — direct Cosmos DB write, no workflow needed. |
+| API key auth middleware | Security boundary | LOW | Zero change — middleware unchanged. |
 
-### Differentiators (Competitive Advantage)
+### Differentiators (What the Migration Enables)
 
-Features that set the product apart. Not required, but valuable.
+New capabilities that become possible after migrating to Foundry Agent Service. Not strictly required for parity, but the whole point of the migration.
 
-| Feature | Value Proposition | Complexity | Notes |
-|---------|-------------------|------------|-------|
-| **Zero-organization capture philosophy** | Most PKM tools still require the user to choose folders, tags, or categories at capture time. Even Mem (the closest competitor in philosophy) requires opening the right note type. The Active Second Brain removes ALL organizational decisions — you capture, agents handle the rest. This is the core differentiator. | Already architected | The 4-bucket model with AI classification is simpler than Tana's supertags, Notion's databases, or Obsidian's folder/tag systems. Simplicity IS the feature. |
-| **Agent chain transparency (AG-UI)** | No competitor exposes the AI decision-making pipeline to the user in real-time. Mem, Notion AI, and Tana process in the background. Showing "Orchestrator -> Perception -> Classifier (0.85) -> Action Agent" builds trust through visibility. | MEDIUM | AG-UI SSE event streaming. Already in PRD. This is a genuine differentiator — users see WHY their note was filed where it was. |
-| **Human-in-the-loop clarification** | When confidence is low, the Classifier asks a focused question rather than guessing. Most AI tools silently misclassify. Tana and Notion AI have no HITL loop. This prevents database pollution and builds trust over time. | MEDIUM | Classifier Agent owns the clarification conversation. Already in PRD. Key UX challenge: make clarification feel conversational, not like an error state. |
-| **Action sharpening (vague -> executable)** | GTD's "next action" principle is well-established but no capture tool automatically transforms "deal with car registration" into "Go to ilsos.gov and renew registration online — due March 15." This bridges the gap between capture and execution. | MEDIUM | Dedicated Action Agent for Projects/Admin. Already in PRD. Unique separation from classification — no competitor has a dedicated action-sharpening agent. |
-| **Personal CRM built into capture** | Monica, Dex, Clay are standalone personal CRMs. But nobody integrates CRM into the capture loop — you mention "had coffee with Sarah" and it automatically updates Sarah's record, last interaction date, and surfaces relationship insights in digests. | HIGH | People bucket + Entity Resolution Agent. Already in PRD. The automatic relationship tracking from natural captures is genuinely novel. |
-| **Entity resolution (fuzzy name matching)** | "Don" and "Don Cheeseman" should resolve to the same person. Clay does this for LinkedIn contacts; no capture tool does it for freeform voice notes. Prevents duplicate records accumulating over time. | MEDIUM | Entity Resolution Agent running nightly. Already in PRD. Conservative merge strategy (flag ambiguous rather than auto-merge) is correct. |
-| **Weekly review automation** | GTD's weekly review is powerful but nobody does it because it requires effort. Automated system health + stalled projects + neglected relationships review removes the friction. | MEDIUM | Digest Agent (weekly) + Evaluation Agent (Phase 4). Already in PRD. Competitors offer manual review templates (Notion, Todoist); none automate the review itself. |
-| **Cross-reference extraction** | When you capture "talk to Sarah about the MedTech project," the system links both the Sarah person record AND the MedTech project record. No competitor does bidirectional cross-referencing from unstructured voice input. | HIGH | Classifier Agent extracts cross-refs. Already in PRD. Depends on existing People/Projects records for matching. |
-| **System self-evaluation** | No PKM tool evaluates its own performance. The Evaluation Agent tracking classification accuracy, action completion rates, stale content, and system health is a meta-intelligence layer that no competitor offers. | HIGH | Evaluation Agent (Phase 4). Already in PRD. Requires weeks of data before useful — correct to defer. |
-| **Concise output constraint** | Daily digests under 150 words. Most AI tools generate verbose summaries. The constraint that output must fit on a phone screen while making breakfast is a design decision that prevents information overload — the very problem the system solves. | LOW | Prompt engineering constraint on Digest Agent. Already in PRD. This is an anti-bloat feature disguised as a formatting rule. |
+| Feature | Value Proposition | Complexity | Migration Notes |
+|---------|-------------------|------------|-----------------|
+| Persistent agents (server-registered with IDs) | Agents survive restarts; visible in AI Foundry portal; manageable without code changes | MEDIUM | Create agents once in lifespan() using `AIProjectClient.agents.create_agent()`. Store agent IDs on `app.state`. The `as_agent()` async context manager creates + deletes — NOT suitable for a long-running server. |
+| Server-managed conversation threads (`AgentSession` with `service_session_id`) | Conversation history lives in Foundry service, not ephemeral memory. Multi-turn interactions (misunderstood follow-up) can resume the same thread. | MEDIUM | AG-UI supports service-managed session continuity as of 1.0.0b260116. Thread IDs map to `service_session_id` in `AgentSession`. Coexists with Cosmos DB — different concerns. |
+| Portal visibility: view agents, threads, tool calls in AI Foundry portal | Debugging and monitoring without log grep. See classification outcomes, token usage, agent handoffs. | LOW | Requires AI Foundry project + Azure AI User RBAC. No code change. Zero friction visibility. |
+| Application Insights observability: per-agent traces, token usage, cost | Real metrics vs log-scraping. Run rates, errors, cost per classification. | MEDIUM | Requires `APPLICATIONINSIGHTS_CONNECTION_STRING` env var. `configure_otel_providers()` already called at startup — just needs the connection string. Real-time cost charts in Foundry portal. |
+| Content safety filters applied at service boundary | Built-in content moderation without custom code | LOW | Automatic once on Foundry. Configurable via RAI policy in portal. No code needed. |
+| Enterprise identity: Entra ID, RBAC, audit logs | Production-grade security posture | LOW | Already using `DefaultAzureCredential`. RBAC role change: Cognitive Services User → Azure AI User. |
 
-### Anti-Features (Commonly Requested, Often Problematic)
+### Anti-Features (Avoid These During Migration)
 
-Features that seem good but create problems. Deliberately NOT building these.
+Features that seem like obvious improvements but create problems in the migration context.
 
 | Feature | Why Requested | Why Problematic | Alternative |
 |---------|---------------|-----------------|-------------|
-| **Folder/tag taxonomy** | Power users expect customizable organization. Obsidian and Notion train users to think in folders and tags. | Forces organizational decisions at capture time — the exact friction this system eliminates. Users become "Tweakers" (anti-pattern #7) endlessly reorganizing instead of capturing. The 12 PKM mistakes research shows this is the #1 adoption killer. | 4 stable buckets (People/Projects/Ideas/Admin) with AI classification. Users never see or manage a taxonomy. |
-| **Full rich-text editor** | Note-taking apps (Notion, Obsidian, Logseq) are built around long-form writing with formatting, headings, code blocks, embeds. | This is a note-taking app, not a capture app. Adding a rich editor shifts mental model from "dump thought quickly" to "compose something nice." Capture speed degrades. The system becomes a worse Notion clone. | Raw text capture + optional voice/photo. If Will needs to write long-form, he uses a dedicated tool (Notion, VS Code). This system captures the seed, not the tree. |
-| **Bi-directional links / knowledge graph** | Obsidian, Logseq, Roam, and Tana all have graph views showing note connections. It looks impressive in demos. | Graph views are eye candy that rarely provide insight for personal capture data. They require critical mass (thousands of notes) to be useful, and maintaining link integrity adds complexity. The 4-bucket model with cross-references is simpler and more actionable. | Cross-reference fields on records (People mentioned in Projects, Projects mentioned with People). Flat, queryable, no graph rendering needed. |
-| **Offline capture** | Mobile apps are expected to work offline. Obsidian is local-first. Apple Notes syncs later. | Voice transcription requires Whisper API (cloud). Classification requires LLM (cloud). The core value — AI processing — cannot work offline. Building offline-first with sync-later adds enormous complexity for a single-user system. PRD already decided this. | Require connectivity. Will's capture contexts (phone while walking, at desk, at home) all have connectivity. If truly needed later, queue raw captures locally and process on reconnect. |
-| **Custom bucket types** | Users may want to add "Recipes," "Books," "Workouts" beyond the 4 buckets. Capacities and Tana let you define custom object types. | Scope creep. Every new bucket needs classifier training, new tools, schema changes, and digest integration. The 4-bucket model was chosen to be "painfully small" (Principle 9). Adding buckets is the PKM equivalent of adding folders. | Ideas bucket is the catch-all. If a pattern emerges (e.g., lots of book captures), consider a sub-classification within Ideas later. But start with 4. |
-| **Real-time collaboration** | Notion, Supernotes, and many tools support multi-user editing. | Single-user system. Will is the only user. Collaboration adds auth complexity, conflict resolution, permissions, and shared state management for zero benefit. | N/A. This is a personal system. If sharing is needed, export data. |
-| **Calendar integration** | Reflect, Clay, and Dex sync with Google Calendar. Notion integrates calendar views. Seems useful for "what meetings are coming up." | Adds a sync dependency, OAuth flows, and calendar API maintenance. The system is about capturing thoughts, not managing a schedule. Calendar data would pollute the 4-bucket model. | If Will captures "meeting with Sarah Tuesday at 3pm," the Admin bucket stores the task. The system doesn't need to read or write his actual calendar. |
-| **Web clipper / browser extension** | Saner.ai, Notion, and many PKM tools let you clip web content. Seems like a natural capture input. | Web clipping captures OTHER people's content, not Will's thoughts. The system's core loop is "capture YOUR fleeting thought." Clipping articles creates a "Hoarder" pattern (anti-pattern #10) — more inputs than outputs. | If Will finds a useful article, he captures a text note: "Interesting article about X — idea Y for Z project." The thought is what matters, not the article. |
-| **Template system** | Tana has template stores. Notion has template galleries. Capacities has object templates. | Templates are pre-structured forms — the opposite of frictionless capture. Requiring Will to pick a template before capturing defeats the "one-tap, zero-decision" principle. | The Classifier Agent applies structure AFTER capture. The user never sees a template — the agent knows what fields to populate based on the bucket. |
-| **Plugin / extension ecosystem** | Obsidian has 1,500+ plugins. Notion has integrations marketplace. | Plugin ecosystems create "Complexity Monster" and "Integrator" anti-patterns. A single-user hobby project doesn't need third-party extensibility. Plugins fragment the experience and create maintenance burden. | Build the features you need directly. If the system needs a new capability, add an agent or tool — not a plugin marketplace. |
-| **Gamification (streaks, points, badges)** | Apple Journal has streaks. Many productivity apps use gamification to drive engagement. | Gamification creates anxiety and guilt (Principle 10: "Design for Restart"). If Will stops capturing for a week, a broken streak makes restart harder. The system should welcome him back, not shame him. | No streaks, no scores. The daily digest naturally surfaces what needs attention. The system works for Will, not the other way around. |
+| Connected Agents: Orchestrator → Classifier via Foundry-native invocation | Seems like the "right" Foundry architecture. Portal-visible agent-to-agent calls. | Official docs confirm: "Connected agents cannot call local functions using the function calling tool." The Classifier's entire value is its `@tool` decorated Python functions (`classify_and_file`, `request_misunderstood`, `mark_as_junk`). Moving these to Azure Functions adds significant infrastructure complexity and a new failure domain. | Use `WorkflowBuilder` with `AzureAIAgentClient` agents + local tool execution. Foundry-registered agents + local tool execution + server-managed threads = full observability value without Connected Agents constraints. |
+| Rewrite AG-UI adapter to use `workflow.as_agent()` + `add_agent_framework_fastapi_endpoint()` | Simpler, uses framework helper | The framework's `add_agent_framework_fastapi_endpoint` suppresses the custom CLASSIFIED/MISUNDERSTOOD/UNRESOLVED events the mobile app depends on. Also loses Classifier chain-of-thought buffering and outcome detection logic. | Keep the custom AG-UI endpoint and `_stream_sse` pipeline. Replace the `AGUIWorkflowAdapter` internals (client + workflow builder) while preserving the external interface. |
+| Use Foundry threads as the conversation data store | Server-managed threads seem like they could replace Cosmos DB | Foundry threads are LLM conversation context (ephemeral, bounded to a session). Cosmos DB inbox items are domain data (persistent, user-queryable, pageable). They serve different purposes. Using Foundry threads as the primary data store would break inbox queries, pagination, and all domain queries. | Use Foundry threads for classification conversation context only. Cosmos DB remains the source of truth for all domain data. These coexist without conflict. |
+| Create agents fresh on every request | Simpler lifecycle, no persistent state to manage | Defeats the purpose of Foundry's persistent agent feature. Creates a new agent registration per request — accumulates in portal, incurs overhead, loses traceability. | Create agents once at startup in `lifespan()`, store IDs on `app.state`, reference by ID on every request. Delete on shutdown if ephemerality is intentional. |
+| Migrate all 7 planned agents simultaneously | "Complete the architecture" | Phases 3-7 agents (Action, Digest, Entity Resolution, Evaluation) do not exist yet. Migrating non-existent agents wastes time and creates dead code. | Migrate only Orchestrator + Classifier (the two that exist). Other agents follow the same pattern when built in future milestones. |
+
+---
+
+## Resolved Open Questions
+
+The 5 open questions from `fas-rearchitect.md` are answered here with evidence from official docs.
+
+### Q1: Connected Agents + HITL
+
+**Question:** How does `request_info` (pause for user input) work with Connected Agents?
+
+**Answer:** Not applicable for this project. Connected Agents **cannot call local function tools**. The official docs state: "Connected agents cannot call local functions using the function calling tool. We recommend using the OpenAPI tool or Azure Functions instead."
+
+The HITL pattern is implemented entirely through local `@tool` functions (`request_misunderstood` writes to Cosmos DB, returns inbox item ID). Since Connected Agents cannot use these tools, Connected Agents is not a viable orchestration path for Orchestrator → Classifier unless tools are moved to Azure Functions or OpenAPI endpoints.
+
+HITL itself (low-confidence inbox + respond endpoint, misunderstood follow-up endpoint) does NOT involve the Foundry agent at the pause/resume step. The `respond` and `follow-up` endpoints write directly to Cosmos DB — they do not call the agent. HITL works identically regardless of which agent client is used for the initial classification run.
+
+**Confidence:** HIGH
+**Source:** https://learn.microsoft.com/en-us/azure/ai-foundry/agents/how-to/connected-agents
+
+### Q2: AG-UI Adapter Changes
+
+**Question:** What changes with `AzureAIAgentClient` streaming?
+
+**Answer:** With `AzureAIAgentClient` + `WorkflowBuilder`, streaming produces `WorkflowEvent` objects — the same event surface the current `AGUIWorkflowAdapter` already handles. Event types (`"output"`, `"executor_invoked"`, `"executor_completed"`, `"request_info"`) are produced identically whether the agents are backed by `AzureOpenAIChatClient` or `AzureAIAgentClient`. The `_stream_updates` method processes this same `WorkflowEvent` + `AgentResponseUpdate` contract.
+
+The key change: `AGUIWorkflowAdapter._create_workflow()` replaces `HandoffBuilder` with `WorkflowBuilder`. The adapter's external `run(stream=True)` interface is preserved. The outcome detection logic (function_call.name inspection for CLASSIFIED/MISUNDERSTOOD/UNRESOLVED events), chain-of-thought buffering, and clean result construction are all preserved.
+
+Additional: AG-UI supports service-managed session continuity as of 1.0.0b260116. The `thread_id` from the AG-UI request can be preserved as the `service_session_id`, enabling thread resumption across HTTP requests for multi-turn HITL flows.
+
+**Confidence:** HIGH — docs confirmed WorkflowEvent surface unchanged between providers.
+**Source:** https://learn.microsoft.com/en-us/agent-framework/workflows/agents-in-workflows
+
+### Q3: Agent Lifecycle Management
+
+**Question:** Create at deploy time? At startup? How to handle instruction updates?
+
+**Answer:**
+- **Recommended pattern (startup):** Create agents in the FastAPI `lifespan()` context manager using `AIProjectClient.agents.create_agent()`. Store returned agent IDs on `app.state`. Reference by ID on every request. Delete on shutdown.
+- **Why NOT the async context manager pattern:** `AzureAIAgentClient(...).as_agent(name, instructions)` used as `async with` creates AND deletes the agent when the context exits. This creates + destroys the agent per-request if used in request handlers — not what we want.
+- **Why NOT pre-created by ID:** Storing agent IDs in env vars means instruction updates require a manual API call or portal edit. Startup creation is simpler for a learning project — instructions are always current after each deploy.
+- **Instruction updates:** If created at startup, each deploy re-creates with current instructions. If created by ID, portal or API update required when instructions change.
+
+**Confidence:** HIGH — official docs show both patterns with code examples.
+**Sources:**
+- https://learn.microsoft.com/en-us/agent-framework/user-guide/agents/agent-types/azure-ai-foundry-agent
+- https://learn.microsoft.com/en-us/azure/ai-foundry/agents/how-to/manage-hosted-agent
+
+### Q4: Thread Management
+
+**Question:** Server-managed threads vs Cosmos DB inbox items — how do they coexist?
+
+**Answer:** They serve different purposes and coexist without conflict:
+
+- **Foundry threads** (`AgentSession` with `service_session_id`): LLM conversation context. The agent's memory for "what was said in this conversation." Scoped to a classification session (one capture → one thread). The `service_session_id` can be stored and reused to resume a thread for multi-turn HITL follow-up.
+- **Cosmos DB inbox items**: Domain data. The classified capture as a business object with status, bucket, confidence, filed record ID. Queryable by the inbox view. Persistent indefinitely.
+
+A capture flow uses both: one Foundry thread (conversation context for classification) + one Cosmos DB inbox document (the result). The thread ID and inbox item ID are separate identifiers serving separate concerns. The `request_misunderstood` tool writes to Cosmos DB; the follow-up endpoint can resume the Foundry thread via `service_session_id` to maintain LLM conversation context.
+
+**Confidence:** HIGH
+**Source:** https://learn.microsoft.com/en-us/agent-framework/agents/conversations/session
+
+### Q5: Tool Execution — Local or Server-Side?
+
+**Question (implicit from fas-rearchitect.md):** `@tool` decorated functions — do they execute locally or server-side?
+
+**Answer:** **Local execution, always.** Even with `AzureAIAgentClient`, Python `@tool` functions execute in the FastAPI process. The Foundry service requests the tool call (returns a tool_call event), the local process executes the function and returns the result, the service incorporates the result and continues. This is the same tool call loop as OpenAI function calling.
+
+The HandoffBuilder constraint is that it requires agents with "local tools execution" — this means `AzureAIAgentClient` agents CAN be used with HandoffBuilder because their tools still execute locally. However, HandoffBuilder uses synthetic handoff tool calls to route between agents, which conflicts with the server-side tool call management in `AzureAIAgentClient`. The safer replacement is `WorkflowBuilder` which uses direct edges rather than synthetic tool calls.
+
+Connected Agents is different: subagent invocation is server-side, which is why local Python functions are excluded.
+
+**Confidence:** HIGH — function calling docs confirm local execution loop.
+**Source:** https://learn.microsoft.com/en-us/azure/ai-foundry/agents/how-to/tools/function-calling?view=foundry
+
+---
+
+## Critical Breaking Change: AgentThread → AgentSession
+
+**The current codebase uses `AgentThread` throughout.** This was removed as a breaking change in `1.0.0b260212` (February 2026). The framework is now at Release Candidate status (1.0.0rc1, 2026-02-19), so `AgentSession` is the stable API.
+
+| Old API | New API |
+|---------|---------|
+| `AgentThread` | `AgentSession` |
+| `agent.get_new_thread()` | `agent.create_session()` |
+| `agent.get_new_thread(service_thread_id=...)` | `agent.get_session(service_session_id=...)` |
+| `thread=thread` in `agent.run()` | `session=session` in `agent.run()` |
+| `from agent_framework import AgentThread` | `from agent_framework import AgentSession` |
+
+**Affected files:** `workflow.py` (uses `AgentThread` type hints and `get_new_thread()`), `main.py` (calls `workflow_agent.get_new_thread()`).
+
+This breaking change must be addressed during migration regardless of which agent client is used. It is not optional — the RC packages removed `AgentThread`.
+
+**Source:** https://learn.microsoft.com/en-us/agent-framework/support/upgrade/python-2026-significant-changes
+
+---
+
+## Package Dependency Changes
+
+The migration requires adding `agent-framework-azure-ai` to `pyproject.toml`. The current `pyproject.toml` has `agent-framework-orchestrations` (for `HandoffBuilder`) but not `agent-framework-azure-ai` (for `AzureAIAgentClient`).
+
+| Package | Current Status | After Migration |
+|---------|---------------|-----------------|
+| `agent-framework-ag-ui` | In pyproject.toml | Keep — unchanged |
+| `agent-framework-orchestrations` | In pyproject.toml | Keep (HandoffBuilder still available; WorkflowBuilder may be in core) OR remove if WorkflowBuilder is in agent-framework core |
+| `agent-framework-azure-ai` | NOT in pyproject.toml | **Add** — provides `AzureAIAgentClient` |
+| `azure-ai-projects` | NOT in pyproject.toml | **Add** — provides `AIProjectClient` for agent lifecycle management |
+
+Also: `azure_openai_endpoint` and `azure_openai_chat_deployment_name` in `config.py` become `azure_ai_project_endpoint` and `azure_ai_model_deployment_name`.
+
+---
 
 ## Feature Dependencies
 
 ```
-[Text/Voice/Photo Capture]
-    └──requires──> [AG-UI Endpoint + Orchestrator Agent]
-                       └──requires──> [Cosmos DB Containers + Tool Library]
+[Foundry Infrastructure Setup]
+    └──required by──> [AzureAIAgentClient initialization]
+                          └──required by──> [Persistent Orchestrator agent]
+                          └──required by──> [Persistent Classifier agent]
+                                                └──required by──> [WorkflowBuilder orchestration]
+                                                                       └──required by──> [AG-UI streaming]
+                                                                       └──required by──> [HITL classification flows]
 
-[Automatic Classification]
-    └──requires──> [Classifier Agent + Cosmos DB]
-    └──enhances──> [Action Sharpening]
+[AgentThread → AgentSession migration]
+    └──required by──> [Any agent.run() call — breaking change in RC packages]
 
-[Action Sharpening]
-    └──requires──> [Classifier Agent] (must know bucket before sharpening)
-    └──requires──> [Cosmos DB] (to read/update project records)
+[Application Insights connection string]
+    └──enables──> [Foundry portal traces and token usage metrics]
 
-[HITL Clarification]
-    └──requires──> [Classifier Agent + AG-UI bidirectional messaging]
-    └──enhances──> [Automatic Classification] (improves over time)
+[Connected Agents]
+    └──conflicts with──> [Local @tool functions on Classifier]
+    (NOT viable without moving tools to Azure Functions — v3.0+ concern)
 
-[Daily Digest]
-    └──requires──> [Cosmos DB populated with captures]
-    └──requires──> [Push Notifications]
-    └──enhances──> [Entity Resolution] (surfaces ambiguous flags)
-
-[Entity Resolution]
-    └──requires──> [People records in Cosmos DB]
-    └──enhances──> [Personal CRM / People bucket]
-
-[Cross-Reference Extraction]
-    └──requires──> [Existing People + Projects records]
-    └──enhances──> [Daily Digest] (richer context)
-    └──enhances──> [Personal CRM] (automatic relationship tracking)
-
-[Weekly Review]
-    └──requires──> [Daily Digest infrastructure]
-    └──requires──> [Sufficient data history (2+ weeks)]
-
-[System Self-Evaluation]
-    └──requires──> [OpenTelemetry traces]
-    └──requires──> [Sufficient data history (4+ weeks)]
-    └──requires──> [All other agents operational]
-
-[Search]
-    └──requires──> [Cosmos DB with indexed fields]
-    └──enhances──> [All buckets] (findability)
-
-[Agent Chain Transparency]
-    └──requires──> [AG-UI SSE event stream]
-    └──enhances──> [Trust] (users see why decisions were made)
+[WorkflowBuilder]
+    └──replaces──> [HandoffBuilder] for Foundry agents
+    └──preserves──> [Same WorkflowEvent stream surface for AGUIWorkflowAdapter]
 ```
 
 ### Dependency Notes
 
-- **Capture requires AG-UI + Orchestrator:** Nothing works without the pipeline entry point. This must be Phase 1.
-- **Classification requires Cosmos DB:** The Classifier needs existing records to match against (people names, project names). Bootstrap with empty DB, but accuracy improves with data.
-- **Action Sharpening requires Classification:** Must know the bucket before deciding whether to sharpen. Sequential dependency.
-- **Daily Digest requires populated data:** An empty digest is demoralizing. Don't enable until there are 1-2 weeks of captures.
-- **Entity Resolution requires People records:** Nightly merge is pointless without People records to reconcile. Defer until People bucket has 10+ records.
-- **System Self-Evaluation requires everything:** Meta-agent needs all other agents running + weeks of data. Correctly deferred to Phase 4.
-- **Search is independently valuable:** Does not depend on digests or evaluation. Could be added any time after Cosmos DB is populated.
+- **Foundry Infrastructure is Day 1 blocker:** AI Foundry project + Azure AI User RBAC + Application Insights must exist before any agent code can be tested. Infrastructure setup is Phase 1, not Phase 3.
+- **AgentThread removal is a prerequisite:** RC packages break any code using `AgentThread`. Must migrate `workflow.py` and `main.py` before or during client migration.
+- **WorkflowBuilder replaces HandoffBuilder for Foundry agents:** HandoffBuilder's synthetic tool call approach conflicts with server-side tool management in AzureAIAgentClient. WorkflowBuilder uses direct edges and is confirmed compatible via official Python samples.
+- **AG-UI custom events depend on workflow event inspection:** The CLASSIFIED/MISUNDERSTOOD/UNRESOLVED events are detected by inspecting `function_call.name` in the workflow event stream. This pattern is preserved with WorkflowBuilder because the same `WorkflowEvent` types are emitted for tool calls.
+- **HITL respond/follow-up endpoints are independent:** These endpoints write directly to Cosmos DB and do not invoke the agent. They are unaffected by the client migration.
+
+---
 
 ## MVP Definition
 
-### Launch With (v1)
+### Launch With (v2.0 — migration parity)
 
-Minimum viable product — what's needed to validate the concept: "capture a thought on your phone, see it filed correctly."
+The migration is complete when all of these are true:
 
-- [ ] **Text capture via Expo app** — The simplest input. Validates the full pipeline end-to-end.
-- [ ] **Orchestrator + Classifier Agent** — Core routing and classification. The intelligence that makes this more than a note app.
-- [ ] **Cosmos DB with 4 buckets + Inbox** — Persistent storage. Records must survive across sessions.
-- [ ] **AG-UI endpoint with SSE streaming** — Real-time feedback. User must see "Filed -> Projects (0.85)" to trust the system.
-- [ ] **Capture confirmation UX** — Visual confirmation that the thought was captured and processed.
-- [ ] **Basic HITL clarification** — When the Classifier is uncertain, ask the user. Prevents misclassification from poisoning early data.
+- [ ] AI Foundry project created, Application Insights connected, RBAC configured (Azure AI User role)
+- [ ] `agent-framework-azure-ai` and `azure-ai-projects` added to `pyproject.toml`
+- [ ] `azure_ai_project_endpoint` and `azure_ai_model_deployment_name` in `config.py` + `.env`
+- [ ] `AzureAIAgentClient` replaces `AzureOpenAIChatClient` in `main.py` lifespan
+- [ ] Orchestrator + Classifier created as persistent Foundry agents at startup (visible in portal)
+- [ ] `WorkflowBuilder` replaces `HandoffBuilder` in `AGUIWorkflowAdapter._create_workflow()`
+- [ ] `AgentThread` → `AgentSession` migration complete in `workflow.py` and `main.py`
+- [ ] All three HITL paths verified: low-confidence pending → inbox bucket buttons → classify; misunderstood → follow-up; recategorize
+- [ ] AG-UI SSE streaming verified: StepStarted/StepFinished, CLASSIFIED, MISUNDERSTOOD, UNRESOLVED custom events unchanged
+- [ ] Application Insights traces visible in AI Foundry portal for a classification run
+- [ ] Token usage and cost metrics visible for at least one run
 
-### Add After Validation (v1.x)
+### Add After Validation (v2.x)
 
-Features to add once core capture-classify loop is working and trusted.
+- [ ] Thread resumption via `service_session_id` for misunderstood follow-up (Foundry remembers classification context, not just Cosmos DB)
+- [ ] Foundry portal evaluation run (baseline quality metrics now that traces exist)
+- [ ] Content safety RAI policy configured
 
-- [ ] **Voice capture + Perception Agent** — Add when text pipeline is solid. Whisper transcription + Orchestrator routing.
-- [ ] **Photo capture + Vision processing** — Add after voice works. Same Perception Agent, different input modality.
-- [ ] **Action Agent (sharpening)** — Add when Projects/Admin captures exist. Requires classified records to sharpen.
-- [ ] **Cross-reference extraction** — Add when People + Projects buckets have records to cross-reference.
-- [ ] **Basic search** — Keyword search across rawText and titles. Don't wait for Phase 4; basic search is table stakes.
-- [ ] **Data export** — JSON export of all records. Prevents lock-in anxiety. Low effort, high trust.
+### Future Consideration (v3.0+)
 
-### Future Consideration (v2+)
+- [ ] Move `classify_and_file` / `request_misunderstood` / `mark_as_junk` to Azure Functions — prerequisite for Connected Agents
+- [ ] Connected Agents: Orchestrator as Foundry-native orchestrator, Classifier as connected subagent
+- [ ] Action Agent (sharpens vague thoughts) — new agent, same Foundry pattern
+- [ ] Additional agents from PRD (Digest, Entity Resolution, Evaluation)
 
-Features to defer until product-market fit is established (i.e., Will is actually using the system daily).
-
-- [ ] **Daily/weekly digest** — Needs 2+ weeks of data. Digest of 3 captures is not useful.
-- [ ] **Entity Resolution Agent** — Needs 10+ People records. Nightly merge of 2 records is not useful.
-- [ ] **Push notifications** — Needs digest and HITL to be production-ready before pushing to the phone.
-- [ ] **Evaluation Agent** — Needs 4+ weeks of data across all agents. Meta-evaluation of a nascent system produces noise.
-- [ ] **Full-text search** — Semantic search beyond keyword matching. Requires enough data for embeddings to be useful.
-- [ ] **Share sheet extension** — Convenient but not core. Adds Expo native module complexity.
-- [ ] **Video capture + keyframe extraction** — Most complex input modality. Defer until voice+photo are reliable.
+---
 
 ## Feature Prioritization Matrix
 
 | Feature | User Value | Implementation Cost | Priority |
 |---------|------------|---------------------|----------|
-| Text capture + classification | HIGH | MEDIUM | P1 |
-| AG-UI real-time feedback | HIGH | MEDIUM | P1 |
-| HITL clarification | HIGH | MEDIUM | P1 |
-| Capture confirmation UX | HIGH | LOW | P1 |
-| Voice capture + transcription | HIGH | MEDIUM | P1 |
-| Photo capture + vision | MEDIUM | MEDIUM | P2 |
-| Action sharpening | HIGH | MEDIUM | P2 |
-| Cross-reference extraction | MEDIUM | HIGH | P2 |
-| Basic keyword search | MEDIUM | LOW | P2 |
-| Data export (JSON) | LOW | LOW | P2 |
-| Daily digest | HIGH | MEDIUM | P2 |
-| Push notifications | MEDIUM | LOW | P2 |
-| Entity Resolution | MEDIUM | MEDIUM | P3 |
-| Weekly review | MEDIUM | LOW | P3 |
-| Evaluation Agent | LOW (initially) | HIGH | P3 |
-| Full-text / semantic search | MEDIUM | HIGH | P3 |
-| Share sheet extension | LOW | MEDIUM | P3 |
-| Video capture + keyframes | LOW | HIGH | P3 |
+| Foundry infrastructure setup | LOW (invisible) | MEDIUM | P1 — Day 1 blocker |
+| AzureAIAgentClient + persistent agents | LOW (invisible to end user) | MEDIUM | P1 — core migration goal |
+| WorkflowBuilder replacement for HandoffBuilder | LOW (invisible) | MEDIUM | P1 — HandoffBuilder incompatibility risk |
+| AgentThread → AgentSession migration | LOW (invisible) | LOW | P1 — breaking change in RC packages |
+| Application Insights observability | MEDIUM (Will only) | LOW | P1 — explicit learning goal |
+| Portal agent/thread visibility | MEDIUM (Will only) | LOW | P1 — explicit learning goal |
+| AG-UI streaming parity | HIGH (users notice if broken) | MEDIUM | P1 — must not regress |
+| HITL flow parity | HIGH (users notice if broken) | LOW | P1 — must not regress |
+| Thread resumption via service_session_id | LOW (subtle) | MEDIUM | P2 — enhancement |
+| Content safety RAI policy | LOW | LOW | P2 — good practice |
+| Connected Agents pattern | LOW (invisible) | HIGH | P3 — requires Azure Functions infrastructure |
 
 **Priority key:**
-- P1: Must have for launch (validates core hypothesis)
-- P2: Should have, add when core loop is trusted
-- P3: Nice to have, future consideration after daily usage established
+- P1: Required for v2.0 to be called complete
+- P2: Add when core is stable and verified
+- P3: Requires additional infrastructure or is future milestone work
 
-## Competitor Feature Analysis
-
-| Feature | Mem 2.0 | Tana | Notion AI | Capacities | Reflect | Our Approach |
-|---------|---------|------|-----------|------------|---------|--------------|
-| **Text capture** | Yes (app) | Yes (app + web) | Yes (app + web) | Yes (app + web) | Yes (app, sub-second launch) | Yes (Expo app, one-tap) |
-| **Voice capture** | Yes (voice mode, Oct 2025) | Yes (voice chat, AI transcription) | Yes (transcription in 3.2) | No native voice | Yes (with transcription) | Yes (Whisper via Perception Agent) |
-| **Photo/image capture** | No | No | Limited | No | No | Yes (GPT-5.2 Vision via Perception Agent) |
-| **Auto-classification** | AI auto-tagging | Supertag AI auto-fill | AI agent auto-organize | Object type inference | No (manual) | 4-bucket AI classification with confidence scores |
-| **Organization model** | AI-driven, no folders | Supertags (user-defined schema) | Databases + folders + AI | Object types + relations | Backlinks + daily notes | 4 fixed buckets, zero user decisions |
-| **HITL when uncertain** | No | No | No | No | No | Yes (Classifier asks focused questions) |
-| **Action sharpening** | No | No | No | No | No | Yes (dedicated Action Agent) |
-| **Personal CRM** | No | Via supertag | Via database | Object types for people | No | Built-in People bucket with auto-tracking |
-| **Daily digest** | No | No | No | No | No | Yes (< 150 words, 6:30 AM) |
-| **Agent transparency** | Hidden AI | Hidden AI | Some visibility | Hidden AI | Hidden AI | Full AG-UI chain visibility |
-| **Offline** | Yes (Mem 2.0) | Yes (2025 update) | Yes | Yes | Yes | No (requires cloud AI) |
-| **Graph view** | No | Knowledge graph | No | Timeline + relations | Graph view | No (cross-references instead) |
-| **Data export** | Limited | Export available | Markdown export | Export available | End-to-end encrypted export | JSON export (planned) |
-| **Weekly review** | No | Manual templates | Manual | No | No | Automated (Digest + Evaluation Agent) |
-
-**Key takeaway:** No competitor combines multimodal capture + auto-classification + HITL clarification + action sharpening + personal CRM + daily digest in a single system. Each competitor excels at 2-3 of these; the Active Second Brain integrates all of them into one capture loop. The tradeoff is no offline mode and no rich editing — deliberate choices that maintain focus.
+---
 
 ## Sources
 
-- [Buildin.AI: Best 15 Second Brain Apps in 2026](https://buildin.ai/blog/best-second-brain-apps) — Comprehensive feature comparison across 15 PKM tools
-- [ToolFinder: Best Second Brain Apps in 2026](https://toolfinder.co/best/second-brain-apps) — Evaluation framework for second brain app selection criteria
-- [12 Common PKM Mistakes](https://www.dsebastien.net/12-common-personal-knowledge-management-mistakes-and-how-to-avoid-them/) — Anti-patterns that informed anti-features section
-- [Forte Labs: Test-Driving Second Brain Apps](https://fortelabs.com/blog/test-driving-a-new-generation-of-second-brain-apps-obsidian-tana-and-mem/) — Obsidian, Tana, Mem comparison from BASB originator
-- [Tana 2025 Product Updates](https://tana.inc/articles/whats-new-in-tana-2025-product-updates) — Voice chat, mobile, supertag AI features
-- [Notion 3.2 Release (Jan 2026)](https://www.notion.com/releases/2026-01-20) — Mobile AI agents, multi-model support
-- [Monica CRM Features](https://www.monicahq.com/features) — Open-source personal CRM feature set
-- [Wave Connect: 6 Best Personal CRM Tools](https://wavecnct.com/blogs/news/the-6-best-personal-crm-tools-in-2025) — Clay, Dex, Monica feature comparison
-- [Braintoss](https://braintoss.com/) — Benchmark for zero-friction capture UX
-- [Limitless AI / Rewind](https://www.limitless.ai/) — AI wearable capture with auto-summarization (acquired by Meta Dec 2025)
-- [GTD Methodology (Todoist guide)](https://www.todoist.com/productivity-methods/getting-things-done) — Next action and inbox processing patterns
-- [Capacities](https://capacities.io/) — Object-based PKM with people/meeting/project types
-- [thesecondbrain.io: Notion vs Obsidian vs NotebookLM](https://www.thesecondbrain.io/blog/notion-vs-obsidian-vs-notebooklm-vs-second-brain-comparison-2025) — Feature comparison matrix
+- [Azure AI Foundry Agents — Microsoft Agent Framework](https://learn.microsoft.com/en-us/agent-framework/user-guide/agents/agent-types/azure-ai-foundry-agent) — AzureAIAgentClient patterns, async context manager, streaming, tools (updated 2026-02-17)
+- [How to use Connected Agents — Microsoft Foundry](https://learn.microsoft.com/en-us/azure/ai-foundry/agents/how-to/connected-agents?view=foundry-classic) — Connected Agents, Python SDK, **local function limitation confirmed** (updated 2026-02-25)
+- [HandoffBuilder Orchestrations — Microsoft Agent Framework](https://learn.microsoft.com/en-us/agent-framework/workflows/orchestrations/handoff) — HandoffBuilder, local tools requirement, HITL tool approval, autonomous mode (updated 2026-02-13)
+- [Agents in Workflows — Microsoft Agent Framework](https://learn.microsoft.com/en-us/agent-framework/workflows/agents-in-workflows) — **WorkflowBuilder + AzureAIAgentClient integration confirmed**, Python samples (updated 2026-02-26)
+- [Python 2026 Significant Changes — Microsoft Agent Framework](https://learn.microsoft.com/en-us/agent-framework/support/upgrade/python-2026-significant-changes) — **AgentThread removal**, AgentSession API, WorkflowBuilder changes, credential parameter changes (updated 2026-02-23)
+- [Running Agents — Microsoft Agent Framework](https://learn.microsoft.com/en-us/agent-framework/agents/running-agents) — ResponseStream, AgentResponseUpdate, streaming surface (updated 2026-02-13)
+- [Human-in-the-Loop Workflows — Microsoft Agent Framework](https://learn.microsoft.com/en-us/agent-framework/workflows/human-in-the-loop) — request_info pattern, WorkflowBuilder HITL, response_handler
+- [Human-in-the-Loop with AG-UI — Microsoft Agent Framework](https://learn.microsoft.com/en-us/agent-framework/integrations/ag-ui/human-in-the-loop) — AG-UI HITL, approval_mode, @tool decorator patterns
+- [Function Calling — Microsoft Foundry](https://learn.microsoft.com/en-us/azure/ai-foundry/agents/how-to/tools/function-calling?view=foundry) — Local function execution pattern, tool call loop, 10-minute run expiration (updated 2026-02-25)
+- [Agent Session — Microsoft Agent Framework](https://learn.microsoft.com/en-us/agent-framework/agents/conversations/session) — AgentSession, service_session_id, serialization (updated 2026-02-13)
+- [Agent Providers Overview — Microsoft Agent Framework](https://learn.microsoft.com/en-us/agent-framework/user-guide/agents/agent-types/) — Provider comparison matrix, function tool support per provider
+- [Application Insights for AI Agents](https://learn.microsoft.com/en-us/azure/azure-monitor/app/agents-view) — Observability, token usage, cost tracking, fleet monitoring
+- [GitHub Issue #3097 — HandoffBuilder + AzureAIClient payload error](https://github.com/microsoft/agent-framework/issues/3097) — HandoffBuilder compatibility evidence
 
 ---
-*Feature research for: Personal Knowledge Management / Second Brain / AI-Powered Capture-and-Intelligence System*
-*Researched: 2026-02-21*
+*Feature research for: Azure AI Foundry Agent Service migration — The Active Second Brain v2.0*
+*Researched: 2026-02-25*

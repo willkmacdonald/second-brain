@@ -1,537 +1,603 @@
-# Architecture Research
+# Architecture Patterns: Foundry Agent Service Migration
 
-**Domain:** Multi-agent personal knowledge management with mobile capture frontend
-**Researched:** 2026-02-21
-**Confidence:** MEDIUM — Agent Framework is pre-release (RC1 as of 2026-02-20); AG-UI Python integration is new; CopilotKit lacks native Expo support. Core patterns are documented by Microsoft, but real-world production examples with this exact stack are scarce.
+**Domain:** AzureAIAgentClient + Connected Agents integration with existing FastAPI architecture
+**Researched:** 2026-02-25
+**Confidence:** MEDIUM-HIGH — AzureAIAgentClient is documented in official Microsoft Learn; Connected Agents pattern is documented but has a critical limitation that changes the approach. New Foundry Workflows API (2025-11-15-preview) exists but is complex for this use case. Some integration details confirmed by reading installed SDK source.
 
-## System Overview
+---
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                        CAPTURE LAYER (Mobile)                           │
-│  ┌──────────────────────────────────────────────────────────────────┐   │
-│  │  Expo / React Native App                                        │   │
-│  │  ┌────────┐  ┌────────┐  ┌────────┐  ┌────────────┐            │   │
-│  │  │ Text   │  │ Voice  │  │ Photo/ │  │ Digest     │            │   │
-│  │  │ Input  │  │ Record │  │ Video  │  │ Viewer     │            │   │
-│  │  └───┬────┘  └───┬────┘  └───┬────┘  └─────┬──────┘            │   │
-│  │      │            │           │              │                   │   │
-│  │      └────────────┴─────┬─────┴──────────────┘                   │   │
-│  │                         │                                        │   │
-│  │                    AG-UI SSE Client                               │   │
-│  │                  (react-native-sse)                               │   │
-│  └─────────────────────────┬────────────────────────────────────────┘   │
-└────────────────────────────┬────────────────────────────────────────────┘
-                             │ HTTP POST + SSE (AG-UI protocol)
-                             │ API key in header
-                             ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                     AGENT LAYER (Azure Container Apps)                   │
-│                                                                         │
-│  ┌─── FastAPI + AG-UI Endpoint ──────────────────────────────────────┐  │
-│  │  add_agent_framework_fastapi_endpoint(app, orchestrator, "/")     │  │
-│  └──────────────────────────┬────────────────────────────────────────┘  │
-│                             │                                           │
-│  ┌──────────────────────────┴────────────────────────────────────────┐  │
-│  │                    Handoff Workflow (Mesh)                         │  │
-│  │                                                                    │  │
-│  │  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐         │  │
-│  │  │ Orchestrator │───▶│  Perception  │───▶│  Classifier  │         │  │
-│  │  │  (triage)    │    │ (media→text) │    │ (text→bucket)│         │  │
-│  │  └──────┬───────┘    └──────────────┘    └──────┬───────┘         │  │
-│  │         │                                        │                 │  │
-│  │         │         ┌──────────────────┐          │                 │  │
-│  │         │         │  Action Agent    │◀─────────┘                 │  │
-│  │         │         │ (vague→concrete) │ (Projects/Admin only)      │  │
-│  │         │         └──────────────────┘                            │  │
-│  │         │                                                          │  │
-│  │         ├──────────▶ Digest Agent (on-demand queries)              │  │
-│  │         │                                                          │  │
-│  │  ┌──────────────────────────────────────────────────────────┐     │  │
-│  │  │  Background / Scheduled Agents (not in handoff mesh)     │     │  │
-│  │  │  ┌────────────────────┐  ┌───────────────────────┐       │     │  │
-│  │  │  │ Entity Resolution  │  │ Evaluation Agent      │       │     │  │
-│  │  │  │ (nightly cron)     │  │ (weekly cron, Phase 4)│       │     │  │
-│  │  │  └────────────────────┘  └───────────────────────┘       │     │  │
-│  │  └──────────────────────────────────────────────────────────┘     │  │
-│  └────────────────────────────────────────────────────────────────────┘  │
-│                                                                         │
-│  ┌─── OpenTelemetry ─────────────────────────────────────────────────┐  │
-│  │  Traces across all agent handoffs (built into Agent Framework)    │  │
-│  └───────────────────────────────────────────────────────────────────┘  │
-│                                                                         │
-└──────────────────────────────┬──────────────────────────────────────────┘
-                               │
-              ┌────────────────┼────────────────┐
-              ▼                ▼                ▼
-┌──────────────────┐ ┌──────────────┐ ┌──────────────────┐
-│   Azure OpenAI   │ │  Cosmos DB   │ │  Blob Storage    │
-│   GPT-5.2        │ │  (NoSQL)     │ │  (media files)   │
-│   Whisper        │ │  5 containers│ │  voice/photo/vid  │
-│   Vision         │ │  /userId PK  │ │                  │
-└──────────────────┘ └──────────────┘ └──────────────────┘
+## Critical Finding: Connected Agents Cannot Call Local Functions
+
+Connected Agents in the classic Foundry portal are deprecated in the new Foundry experience (replaced by Workflows). More importantly, the classic Connected Agents pattern has a hard limitation: **connected agents cannot call local @tool functions using the function calling mechanism.** Microsoft recommends Azure Functions or OpenAPI tools instead.
+
+This breaks the naive migration plan. The Classifier agent uses three local async @tool functions (classify_and_file, request_misunderstood, mark_as_junk) that perform Cosmos DB writes. These cannot be registered as connected-agent tools.
+
+**Resolution:** Use two independent AzureAIAgentClient agents without server-side Connected Agents routing. The Orchestrator is a thin pass-through (may be eliminated). The Classifier runs as a persistent Foundry agent with local @tool functions via agent-framework-azure-ai's AsyncFunctionTool pattern. The AGUIWorkflowAdapter is replaced with a simpler streaming adapter that runs the Classifier directly.
+
+---
+
+## New Architecture: Foundry Single-Agent with Lifespan-Managed Persistence
+
+### What Changes vs. the Current System
+
+| Component | Current | After Migration | Change Type |
+|-----------|---------|-----------------|-------------|
+| `main.py` client creation | `AzureOpenAIChatClient(credential, endpoint, deployment)` | `AzureAIAgentClient(credential=async_credential, project_endpoint=..., model_deployment_name=...)` | MODIFIED |
+| `main.py` credential type | `DefaultAzureCredential()` (sync) | `DefaultAzureCredential()` from `azure.identity.aio` (async) | MODIFIED |
+| `orchestrator.py` | `chat_client.as_agent(name, instructions)` | Eliminated (Orchestrator is redundant without HandoffBuilder; Classifier runs directly) OR kept as thin wrapper | MODIFIED/DELETED |
+| `classifier.py` | `chat_client.as_agent(name, instructions, tools=[...])` | `ai_client.as_agent(name, instructions, tools=[...])` — tools registered server-side via Foundry | MODIFIED |
+| `workflow.py` | HandoffBuilder + AGUIWorkflowAdapter (340 lines) | REPLACED ENTIRELY — new FoundrySSEAdapter (~80-100 lines) wrapping single agent run | REPLACED |
+| `config.py` | `azure_openai_endpoint`, `azure_openai_chat_deployment_name` | Add `azure_ai_project_endpoint`, `azure_ai_model_deployment_name` | MODIFIED |
+| Agent lifecycle | Ephemeral per-process | Persistent server-registered with ID; `should_cleanup_agent=False` | MODIFIED |
+| Conversation threads | In-memory, per-request | Server-managed via Foundry; thread ID stored per capture flow | MODIFIED |
+
+| Component | Change Type |
+|-----------|-------------|
+| `tools/classification.py` (@tool functions) | UNCHANGED |
+| `db/cosmos.py` (CosmosManager) | UNCHANGED |
+| `db/blob_storage.py` (BlobStorageManager) | UNCHANGED |
+| `api/inbox.py`, `api/health.py` | UNCHANGED |
+| `auth.py` (APIKeyMiddleware) | UNCHANGED |
+| `models/documents.py` | UNCHANGED |
+| `tools/transcription.py` | UNCHANGED |
+| Mobile Expo app | UNCHANGED |
+| AG-UI SSE protocol (events, format) | UNCHANGED |
+| Cosmos DB data model | UNCHANGED |
+| `/api/ag-ui/respond` endpoint | UNCHANGED (no agent call, direct Cosmos write) |
+| `/api/voice-capture` Perception step | UNCHANGED (Blob upload + Whisper) |
+
+---
+
+## New Package Dependency
+
+```toml
+# pyproject.toml — add to dependencies
+"agent-framework-azure-ai",   # Provides AzureAIAgentClient
 ```
 
-## Component Responsibilities
+The `agent-framework-azure-ai` package installs alongside `agent-framework-core`. The current `agent-framework-orchestrations` (HandoffBuilder) can be removed once workflow.py is replaced.
 
-| Component | Responsibility | Communicates With | Implementation |
-|-----------|----------------|-------------------|----------------|
-| **Expo App** | Capture text/voice/photo/video; display digests and HITL clarifications; stream agent handoff visibility | Agent Layer via AG-UI SSE | Expo SDK, `react-native-sse`, Expo Secure Store (API key), Expo AV (voice recording) |
-| **FastAPI + AG-UI Endpoint** | Accept HTTP POST from mobile, stream SSE events back, route to Orchestrator agent | Expo App (SSE), Orchestrator Agent | `agent-framework-ag-ui`, FastAPI, `add_agent_framework_fastapi_endpoint()` |
-| **Orchestrator Agent** | Triage incoming captures to the right specialist based on input type and content | Perception, Classifier, Digest, Action (via handoff) | `HandoffBuilder.with_start_agent(orchestrator)`, chat client agent with routing instructions |
-| **Perception Agent** | Convert voice→text (Whisper), image/video→text (GPT-5.2 Vision) | Orchestrator (receives handoff), Classifier (hands off to), Blob Storage (reads media), Azure OpenAI | Agent with Whisper + Vision tools |
-| **Classifier Agent** | Classify text into People/Projects/Ideas/Admin with confidence; file to Cosmos DB; trigger HITL if low confidence | Orchestrator (receives handoff), Action Agent (hands off to for Projects/Admin), Cosmos DB, User (HITL) | Agent with classification tools + Cosmos DB write tools |
-| **Action Agent** | Sharpen vague project/admin captures into concrete next actions | Classifier (receives handoff), Cosmos DB (updates record) | Agent with action-sharpening instructions + Cosmos DB update tools |
-| **Digest Agent** | Compose daily/weekly briefings; answer ad-hoc "what's on my plate" queries | Orchestrator (receives handoff for ad-hoc), Cosmos DB (reads all containers), Push notification service | Agent with Cosmos DB read tools, scheduled via cron |
-| **Entity Resolution Agent** | Nightly merge of duplicate People records | Cosmos DB People container | Standalone agent, runs on schedule, not in handoff mesh |
-| **Evaluation Agent** | Weekly system health report — handoff success rates, classification confidence distribution, capture volume | Cosmos DB, OpenTelemetry data | Phase 4, standalone scheduled agent |
-| **Cosmos DB** | Persistent storage for all structured data (Inbox, People, Projects, Ideas, Admin) | All agents (read/write) | 5 containers, `/userId` partition key, serverless tier |
-| **Blob Storage** | Store raw media files (voice recordings, photos, videos) | Perception Agent (reads), Expo App (uploads directly or via endpoint) | Container per media type or single container with virtual directories |
-| **Azure OpenAI** | LLM inference (GPT-5.2), transcription (Whisper), vision analysis | All agents | `AzureOpenAIResponsesClient` via `agent-framework` |
-
-## Recommended Project Structure
-
-```
-second-brain/
-├── backend/                    # Python backend (Azure Container Apps)
-│   ├── pyproject.toml          # uv project definition
-│   ├── src/
-│   │   └── second_brain/
-│   │       ├── __init__.py
-│   │       ├── main.py         # FastAPI app + AG-UI endpoint registration
-│   │       ├── config.py       # Settings via pydantic-settings, env vars
-│   │       ├── agents/         # Agent definitions
-│   │       │   ├── __init__.py
-│   │       │   ├── orchestrator.py   # Triage agent + handoff workflow builder
-│   │       │   ├── perception.py     # Media → text conversion
-│   │       │   ├── classifier.py     # Text → bucket classification
-│   │       │   ├── action.py         # Vague → concrete actions
-│   │       │   ├── digest.py         # Daily/weekly briefings
-│   │       │   ├── entity_resolution.py  # Nightly People merge
-│   │       │   └── evaluation.py     # Weekly system health (Phase 4)
-│   │       ├── tools/          # @tool functions shared across agents
-│   │       │   ├── __init__.py
-│   │       │   ├── cosmos.py         # Cosmos DB CRUD operations
-│   │       │   ├── blob.py           # Blob Storage read/upload
-│   │       │   ├── transcription.py  # Whisper transcription
-│   │       │   └── vision.py         # GPT Vision analysis
-│   │       ├── models/         # Pydantic models for data
-│   │       │   ├── __init__.py
-│   │       │   ├── capture.py        # Inbox item schema
-│   │       │   ├── people.py         # People record
-│   │       │   ├── project.py        # Project record
-│   │       │   ├── idea.py           # Idea record
-│   │       │   └── admin.py          # Admin record
-│   │       └── scheduling/     # Cron job definitions
-│   │           ├── __init__.py
-│   │           └── jobs.py           # Digest, entity resolution, evaluation schedules
-│   ├── tests/
-│   └── Dockerfile
-├── mobile/                     # Expo React Native app
-│   ├── app/                    # Expo Router file-based routing
-│   │   ├── (tabs)/             # Tab navigation
-│   │   │   ├── capture.tsx     # Main capture screen
-│   │   │   ├── digest.tsx      # Digest viewer
-│   │   │   └── history.tsx     # Past captures (Phase 3+)
-│   │   └── _layout.tsx
-│   ├── components/
-│   │   ├── AgentStream.tsx     # AG-UI SSE client + event rendering
-│   │   ├── CaptureButton.tsx   # One-tap capture
-│   │   ├── VoiceRecorder.tsx   # Voice capture
-│   │   └── MediaCapture.tsx    # Photo/video capture
-│   ├── services/
-│   │   ├── agui-client.ts      # AG-UI protocol client (HTTP POST + SSE parsing)
-│   │   ├── api.ts              # Non-streaming API calls (media upload)
-│   │   └── storage.ts          # Expo Secure Store for API key
-│   ├── app.json
-│   └── package.json
-├── infra/                      # Azure infrastructure
-│   ├── main.bicep              # Azure Container Apps, Cosmos DB, Blob Storage, OpenAI
-│   └── parameters.json
-└── .planning/                  # GSD planning files
+```bash
+uv add agent-framework-azure-ai --prerelease=allow
+uv remove agent-framework-orchestrations  # after workflow.py replacement
 ```
 
-### Structure Rationale
+---
 
-- **backend/src/second_brain/agents/**: Each agent is a module containing its agent definition, instructions, and handoff configuration. The Orchestrator module imports all others and wires the HandoffBuilder.
-- **backend/src/second_brain/tools/**: Shared `@tool` functions that multiple agents use (e.g., `cosmos.py` is used by Classifier, Action, Digest, Entity Resolution). Agent Framework `@tool` decorator makes these callable by agents.
-- **backend/src/second_brain/models/**: Pydantic models define the Cosmos DB document schemas. Used for validation both when writing to Cosmos and when returning data to the app.
-- **mobile/services/agui-client.ts**: Custom AG-UI SSE client because CopilotKit does not yet support React Native/Expo natively (GitHub issue #1892 is open but unresolved). Uses `react-native-sse` for the SSE transport layer.
-- **Monorepo**: Backend and mobile in one repo simplifies development for a solo developer. No need for a separate packages/ workspace pattern at this scale.
+## Component Diagram: After Migration
 
-## Architectural Patterns
+```
+┌────────────────────────────────────────────────────────────────────┐
+│                     Mobile App (Expo)                              │
+│               (AG-UI SSE Client — unchanged)                       │
+└─────────────────────────────┬──────────────────────────────────────┘
+                              │ HTTP POST + SSE (AG-UI protocol)
+                              │ API key header
+                              ▼
+┌────────────────────────────────────────────────────────────────────┐
+│                   FastAPI (Azure Container Apps)                    │
+│                                                                    │
+│  ┌─── Lifespan ─────────────────────────────────────────────────┐  │
+│  │  async DefaultAzureCredential                                │  │
+│  │  AzureAIAgentClient (project_endpoint, model, credential)    │  │
+│  │  ClassificationTools (bound to CosmosManager)                │  │
+│  │  classifier_agent = ai_client.as_agent(name, instructions,   │  │
+│  │                        tools=[classification_tools.*])        │  │
+│  │  app.state.classifier_agent = classifier_agent               │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+│                                                                    │
+│  POST /api/ag-ui                                                   │
+│  ┌─── FoundrySSEAdapter ────────────────────────────────────────┐  │
+│  │  classifier_agent.run(messages, stream=True)                 │  │
+│  │  AgentResponseUpdate → AG-UI events                          │  │
+│  │  MISUNDERSTOOD / CLASSIFIED / UNRESOLVED custom events       │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+│                                                                    │
+│  POST /api/voice-capture  (Perception step unchanged)              │
+│  POST /api/ag-ui/respond  (Direct Cosmos write, no agent)         │
+│  POST /api/ag-ui/follow-up (Uses classifier_agent)                │
+│                                                                    │
+└──────────────────┬────────────────────────────────────────────────┘
+                   │
+    ┌──────────────┴──────────────┐
+    ▼                             ▼
+┌─────────────────┐     ┌──────────────────────────────────────────┐
+│  Cosmos DB      │     │  Azure AI Foundry                        │
+│  (unchanged)    │     │  ┌─────────────────────────────────────┐  │
+│  - Inbox        │     │  │  Classifier Agent (persistent)      │  │
+│  - People       │     │  │  ID: saved at startup / stable      │  │
+│  - Projects     │     │  │  Tools: local @tool functions        │  │
+│  - Ideas        │     │  │  Threads: server-managed            │  │
+│  - Admin        │     │  └─────────────────────────────────────┘  │
+└─────────────────┘     │  Application Insights tracing            │
+                        └──────────────────────────────────────────┘
+```
 
-### Pattern 1: Handoff Orchestration (Mesh Topology)
+---
 
-**What:** Microsoft Agent Framework's `HandoffBuilder` creates a mesh of agents where each agent can transfer full task ownership to another. The Orchestrator is the `start_agent` that receives all user input. Unlike agent-as-tools (where a primary agent delegates subtasks and retains ownership), handoff transfers complete control — the receiving agent owns the conversation.
+## Component Boundaries
 
-**When to use:** When specialist agents need full context and autonomy to complete their piece of the pipeline. The Second Brain capture flow is inherently sequential: Orchestrator triages → Perception transcribes → Classifier files → Action sharpens. Each handoff passes full context.
+| Component | Responsibility | Communicates With | Status |
+|-----------|---------------|-------------------|--------|
+| `main.py` | FastAPI app, lifespan, SSE endpoints, request routing | All below | MODIFIED |
+| `config.py` | Settings via pydantic-settings | Environment variables | MODIFIED |
+| `agents/classifier.py` | Create Classifier Agent with Foundry client | AzureAIAgentClient, ClassificationTools | MODIFIED |
+| `agents/workflow.py` | REPLACED: new FoundrySSEAdapter wraps classifier run | classifier_agent, AG-UI encoder | REPLACED |
+| `agents/orchestrator.py` | ELIMINATED (Classifier runs directly) | N/A | DELETED |
+| `tools/classification.py` | @tool functions: classify_and_file, request_misunderstood, mark_as_junk | CosmosManager | UNCHANGED |
+| `tools/cosmos_crud.py` | Cosmos CRUD helpers | CosmosManager | UNCHANGED |
+| `tools/transcription.py` | Whisper transcription | Azure OpenAI Whisper | UNCHANGED |
+| `db/cosmos.py` | CosmosManager singleton | Azure Cosmos DB | UNCHANGED |
+| `db/blob_storage.py` | BlobStorageManager singleton | Azure Blob Storage | UNCHANGED |
+| `auth.py` | APIKeyMiddleware | app.state.api_key | UNCHANGED |
+| `api/inbox.py` | Inbox CRUD REST endpoints | CosmosManager | UNCHANGED |
+| `api/health.py` | Health check | N/A | UNCHANGED |
 
-**Trade-offs:**
-- Pro: Clean separation of concerns; each agent has focused instructions and tools
-- Pro: HITL built into the pattern — when an agent doesn't hand off, it requests user input (perfect for Classifier's low-confidence clarification)
-- Con: All agents share full conversation history (context synchronization broadcasts all messages). For 7 agents, this means message volume grows. Mitigate by keeping agent responses concise.
-- Con: Handoff is interactive by default — if an agent doesn't call a handoff tool, the workflow pauses for human input. This is desirable for HITL but requires care in the "happy path" to ensure agents always hand off when they should.
+---
 
-**Example:**
+## Data Flow: Text Capture (New Architecture)
+
+```
+1. Mobile app sends POST /api/ag-ui
+   Body: { messages: [{role: "user", content: "Buy milk eggs bread"}], thread_id, run_id }
+
+2. FastAPI ag_ui_endpoint handler:
+   - Reads app.state.classifier_agent (AzureAIAgentClient-backed Agent)
+   - Converts messages to agent-framework Message objects
+   - Calls: stream = classifier_agent.run(messages, stream=True, thread_id=thread_id)
+
+3. Foundry Agent Service (server-side):
+   - Receives the run request with Classifier agent ID
+   - LLM call: Classifier model + instructions + tools
+   - LLM decides to call classify_and_file(bucket="Admin", confidence=0.95, ...)
+   - Foundry service sends tool call back to client (requires_action or stream tool call event)
+
+4. agent-framework-azure-ai handles tool dispatch:
+   - AsyncFunctionTool intercepts the classify_and_file tool call
+   - Executes locally in FastAPI process (Cosmos DB write via CosmosManager)
+   - Returns result string "Filed → Admin (0.95) | <uuid>" to Foundry service
+   - Foundry continues the run with tool result
+
+5. FoundrySSEAdapter (new workflow.py):
+   - Consumes AgentResponseUpdate stream from classifier_agent.run()
+   - Detects classification outcome by inspecting function_call.name (same as before)
+   - Suppresses Classifier chain-of-thought text (same buffer logic)
+   - Emits StepStartedEvent / StepFinishedEvent for "Classifier" step
+   - Emits CLASSIFIED / MISUNDERSTOOD / UNRESOLVED custom events
+   - Converts AgentResponseUpdate → AG-UI events via _convert_update_to_events()
+
+6. FastAPI _stream_sse():
+   - Wraps FoundrySSEAdapter output in RunStarted / RunFinished
+   - Yields SSE text chunks to mobile app
+
+7. Mobile app receives:
+   - RUN_STARTED
+   - STEP_STARTED (Classifier)
+   - TEXT_MESSAGE_CONTENT delta (clean result string)
+   - STEP_FINISHED (Classifier)
+   - CUSTOM: CLASSIFIED { inboxItemId, bucket, confidence }
+   - RUN_FINISHED
+```
+
+---
+
+## Data Flow: Voice Capture (New Architecture)
+
+Voice capture data flow is nearly identical. The Perception step (Blob upload + Whisper transcription) is unchanged. After transcription produces text, the flow merges with text capture:
+
+```
+1. Mobile app sends POST /api/voice-capture (multipart audio)
+
+2. FastAPI voice_capture handler:
+   - Reads audio bytes
+   - Validates size (1KB - 25MB)
+   - Emits StepStartedEvent("Perception") to SSE stream
+   - Uploads audio to Blob Storage (BlobStorageManager.upload_audio)
+   - Transcribes via Whisper (asyncio.to_thread(transcribe_audio, ...))
+   - Deletes blob after transcription
+   - Emits StepFinishedEvent("Perception")
+
+3. SAME AS TEXT CAPTURE from step 2 onward:
+   - Uses app.state.classifier_agent (same persistent agent)
+   - Transcription text is the user message
+   - Same FoundrySSEAdapter stream processing
+   - Same CLASSIFIED / MISUNDERSTOOD / UNRESOLVED events
+
+4. KEY DIFFERENCE vs current: No HandoffBuilder wrapping
+   - Current: voice_capture calls workflow_agent.run() which creates a fresh Workflow
+   - After: voice_capture calls classifier_agent.run() directly
+   - The Perception "step" is still manually emitted (unchanged from current)
+```
+
+---
+
+## Agent Lifecycle: How Persistent Agents Work
+
+### The Problem with Ephemeral Agents
+
+`AzureAIAgentClient` with `should_cleanup_agent=True` (default) creates and deletes agents on every context manager exit. For a FastAPI app, this means every request (or every startup) creates a new server-registered agent. This:
+- Accumulates stale agents in the Foundry portal
+- Adds latency on first use
+- Is incorrect for learning goals (defeats the "persistent agents" value proposition)
+
+### Recommended Pattern: Create Once, Reuse by ID
 
 ```python
-from agent_framework.orchestrations import HandoffBuilder
+# In lifespan: create agent if not exists, store ID in persistent config
+# Option A: Store agent ID in environment variable (simplest)
+# Option B: Store agent ID in Key Vault secret (more production-appropriate)
+# Option C: Query Foundry for existing agents by name (requires admin API call)
 
-workflow = (
-    HandoffBuilder(
-        name="capture_pipeline",
-        participants=[orchestrator, perception, classifier, action, digest],
+# Implementation approach for lifespan:
+async with AzureAIAgentClient(
+    credential=credential,
+    project_endpoint=settings.azure_ai_project_endpoint,
+    model_deployment_name=settings.azure_ai_model_deployment_name,
+    agent_name="Classifier",
+    should_cleanup_agent=False,  # CRITICAL: don't delete on close
+) as ai_client:
+    classifier = ai_client.as_agent(
+        name="Classifier",
+        instructions="...",
+        tools=[classification_tools.classify_and_file, ...]
     )
-    .with_start_agent(orchestrator)
-    # Orchestrator routes to Perception (media) or Classifier (text)
-    .add_handoff(orchestrator, [perception, classifier, digest])
-    # Perception always hands off to Classifier after transcription
-    .add_handoff(perception, [classifier])
-    # Classifier hands off to Action for Projects/Admin, or terminates
-    .add_handoff(classifier, [action])
-    # Action terminates after sharpening (no further handoff needed)
-    .add_handoff(action, [])
-    .build()
+    app.state.classifier_agent = classifier
+    app.state.ai_client = ai_client  # keep alive for duration
+```
+
+### Agent ID Persistence Strategy
+
+**Recommended for this project:** Environment variable `AZURE_AI_CLASSIFIER_AGENT_ID`. On first deploy, set to empty string. Lifespan checks: if empty, create new agent, log its ID for manual env var update. If set, use `AzureAIAgentClient(agent_id=settings.azure_ai_classifier_agent_id, ...)` to attach to existing.
+
+This avoids portal accumulation and matches the learning goal of visible persistent agents.
+
+---
+
+## Key Code Pattern: AzureAIAgentClient Initialization
+
+```python
+# config.py additions
+class Settings(BaseSettings):
+    # NEW: Foundry project endpoint
+    azure_ai_project_endpoint: str = ""
+    # NEW: Model deployment name (replaces azure_openai_chat_deployment_name for agents)
+    azure_ai_model_deployment_name: str = "gpt-4o"
+    # NEW: Optional pre-registered Classifier agent ID
+    azure_ai_classifier_agent_id: str = ""
+    # Application Insights (for Foundry tracing)
+    applicationinsights_connection_string: str = ""
+
+    # KEEP: Whisper still uses Azure OpenAI directly
+    azure_openai_endpoint: str = ""
+    azure_openai_whisper_deployment_name: str = "whisper"
+```
+
+```python
+# main.py lifespan (key changes only)
+from azure.identity.aio import DefaultAzureCredential as AsyncDefaultAzureCredential
+from agent_framework.azure import AzureAIAgentClient  # NEW import
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # CHANGED: Use async credential for AzureAIAgentClient
+    credential = AsyncDefaultAzureCredential()
+
+    # EXISTING: Cosmos DB, Blob Storage, Key Vault unchanged
+
+    # CHANGED: Replace AzureOpenAIChatClient with AzureAIAgentClient
+    try:
+        ai_client = AzureAIAgentClient(
+            credential=credential,
+            project_endpoint=settings.azure_ai_project_endpoint,
+            model_deployment_name=settings.azure_ai_model_deployment_name,
+            should_cleanup_agent=False,
+        )
+
+        classification_tools = ClassificationTools(
+            cosmos_manager=cosmos_manager,
+            classification_threshold=settings.classification_threshold,
+        )
+
+        # NEW: Pass agent_id if pre-registered, else create fresh
+        agent_kwargs = {}
+        if settings.azure_ai_classifier_agent_id:
+            agent_kwargs["agent_id"] = settings.azure_ai_classifier_agent_id
+
+        classifier_agent = ai_client.as_agent(
+            name="Classifier",
+            instructions="...",  # same as current classifier.py
+            tools=[
+                classification_tools.classify_and_file,
+                classification_tools.request_misunderstood,
+                classification_tools.mark_as_junk,
+            ],
+            **agent_kwargs,
+        )
+
+        # REMOVED: orchestrator (no HandoffBuilder needed)
+        # REMOVED: create_capture_workflow()
+
+        # CHANGED: Store classifier_agent directly (not workflow_agent)
+        app.state.classifier_agent = classifier_agent
+        app.state.ai_client = ai_client
+        app.state.classification_tools = classification_tools
+        app.state.settings = settings
+
+    except Exception:
+        logger.warning("Could not initialize AI client or Classifier agent.")
+        app.state.classifier_agent = None
+        app.state.ai_client = None
+
+    yield
+
+    # Cleanup: close ai_client (does NOT delete agent since should_cleanup_agent=False)
+    if getattr(app.state, "ai_client", None) is not None:
+        await app.state.ai_client.close()
+    # ... existing Cosmos, Blob cleanup
+```
+
+---
+
+## New workflow.py: FoundrySSEAdapter
+
+The 340-line AGUIWorkflowAdapter is replaced with a ~150-line adapter that wraps a single agent run. The key behavior is preserved:
+
+- Outcome detection via function_call.name (UNCHANGED logic)
+- Classifier text buffering / suppression (UNCHANGED logic)
+- StepStarted / StepFinished event emission for "Classifier" step
+- MISUNDERSTOOD / CLASSIFIED / UNRESOLVED custom events
+
+What changes:
+- No HandoffBuilder, no Workflow, no WorkflowEvent handling
+- No executor_invoked / executor_completed event types
+- No Orchestrator echo filtering (Orchestrator is gone)
+- `workflow.run()` → `classifier_agent.run()`
+- `get_new_thread()` → thread management via `thread_id` parameter
+
+```python
+# New workflow.py skeleton
+class FoundrySSEAdapter:
+    """Thin adapter wrapping classifier_agent.run() for AG-UI compatibility.
+
+    Preserves outcome detection, text buffering, and step events
+    from the old AGUIWorkflowAdapter without HandoffBuilder dependencies.
+    """
+
+    def __init__(
+        self,
+        classifier: Agent,
+        classification_threshold: float = 0.6,
+    ) -> None:
+        self._classifier = classifier
+        self._classification_threshold = classification_threshold
+
+    async def _stream_updates(
+        self,
+        messages,
+        thread_id: str,
+        **kwargs,
+    ) -> AsyncIterable[StreamItem]:
+        # SAME outcome detection logic as AGUIWorkflowAdapter
+        # SAME text buffering logic
+        # SAME custom event emission
+        # But source is: self._classifier.run(messages, stream=True)
+        # Not: workflow.run(message=messages, stream=True)
+
+        yield StepStartedEvent(step_name="Classifier")
+        async for update in self._classifier.run(messages, stream=True):
+            # ... same processing as before but no WorkflowEvent handling
+            yield update
+        yield StepFinishedEvent(step_name="Classifier")
+        # ... emit CLASSIFIED / MISUNDERSTOOD based on detected_tool
+
+    def run(self, messages, *, stream=False, thread=None, **kwargs):
+        if stream:
+            return ResponseStream(self._stream_updates(messages, **kwargs))
+        # sync path (tests)
+        raise NotImplementedError("Sync run not needed in new architecture")
+```
+
+---
+
+## Thread Management: Server-Side vs Cosmos DB
+
+Foundry Agent Service manages conversation threads server-side. Each `classifier_agent.run()` call that includes a `thread_id` continues the existing thread (conversation history is server-maintained).
+
+**Implication for HITL flow:**
+
+The current flow uses Cosmos DB `inbox_item_id` as the anchor for follow-up re-classification. The Foundry `thread_id` is a separate concept.
+
+**Recommended approach:**
+- Text capture: create a new `thread_id` per capture (same as current behavior — fresh context each time)
+- Follow-up endpoint (`/api/ag-ui/follow-up`): use the same `thread_id` from the original capture to continue the server-managed thread, OR create a new thread with combined text (same as current approach)
+- The Cosmos DB `inbox_item_id` remains the authoritative cross-system anchor
+
+The current code already generates a new `thread_id` per request (`f"thread-{uuid.uuid4()}"`), so server-side thread accumulation is acceptable. Each capture has its own Foundry thread.
+
+---
+
+## /api/ag-ui Endpoint Changes
+
+The endpoint handler needs a small update to call `classifier_agent.run()` directly:
+
+```python
+# BEFORE (current main.py)
+workflow_agent: AGUIWorkflowAdapter = request.app.state.workflow_agent
+thread = workflow_agent.get_new_thread()
+stream = workflow_agent.run(messages, stream=True, thread=thread, thread_id=thread_id)
+
+# AFTER
+from second_brain.agents.workflow import FoundrySSEAdapter
+
+sse_adapter: FoundrySSEAdapter = request.app.state.sse_adapter
+stream = sse_adapter.run(messages, stream=True, thread_id=thread_id)
+```
+
+The `_stream_sse()` helper and `_convert_update_to_events()` helper in `main.py` are **unchanged** — they consume `AsyncGenerator[StreamItem, None]` regardless of source.
+
+The `/api/ag-ui/respond` endpoint is unchanged (no agent call — direct Cosmos DB operation).
+
+The `/api/ag-ui/follow-up` endpoint changes only in how it calls the agent:
+
+```python
+# BEFORE
+stream = workflow_agent.run(messages, stream=True, thread=thread, thread_id=thread_id)
+
+# AFTER
+stream = sse_adapter.run(messages, stream=True, thread_id=thread_id)
+```
+
+---
+
+## Build Order
+
+Dependencies must be resolved in this sequence:
+
+1. **Infrastructure** (Phase 1) — Azure AI Foundry project, Application Insights, RBAC (Azure AI User role on project), model deployment in Foundry project. Nothing in code works until this exists.
+
+2. **config.py + .env** (Phase 2a) — Add `azure_ai_project_endpoint`, `azure_ai_model_deployment_name`, `azure_ai_classifier_agent_id`. Update `.env` with new values. No other code changes yet.
+
+3. **Package install** (Phase 2b) — `uv add agent-framework-azure-ai --prerelease=allow`. Validate import works.
+
+4. **Single agent smoke test** (Phase 2c) — Verify `AzureAIAgentClient` can authenticate and the Classifier agent appears in portal. Use a standalone test script (not FastAPI). Do NOT modify `main.py` yet.
+
+5. **classifier.py migration** (Phase 3a) — Change import from `AzureOpenAIChatClient` to `AzureAIAgentClient`. Verify @tool functions still work. Test that `classify_and_file` executes locally when agent calls it via Foundry.
+
+6. **workflow.py replacement** (Phase 3b) — Replace `AGUIWorkflowAdapter` + HandoffBuilder with `FoundrySSEAdapter`. The stream processing logic (outcome detection, buffering, custom events) is largely copy-pasted from the old class.
+
+7. **main.py lifespan migration** (Phase 3c) — Replace `AzureOpenAIChatClient` construction and `create_capture_workflow()` with `AzureAIAgentClient` + `FoundrySSEAdapter`. Remove `orchestrator.py` usage. Update app.state names.
+
+8. **End-to-end test** (Phase 3d) — Full text capture → SSE stream → Cosmos DB write. Verify CLASSIFIED event reaches mobile app.
+
+9. **Voice capture test** (Phase 3e) — Verify Perception step still works, transcription feeds correctly into FoundrySSEAdapter.
+
+10. **HITL test** (Phase 3f) — request_misunderstood path, follow-up endpoint.
+
+11. **Observability wiring** (Phase 4) — Application Insights connection string, Foundry portal tracing, remove old HandoffBuilder package.
+
+**Key dependency:** Steps 2-4 can be done independently of `main.py` — keep FastAPI running on the old stack while validating Foundry connectivity. Switch `main.py` only in step 7.
+
+---
+
+## Patterns to Follow
+
+### Pattern 1: Async Credential for AzureAIAgentClient
+
+AzureAIAgentClient requires `AsyncTokenCredential` (from `azure.identity.aio`), not the sync `TokenCredential` that `AzureOpenAIChatClient` used. The lifespan already uses async credentials for Key Vault — extend this to the AI client.
+
+```python
+# Correct
+from azure.identity.aio import DefaultAzureCredential as AsyncDefaultAzureCredential
+credential = AsyncDefaultAzureCredential()
+ai_client = AzureAIAgentClient(credential=credential, ...)
+
+# Wrong (sync credential fails with AzureAIAgentClient)
+from azure.identity import DefaultAzureCredential
+credential = DefaultAzureCredential()  # DO NOT use with AzureAIAgentClient
+```
+
+### Pattern 2: should_cleanup_agent=False for Persistent Agents
+
+```python
+ai_client = AzureAIAgentClient(
+    credential=credential,
+    project_endpoint=settings.azure_ai_project_endpoint,
+    model_deployment_name=settings.azure_ai_model_deployment_name,
+    should_cleanup_agent=False,  # Required to preserve agent across restarts
 )
 ```
 
-**Confidence:** HIGH — This is documented directly in [Microsoft Learn: Handoff Orchestration](https://learn.microsoft.com/en-us/agent-framework/user-guide/workflows/orchestrations/handoff) with Python code examples.
+### Pattern 3: Keep ai_client Alive in lifespan
 
-### Pattern 2: AG-UI SSE Streaming (Server → Mobile)
-
-**What:** The AG-UI protocol uses HTTP POST to send user messages and Server-Sent Events (SSE) to stream agent responses back. The Agent Framework provides `add_agent_framework_fastapi_endpoint()` which wraps a FastAPI endpoint that handles the full protocol: receiving messages, executing the agent/workflow, and streaming AG-UI events (RUN_STARTED, TEXT_MESSAGE_CONTENT, TOOL_CALL_START, etc.) back to the client.
-
-**When to use:** For real-time visibility into agent processing. The mobile app sees which agent is active, what it's doing, and when it completes — not just a final result after a black-box delay.
-
-**Trade-offs:**
-- Pro: Open standard protocol with defined event types; framework handles event bridging automatically
-- Pro: Thread IDs maintain conversation context across requests (essential for HITL follow-ups)
-- Pro: SSE is firewall-friendly (regular HTTP), unlike WebSockets
-- Con: CopilotKit (the primary AG-UI frontend framework) does not support React Native/Expo natively. Must build a custom SSE client using `react-native-sse`.
-- Con: Known Expo issue: `ExpoRequestCdpInterceptor` can block SSE streams in dev mode (GitHub expo/expo#27526). Workaround: use `expo/fetch` polyfill.
-
-**Example (server):**
+`AzureAIAgentClient` must remain open as long as agents created from it are in use. Store it on `app.state` alongside the agent:
 
 ```python
-from fastapi import FastAPI
-from agent_framework_ag_ui import add_agent_framework_fastapi_endpoint
-
-app = FastAPI()
-add_agent_framework_fastapi_endpoint(app, workflow, "/")
+app.state.classifier_agent = classifier_agent
+app.state.ai_client = ai_client  # Prevents premature GC / connection closure
 ```
 
-**Example (mobile — custom AG-UI SSE client):**
-
-```typescript
-import EventSource from 'react-native-sse';
-
-function sendCapture(text: string, threadId?: string) {
-  const es = new EventSource('https://api.example.com/', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      messages: [{ role: 'user', content: text }],
-      threadId,
-    }),
-  });
-
-  es.addEventListener('message', (event) => {
-    const data = JSON.parse(event.data);
-    switch (data.type) {
-      case 'RUN_STARTED':
-        setThreadId(data.threadId); // Persist for HITL follow-ups
-        break;
-      case 'TEXT_MESSAGE_CONTENT':
-        appendDelta(data.delta);     // Stream text to UI
-        break;
-      case 'TOOL_CALL_START':
-        showAgentActivity(data);     // "Classifier is analyzing..."
-        break;
-      case 'RUN_FINISHED':
-        es.close();
-        break;
-    }
-  });
-}
-```
-
-**Confidence:** HIGH for server side (documented in [Microsoft Learn: AG-UI Getting Started](https://learn.microsoft.com/en-us/agent-framework/integrations/ag-ui/getting-started)). MEDIUM for mobile client (custom implementation needed; no official Expo AG-UI client exists).
-
-### Pattern 3: Media Upload → Blob Storage → Perception Agent
-
-**What:** Binary media (voice recordings, photos, videos) are uploaded to Azure Blob Storage first, then the Perception Agent is given a blob URL to process. This avoids sending large binary payloads through the AG-UI SSE channel.
-
-**When to use:** Any capture that isn't plain text. Voice recordings from Expo AV, photos from the camera.
-
-**Trade-offs:**
-- Pro: Decouples media transport from agent conversation; AG-UI carries lightweight text/JSON only
-- Pro: Blob Storage handles large files efficiently; async upload from Expo
-- Pro: Perception Agent can re-process media if needed (URL persists)
-- Con: Two-step flow (upload blob → send blob URL to agent) adds latency
-- Con: Need to handle upload failures separately from agent failures
-
-**Flow:**
-```
-Expo App                     Azure                      Agent Layer
-   │                           │                            │
-   │──── Upload media ────────▶│ Blob Storage               │
-   │◀─── Return blob URL ──────│                            │
-   │                           │                            │
-   │──── POST {blobUrl} ──────────────────────────────────▶│ FastAPI
-   │◀─── SSE stream ──────────────────────────────────────│ Orchestrator
-   │     (RUN_STARTED,         │                            │──▶ Perception
-   │      agent updates,       │     ◀── Read blob ─────────│    (Whisper/Vision)
-   │      RUN_FINISHED)        │                            │──▶ Classifier
-   │                           │                            │
-```
-
-**Confidence:** HIGH — Standard Azure pattern. `azure-storage-blob` async SDK is mature.
-
-### Pattern 4: Cosmos DB Container-per-Bucket
-
-**What:** Five Cosmos DB containers map directly to the data model: `Inbox`, `People`, `Projects`, `Ideas`, `Admin`. All partitioned by `/userId` (always `"will"` for this single-user system). The Inbox container is a transient staging area; items move to their final container after classification.
-
-**When to use:** When data access patterns are bucket-centric (queries within a single bucket, not cross-bucket joins) and the schema differs across buckets.
-
-**Trade-offs:**
-- Pro: Clean mapping to the domain model; each container has its own schema
-- Pro: `/userId` partition key means all data for a single user is in one logical partition — point reads are maximally efficient
-- Pro: Serverless Cosmos DB pricing is ideal for single-user with bursty usage
-- Con: Cross-container queries require multiple round trips (e.g., Digest Agent querying all four final containers)
-- Con: Single partition key (`"will"`) means no horizontal scaling benefit — acceptable for single-user
-
-**Example (tool for agents):**
-
+Close it explicitly in the lifespan cleanup:
 ```python
-from azure.cosmos.aio import CosmosClient
-from typing import Annotated
-from agent_framework import tool
-
-@tool
-async def create_record(
-    container_name: Annotated[str, "Target container: People, Projects, Ideas, or Admin"],
-    record: Annotated[dict, "The record to create with required fields"],
-) -> str:
-    """Create a new record in the specified Cosmos DB container."""
-    async with CosmosClient(endpoint, credential) as client:
-        database = client.get_database_client("second-brain")
-        container = database.get_container_client(container_name)
-        result = await container.create_item(body={**record, "userId": "will"})
-        return f"Created record {result['id']} in {container_name}"
+if getattr(app.state, "ai_client", None) is not None:
+    await app.state.ai_client.close()
 ```
 
-**Confidence:** HIGH — Standard Cosmos DB pattern. [Microsoft Learn: Partitioning](https://learn.microsoft.com/en-us/azure/cosmos-db/partitioning) documents this approach.
+### Pattern 4: Tool Execution in Foundry
 
-## Data Flow
+With `AzureAIAgentClient`, local @tool functions are executed by the `agent-framework-azure-ai` runtime during the `run()` call. The service sends a `requires_action` event; the client intercepts it, executes the tool locally, returns the result to the service, and the stream continues. This is automatic — no changes needed to the @tool function implementations.
 
-### Primary Capture Flow
+The key requirement: tools must be registered at agent creation time (via `as_agent(tools=[...])`) and must be accessible during `run()`. Since `ClassificationTools` is initialized in lifespan and bound to the agent, this is already correct.
 
-```
-User taps "Capture" in Expo App
-    │
-    ├── [Text] ──────────────────────────────────────────────────────────┐
-    │                                                                     │
-    ├── [Voice] ── Upload .m4a to Blob Storage ── Get blob URL ──────────┤
-    │                                                                     │
-    ├── [Photo] ── Upload .jpg to Blob Storage ── Get blob URL ──────────┤
-    │                                                                     │
-    └── [Video] ── Upload .mp4 to Blob Storage ── Get blob URL ──────────┤
-                                                                          │
-    HTTP POST to AG-UI endpoint (message + optional blob URL)             │
-    ◀─────────────────────────────────────────────────────────────────────┘
-         │
-         ▼
-    Orchestrator Agent (triage)
-         │
-         ├── Text input ──────────────────▶ Classifier Agent
-         │                                       │
-         └── Media input ──▶ Perception Agent    │
-                                  │               │
-                            (Whisper/Vision)       │
-                                  │               │
-                                  └──▶ Classifier Agent
-                                            │
-                                    Classify into bucket
-                                            │
-                                ┌───────────┼───────────┐
-                                ▼           ▼           ▼
-                          ┌─ High confidence ─┐   Low confidence
-                          │                    │        │
-                          ▼                    ▼        ▼
-                    Projects/Admin         People/   HITL: request
-                          │                Ideas     clarification
-                          ▼                  │     from user via
-                    Action Agent             │     AG-UI event
-                    (sharpen into            │        │
-                     next actions)           │        ▼
-                          │                  │   User responds
-                          ▼                  ▼        │
-                    Write to Cosmos DB ◀──────────────┘
-                    (final container)
-                          │
-                          ▼
-                    RUN_FINISHED → SSE → Expo App shows confirmation
-```
+---
 
-### Digest Flow
+## Anti-Patterns to Avoid
 
-```
-Scheduled trigger (6:30 AM CT daily / Sunday 9 AM weekly)
-    OR
-User asks "What's on my plate?" via Expo App
-    │
-    ▼
-Digest Agent
-    │
-    ├── Read Projects container (active items, next actions)
-    ├── Read People container (recent interactions, follow-ups)
-    ├── Read Ideas container (recent captures)
-    └── Read Admin container (pending tasks, deadlines)
-    │
-    ▼
-Compose briefing (<150 words for daily)
-    │
-    ├── [Scheduled] ──▶ Push notification → Expo App
-    └── [Ad-hoc] ──▶ SSE stream → Expo App (via AG-UI)
-```
+### Anti-Pattern 1: Using Connected Agents for Classifier Tools
 
-### Entity Resolution Flow (Nightly)
+Connected Agents cannot invoke local function tools. Do not attempt to register classify_and_file as a connected agent tool or OpenAPI endpoint — the existing @tool decorator pattern works correctly with AzureAIAgentClient via the local function execution model.
 
-```
-Cron trigger (nightly, e.g., 2 AM CT)
-    │
-    ▼
-Entity Resolution Agent
-    │
-    ├── Read all People records from Cosmos DB
-    ├── Identify duplicates (fuzzy name matching, overlapping context)
-    ├── Merge records (keep most complete, link alternates)
-    └── Write merged records back to Cosmos DB
-    │
-    ▼
-Log results (merged count, skipped, conflicts)
-```
+### Anti-Pattern 2: should_cleanup_agent=True in Production
 
-### Key Data Flows
+The default `should_cleanup_agent=True` deletes the Foundry agent on context exit. For a FastAPI lifespan, "context exit" means shutdown. The agent gets recreated on next startup with a new ID — accumulating deleted agents in the portal and losing persistent thread history.
 
-1. **Capture → Storage:** User input reaches Cosmos DB through a chain of 2-4 agents, each adding value (transcription, classification, action sharpening). The Inbox container holds the raw capture; the final container holds the classified, enriched record.
-2. **Storage → Digest:** The Digest Agent pulls from all 4 final containers to compose briefings. This is a read-heavy fan-out pattern across containers.
-3. **HITL Loop:** When the Classifier's confidence is low, the handoff workflow pauses and emits a `request_info` event. The AG-UI protocol carries this back to the Expo app as a message requiring user response. The user's reply flows back through HTTP POST → workflow resume.
+### Anti-Pattern 3: Keeping HandoffBuilder with AzureAIAgentClient
 
-## Scaling Considerations
+HandoffBuilder creates synthetic transfer tools that route control between local agent objects. With `AzureAIAgentClient`, the actual tool call loop is managed by the Foundry service, not locally. HandoffBuilder's synthetic tools would either never be called or cause conflicts with the service-managed tool routing. Remove it entirely.
 
-| Scale | Architecture Adjustments |
-|-------|--------------------------|
-| 1 user (current) | Single Container App instance (0.25 vCPU, 0.5 GB). Cosmos DB serverless. No caching needed. Total cost: ~$5-15/month. |
-| 2-5 users | Add `/userId` filtering to all queries (already partitioned). Add authentication (swap API key for Azure AD). Minimal code changes. |
-| 10+ users | Won't happen — this is explicitly single-user. If it did: move to provisioned Cosmos DB throughput, add response caching for digest queries, scale Container Apps horizontally. |
+### Anti-Pattern 4: Sync Credential with AzureAIAgentClient
 
-### Scaling Priorities
+`AzureAIAgentClient` requires async credentials. Passing a sync `DefaultAzureCredential` will cause runtime failures on token refresh. Use `azure.identity.aio.DefaultAzureCredential`.
 
-1. **First bottleneck:** LLM latency (GPT-5.2 calls). Each capture traverses 2-4 agents, each making at least one LLM call. Mitigate with concise agent instructions, streaming (already via AG-UI), and avoiding unnecessary handoffs.
-2. **Second bottleneck:** Cosmos DB cold starts on serverless tier. First query after idle period has higher latency. Acceptable for single-user hobby project.
+### Anti-Pattern 5: Creating a New ai_client Per Request
 
-## Anti-Patterns
+`AzureAIAgentClient` should be created once in lifespan and reused across all requests. Creating per-request creates new HTTP sessions and potentially new agent registrations.
 
-### Anti-Pattern 1: Sending Binary Media Through AG-UI
+---
 
-**What people do:** Encode voice recordings or images as base64 in the AG-UI message payload.
-**Why it's wrong:** AG-UI is designed for lightweight JSON events over SSE. Large payloads block the stream, increase latency, and may exceed size limits. Agent Framework broadcasts messages to all agents in the handoff mesh — sending a 2MB voice recording to all 7 agents wastes context window tokens and increases cost.
-**Do this instead:** Upload media to Blob Storage first. Send only the blob URL through AG-UI. The Perception Agent fetches the blob directly.
+## Confidence Assessment
 
-### Anti-Pattern 2: One Giant Agent Instead of Specialists
+| Area | Confidence | Notes |
+|------|------------|-------|
+| AzureAIAgentClient constructor params | HIGH | Official Microsoft Learn docs + SDK installed in venv |
+| AzureAIAgentClient requires async credential | HIGH | Confirmed from AzureAIAgentClient constructor source |
+| agent-framework-azure-ai package name | HIGH | Confirmed in azure/__init__.py lazy imports in installed SDK |
+| agent-framework-azure-ai NOT installed in current venv | HIGH | Confirmed by searching .venv |
+| Local @tool functions work with AzureAIAgentClient | HIGH | Official docs show function tool registration; agent-framework handles tool dispatch |
+| Connected Agents limitation (no local functions) | HIGH | Official Microsoft Learn docs, multiple sources |
+| Connected Agents deprecated in new Foundry portal | MEDIUM | Q&A forum response + release notes referencing Workflows as replacement |
+| FoundrySSEAdapter replaces AGUIWorkflowAdapter | HIGH | Same AgentResponseUpdate event type emitted by both clients; confirmed in AG-UI integration docs |
+| should_cleanup_agent=False semantics | HIGH | Documented in AzureAIAgentClient constructor params |
+| Thread management approach | MEDIUM | Official docs describe thread creation; per-capture thread approach inferred from existing pattern |
+| Whisper still requires azure_openai_endpoint | HIGH | Whisper is not a Foundry Agent Service feature; stays on Azure OpenAI directly |
 
-**What people do:** Build a single agent with huge instructions covering triage, classification, action sharpening, and digests, relying on one LLM call to do everything.
-**Why it's wrong:** Instructions become unwieldy; the model loses focus. No observability into which "step" failed. No ability to add HITL at specific points. Defeats the learning goal of this project.
-**Do this instead:** Use the handoff pattern with focused specialists. Each agent has a clear, testable responsibility.
+---
 
-### Anti-Pattern 3: Using CopilotKit Directly in Expo
+## Open Questions for Phase-Specific Research
 
-**What people do:** Try to use CopilotKit's React hooks (`useCopilotChat`, `useAgent`) directly in a React Native/Expo app.
-**Why it's wrong:** CopilotKit does not support React Native natively (GitHub issue CopilotKit/CopilotKit#1892). It depends on browser APIs (DOM, `EventSource`, `fetch` with streaming) that don't exist in React Native's JavaScript runtime. Polyfills are fragile.
-**Do this instead:** Build a thin custom AG-UI SSE client using `react-native-sse`. The AG-UI protocol is simple enough (HTTP POST + SSE event parsing) that a purpose-built client is more reliable than fighting CopilotKit polyfills.
+1. **Foundry project endpoint format**: The endpoint format changed in May 2025 from connection string (hub-based) to `https://<resource>.services.ai.azure.com/api/projects/<project-id>` (Foundry-based). The existing Azure OpenAI resource at `https://<resource>.openai.azure.com/` is a different resource. Confirm whether a new Foundry project resource is required or whether an existing Azure OpenAI resource can be wrapped in a Foundry project.
 
-### Anti-Pattern 4: Putting Scheduled Agents in the Handoff Mesh
+2. **Model deployment in Foundry vs Azure OpenAI**: The existing gpt-4o deployment lives in the Azure OpenAI resource. Foundry Agent Service uses model deployments from within the Foundry project. Confirm whether existing Azure OpenAI deployments are automatically available in a new Foundry project, or whether a separate deployment is needed.
 
-**What people do:** Include Entity Resolution and Evaluation agents in the HandoffBuilder workflow so the Orchestrator can "hand off" to them.
-**Why it's wrong:** These agents run on schedules (nightly, weekly), not in response to user captures. Including them in the mesh means they receive every message broadcast (wasted context), and the Orchestrator gets confused about when to route to them.
-**Do this instead:** Run Entity Resolution and Evaluation as standalone agents triggered by cron jobs (Azure Container Apps scheduled tasks or APScheduler within the FastAPI process). They share the same Cosmos DB tools but are not participants in the handoff workflow.
+3. **RBAC for Foundry Agent Service**: The current Container App uses Managed Identity with Cognitive Services User role. Foundry Agent Service requires Azure AI User role on the Foundry project. Confirm exact role assignments needed for the Container App to call Foundry endpoints.
 
-### Anti-Pattern 5: Shared Cosmos DB Client Across Requests
+4. **Streaming event types from AzureAIAgentClient**: The existing AGUIWorkflowAdapter handles both `WorkflowEvent` (from HandoffBuilder) and `AgentResponseUpdate`. The new FoundrySSEAdapter only handles `AgentResponseUpdate`. Confirm that `classifier_agent.run(stream=True)` emits only `AgentResponseUpdate` (not WorkflowEvent types) when using AzureAIAgentClient.
 
-**What people do:** Create a single `CosmosClient` instance per request (or worse, create a new one per tool call).
-**Why it's wrong:** Each `CosmosClient` manages its own connection pool and TCP connections. Creating per-request wastes resources and causes connection churn.
-**Do this instead:** Initialize a single `CosmosClient` at application startup (FastAPI `lifespan` event) and inject it into agent tools via dependency injection or module-level singleton. The async `CosmosClient` from `azure.cosmos.aio` is designed for this pattern — it's thread-safe and manages connection pooling internally.
+5. **Application Insights integration**: The existing `configure_otel_providers()` call in `main.py` sets up OpenTelemetry. Foundry Agent Service additionally supports native Application Insights export. Confirm whether the existing OTel setup forwards to Application Insights automatically, or whether `APPLICATIONINSIGHTS_CONNECTION_STRING` must be set separately.
 
-## Integration Points
-
-### External Services
-
-| Service | Integration Pattern | Notes |
-|---------|---------------------|-------|
-| Azure OpenAI (GPT-5.2) | `AzureOpenAIResponsesClient` from `agent-framework` with `AzureCliCredential` (dev) or `ManagedIdentityCredential` (prod) | All agents share one client instance. API version must match deployment. |
-| Azure OpenAI (Whisper) | Whisper transcription endpoint via Azure OpenAI Python SDK | Perception Agent calls this as a tool. Input: blob URL or audio bytes. |
-| Cosmos DB (NoSQL) | `azure-cosmos` async SDK (`azure.cosmos.aio.CosmosClient`) | Singleton client, 5 container references. Point reads by `id + userId`. |
-| Blob Storage | `azure-storage-blob` async SDK (`azure.storage.blob.aio.BlobServiceClient`) | Expo uploads media; Perception Agent reads media. SAS tokens for mobile upload. |
-| Push Notifications | Expo Push Notification service (free tier) | Digest Agent sends push for scheduled briefings and HITL clarification requests. |
-| OpenTelemetry | Built into Agent Framework; export to Azure Monitor / Application Insights | Zero-config tracing across handoffs. Add custom spans for Cosmos DB and Blob operations. |
-
-### Internal Boundaries
-
-| Boundary | Communication | Notes |
-|----------|---------------|-------|
-| Expo App ↔ Agent Layer | AG-UI protocol (HTTP POST + SSE) | The only external API surface. Protected by API key header. |
-| Agent Layer ↔ Cosmos DB | `azure-cosmos` async SDK (direct TCP) | Agents use shared `@tool` functions. No ORM — direct document operations. |
-| Agent Layer ↔ Blob Storage | `azure-storage-blob` async SDK (HTTPS) | Perception Agent reads; Expo App writes (via SAS token or upload endpoint). |
-| Agent ↔ Agent (handoff mesh) | Agent Framework internal (in-process message passing + context broadcast) | All within the same FastAPI process. No network calls between agents. |
-| Scheduled Agents ↔ Cosmos DB | Same `@tool` functions, triggered by scheduler | Same process, same Cosmos client, different trigger mechanism. |
-
-## Build Order (Dependencies Between Components)
-
-The architecture implies this build sequence:
-
-1. **FastAPI shell + single agent + AG-UI endpoint** — Prove the stack works: one agent that echoes input back via AG-UI SSE. Validates `agent-framework-ag-ui`, FastAPI, and SSE streaming.
-
-2. **Cosmos DB data layer + Pydantic models** — Define the 5 container schemas, implement `@tool` CRUD functions. Required by every subsequent agent.
-
-3. **Expo app with custom AG-UI client** — Build the mobile capture surface with `react-native-sse`. Connect to the FastAPI endpoint. Validates the full mobile → agent → response loop.
-
-4. **Orchestrator + Classifier agents** — Wire the HandoffBuilder with Orchestrator routing text to Classifier. Classifier writes to Cosmos DB. This is the minimum viable capture pipeline.
-
-5. **Perception Agent + Blob Storage** — Add voice and photo capture. Expo uploads to Blob Storage, sends URL to Orchestrator, which hands off to Perception, then Classifier.
-
-6. **Action Agent** — Add to the handoff mesh. Classifier hands off Projects/Admin captures for action sharpening.
-
-7. **HITL clarification loop** — Implement low-confidence handling: Classifier pauses, AG-UI streams clarification request to Expo, user responds, workflow resumes.
-
-8. **Digest Agent** — Scheduled daily/weekly briefings + ad-hoc queries. Requires data in Cosmos DB from prior steps.
-
-9. **Entity Resolution Agent** — Nightly People merge. Requires accumulated People data.
-
-10. **Evaluation Agent** — Weekly health reports. Requires weeks of operational data + OpenTelemetry traces.
-
-**Key dependency:** Steps 1-3 are the foundation and can partially overlap (backend and mobile can develop in parallel once the AG-UI contract is agreed). Steps 4-7 are the core capture pipeline and must be sequential. Steps 8-10 are additive and depend on data accumulation.
+---
 
 ## Sources
 
-- [Microsoft Agent Framework Overview](https://learn.microsoft.com/en-us/agent-framework/overview/) — HIGH confidence
-- [Microsoft Agent Framework: Handoff Orchestration](https://learn.microsoft.com/en-us/agent-framework/user-guide/workflows/orchestrations/handoff) — HIGH confidence, includes Python examples
-- [AG-UI Integration with Agent Framework](https://learn.microsoft.com/en-us/agent-framework/integrations/ag-ui/) — HIGH confidence, official Microsoft docs
-- [AG-UI Getting Started (Python)](https://learn.microsoft.com/en-us/agent-framework/integrations/ag-ui/getting-started) — HIGH confidence, `add_agent_framework_fastapi_endpoint` API documented
-- [AG-UI Protocol Overview](https://docs.ag-ui.com/introduction) — HIGH confidence, protocol specification
-- [AG-UI Event Types](https://docs.ag-ui.com/concepts/events) — HIGH confidence, all 17+ event types documented
-- [Agent Framework GitHub Repository](https://github.com/microsoft/agent-framework) — HIGH confidence, 51% Python codebase
-- [CopilotKit React Native Support Issue #1892](https://github.com/CopilotKit/CopilotKit/issues/1892) — HIGH confidence, confirms no native RN support
-- [react-native-sse npm package](https://www.npmjs.com/package/react-native-sse) — MEDIUM confidence, community package for SSE in RN
-- [Expo SSE Issue #27526](https://github.com/expo/expo/issues/27526) — MEDIUM confidence, known dev-mode SSE blocker
-- [Azure Cosmos DB Partitioning](https://learn.microsoft.com/en-us/azure/cosmos-db/partitioning) — HIGH confidence
-- [Azure Cosmos DB Python SDK](https://learn.microsoft.com/en-us/python/api/overview/azure/cosmos-readme) — HIGH confidence
-- [Azure Blob Storage Python Upload](https://learn.microsoft.com/en-us/azure/storage/blobs/storage-blob-upload-python) — HIGH confidence
+- [AzureAIAgentClient API Reference](https://learn.microsoft.com/en-us/python/api/agent-framework-core/agent_framework.azure.azureaiagentclient?view=agent-framework-python-latest) — HIGH confidence (official docs, updated 2026-01-08)
+- [Azure AI Foundry Agents: agent-framework integration](https://learn.microsoft.com/en-us/agent-framework/user-guide/agents/agent-types/azure-ai-foundry-agent) — HIGH confidence (official docs, updated 2026-02-17)
+- [Connected Agents documentation](https://learn.microsoft.com/en-us/azure/ai-foundry/agents/how-to/connected-agents?view=foundry-classic) — HIGH confidence; local function tools limitation explicitly stated
+- [azure-ai-agents Python client library README](https://learn.microsoft.com/en-us/python/api/overview/azure/ai-agents-readme?view=azure-python) — HIGH confidence; streaming and AsyncFunctionTool patterns
+- [AG-UI Integration with Agent Framework](https://learn.microsoft.com/en-us/agent-framework/integrations/ag-ui/) — HIGH confidence; AgentResponseUpdate → AG-UI event mapping unchanged
+- [Connected Agents removed in new Foundry](https://learn.microsoft.com/en-us/answers/questions/5631003/new-ai-foundry-experience-no-more-connected-agents) — MEDIUM confidence (community Q&A)
+- [Foundry Multi-Agent Workflows announcement](https://devblogs.microsoft.com/foundry/introducing-multi-agent-workflows-in-foundry-agent-service/) — MEDIUM confidence; confirms new orchestration model
+- Local SDK inspection: `/Users/willmacdonald/Documents/Code/claude/second-brain/backend/.venv/lib/python3.12/site-packages/agent_framework/azure/__init__.py` — HIGH confidence; confirms AzureAIAgentClient lazy import from `agent_framework_azure_ai`
 
 ---
-*Architecture research for: The Active Second Brain — multi-agent personal knowledge management*
-*Researched: 2026-02-21*
+
+*Architecture research for: The Active Second Brain — Foundry Agent Service Migration*
+*Researched: 2026-02-25*

@@ -1,235 +1,191 @@
 # Project Research Summary
 
-**Project:** Active Second Brain
-**Domain:** Multi-agent personal knowledge management / AI-powered capture-and-intelligence system
-**Researched:** 2026-02-21
-**Confidence:** MEDIUM-HIGH
+**Project:** Active Second Brain — Foundry Agent Service Migration (v2.0)
+**Domain:** Azure AI Foundry Agent Service migration of an existing FastAPI multi-agent capture system
+**Researched:** 2026-02-25
+**Confidence:** HIGH — all four researchers independently verified findings against official Microsoft Learn docs (updated 2026-02-13 to 2026-02-26)
 
 ## Executive Summary
 
-The Active Second Brain is a multi-agent capture-and-intelligence system built around a fundamentally different philosophy than existing PKM tools: zero organizational friction at capture time, with AI agents handling all classification and enrichment in the background. The recommended approach is a Python backend using Microsoft Agent Framework (RC, API-stable) with a FastAPI + AG-UI SSE endpoint serving an Expo React Native mobile app. Seven specialist agents (Orchestrator, Perception, Classifier, Action, Digest, Entity Resolution, Evaluation) work in a handoff mesh, each with a focused responsibility, backed by Azure Cosmos DB and Blob Storage. The full stack is aligned with your existing Azure expertise and global preferences.
+This is a targeted migration, not a rebuild. The existing capture pipeline (text/voice input, HITL classification, Cosmos DB storage, AG-UI SSE streaming to the Expo mobile app) stays functionally identical. What changes is the agent infrastructure underneath it: `AzureOpenAIChatClient` + `HandoffBuilder` are replaced by `AzureAIAgentClient` backed by Azure AI Foundry Agent Service. The goals are persistent server-registered agents, server-managed conversation threads, and Application Insights observability — none of which affect end-user behavior.
 
-The core competitive insight is clear: no existing PKM tool combines multimodal capture + AI classification + human-in-the-loop clarification + action sharpening + personal CRM + automated digest in a single system. Competitors (Mem 2.0, Tana, Notion AI, Capacities, Reflect) each cover 2-3 of these capabilities; the Active Second Brain integrates all of them. The deliberate tradeoffs — no offline mode, no rich editor, no folder taxonomy — are not weaknesses but the mechanism by which the product maintains focus on its core value: capturing a thought in under 3 seconds and having agents do the rest.
+The single biggest finding across all four researchers is unanimous and well-sourced: **Connected Agents cannot call local Python `@tool` functions**. The official Microsoft docs state this explicitly. Since the Classifier agent's entire value is its three `@tool` functions that write to Cosmos DB (`classify_and_file`, `request_misunderstood`, `mark_as_junk`), Connected Agents is not a viable orchestration pattern for this system without first moving those functions to Azure Functions — a v3.0 concern. The recommended approach for v2.0 is direct `AzureAIAgentClient` on the Classifier, with the Orchestrator eliminated, and code-based request routing in the FastAPI endpoint replacing the `HandoffBuilder` multi-agent chain.
 
-The primary risk is not technical — it is behavioral. Research on PKM system failure consistently identifies "system works technically but user stops using it" as the dominant failure mode. The architecture is intentionally complex (7 agents, multi-agent orchestration) because the learning goal matters, but every technical decision must be subordinated to the daily capture experience. A system that processes 10 captures per day is more valuable than one that has 7 agents deployed but processes 0. Build the capture-classify loop first, prove you use it daily, then expand.
+The migration is simpler than originally planned. The `HandoffBuilder` + `AGUIWorkflowAdapter` complex is replaced by a single `FoundrySSEAdapter` of approximately 100-150 lines that wraps one `classifier_agent.run()` call. The Orchestrator agent can be eliminated entirely. The core outcome-detection logic (inspecting `function_call.name` to emit `CLASSIFIED`/`MISUNDERSTOOD`/`UNRESOLVED` custom events) is preserved verbatim — only the surrounding framework event types change. Three mandatory breaking changes must be addressed regardless of architecture choice: `AgentThread` → `AgentSession` migration, sync → async credential (`azure.identity.aio`), and `HandoffBuilder` removal. These are prerequisites to any Foundry client code working at all on the RC packages.
 
 ## Key Findings
 
 ### Recommended Stack
 
-The backend centers on Microsoft Agent Framework (1.0.0b260210, released RC 2026-02-18) with FastAPI and the AG-UI protocol for real-time streaming from agents to the mobile client. The framework provides first-class handoff orchestration, built-in OpenTelemetry tracing, and a one-line FastAPI integration (`add_agent_framework_fastapi_endpoint`). GPT-5.2 (GA on Azure AI Foundry since Dec 2025) handles all LLM inference. Azure Cosmos DB (serverless, NoSQL API) stores all structured data across 5 containers; Azure Blob Storage handles binary media. The mobile app uses Expo SDK 54 with `react-native-sse` for the AG-UI SSE client — CopilotKit has no native React Native support (confirmed by GitHub issue #1892, open and unresolved as of Feb 2026).
+The existing validated stack (FastAPI, Expo/React Native, Cosmos DB, Blob Storage, Azure Container Apps, uv, Ruff) is unchanged. The migration adds three packages: `agent-framework-azure-ai` (RC1, install with `--prerelease=allow`), `azure-ai-projects>=1.0.0` (GA), and `azure-monitor-opentelemetry>=1.8.6` (GA). The `azure-ai-agents>=1.1.0` package should be pinned explicitly as it is a transitive dependency of `azure-ai-projects`. No packages are removed from `pyproject.toml`, though `agent-framework-orchestrations` can be removed once `HandoffBuilder` is deleted.
 
-The stack has no low-confidence technology choices with the exception of two points: the `azure-cosmos` version needs validation on install, and the React Native AG-UI client requires a custom implementation since no official package exists. Everything else — Agent Framework, FastAPI, Expo SDK 54, Azure services — is verified from official sources. AutoGen and Semantic Kernel are confirmed deprecated and merged into Agent Framework; do not use them.
+A new Azure resource type is required: a **Microsoft Foundry Account** (`Microsoft.CognitiveServices/accounts`), distinct from the old hub-based `Microsoft.MachineLearningServices/workspaces`. The project endpoint format is `https://<account>.services.ai.azure.com/api/projects/<project>`. Application Insights requires a connection string in `APPLICATIONINSIGHTS_CONNECTION_STRING`. The existing Azure OpenAI resource and deployment remain in use for Whisper transcription — these are separate concerns.
 
-**Core technologies:**
-- **Microsoft Agent Framework 1.0.0b260210**: Multi-agent handoff orchestration — unified successor to AutoGen + Semantic Kernel, API-stable RC with full 1.0 feature set
-- **FastAPI + AG-UI**: HTTP API server + real-time SSE streaming — first-party integration via `agent-framework-ag-ui`, one-line registration
-- **Azure OpenAI (GPT-5.2)**: LLM inference for all agents — enterprise-grade, structured outputs, reliable tool use, GA on Azure AI Foundry
-- **Expo SDK 54 + React Native 0.81**: Mobile capture frontend — New Architecture enabled, `TextDecoderStream` support for SSE, latest stable
-- **Azure Cosmos DB (serverless)**: Document storage for all captures and records — JSON-native, vector search support, single-partition serverless is cost-appropriate for single user
-- **Azure Blob Storage**: Binary media storage — voice recordings and photos upload directly; agents receive blob URLs
-- **Azure Container Apps**: Backend hosting — scale-to-zero, managed identity, your existing experience, ~$5-15/month single user
+**Core technologies added:**
+- `agent-framework-azure-ai` (RC1): Provides `AzureAIAgentClient` — the Foundry-backed agent client replacing `AzureOpenAIChatClient`
+- `azure-ai-projects` (GA 1.0.0): `AIProjectClient` for agent lifecycle management (create, list, delete persistent agents)
+- `azure-monitor-opentelemetry` (GA 1.8.6): One-call Application Insights setup via `configure_azure_monitor()`
+- Microsoft Foundry Account + Project: New Azure resource providing the project endpoint, server-managed threads, and portal observability
+
+**Version compatibility note:** RC2 (Feb 26, 2026) is the current release of `agent-framework-core`. The `agent-framework-azure-ai` RC2 status is unconfirmed — it may still be on RC1. Validate with `uv pip show agent-framework-azure-ai` after install.
 
 ### Expected Features
 
-The feature research reveals a clear split between what creates the core value proposition and what creates complexity without proportional benefit. The 4-bucket model (People, Projects, Ideas, Admin) is deliberately simpler than competitors' taxonomy systems — this simplicity is the feature, not a limitation.
+**Must have (table stakes — must not regress after migration):**
+- Text capture → Classifier → Cosmos DB: core pipeline, same user-facing behavior
+- Voice capture → Perception (Blob + Whisper) → Classifier → Cosmos DB: Perception step unchanged
+- HITL low-confidence: pending inbox items, bucket buttons for re-categorization (direct Cosmos write, no agent involved)
+- HITL misunderstood: conversational follow-up endpoint (re-runs classification with fresh Foundry thread)
+- AG-UI SSE streaming: `StepStarted`, `StepFinished`, `CLASSIFIED`, `MISUNDERSTOOD`, `UNRESOLVED` custom events unchanged
+- Inbox CRUD: zero change, pure Cosmos DB layer
 
-**Must have (table stakes) — P1:**
-- Text capture via Expo app (validates full pipeline end-to-end)
-- Voice capture with Whisper transcription (table stakes in 2026 for any capture app)
-- Automatic AI classification into 4 buckets with confidence scoring
-- AG-UI real-time feedback showing agent chain (builds trust through visibility)
-- Human-in-the-loop clarification when confidence is low (prevents misclassification poisoning early data)
-- Capture confirmation UX with instant acknowledgment (<200ms "captured")
-- Cross-device sync (Cosmos DB as single source of truth; mobile is thin client)
+**Should have (migration differentiators — the point of the migration):**
+- Persistent agents visible in AI Foundry portal with stable IDs across restarts
+- Server-managed conversation threads (`AgentSession` with `service_session_id`)
+- Application Insights traces: per-run token usage, cost, classification outcomes visible in portal
+- Content safety RAI policy (automatic once on Foundry, zero code)
 
-**Should have (competitive advantage) — P2:**
-- Photo capture with GPT-5.2 Vision processing (unique among competitors)
-- Action sharpening (vague -> concrete next actions — no competitor has a dedicated action agent)
-- Daily digest (<150 words, 6:30 AM — the concise output constraint is a design decision preventing information overload)
-- Basic keyword search across Cosmos DB indexed fields (table stakes, don't defer to Phase 4)
-- Cross-reference extraction linking People and Projects from captures
-- Data export as JSON (prevents lock-in anxiety, trivial to build)
-- Push notifications for digest and HITL clarification
+**Defer to v2.x (post-parity enhancements):**
+- Thread resumption via `service_session_id` for misunderstood follow-up (Foundry remembers context)
+- Foundry portal evaluation runs for baseline quality metrics
 
-**Defer (v2+) — P3:**
-- Entity Resolution Agent (needs 10+ People records to be useful)
-- Weekly review automation (needs 2+ weeks of data history)
-- System Evaluation Agent (needs 4+ weeks of data across all agents — meta-evaluation of a nascent system produces noise)
-- Full-text/semantic search with embeddings
-- Video capture and keyframe extraction
-
-**Explicitly excluded (anti-features):**
-Folder/tag taxonomy, rich-text editor, bi-directional graph view, offline mode, custom bucket types, real-time collaboration, calendar integration, web clipper, template system, gamification. These are deliberate non-features that keep the product focused.
+**Defer to v3.0+:**
+- Connected Agents pattern (requires moving `classify_and_file` etc. to Azure Functions first)
+- Action Agent, Digest Agent, Entity Resolution Agent (do not exist yet; same Foundry pattern when built)
 
 ### Architecture Approach
 
-The architecture is a single FastAPI application deployed on Azure Container Apps, exposing an AG-UI SSE endpoint that drives a handoff mesh of 5 real-time agents (Orchestrator, Perception, Classifier, Action, Digest) plus 2 standalone scheduled agents (Entity Resolution nightly, Evaluation weekly). The mobile app is a thin capture client that uploads binary media to Blob Storage first, then sends the blob URL through the AG-UI channel. Structured data lives in 5 Cosmos DB containers (Inbox, People, Projects, Ideas, Admin) partitioned by `/userId`. All agents share a tool library (`cosmos.py`, `blob.py`, `transcription.py`, `vision.py`) via Agent Framework's `@tool` decorator. Background agents (Entity Resolution, Evaluation) are explicitly excluded from the handoff mesh and run as standalone scheduled tasks — including them in the mesh broadcasts every user message to them unnecessarily.
+The migration collapses the two-agent HandoffBuilder chain (Orchestrator → Classifier) into a single persistent `AzureAIAgentClient`-backed Classifier agent. The Orchestrator is eliminated — it was only needed to route to the Classifier, and with code-based orchestration the FastAPI endpoint calls the Classifier directly. The `AGUIWorkflowAdapter` (340 lines, HandoffBuilder-dependent) is replaced with a `FoundrySSEAdapter` (~100-150 lines) that wraps `classifier_agent.run(stream=True)`. The adapter's outcome detection logic (inspect `function_call.name` for `classify_and_file`/`request_misunderstood`/`mark_as_junk`), text buffering, and custom event emission are preserved verbatim. The adapter is a rewrite of the surrounding plumbing, not of the detection logic.
 
-**Major components:**
-1. **Expo App** — Capture surface (text/voice/photo), AG-UI SSE client via `react-native-sse`, digest viewer; thin client, all intelligence is backend
-2. **FastAPI + AG-UI Endpoint** — Single HTTP entry point; `add_agent_framework_fastapi_endpoint(app, workflow, "/")` registers the entire handoff workflow
-3. **Handoff Workflow (5-agent mesh)** — Orchestrator triages → Perception transcribes media → Classifier files to bucket → Action sharpens → Digest answers queries; built with `HandoffBuilder`
-4. **Shared Tool Library** — `@tool` functions for Cosmos DB CRUD, Blob read, Whisper transcription, Vision analysis; shared across agents
-5. **Cosmos DB (5 containers)** — Persistent structured storage; Inbox is transient staging, 4 final containers hold classified records
-6. **Blob Storage** — Raw media storage; Expo uploads directly via SAS token, Perception Agent reads by URL
-7. **Scheduled Agents** — Entity Resolution (nightly) and Evaluation (weekly) run outside the handoff mesh, triggered by APScheduler or ACA scheduled tasks
-8. **OpenTelemetry** — Built into Agent Framework; zero-config tracing across handoffs; essential for debugging multi-agent failures
+**Major components that change:**
+1. `main.py` lifespan — replace `AzureOpenAIChatClient` construction with `AzureAIAgentClient`; use `should_cleanup_agent=False`; store `classifier_agent` and `ai_client` on `app.state`
+2. `agents/workflow.py` — full replacement: `AGUIWorkflowAdapter` → `FoundrySSEAdapter`
+3. `config.py` — add `azure_ai_project_endpoint`, `azure_ai_model_deployment_name`, `azure_ai_classifier_agent_id`, `applicationinsights_connection_string`
+4. `agents/orchestrator.py` — deleted (Orchestrator eliminated)
+5. `agents/classifier.py` — import swap: `AzureOpenAIChatClient` → `AzureAIAgentClient`
+
+**Components that do not change (majority of codebase):**
+- `tools/classification.py` — all `@tool` functions unchanged
+- `db/cosmos.py`, `db/blob_storage.py` — unchanged
+- `api/inbox.py`, `api/health.py`, `auth.py` — unchanged
+- `tools/transcription.py` — unchanged (Whisper stays on Azure OpenAI)
+- Mobile Expo app — unchanged
+- AG-UI SSE protocol and event format — unchanged
+- `/api/ag-ui/respond` endpoint — unchanged (direct Cosmos write, no agent involvement)
+- `/api/voice-capture` Perception step — unchanged (Blob upload + Whisper)
+
+**Key patterns confirmed:**
+- `AzureAIAgentClient` requires `azure.identity.aio.DefaultAzureCredential` (async), not the sync variant
+- `should_cleanup_agent=False` is mandatory for persistent agents in a FastAPI lifespan
+- Tools must be registered at `as_agent()` creation time, not at `run()` call time
+- Store `ai_client` on `app.state` alongside `classifier_agent` to keep the HTTP connection alive
+- HITL follow-up: always create a fresh Foundry thread (new `thread_id`) to avoid conversation history contamination from the first failed classification pass
 
 ### Critical Pitfalls
 
-1. **The "Bag of Agents" trap** — Building all 7 agents before 1 works reliably. Multi-agent systems show up to 17x error amplification without proven coordination. Prevention: Build Classifier alone first (text in → Cosmos DB record), prove it works with 50+ real captures, then add Orchestrator in front, then Perception. Phase 1 ends with exactly 1 agent processing real data end-to-end.
+All pitfalls are HIGH confidence, sourced from official docs or confirmed GitHub issues (issue #3097 for HandoffBuilder incompatibility, official Connected Agents docs for local function limitation).
 
-2. **AG-UI React Native gap** — No first-party React Native AG-UI client exists (issue #510 is in-progress, no timeline). Prevention: Accept you will build a custom SSE client using `react-native-sse`. Phase 1 should use simple REST + SSE without AG-UI abstractions; add AG-UI typed events only after the transport works reliably on both iOS and Android physical devices.
+1. **HandoffBuilder is fundamentally incompatible with `AzureAIAgentClient`** — HandoffBuilder's synthetic transfer tools fail Azure's JSON schema validation (HTTP 400, "invalid payload") when the Foundry service validates the conversation history payload. Do not attempt to use HandoffBuilder with any Foundry client. Delete it before writing any migration code. The architecture fix is to eliminate HandoffBuilder entirely and call the Classifier directly.
 
-3. **Expo SSE blocking in dev builds** — `ExpoRequestCdpInterceptor` blocks `text/event-stream` responses in Android debug builds, causing indefinite hangs. Prevention: Validate SSE with a health-check endpoint on a physical Android device as the first thing done in the mobile project, before any agent integration.
+2. **Connected Agents cannot call local `@tool` functions** — Official docs state this explicitly. Sub-agent tool calls in Connected Agents are handled server-side; the FastAPI process never receives the `requires_action` callback. The Classifier's Cosmos DB writes will silently never execute. Do not use Connected Agents in v2.0. This is the unanimous finding across all four research files.
 
-4. **Synchronous capture processing** — Running the full agent chain synchronously while the user waits. A 3-4 agent chain with GPT-5.2 takes 5-15 seconds. Prevention: Write to Inbox immediately (return <500ms confirmation), process agent chain asynchronously. Capture UX must never block on classification.
+3. **`should_cleanup_agent=True` (default) destroys agent persistence** — The default context manager deletes the Foundry agent on exit. Every Container App restart creates a new agent with a new ID, accumulating stale agents in the portal and invalidating any stored ID references. Always pass `should_cleanup_agent=False` for long-lived FastAPI deployments.
 
-5. **Building a system you admire instead of one you use** — The engineering complexity (7 agents, OpenTelemetry, AG-UI streaming) can become the goal. Prevention: Track "captures per day" as the primary metric. If 0 for 3 consecutive days, stop feature work and fix UX. Phase 1 must end with daily real-world usage, not "technically works."
+4. **Sync `DefaultAzureCredential` fails with `AzureAIAgentClient`** — `AzureAIAgentClient` requires `AsyncTokenCredential` from `azure.identity.aio`. Passing the sync credential causes silent auth failures or `TypeError` at runtime. Update all credential imports before writing any Foundry client code.
+
+5. **RBAC requires three separate role assignments** — Developer Entra ID → Azure AI User on Foundry project; Container App managed identity → Azure AI User on Foundry project; Foundry project managed identity → Cognitive Services User on Azure OpenAI resource. Missing any one causes 403/401 errors that appear only in specific contexts (local dev vs. deployed).
+
+6. **`AGUIWorkflowAdapter` is a complete rewrite, not a migration** — The existing adapter references `WorkflowEvent`, `executor_invoked`, `executor_completed` types that do not exist in the `AzureAIAgentClient` stream. The stream produces `AgentResponseUpdate` objects. The detection logic is reusable; all event-type handling must be rewritten around `AgentResponseUpdate`.
 
 ## Implications for Roadmap
 
-Based on research, the architecture's build order, feature dependencies, and pitfall-to-phase mapping converge on a clear 4-phase structure.
+Based on combined research, the migration decomposes into four natural phases. The hard dependency ordering is: infrastructure before code, credentials before client, client before adapter, adapter before HITL validation.
 
-### Phase 1: Foundation — Capture-Classify Core Loop
+### Phase 1: Infrastructure and Prerequisites
+**Rationale:** Nothing else can be tested without a Foundry project endpoint, RBAC assignments, and Application Insights connection string. The RC breaking changes (`AgentThread` → `AgentSession`, sync → async credential) must also be applied before any Foundry client code compiles. This phase has no code risk — it is environment setup and surgical API updates. It also includes deleting `HandoffBuilder` and `AGUIWorkflowAdapter` before they can cause confusion.
+**Delivers:** Working Foundry project with model deployment; Application Insights instance connected; `AgentThread` → `AgentSession` migration complete in `workflow.py` and `main.py`; async credentials in place (`azure.identity.aio`); `HandoffBuilder` and `AGUIWorkflowAdapter` deleted; new env vars in `.env` and `config.py`; `agent-framework-azure-ai` installed and import verified
+**Avoids:** Pitfall 4 (credential), Pitfall 5 (RBAC) — all three role assignments before a single SDK call; RC breaking changes that silently break the existing codebase
 
-**Rationale:** Every downstream feature depends on the Cosmos DB data layer, the AG-UI SSE transport, and a working Classifier agent. The pitfalls research is unambiguous: prove one agent works with real data before building the second. Architecture research specifies the exact build order: FastAPI shell + AG-UI → Cosmos DB data layer → Expo AG-UI client → Classifier agent. These must be sequential.
+### Phase 2: Single-Agent Classifier Baseline
+**Rationale:** Before touching `main.py` or the SSE adapter, validate that `AzureAIAgentClient` can authenticate to Foundry, create a persistent Classifier agent, and execute local `@tool` functions. Specifically: confirm that `classify_and_file` writes to Cosmos DB when called by the Foundry service. This is the highest-risk validation step — if tool execution does not work as documented, the architecture needs to change. A standalone test script (not FastAPI) validates this independently without risk to the running service.
+**Delivers:** Classifier agent visible in Foundry portal with stable ID across restarts; `classify_and_file` confirmed executing locally during a Foundry-managed run; agent ID captured for `AZURE_AI_CLASSIFIER_AGENT_ID` env var; `classifier.py` updated with `AzureAIAgentClient`; `should_cleanup_agent=False` confirmed working
+**Avoids:** Pitfall 2 (tool execution confirmed before building the adapter); Pitfall 3 (agent ID management strategy locked in); discovery of fundamental incompatibility after a full adapter rewrite
 
-**Delivers:** A usable daily capture system. Text input on the Expo app → Orchestrator routing → Classifier filing → Cosmos DB record, with AG-UI SSE showing agent activity and instant capture confirmation. HITL clarification for low-confidence classifications. Basic keyword search. Data export.
+### Phase 3: FoundrySSEAdapter and FastAPI Integration
+**Rationale:** With the Classifier baseline confirmed, replace the AG-UI plumbing. `HandoffBuilder` and `AGUIWorkflowAdapter` are already gone. The `FoundrySSEAdapter` is a focused rewrite (~100-150 lines) that wires `classifier_agent.run(stream=True)` to the existing `_stream_sse()` helper in `main.py`. The outcome-detection logic, text buffering, and custom event emission are copied from the old adapter and adapted for `AgentResponseUpdate` event types. Wire into `main.py` lifespan. End-to-end test: text capture → SSE stream → Cosmos DB write → `CLASSIFIED` event received by mobile app. Then validate voice capture (Perception step → same adapter).
+**Delivers:** `FoundrySSEAdapter` replacing `AGUIWorkflowAdapter`; `main.py` lifespan migrated to `AzureAIAgentClient`; Orchestrator deleted; text and voice capture pipelines working end-to-end; `CLASSIFIED`/`MISUNDERSTOOD`/`UNRESOLVED` custom events verified against mobile app; `_stream_sse()` and `_convert_update_to_events()` helpers unchanged
+**Uses:** `AzureAIAgentClient`, `should_cleanup_agent=False`, `AgentSession`, `AgentResponseUpdate` stream
+**Avoids:** Pitfall 6 (AGUIWorkflowAdapter rewrite correctly scoped); HITL thread isolation strategy decided before implementation
 
-**Features from FEATURES.md:** Text capture, automatic 4-bucket classification with confidence scoring, AG-UI real-time feedback, HITL clarification, capture confirmation UX, basic keyword search, data export JSON.
-
-**Stack elements:** Agent Framework (Classifier only initially), FastAPI + AG-UI endpoint, Cosmos DB 5 containers with correct partition keys, Expo SDK 54, `react-native-sse`, Azure OpenAI GPT-5.2.
-
-**Avoids:** Bag of Agents trap (only Classifier + Orchestrator by end of phase), Expo SSE blocking (validated on Android before any agent work), synchronous capture processing (async from day 1), wrong Cosmos DB partition key (decided before first `container.create()` call).
-
-**Research flag:** This phase has well-documented patterns. Agent Framework handoff docs + Cosmos DB SDK docs cover it. No additional research needed before starting.
-
-**Phase 1 success criteria:** You use the app daily for real captures. Not "it works technically."
-
----
-
-### Phase 2: Multimodal Input + Action Pipeline
-
-**Rationale:** Once text classification is trusted (50+ real captures, >80% accuracy), add voice and photo input. These require Blob Storage integration and the Perception Agent. The Action Agent depends on Classifier working correctly — it cannot sharpen what isn't classified. Features research confirms these are P1-P2 priorities.
-
-**Delivers:** Full multimodal capture (text/voice/photo) with action sharpening for Projects/Admin captures. Daily digest. Push notifications.
-
-**Features from FEATURES.md:** Voice capture + Whisper transcription, photo capture + GPT-5.2 Vision, action sharpening (vague → concrete next actions), daily digest (<150 words, 6:30 AM), push notifications for digest and HITL.
-
-**Stack elements:** Perception Agent + Blob Storage integration, Action Agent added to handoff mesh, Digest Agent (on-demand + scheduled), APScheduler for digest cron, Expo Push Notifications, Expo Audio (`useAudioRecorder`), Expo Camera (`CameraView`).
-
-**Implements:** Media Upload → Blob Storage → Perception Agent pattern (Architecture Pattern 3). Add OpenTelemetry custom spans before adding the 3rd agent (per pitfall warning).
-
-**Avoids:** AG-UI React Native gap (custom SSE client already proven in Phase 1 before typed AG-UI events are added), context loss during handoffs (integration test verifying context survives Orchestrator → Classifier → Action chain), model tiering for cost control (not every agent needs GPT-5.2 — evaluate GPT-4o-mini for Classifier).
-
-**Research flag:** Whisper integration for voice transcription may need targeted research. The audio trimming requirement (Whisper 25MB limit, charge per minute) has specific handling needs. Recommend a focused research spike on Whisper + `expo-audio` integration before Phase 2 starts.
-
----
-
-### Phase 3: Intelligence Layer — Cross-References + People CRM
-
-**Rationale:** Cross-reference extraction and personal CRM features require existing People and Projects records to match against — this is a hard dependency. Entity Resolution requires 10+ People records to be meaningful. These features depend on data accumulation from Phase 1 and Phase 2 usage.
-
-**Delivers:** Automatic relationship tracking (People mentioned in captures → People records updated), cross-reference extraction linking People ↔ Projects, nightly Entity Resolution deduplication, weekly review automation.
-
-**Features from FEATURES.md:** Cross-reference extraction, personal CRM with auto-tracking from captures, Entity Resolution Agent (nightly), weekly review (Digest Agent weekly mode), share sheet extension (if desired).
-
-**Stack elements:** Entity Resolution Agent (standalone scheduled, not in handoff mesh), Classifier Agent extended with cross-reference extraction tools, APScheduler nightly cron, Cosmos DB change feed or "dirty" flag pattern to scope Entity Resolution to modified records only.
-
-**Avoids:** Entity Resolution scanning full People container on every run (use change feed or dirty flag — pitfall identified in performance traps). HITL clarification backlog growing (auto-classify with best guess after 24 hours, never permanent "pending" state).
-
-**Research flag:** Entity Resolution fuzzy name matching algorithm needs research. The conservative merge strategy (flag ambiguous, don't auto-merge) is correct, but the matching threshold and deduplication logic are non-trivial. Recommend research-phase before starting Entity Resolution agent implementation.
-
----
-
-### Phase 4: System Intelligence — Evaluation + Polish
-
-**Rationale:** The Evaluation Agent requires 4+ weeks of operational data across all agents plus OpenTelemetry traces to produce meaningful insights. This is correctly deferred. Semantic search requires sufficient data for embeddings to be useful. This phase also addresses any UX polish needed based on actual usage patterns discovered in Phases 1-3.
-
-**Delivers:** System self-evaluation (classification accuracy tracking, action completion rates, stale content detection), semantic search with embeddings, video capture and keyframe extraction, full OpenTelemetry production observability.
-
-**Features from FEATURES.md:** Evaluation Agent (weekly health reports), full-text/semantic search, video capture + keyframes, any deferred P3 features based on actual usage needs.
-
-**Stack elements:** Evaluation Agent (standalone scheduled), Cosmos DB vector embedding search (support added in azure-cosmos 4.7.0+), OpenTelemetry sampling configured for production (10-20% tail-based), Batch API for Digest and Evaluation agents (50% cost reduction for async non-real-time work).
-
-**Avoids:** OpenTelemetry overhead at full fidelity in production (configure sampling before this phase; 18-49% CPU overhead measured at full trace fidelity).
-
-**Research flag:** Cosmos DB vector search integration for semantic search needs research — the API has changed across SDK versions. Recommend research-phase specifically for the vector embedding approach before implementation.
-
----
+### Phase 4: HITL Validation and Observability
+**Rationale:** HITL flows are the highest functional risk because they depend on the adapter's custom event emission and thread management. Validate all three HITL paths explicitly: low-confidence pending → inbox bucket buttons; misunderstood → follow-up (fresh thread confirmed); recategorize. Then wire Application Insights and verify traces and token usage appear in the Foundry portal. This phase completes the v2.0 definition of done.
+**Delivers:** All three HITL flows verified end-to-end; HITL follow-up confirmed using fresh Foundry threads (no conversation history contamination); Application Insights traces visible in portal for a classification run; token usage and cost metrics confirmed; v2.0 migration declared complete
+**Uses:** `configure_azure_monitor()` with `APPLICATIONINSIGHTS_CONNECTION_STRING`; fresh `thread_id` generation on follow-up endpoint
 
 ### Phase Ordering Rationale
 
-- **Phase 1 before anything**: The Cosmos DB schema and AG-UI SSE transport are foundational dependencies. Wrong partition key requires container recreation and data migration. Broken SSE means nothing works. These must be solved first, and validated with real daily usage before adding complexity.
-- **Phase 2 requires Phase 1 data**: The Action Agent needs classified captures to sharpen. Perception Agent outputs feed into the same Classifier. Daily digest needs captures to summarize — an empty digest kills the habit loop.
-- **Phase 3 requires accumulated People/Projects data**: Cross-reference extraction is useless without existing records to match against. Entity Resolution on 2 People records is pointless. This phase only delivers value after Phase 1-2 have generated real data.
-- **Phase 4 requires full operational history**: Evaluation Agent producing insights about a system that has been running for days, not weeks, generates noise. Semantic search requires enough captures for embeddings to cluster meaningfully.
+- Phase 1 before everything else: The Foundry project endpoint must exist before any SDK call. The RC breaking changes cause import errors in the existing codebase. Three-scope RBAC must be complete before local dev validation is meaningful. There is zero ambiguity about this ordering.
+- Phase 2 before Phase 3: Tool execution must be confirmed in isolation via standalone test script. If `classify_and_file` does not execute locally with `AzureAIAgentClient`, the architecture is wrong and Phase 3 would need to be redesigned. Isolation catches this failure before a full adapter rewrite, saving significant time.
+- Phase 3 before Phase 4: The `FoundrySSEAdapter` must exist for HITL flows to be testable. HITL validation is meaningless against the old adapter (which is already deleted by Phase 1).
+- Observability in Phase 4: Application Insights is a one-line setup (`configure_azure_monitor()`). It does not block migration completion but should be confirmed working before v2.0 is declared done.
 
 ### Research Flags
 
-**Needs research-phase before implementation:**
-- **Phase 2** (Whisper + expo-audio integration): Audio trimming, ambient noise handling, domain-specific vocabulary (proper nouns, technical terms). This has real-world gotchas not covered by official docs.
-- **Phase 3** (Entity Resolution algorithm): Fuzzy name matching thresholds, conservative merge strategy implementation, Cosmos DB change feed pattern for incremental processing.
-- **Phase 4** (Cosmos DB vector search): API surface has changed across SDK versions; embedding strategy for personal capture data needs validation.
+All four phases can proceed without additional research-phase invocations. The migration is well-documented in official Microsoft Learn sources updated through February 2026.
 
-**Standard patterns — skip research-phase:**
-- **Phase 1** (FastAPI + AG-UI + Cosmos DB + Expo): All of this is covered by official Microsoft Learn documentation and well-established patterns. Docs are complete and high-quality.
-- **Phase 2** (Blob Storage + Perception Agent): Standard Azure pattern, mature SDK, well-documented. Exception: Whisper integration (flagged above).
-- **Phase 2** (Action Agent): Standard handoff pattern; well-documented in Agent Framework. Prompt engineering is the main challenge, not integration.
+**Phases with standard patterns — skip research-phase:**
+- **Phase 1:** Entirely mechanical changes (package install, env vars, API migration). All changes are in the official 2026 Significant Changes migration guide.
+- **Phase 2:** `AzureAIAgentClient` + local `@tool` pattern is documented in official samples with code. No ambiguity.
+- **Phase 3:** `FoundrySSEAdapter` design is clear. `AgentResponseUpdate` event types are confirmed stable across providers in official AG-UI integration docs.
+- **Phase 4:** HITL thread strategy (fresh thread per follow-up) is explicitly chosen based on research. Application Insights is `configure_azure_monitor()` with one env var.
+
+**One empirical validation needed during Phase 2 (not a research-phase, a smoke test):**
+- Confirm that `classifier_agent.run(stream=True)` emits `AgentResponseUpdate` objects (not `WorkflowEvent` types) when using `AzureAIAgentClient`. The docs say this, and the `AgentResponseUpdate` stream surface is confirmed unchanged across providers in official docs. Verify empirically during Phase 2 standalone testing before writing the `FoundrySSEAdapter` event handler in Phase 3.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | All core technologies verified from official sources: Agent Framework RC announcement, Expo SDK 54 changelog, Azure service SDKs. Two LOW-confidence items: azure-cosmos latest version (validate on install) and React Native AG-UI client (confirmed must be custom-built). |
-| Features | MEDIUM-HIGH | Competitor analysis is thorough (15 PKM tools surveyed). Feature prioritization is grounded in real patterns from Mem, Tana, Notion AI, Capacities, Reflect. The "anti-features" section is exceptionally well-reasoned. Lower confidence on emergent AI-agentic features (HITL UX patterns, action sharpening UX) which are novel and less battle-tested. |
-| Architecture | MEDIUM | Agent Framework handoff pattern and AG-UI FastAPI integration are HIGH confidence (official docs with Python examples). Mobile AG-UI client is MEDIUM confidence (custom implementation required, no production examples found). The 5-container Cosmos DB design and media-to-Blob pattern are HIGH confidence standard patterns. |
-| Pitfalls | MEDIUM-HIGH | Critical pitfalls (Bag of Agents, Expo SSE blocking, async capture processing) are grounded in primary sources (GitHub issues, official docs, Agent Framework release notes). The "shelfware" pitfall is grounded in research on PKM failure patterns. Some cost estimates (17x error amplification) come from non-peer-reviewed articles — treat as directionally correct, not precise. |
+| Stack | HIGH | All packages verified on PyPI with confirmed versions. `agent-framework-azure-ai` RC2 status is the only open item — minor, just confirm installed version after install. |
+| Features | HIGH | All 5 open questions from `fas-rearchitect.md` answered with official source citations. Connected Agents limitation confirmed from four independent sources. Migration scope (only Orchestrator + Classifier exist; migrate only those) is unambiguous. |
+| Architecture | HIGH | `FoundrySSEAdapter` design derived from official `AgentResponseUpdate` streaming docs. `should_cleanup_agent=False` confirmed in API reference. Orchestrator elimination follows directly and cleanly from the Connected Agents ruling. Component boundary analysis is high confidence — SDK source inspection confirmed `AzureAIAgentClient` lazy import from `agent_framework_azure_ai`. |
+| Pitfalls | HIGH | 8 critical pitfalls documented with official sources, warning signs, recovery strategies, and phase-to-pitfall mapping. All four research files independently reach the same conclusions on the top three pitfalls (HandoffBuilder incompatibility, Connected Agents local function limitation, `should_cleanup_agent` default). |
 
-**Overall confidence:** MEDIUM-HIGH
+**Overall confidence: HIGH**
 
 ### Gaps to Address
 
-- **React Native AG-UI client maturity**: Issue #510 is in-progress with no timeline. If it ships during Phase 1-2 development, evaluate adopting it. If not, the custom `react-native-sse` approach is validated and sufficient. Monitor monthly.
-- **Agent Framework 1.0 GA timing**: The RC is API-stable and has all 1.0 features complete (per RC announcement). GA will follow but has no confirmed date. Build against the RC; the upgrade to GA should be a package version bump only. Pin to `1.0.0b260210` until GA ships.
-- **GPT-5.2 pricing for multi-agent chains**: Actual cost per capture will only be known after Phase 1 usage. The pitfalls research flags 4 LLM calls per capture as the baseline. Monitor with per-agent token logging from day 1. If costs exceed $50/month, implement model tiering (GPT-4o-mini for Classifier).
-- **Whisper accuracy for domain-specific vocabulary**: Medical technology terms, woodworking terminology, personal names. Cannot be assessed without testing. Phase 1 text-only validation avoids this; Phase 2 voice capture must be tested in real environments before committing to the Whisper-as-sole-transcription approach.
-- **Cosmos DB partition key decision**: The research identifies `/userId` as functionally a constant (cardinality of 1), recommending evaluation of hierarchical partition keys (`/userId` + `/type`). This must be decided before Phase 1 data layer implementation — it cannot be changed without container recreation.
+Three items require empirical validation during execution. None are blockers for planning.
+
+- **`agent-framework-azure-ai` RC2 version:** RC2 release notes do not explicitly confirm `agent-framework-azure-ai` was updated alongside `agent-framework-core`. Run `uv pip show agent-framework-azure-ai` after install and note the actual version. Both RC1 and RC2 are compatible with the migration approach — this is a version-tracking item, not an architectural risk.
+
+- **Streaming event types from `AzureAIAgentClient`:** During Phase 2 standalone testing, confirm that `classifier_agent.run(stream=True)` produces `AgentResponseUpdate` objects. This is documented but worth confirming empirically before writing the `FoundrySSEAdapter` event handler in Phase 3. It takes five minutes to verify and removes ambiguity from the Phase 3 implementation.
+
+- **Foundry project vs. existing Azure OpenAI resource:** Confirm whether an existing Azure OpenAI resource can be wired to a new Foundry project, or whether a separate model deployment is needed within the Foundry project. The endpoint format `https://<account>.services.ai.azure.com/api/projects/<project>` is distinct from `https://<resource>.openai.azure.com/`. Whisper stays on the Azure OpenAI endpoint; the Classifier agent uses the Foundry project endpoint. Validate both can coexist in the same Container App deployment before Phase 1 is declared complete.
 
 ## Sources
 
-### Primary (HIGH confidence)
-- [Microsoft Agent Framework RC Announcement (Feb 18, 2026)](https://devblogs.microsoft.com/foundry/microsoft-agent-framework-reaches-release-candidate) — RC status, API stable
-- [agent-framework on PyPI](https://pypi.org/project/agent-framework/) — Version 1.0.0b260210
-- [AG-UI Integration with Agent Framework (Microsoft Learn)](https://learn.microsoft.com/en-us/agent-framework/integrations/ag-ui/) — Official AG-UI + FastAPI integration
-- [Microsoft Agent Framework: Handoff Orchestration](https://learn.microsoft.com/en-us/agent-framework/user-guide/workflows/orchestrations/handoff) — HandoffBuilder Python examples
-- [AG-UI Protocol Overview](https://docs.ag-ui.com/introduction) — Protocol specification
-- [Expo SDK 54 Changelog](https://expo.dev/changelog/sdk-54) — React Native 0.81, TextDecoderStream, New Architecture
-- [azure-cosmos on PyPI](https://pypi.org/project/azure-cosmos/) — Version 4.14.0
-- [azure-identity on PyPI](https://pypi.org/project/azure-identity/) — Version 1.16.1
-- [CopilotKit React Native Support Issue #1892](https://github.com/CopilotKit/CopilotKit/issues/1892) — Confirms no native RN support
-- [AG-UI React Native Client Issue #510](https://github.com/ag-ui-protocol/ag-ui/issues/510) — In-progress, no timeline
-- [Expo SSE Blocking Issue #27526](https://github.com/expo/expo/issues/27526) — Confirmed bug in dev builds
-- [Cosmos DB Partitioning (Microsoft Learn)](https://learn.microsoft.com/en-us/azure/cosmos-db/partitioning) — Partitioning patterns
-- [Cosmos DB Anti-Patterns (Microsoft DevBlog)](https://devblogs.microsoft.com/cosmosdb/antipatterns-on-azure-cosmos-db/) — Official anti-patterns
-- [OpenTelemetry AI Agent Observability](https://opentelemetry.io/blog/2025/ai-agent-observability/) — Official OpenTelemetry blog
-- [Agent Framework Release Notes](https://github.com/microsoft/agent-framework/releases) — context_provider bug fix #3721
+### Primary (HIGH confidence — official Microsoft Learn, updated Feb 2026)
 
-### Secondary (MEDIUM confidence)
-- [Building an AI Agent Server with AG-UI and Microsoft Agent Framework (baeke.info)](https://baeke.info/2025/12/07/building-an-ai-agent-server-with-ag-ui-and-microsoft-agent-framework/) — Real-world AG-UI + Agent Framework implementation
-- [Forte Labs: Test-Driving Second Brain Apps](https://fortelabs.com/blog/test-driving-a-new-generation-of-second-brain-apps-obsidian-tana-and-mem/) — Mem, Tana, Obsidian comparison
-- [12 Common PKM Mistakes](https://www.dsebastien.net/12-common-personal-knowledge-management-mistakes-and-how-to-avoid-them/) — Anti-patterns informing anti-features section
-- [17x Error Amplification in Multi-Agent Systems](https://towardsdatascience.com/why-your-multi-agent-system-is-failing-escaping-the-17x-error-trap-of-the-bag-of-agents/) — Research article
-- [react-native-sse on npm](https://www.npmjs.com/package/react-native-sse) — SSE implementation for React Native
-- [Buildin.AI: Best 15 Second Brain Apps in 2026](https://buildin.ai/blog/best-second-brain-apps) — Feature comparison
+- [AzureAIAgentClient API Reference](https://learn.microsoft.com/en-us/python/api/agent-framework-core/agent_framework.azure.azureaiagentclient) — constructor params, `should_cleanup_agent`, `as_agent()`
+- [Microsoft Foundry Agents with Agent Framework](https://learn.microsoft.com/en-us/agent-framework/agents/providers/azure-ai-foundry) — `AzureAIAgentClient` quickstart, lifespan pattern, env vars (updated 2026-02-23)
+- [Python 2026 Significant Changes Guide](https://learn.microsoft.com/en-us/agent-framework/support/upgrade/python-2026-significant-changes) — RC1 breaking changes: `AgentThread` → `AgentSession`, unified credential, `pydantic-settings` removal (updated 2026-02-23)
+- [Connected Agents How-To](https://learn.microsoft.com/en-us/azure/ai-foundry/agents/how-to/connected-agents?view=foundry-classic) — local function limitation explicitly stated (updated 2026-02-25)
+- [Agents in Workflows](https://learn.microsoft.com/en-us/agent-framework/workflows/agents-in-workflows) — `WorkflowBuilder` + `AzureAIAgentClient` confirmed compatible (updated 2026-02-26)
+- [Foundry Agent Service Quickstart](https://learn.microsoft.com/en-us/azure/ai-foundry/agents/quickstart?view=foundry-classic) — project endpoint format, RBAC roles, model deployment
+- [RBAC for Azure AI Foundry](https://learn.microsoft.com/en-us/azure/ai-foundry/concepts/rbac-foundry?view=foundry-classic) — "Azure AI User" role requirements and scope
+- [Function Calling with Foundry Agent Service](https://learn.microsoft.com/en-us/azure/ai-foundry/agents/how-to/tools/function-calling?view=foundry) — local execution loop, `requires_action` pattern (updated 2026-02-25)
+- [azure-ai-projects on PyPI](https://pypi.org/project/azure-ai-projects/) — Version 1.0.0 GA (July 2025)
+- [azure-monitor-opentelemetry on PyPI](https://pypi.org/project/azure-monitor-opentelemetry/) — Version 1.8.6 (February 2026)
+- [Agent Framework Releases (GitHub)](https://github.com/microsoft/agent-framework/releases) — RC1 (Feb 20, 2026), RC2 (Feb 26, 2026)
 
-### Tertiary (LOW confidence — needs validation)
-- azure-cosmos 4.14.0 version: Reported in Visual Studio Magazine article; validate with `uv pip install azure-cosmos` before assuming version.
-- Azure OpenAI hidden cost estimates (15-40% above advertised): Community blog; use as directional warning, not precise budget.
-- CopilotKit React Native support: Could not find evidence of official RN client beyond the open GitHub issue. Custom SSE client is the safe assumption.
+### Secondary (MEDIUM confidence — GitHub issues, community sources)
+
+- [Issue #3097: HandoffBuilder + AzureAIClient Invalid Payload](https://github.com/microsoft/agent-framework/issues/3097) — HandoffBuilder incompatibility root cause confirmed, resolved Feb 9 via PR #4083; architecture is still incompatible by design
+- [Connected Agents Removed from New Portal](https://learn.microsoft.com/en-us/answers/questions/5631003/new-ai-foundry-experience-no-more-connected-agents) — Community Q&A confirming deprecation in new Foundry experience
+- [Agent Accumulation Discussion](https://github.com/orgs/azure-ai-foundry/discussions/18) — Community confirmation of agent accumulation with `should_cleanup_agent` default
+- Local SDK inspection: `second-brain/backend/.venv/.../agent_framework/azure/__init__.py` — confirmed `AzureAIAgentClient` lazy import from `agent_framework_azure_ai`; confirmed package not yet installed in current venv
 
 ---
-*Research completed: 2026-02-21*
+*Research completed: 2026-02-25*
 *Ready for roadmap: yes*
