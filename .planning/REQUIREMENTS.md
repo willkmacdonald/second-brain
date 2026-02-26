@@ -147,17 +147,58 @@ Transform the Second Brain from a filing cabinet into a proactive thinking partn
 
 ## Traceability
 
-*Updated during roadmap creation.*
+*Updated during roadmap creation: 2026-02-26*
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (populated by roadmapper) | | |
+| INFRA-10 | Phase 6: Foundry Infrastructure | Pending |
+| INFRA-11 | Phase 6: Foundry Infrastructure | Pending |
+| INFRA-12 | Phase 6: Foundry Infrastructure | Pending |
+| INFRA-13 | Phase 6: Foundry Infrastructure | Pending |
+| INFRA-14 | Phase 6: Foundry Infrastructure | Pending |
+| AGNT-01 | Phase 7: Classifier Agent Baseline | Pending |
+| AGNT-02 | Phase 7: Classifier Agent Baseline | Pending |
+| AGNT-03 | Phase 7: Classifier Agent Baseline | Pending |
+| AGNT-04 | Phase 6: Foundry Infrastructure | Pending |
+| AGNT-05 | Phase 7: Classifier Agent Baseline | Pending |
+| AGNT-06 | Phase 7: Classifier Agent Baseline | Pending |
+| STRM-01 | Phase 8: FoundrySSEAdapter and Streaming | Pending |
+| STRM-02 | Phase 8: FoundrySSEAdapter and Streaming | Pending |
+| STRM-03 | Phase 8: FoundrySSEAdapter and Streaming | Pending |
+| HITL-01 | Phase 9: HITL Parity and Observability | Pending |
+| HITL-02 | Phase 9: HITL Parity and Observability | Pending |
+| HITL-03 | Phase 9: HITL Parity and Observability | Pending |
+| OBSV-01 | Phase 9: HITL Parity and Observability | Pending |
+| OBSV-02 | Phase 9: HITL Parity and Observability | Pending |
+| SPEC-01 | Phase 10: Specialist Agents | Pending |
+| SPEC-02 | Phase 10: Specialist Agents | Pending |
+| SPEC-03 | Phase 10: Specialist Agents | Pending |
+| SPEC-04 | Phase 10: Specialist Agents | Pending |
+| SPEC-05 | Phase 10: Specialist Agents | Pending |
+| SPEC-06 | Phase 10: Specialist Agents | Pending |
+| PUSH-01 | Phase 11: Push Notifications | Pending |
+| PUSH-02 | Phase 11: Push Notifications | Pending |
+| PUSH-03 | Phase 11: Push Notifications | Pending |
+| PUSH-04 | Phase 11: Push Notifications | Pending |
+| PUSH-05 | Phase 11: Push Notifications | Pending |
+| PUSH-06 | Phase 11: Push Notifications | Pending |
+| PUSH-07 | Phase 11: Push Notifications | Pending |
+| PUSH-08 | Phase 11: Push Notifications | Pending |
+| SCHED-01 | Phase 12: Proactive Scheduling and Deployment | Pending |
+| SCHED-02 | Phase 12: Proactive Scheduling and Deployment | Pending |
+| SCHED-03 | Phase 12: Proactive Scheduling and Deployment | Pending |
+| SCHED-04 | Phase 12: Proactive Scheduling and Deployment | Pending |
+| SCHED-05 | Phase 12: Proactive Scheduling and Deployment | Pending |
+| SCHED-06 | Phase 12: Proactive Scheduling and Deployment | Pending |
+| DPLY-01 | Phase 12: Proactive Scheduling and Deployment | Pending |
+| DPLY-02 | Phase 12: Proactive Scheduling and Deployment | Pending |
+| DPLY-03 | Phase 11: Push Notifications | Pending |
 
 **Coverage:**
-- v2.0 requirements: 39 total
-- Mapped to phases: 0 (pending roadmap)
-- Unmapped: 39
+- v2.0 requirements: 42 total (corrected from initial estimate of 39)
+- Mapped to phases: 42/42
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-26*
-*Last updated: 2026-02-26 after v2.0 scope redefinition (proactive specialist agents)*
+*Last updated: 2026-02-26 -- roadmap created, all 42 requirements mapped to phases 6-12*

@@ -3,7 +3,7 @@
 ## Milestones
 
 - [x] **v1.0 Text & Voice Capture Loop** - Phases 1-5 plus 4.1, 4.2, 4.3 (shipped 2026-02-25, partial)
-- [ ] **v2.0 Foundry Agent Service Migration** - Phases 6-9 (in progress)
+- [ ] **v2.0 Proactive Second Brain** - Phases 6-12 (in progress)
 
 ## Phases
 
@@ -27,14 +27,17 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 </details>
 
-### v2.0 Foundry Agent Service Migration (Phases 6-9)
+### v2.0 Proactive Second Brain (Phases 6-12)
 
-**Milestone Goal:** Rearchitect the backend agent layer from `AzureOpenAIChatClient` + `HandoffBuilder` to `AzureAIAgentClient` with persistent agents, server-managed threads, and Application Insights observability. Same features as v1, rebuilt on managed Foundry infrastructure.
+**Milestone Goal:** Transform the Second Brain from a filing cabinet into a proactive thinking partner -- rebuilt on Foundry Agent Service with four specialist agents that follow up over time via push notifications.
 
-- [ ] **Phase 6: Infrastructure and Prerequisites** - Foundry project connectivity, RBAC, Application Insights, RC breaking changes, Orchestrator/HandoffBuilder deletion
-- [ ] **Phase 7: Single-Agent Classifier Baseline** - Persistent Classifier agent registered in Foundry, local @tool execution validated, transcription as tool, middleware
-- [ ] **Phase 8: FoundrySSEAdapter and FastAPI Integration** - New SSE adapter, main.py migration, text and voice capture end-to-end on Foundry
-- [ ] **Phase 9: HITL Validation, Observability, and Deployment** - All three HITL flows verified, Application Insights traces, Container App deployment with updated CI/CD
+- [ ] **Phase 6: Foundry Infrastructure** - Foundry project connectivity, RBAC, Application Insights, old code deletion, async credential migration
+- [ ] **Phase 7: Classifier Agent Baseline** - Persistent Classifier agent registered in Foundry with local @tool execution validated in isolation
+- [ ] **Phase 8: FoundrySSEAdapter and Streaming** - New SSE adapter replacing AGUIWorkflowAdapter, text and voice capture end-to-end on Foundry
+- [ ] **Phase 9: HITL Parity and Observability** - All three HITL flows verified on Foundry, Application Insights traces and token metrics
+- [ ] **Phase 10: Specialist Agents** - Four domain agents (Admin, Ideas, People, Projects) with post-classification routing and Cosmos DB writes
+- [ ] **Phase 11: Push Notifications** - Expo push token registration, delivery pipeline, throttling, quiet hours, deep links, action buttons
+- [ ] **Phase 12: Proactive Scheduling and Deployment** - APScheduler cron jobs for all agent nudges, deployed to Azure Container Apps with updated CI/CD
 
 ## Phase Details
 
@@ -160,73 +163,121 @@ Plans:
 
 </details>
 
-### Phase 6: Infrastructure and Prerequisites
-**Goal**: The Foundry project endpoint is reachable, RBAC allows both local dev and deployed Container App to authenticate, Application Insights is connected, and all RC breaking changes are applied so the codebase compiles against the new SDK
+### Phase 6: Foundry Infrastructure
+**Goal**: The Foundry project endpoint is reachable, RBAC allows authentication from both local dev and Container App, Application Insights is connected, dead orchestration code is deleted, and the codebase compiles cleanly against the new SDK
 **Depends on**: Phase 5 (v1.0 complete)
-**Requirements**: INFRA-10, INFRA-11, INFRA-12, INFRA-13, AGNT-04
+**Requirements**: INFRA-10, INFRA-11, INFRA-12, INFRA-13, INFRA-14, AGNT-04
 **Success Criteria** (what must be TRUE):
   1. `AzureAIAgentClient` can authenticate to the Foundry project endpoint from local dev using developer Entra ID credentials
   2. Application Insights instance is connected to the Foundry project and accepting telemetry
-  3. HandoffBuilder and Orchestrator agent code are deleted from the codebase with no import errors
-  4. The backend starts without errors after `AgentThread` to `AgentSession` migration and async credential swap
-  5. All new environment variables (`AZURE_AI_PROJECT_ENDPOINT`, `AZURE_AI_CLASSIFIER_AGENT_ID`, `APPLICATIONINSIGHTS_CONNECTION_STRING`) are configured in `.env` and `config.py`
+  3. HandoffBuilder, AGUIWorkflowAdapter, Orchestrator agent, Perception Agent, and Whisper code are deleted with no import errors remaining
+  4. All new environment variables (`AZURE_AI_PROJECT_ENDPOINT`, `AZURE_AI_CLASSIFIER_AGENT_ID`, `APPLICATIONINSIGHTS_CONNECTION_STRING`, specialist agent IDs) are configured in `.env` and `config.py`
+  5. The backend starts without errors after async credential swap (`azure.identity.aio.DefaultAzureCredential`)
 **Plans**: TBD
 
 Plans:
 - [ ] 06-01: TBD
 - [ ] 06-02: TBD
 
-### Phase 7: Single-Agent Classifier Baseline
-**Goal**: The Classifier agent is a persistent, Foundry-registered agent that executes local @tool functions and is validated in isolation before touching the live FastAPI service
+### Phase 7: Classifier Agent Baseline
+**Goal**: The Classifier is a persistent Foundry-registered agent that executes local @tool functions and writes to Cosmos DB, validated in isolation before touching the live streaming pipeline
 **Depends on**: Phase 6
 **Requirements**: AGNT-01, AGNT-02, AGNT-03, AGNT-05, AGNT-06
 **Success Criteria** (what must be TRUE):
-  1. Classifier agent is visible in the AI Foundry portal with a stable ID that survives Container App restarts
-  2. A standalone test script confirms `classify_and_file` executes locally and writes to Cosmos DB when invoked by the Foundry service
+  1. Classifier agent is visible in the AI Foundry portal with a stable ID that survives process restarts
+  2. `classify_and_file` executes locally and writes to Cosmos DB when invoked by the Foundry service during an agent run
   3. `transcribe_audio` works as a @tool callable by the Classifier, producing text from a voice recording via `gpt-4o-transcribe`
-  4. `AgentMiddleware` and `FunctionMiddleware` fire during agent runs (audit log entry and tool timing visible in console output)
+  4. `AgentMiddleware` and `FunctionMiddleware` fire during agent runs, producing audit log entries and tool timing in console output
 **Plans**: TBD
 
 Plans:
 - [ ] 07-01: TBD
 - [ ] 07-02: TBD
 
-### Phase 8: FoundrySSEAdapter and FastAPI Integration
+### Phase 8: FoundrySSEAdapter and Streaming
 **Goal**: Text and voice captures flow end-to-end through the Foundry-backed Classifier, producing the same AG-UI SSE events the mobile app already consumes
 **Depends on**: Phase 7
 **Requirements**: STRM-01, STRM-02, STRM-03
 **Success Criteria** (what must be TRUE):
   1. Text capture from the Expo app produces `StepStarted`, `StepFinished`, and `CLASSIFIED`/`MISUNDERSTOOD`/`UNRESOLVED` custom events identical to v1 behavior
-  2. Voice capture uploads to Blob Storage, the Classifier invokes `transcribe_audio` as a tool, and the result streams back as AG-UI events with Perception step + classification result
-  3. The `FoundrySSEAdapter` replaces `AGUIWorkflowAdapter` and the mobile app works without any code changes
+  2. Voice capture produces AG-UI events with a transcription step followed by classification result, same as v1
+  3. The `FoundrySSEAdapter` replaces `AGUIWorkflowAdapter` and the mobile app works without any frontend code changes
 **Plans**: TBD
 
 Plans:
 - [ ] 08-01: TBD
 - [ ] 08-02: TBD
 
-### Phase 9: HITL Validation, Observability, and Deployment
-**Goal**: All three HITL flows work on the Foundry backend, Application Insights shows per-classification traces, and the migrated system is deployed to Azure Container Apps
+### Phase 9: HITL Parity and Observability
+**Goal**: All three HITL flows work identically to v1 on the Foundry backend, and Application Insights shows per-classification traces with token and cost metrics
 **Depends on**: Phase 8
-**Requirements**: HITL-01, HITL-02, HITL-03, OBSV-01, OBSV-02, DPLY-01, DPLY-02
+**Requirements**: HITL-01, HITL-02, HITL-03, OBSV-01, OBSV-02
 **Success Criteria** (what must be TRUE):
   1. Low-confidence captures are filed as pending with bucket buttons appearing in the mobile inbox for recategorization
-  2. Misunderstood captures trigger conversational follow-up using a fresh Foundry thread (no conversation history contamination from the first classification pass)
+  2. Misunderstood captures trigger conversational follow-up using a fresh Foundry thread with no history contamination from the first classification pass
   3. Recategorize from inbox detail card writes to Cosmos DB and updates the mobile UI
-  4. Application Insights shows traces for Foundry agent runs with token usage, cost, and classification outcome visible per capture
-  5. The migrated backend is deployed to Azure Container Apps with updated CI/CD pipeline including `agent-framework-azure-ai` and `azure-monitor-opentelemetry` dependencies
+  4. Application Insights shows traces for Foundry agent runs with per-classification visibility including token usage and cost
 **Plans**: TBD
 
 Plans:
 - [ ] 09-01: TBD
 - [ ] 09-02: TBD
-- [ ] 09-03: TBD
+
+### Phase 10: Specialist Agents
+**Goal**: Four domain-specific agents enrich classified captures with domain intelligence before filing, each writing to its own Cosmos DB container
+**Depends on**: Phase 9
+**Requirements**: SPEC-01, SPEC-02, SPEC-03, SPEC-04, SPEC-05, SPEC-06
+**Success Criteria** (what must be TRUE):
+  1. Admin, Ideas, People, and Projects agents are visible as persistent agents in the AI Foundry portal with stable IDs
+  2. After classification, the FastAPI endpoint routes the capture to the correct specialist agent based on the classified bucket
+  3. Each specialist agent's @tool functions write enriched data to the correct Cosmos DB container (Admin to Admin, People to People, etc.)
+  4. People Agent's `log_interaction` tool updates the `last_interaction` timestamp on the Person document
+  5. Projects Agent is registered and functional as a stub (accepts captures, files them, but does not extract action items)
+**Plans**: TBD
+
+Plans:
+- [ ] 10-01: TBD
+- [ ] 10-02: TBD
+
+### Phase 11: Push Notifications
+**Goal**: The backend can deliver push notifications to Will's phone with frequency throttling, quiet hours, deep links, and action buttons -- proven end-to-end before any scheduler is connected
+**Depends on**: Phase 10
+**Requirements**: PUSH-01, PUSH-02, PUSH-03, PUSH-04, PUSH-05, PUSH-06, PUSH-07, PUSH-08, DPLY-03
+**Success Criteria** (what must be TRUE):
+  1. Expo push token is registered on app startup and stored in Cosmos DB via `POST /api/push-token`
+  2. A test push notification sent from the backend arrives on Will's device via Expo Push Service
+  3. Notification frequency budget (max 3/day) and quiet hours (9pm-8am) reject sends that would violate limits
+  4. Tapping a notification deep-links to the relevant capture/person/idea in the app (not home screen)
+  5. Notification action buttons ("Done" and "Snooze 1 week") trigger `POST /api/nudge/respond` and update the item in Cosmos DB
+**Plans**: TBD
+
+Plans:
+- [ ] 11-01: TBD
+- [ ] 11-02: TBD
+- [ ] 11-03: TBD
+
+### Phase 12: Proactive Scheduling and Deployment
+**Goal**: Specialist agents proactively nudge Will at the right times via scheduled jobs, and the complete v2.0 system is deployed to Azure Container Apps
+**Depends on**: Phase 11
+**Requirements**: SCHED-01, SCHED-02, SCHED-03, SCHED-04, SCHED-05, SCHED-06, DPLY-01, DPLY-02
+**Success Criteria** (what must be TRUE):
+  1. APScheduler runs in the FastAPI lifespan with cron triggers for all scheduled agent jobs
+  2. Admin Agent sends a Friday 5pm digest summarizing pending Admin captures and a Saturday 9am errand nudge
+  3. Ideas Agent sends a weekly check-in (Tue-Thu, 10am) for the stalest un-nudged idea with contextual agent-generated copy
+  4. People Agent sends a relationship nudge when the interaction gap exceeds 4 weeks (max 1/day, daily 8am scan)
+  5. All scheduled notifications use agent-generated copy referencing actual capture content and the migrated backend is deployed to Azure Container Apps with updated CI/CD
+**Plans**: TBD
+
+Plans:
+- [ ] 12-01: TBD
+- [ ] 12-02: TBD
+- [ ] 12-03: TBD
 
 ## Progress
 
 **Execution Order:**
 - v1.0: 1 -> 2 -> 3 -> 4 -> 4.1 -> 4.2 -> 4.3 -> 5 (complete)
-- v2.0: 6 -> 7 -> 8 -> 9
+- v2.0: 6 -> 7 -> 8 -> 9 -> 10 -> 11 -> 12
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -238,7 +289,10 @@ Plans:
 | 4.2 Swipe-to-delete inbox items | v1.0 | 1/1 | Complete | 2026-02-24 |
 | 4.3 Agent-User UX with unclear item | v1.0 | 10/10 | Complete | 2026-02-25 |
 | 5. Voice Capture | v1.0 | 3/3 | Complete | 2026-02-25 |
-| 6. Infrastructure and Prerequisites | v2.0 | 0/TBD | Not started | - |
-| 7. Single-Agent Classifier Baseline | v2.0 | 0/TBD | Not started | - |
-| 8. FoundrySSEAdapter and FastAPI Integration | v2.0 | 0/TBD | Not started | - |
-| 9. HITL Validation, Observability, and Deployment | v2.0 | 0/TBD | Not started | - |
+| 6. Foundry Infrastructure | v2.0 | 0/TBD | Not started | - |
+| 7. Classifier Agent Baseline | v2.0 | 0/TBD | Not started | - |
+| 8. FoundrySSEAdapter and Streaming | v2.0 | 0/TBD | Not started | - |
+| 9. HITL Parity and Observability | v2.0 | 0/TBD | Not started | - |
+| 10. Specialist Agents | v2.0 | 0/TBD | Not started | - |
+| 11. Push Notifications | v2.0 | 0/TBD | Not started | - |
+| 12. Proactive Scheduling and Deployment | v2.0 | 0/TBD | Not started | - |
