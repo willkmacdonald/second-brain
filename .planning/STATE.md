@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-25)
 
 **Core value:** One-tap capture from a phone instantly routes through an agent chain that classifies, files, and proactively follows up -- with zero organizational effort.
-**Current focus:** Phase 7 -- Classifier Agent Baseline (v2.0 Proactive Second Brain)
+**Current focus:** Phase 8 -- FoundrySSEAdapter and Streaming (v2.0 Proactive Second Brain)
 
 ## Current Position
 
-Phase: 7 of 12 (Classifier Agent Baseline) -- COMPLETE
-Plan: 2 of 2 in current phase
-Status: Phase Complete
-Last activity: 2026-02-27 -- Phase 7 Plan 02 complete (lifespan wiring, integration tests)
+Phase: 8 of 12 (FoundrySSEAdapter and Streaming)
+Plan: 1 of 2 in current phase
+Status: Plan 01 Complete
+Last activity: 2026-02-27 -- Phase 8 Plan 01 complete (streaming module + capture endpoints)
 
-Progress: [======░░░░░░░░░░░░░░] 33/TBD plans (v1.0 complete, v2.0 phase 7 complete)
+Progress: [=======░░░░░░░░░░░░░] 34/TBD plans (v1.0 complete, v2.0 phase 8 plan 1 complete)
 
 ## Performance Metrics
 
@@ -24,12 +24,13 @@ Progress: [======░░░░░░░░░░░░░░] 33/TBD plans (v1.0 
 - Total execution time: 1.5 hours
 
 **v2.0:**
-- Plans completed: 5
+- Plans completed: 6
 - 06-01: 3 min (2 tasks, 9 files)
 - 06-02: 4 min (2 tasks, 6 files)
 - 06-03: 5 min (3 tasks, 4 files)
 - 07-01: 5 min (2 tasks, 9 files)
 - 07-02: 3 min (2 tasks, 2 files)
+- 08-01: 3 min (2 tasks, 6 files)
 
 ## Accumulated Context
 
@@ -59,6 +60,9 @@ Recent decisions affecting current work:
 - [07-02]: Tools passed via ChatOptions at get_response() time, not at AzureAIAgentClient constructor
 - [07-02]: Separate AzureAIAgentClient per agent role (classifier vs probe client)
 - [07-02]: Agent tools stored on app.state.classifier_agent_tools for request-time reuse
+- [08-01]: Async generator functions (not class) for adapter -- ~170 lines vs old 540-line class
+- [08-01]: BlobStorageManager.delete_audio used for voice blob cleanup (already existed)
+- [08-01]: Event names: STEP_START/STEP_END/CLASSIFIED/MISUNDERSTOOD/UNRESOLVED/COMPLETE/ERROR (top-level, no CUSTOM wrapper)
 
 ### Research Findings (Critical)
 
@@ -83,6 +87,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-27
-Stopped at: Completed 07-02-PLAN.md (Phase 7 complete)
-Resume file: .planning/phases/07-classifier-agent-baseline/07-02-SUMMARY.md
-Resume action: /gsd:plan-phase 08 (streaming pipeline next)
+Stopped at: Completed 08-01-PLAN.md
+Resume file: .planning/phases/08-foundrysseadapter-and-streaming/08-01-SUMMARY.md
+Resume action: Execute 08-02-PLAN.md (mobile event parser update)

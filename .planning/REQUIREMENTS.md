@@ -28,9 +28,9 @@ Transform the Second Brain from a filing cabinet into a proactive thinking partn
 
 ### Streaming
 
-- [ ] **STRM-01**: `FoundrySSEAdapter` replaces `AGUIWorkflowAdapter`, streaming `AgentResponseUpdate` events to AG-UI SSE format
-- [ ] **STRM-02**: Text capture produces same AG-UI events as v1 (`StepStarted`, `StepFinished`, `CLASSIFIED`/`MISUNDERSTOOD`/`UNRESOLVED`, `RUN_FINISHED`)
-- [ ] **STRM-03**: Voice capture produces same AG-UI events as v1 (transcription step + classification stream)
+- [x] **STRM-01**: `FoundrySSEAdapter` replaces `AGUIWorkflowAdapter`, streaming `AgentResponseUpdate` events to AG-UI SSE format
+- [x] **STRM-02**: Text capture produces same AG-UI events as v1 (`StepStarted`, `StepFinished`, `CLASSIFIED`/`MISUNDERSTOOD`/`UNRESOLVED`, `RUN_FINISHED`)
+- [x] **STRM-03**: Voice capture produces same AG-UI events as v1 (transcription step + classification stream)
 
 ### HITL Parity
 
@@ -162,9 +162,9 @@ Transform the Second Brain from a filing cabinet into a proactive thinking partn
 | AGNT-04 | Phase 6: Foundry Infrastructure | Complete |
 | AGNT-05 | Phase 7: Classifier Agent Baseline | Complete |
 | AGNT-06 | Phase 7: Classifier Agent Baseline | Complete |
-| STRM-01 | Phase 8: FoundrySSEAdapter and Streaming | Pending |
-| STRM-02 | Phase 8: FoundrySSEAdapter and Streaming | Pending |
-| STRM-03 | Phase 8: FoundrySSEAdapter and Streaming | Pending |
+| STRM-01 | Phase 8: FoundrySSEAdapter and Streaming | Complete |
+| STRM-02 | Phase 8: FoundrySSEAdapter and Streaming | Complete |
+| STRM-03 | Phase 8: FoundrySSEAdapter and Streaming | Complete |
 | HITL-01 | Phase 9: HITL Parity and Observability | Pending |
 | HITL-02 | Phase 9: HITL Parity and Observability | Pending |
 | HITL-03 | Phase 9: HITL Parity and Observability | Pending |
