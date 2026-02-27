@@ -218,11 +218,11 @@ Plans:
   2. Misunderstood captures trigger conversational follow-up using a fresh Foundry thread with no history contamination from the first classification pass
   3. Recategorize from inbox detail card writes to Cosmos DB and updates the mobile UI
   4. Application Insights shows traces for Foundry agent runs with per-classification visibility including token usage and cost
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 09-01: TBD
-- [ ] 09-02: TBD
+- [ ] 09-01-PLAN.md -- HITL parity: follow-up endpoint with thread reuse, pending instant PATCH, mobile updates
+- [ ] 09-02-PLAN.md -- Observability: enable_instrumentation(), OTel middleware spans, endpoint-level trace spans
 
 ### Phase 10: Specialist Agents
 **Goal**: Four domain-specific agents enrich classified captures with domain intelligence before filing, each writing to its own Cosmos DB container
