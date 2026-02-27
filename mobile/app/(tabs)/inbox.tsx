@@ -12,7 +12,6 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useFocusEffect } from "expo-router";
 import { API_BASE_URL, API_KEY } from "../../constants/config";
-import { sendClarification } from "../../lib/ag-ui-client";
 import { InboxItem } from "../../components/InboxItem";
 import type { InboxItemData } from "../../components/InboxItem";
 
@@ -180,46 +179,11 @@ export default function InboxScreen() {
   );
 
   const handlePendingResolve = useCallback(
-    (itemId: string, bucket: string) => {
-      if (isRecategorizing) return;
-      setIsRecategorizing(true);
-
-      const threadId = `resolve-${itemId}`;
-      const cleanup = sendClarification({
-        threadId,
-        bucket,
-        apiKey: API_KEY!,
-        inboxItemId: itemId,
-        callbacks: {
-          onComplete: (result: string) => {
-            void result;
-            setIsRecategorizing(false);
-            // Update item in list optimistically
-            setItems((prev) =>
-              prev.map((i) =>
-                i.id === itemId
-                  ? {
-                      ...i,
-                      status: "classified",
-                      classificationMeta: i.classificationMeta
-                        ? { ...i.classificationMeta, bucket }
-                        : { bucket, confidence: 0.85, agentChain: ["User"] },
-                    }
-                  : i,
-              ),
-            );
-            setSelectedItem(null);
-            setRecategorizeToast(`Filed to ${bucket}`);
-          },
-          onError: () => {
-            setIsRecategorizing(false);
-          },
-        },
-      });
-      // Store cleanup for potential unmount
-      void cleanup;
+    async (itemId: string, bucket: string) => {
+      // Instant confirm via PATCH -- same as recategorize, no SSE streaming
+      await handleRecategorize(itemId, bucket);
     },
-    [isRecategorizing],
+    [handleRecategorize],
   );
 
   // Auto-dismiss recategorize toast after 2 seconds

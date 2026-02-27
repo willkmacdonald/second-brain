@@ -8,7 +8,6 @@ import {
   ScrollView,
 } from "react-native";
 import { useLocalSearchParams, router, Stack } from "expo-router";
-import { sendClarification } from "../../lib/ag-ui-client";
 import { API_BASE_URL, API_KEY } from "../../constants/config";
 import type { InboxItemData } from "../../components/InboxItem";
 
@@ -26,7 +25,6 @@ export default function ConversationScreen() {
   const [loading, setLoading] = useState(true);
   const [isResolving, setIsResolving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [streamedText, setStreamedText] = useState("");
 
   useEffect(() => {
     if (!threadId) return;
@@ -59,44 +57,34 @@ export default function ConversationScreen() {
   }
 
   const handleBucketSelect = useCallback(
-    (bucket: string) => {
-      if (!threadId || isResolving) return;
+    async (bucket: string) => {
+      if (isResolving || !item) return;
       setIsResolving(true);
-      setStreamedText("");
-
-      const cleanup = sendClarification({
-        threadId,
-        bucket,
-        apiKey: API_KEY,
-        inboxItemId: item?.id,
-        callbacks: {
-          onTextDelta: (delta: string) => {
-            setStreamedText((prev) => prev + delta);
+      try {
+        const res = await fetch(
+          `${API_BASE_URL}/api/inbox/${item.id}/recategorize`,
+          {
+            method: "PATCH",
+            headers: {
+              Authorization: `Bearer ${API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ new_bucket: bucket }),
           },
-          onComplete: () => {
-            setIsResolving(false);
-            router.back();
-          },
-          onError: (errorMsg: string) => {
-            setIsResolving(false);
-            // Check for expired session
-            if (
-              errorMsg.includes("not found") ||
-              errorMsg.includes("expired") ||
-              errorMsg.includes("404")
-            ) {
-              setError("This capture needs to be resubmitted");
-            } else {
-              setError("Could not file. Try again.");
-            }
-          },
-        },
-      });
-
-      // Cleanup on unmount if still in flight
-      return () => cleanup();
+        );
+        if (res.ok) {
+          setIsResolving(false);
+          router.back();
+        } else {
+          setIsResolving(false);
+          setError("Could not file. Try again.");
+        }
+      } catch {
+        setIsResolving(false);
+        setError("Could not file. Try again.");
+      }
     },
-    [threadId, isResolving, item],
+    [isResolving, item],
   );
 
   if (loading) {
@@ -176,9 +164,7 @@ export default function ConversationScreen() {
         {isResolving && (
           <View style={styles.filingStatus}>
             <ActivityIndicator size="small" color="#4a90d9" />
-            <Text style={styles.filingText}>
-              {streamedText || "Filing..."}
-            </Text>
+            <Text style={styles.filingText}>Filing...</Text>
           </View>
         )}
       </ScrollView>

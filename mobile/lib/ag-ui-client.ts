@@ -231,7 +231,7 @@ export function sendClarification({
 /**
  * Send a follow-up reply for a misunderstood capture to re-classify.
  *
- * POSTs to /api/ag-ui/follow-up with the inbox item ID, follow-up text,
+ * POSTs to /api/capture/follow-up with the inbox item ID, follow-up text,
  * and round number. Streams the re-classification events through the same
  * callback pattern.
  *
@@ -245,7 +245,7 @@ export function sendFollowUp({
   callbacks,
 }: SendFollowUpOptions): () => void {
   const es = new EventSource<AGUIEventType>(
-    `${API_BASE_URL}/api/ag-ui/follow-up`,
+    `${API_BASE_URL}/api/capture/follow-up`,
     {
       headers: {
         Authorization: `Bearer ${apiKey}`,
