@@ -121,9 +121,8 @@ async def test_classifier_agent_id_is_valid() -> None:
         )
 
         agent_info = await client.agents_client.get_agent(agent_id)
-        # Agent name may differ from "Classifier" if created via portal
+        assert agent_info.name == "Classifier"
         assert agent_info.id == agent_id
-        assert agent_info.name is not None
 
     finally:
         await credential.close()
