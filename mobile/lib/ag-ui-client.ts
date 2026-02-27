@@ -88,18 +88,16 @@ function attachCallbacks(
 
         case "UNRESOLVED":
           // New v2: UNRESOLVED is top-level
-          if (parsed.value?.inboxItemId) {
-            callbacks.onUnresolved?.(parsed.value.inboxItemId);
-          }
+          callbacks.onUnresolved?.(parsed.value?.inboxItemId ?? "");
           break;
 
         case "COMPLETE":
         case "RUN_FINISHED": // legacy compat
           if (!hitlTriggered) {
-            // For COMPLETE: if result was already set by CLASSIFIED, onComplete already fired.
-            // For RUN_FINISHED (legacy): fire onComplete with accumulated result.
-            if (parsed.type === "RUN_FINISHED") {
-              callbacks.onComplete(result);
+            if (parsed.type === "RUN_FINISHED" || !result) {
+              // RUN_FINISHED (legacy): always fire onComplete.
+              // COMPLETE (v2): fire onComplete if CLASSIFIED didn't already set result.
+              callbacks.onComplete(result || "Captured");
             }
           }
           es.close();

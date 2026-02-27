@@ -192,6 +192,11 @@ async def stream_voice_capture(
 
             async for update in stream:
                 for content in update.contents or []:
+                    logger.info(
+                        "Voice stream content: type=%s name=%s",
+                        content.type,
+                        getattr(content, "name", None),
+                    )
                     if content.type == "text" and getattr(content, "text", None):
                         reasoning_buffer += content.text
                         reasoning_logger.info(
@@ -222,6 +227,13 @@ async def stream_voice_capture(
                         if parsed is not None:
                             tool_result = parsed
 
+            logger.info(
+                "Voice stream done: detected_tool=%s args=%s result=%s reasoning=%s",
+                detected_tool,
+                detected_tool_args,
+                tool_result,
+                reasoning_buffer[:200] if reasoning_buffer else "empty",
+            )
             yield encode_sse(step_end_event("Processing"))
 
             # Emit result event

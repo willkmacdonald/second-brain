@@ -13,7 +13,7 @@ import { sendCapture, sendClarification, sendFollowUp } from "../../lib/ag-ui-cl
 import { API_KEY } from "../../constants/config";
 import { AgentSteps } from "../../components/AgentSteps";
 
-const AGENT_STEPS = ["Orchestrator", "Classifier"];
+const AGENT_STEPS = ["Classifying"];
 const BUCKETS = ["People", "Projects", "Ideas", "Admin"];
 const AUTO_RESET_MS = 2500;
 
