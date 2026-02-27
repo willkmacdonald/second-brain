@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-02-25)
 
 ## Current Position
 
-Phase: 8 of 12 (FoundrySSEAdapter and Streaming)
-Plan: 1 of 2 in current phase
-Status: Plan 01 Complete
-Last activity: 2026-02-27 -- Phase 8 Plan 01 complete (streaming module + capture endpoints)
+Phase: 8 of 12 (FoundrySSEAdapter and Streaming) -- COMPLETE
+Plan: 2 of 2 in current phase
+Status: Phase 08 Complete
+Last activity: 2026-02-27 -- Phase 8 Plan 02 complete (mobile event parser + endpoint URLs)
 
-Progress: [=======░░░░░░░░░░░░░] 34/TBD plans (v1.0 complete, v2.0 phase 8 plan 1 complete)
+Progress: [========░░░░░░░░░░░░] 35/TBD plans (v1.0 complete, v2.0 phase 8 complete)
 
 ## Performance Metrics
 
@@ -24,13 +24,14 @@ Progress: [=======░░░░░░░░░░░░░] 34/TBD plans (v1.0 co
 - Total execution time: 1.5 hours
 
 **v2.0:**
-- Plans completed: 6
+- Plans completed: 7
 - 06-01: 3 min (2 tasks, 9 files)
 - 06-02: 4 min (2 tasks, 6 files)
 - 06-03: 5 min (3 tasks, 4 files)
 - 07-01: 5 min (2 tasks, 9 files)
 - 07-02: 3 min (2 tasks, 2 files)
 - 08-01: 3 min (2 tasks, 6 files)
+- 08-02: 2 min (2 tasks, 2 files)
 
 ## Accumulated Context
 
@@ -63,6 +64,9 @@ Recent decisions affecting current work:
 - [08-01]: Async generator functions (not class) for adapter -- ~170 lines vs old 540-line class
 - [08-01]: BlobStorageManager.delete_audio used for voice blob cleanup (already existed)
 - [08-01]: Event names: STEP_START/STEP_END/CLASSIFIED/MISUNDERSTOOD/UNRESOLVED/COMPLETE/ERROR (top-level, no CUSTOM wrapper)
+- [08-02]: CLASSIFIED fires onComplete immediately; COMPLETE only closes EventSource (no double-fire)
+- [08-02]: Legacy v1 event types retained in union and switch for backward compat during dev
+- [08-02]: sendClarification and sendFollowUp unchanged -- Phase 9 scope
 
 ### Research Findings (Critical)
 
@@ -87,6 +91,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-27
-Stopped at: Completed 08-01-PLAN.md
-Resume file: .planning/phases/08-foundrysseadapter-and-streaming/08-01-SUMMARY.md
-Resume action: Execute 08-02-PLAN.md (mobile event parser update)
+Stopped at: Completed 08-02-PLAN.md (Phase 08 complete)
+Resume file: .planning/phases/08-foundrysseadapter-and-streaming/08-02-SUMMARY.md
+Resume action: Begin Phase 09 planning
