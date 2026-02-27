@@ -203,11 +203,11 @@ Plans:
   1. Text capture from the Expo app produces `StepStarted`, `StepFinished`, and `CLASSIFIED`/`MISUNDERSTOOD`/`UNRESOLVED` custom events identical to v1 behavior
   2. Voice capture produces AG-UI events with a transcription step followed by classification result, same as v1
   3. The `FoundrySSEAdapter` replaces `AGUIWorkflowAdapter` and the mobile app works without any frontend code changes
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 08-01: TBD
-- [ ] 08-02: TBD
+- [ ] 08-01-PLAN.md -- Backend streaming module (FoundrySSEAdapter), POST /api/capture endpoint, SSE event constructors
+- [ ] 08-02-PLAN.md -- Mobile event parser update for new v2 event types, endpoint URLs updated to /api/capture
 
 ### Phase 9: HITL Parity and Observability
 **Goal**: All three HITL flows work identically to v1 on the Foundry backend, and Application Insights shows per-classification traces with token and cost metrics
