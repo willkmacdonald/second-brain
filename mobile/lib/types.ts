@@ -53,3 +53,11 @@ export interface SendVoiceCaptureOptions {
   apiKey: string;
   callbacks: StreamingCallbacks;
 }
+
+export interface SendFollowUpVoiceOptions {
+  audioUri: string;
+  inboxItemId: string;
+  followUpRound: number;
+  apiKey: string;
+  callbacks: StreamingCallbacks;
+}

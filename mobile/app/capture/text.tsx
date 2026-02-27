@@ -6,16 +6,30 @@ import {
   Text,
   StyleSheet,
   ScrollView,
+  Animated,
 } from "react-native";
+import {
+  useAudioRecorder,
+  AudioModule,
+  useAudioRecorderState,
+  RecordingPresets,
+} from "expo-audio";
 import * as Haptics from "expo-haptics";
 import { Stack } from "expo-router";
-import { sendCapture, sendFollowUp } from "../../lib/ag-ui-client";
+import { sendCapture, sendFollowUp, sendFollowUpVoice } from "../../lib/ag-ui-client";
 import { API_BASE_URL, API_KEY } from "../../constants/config";
 import { AgentSteps } from "../../components/AgentSteps";
 
 const AGENT_STEPS = ["Classifying"];
 const BUCKETS = ["People", "Projects", "Ideas", "Admin"];
 const AUTO_RESET_MS = 2500;
+
+/** Format milliseconds as M:SS */
+function formatDuration(ms: number): string {
+  const s = Math.floor(ms / 1000);
+  const m = Math.floor(s / 60);
+  return `${m}:${(s % 60).toString().padStart(2, "0")}`;
+}
 
 interface Toast {
   message: string;
@@ -39,7 +53,13 @@ export default function TextCaptureScreen() {
   const [agentQuestion, setAgentQuestion] = useState<string | null>(null);
   const [misunderstoodInboxItemId, setMisunderstoodInboxItemId] = useState<string | null>(null);
   const [isReclassifying, setIsReclassifying] = useState(false);
+  const [followUpMode, setFollowUpMode] = useState<"voice" | "text">("voice");
+  const [isFollowUpRecording, setIsFollowUpRecording] = useState(false);
   const cleanupRef = useRef<(() => void) | null>(null);
+
+  // Audio recorder for voice follow-up
+  const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const recorderState = useAudioRecorderState(audioRecorder, 100);
 
   // Clear toast after 2 seconds
   useEffect(() => {
@@ -47,6 +67,13 @@ export default function TextCaptureScreen() {
     const timer = setTimeout(() => setToast(null), 2000);
     return () => clearTimeout(timer);
   }, [toast]);
+
+  // Request mic permission when entering voice follow-up mode
+  useEffect(() => {
+    if (followUpMode === "voice" && agentQuestion) {
+      AudioModule.requestRecordingPermissionsAsync();
+    }
+  }, [followUpMode, agentQuestion]);
 
   // Cleanup SSE connection on unmount
   useEffect(() => {
@@ -72,6 +99,8 @@ export default function TextCaptureScreen() {
     setAgentQuestion(null);
     setMisunderstoodInboxItemId(null);
     setIsReclassifying(false);
+    setFollowUpMode("voice");
+    setIsFollowUpRecording(false);
   }, []);
 
   const handleFollowUpSubmit = useCallback(() => {
@@ -134,10 +163,98 @@ export default function TextCaptureScreen() {
     cleanupRef.current = cleanup;
   }, [thought, isReclassifying, misunderstoodInboxItemId, followUpRound, resetState]);
 
+  const handleVoiceFollowUpSubmit = useCallback(async () => {
+    if (!misunderstoodInboxItemId || isReclassifying) return;
+
+    await audioRecorder.stop();
+    setIsFollowUpRecording(false);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    if (recorderState.durationMillis < 1000) {
+      return;
+    }
+
+    const uri = audioRecorder.uri;
+    if (!uri) return;
+
+    if (!API_KEY) {
+      setToast({ message: "No API key configured", type: "error" });
+      return;
+    }
+
+    setIsReclassifying(true);
+    setShowSteps(true);
+    setCurrentStep(null);
+    setCompletedSteps([]);
+    setStreamedText("");
+
+    const cleanup = sendFollowUpVoice({
+      audioUri: uri,
+      inboxItemId: misunderstoodInboxItemId,
+      followUpRound: followUpRound,
+      apiKey: API_KEY,
+      callbacks: {
+        onStepStart: (stepName: string) => {
+          setCurrentStep(stepName);
+        },
+        onStepFinish: (stepName: string) => {
+          setCompletedSteps((prev) => [...prev, stepName]);
+          setCurrentStep(null);
+        },
+        onTextDelta: (delta: string) => {
+          setStreamedText((prev) => prev + delta);
+        },
+        onLowConfidence: (_inboxItemId: string, bucket: string, confidence: number) => {
+          setIsReclassifying(false);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          setToast({ message: `Filed -> ${bucket} (${confidence.toFixed(2)})`, type: "success" });
+          setTimeout(resetState, AUTO_RESET_MS);
+        },
+        onMisunderstood: (_threadId: string, questionText: string, _inboxItemId: string) => {
+          setAgentQuestion(questionText);
+          setFollowUpRound((prev) => prev + 1);
+          setIsReclassifying(false);
+          setShowSteps(false);
+        },
+        onUnresolved: (_inboxItemId: string) => {
+          setIsReclassifying(false);
+          setToast({ message: "Couldn\u2019t classify. Check inbox later.", type: "error" });
+          setTimeout(resetState, AUTO_RESET_MS);
+        },
+        onComplete: (result: string) => {
+          setIsReclassifying(false);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          setToast({ message: result || "Filed", type: "success" });
+          setTimeout(resetState, AUTO_RESET_MS);
+        },
+        onError: () => {
+          setIsReclassifying(false);
+          setToast({ message: "Couldn\u2019t classify. Try again.", type: "error" });
+        },
+      },
+    });
+    cleanupRef.current = cleanup;
+  }, [misunderstoodInboxItemId, isReclassifying, audioRecorder, recorderState.durationMillis, followUpRound, resetState]);
+
+  const handleFollowUpRecordToggle = useCallback(async () => {
+    if (isFollowUpRecording) {
+      await handleVoiceFollowUpSubmit();
+    } else {
+      await audioRecorder.prepareToRecordAsync();
+      audioRecorder.record();
+      setIsFollowUpRecording(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    }
+  }, [isFollowUpRecording, audioRecorder, handleVoiceFollowUpSubmit]);
+
   const handleSubmit = useCallback(() => {
-    if (followUpRound > 0) {
+    if (followUpRound > 0 && followUpMode === "text") {
       handleFollowUpSubmit();
       return;
+    }
+
+    if (followUpRound > 0) {
+      return; // Voice mode handles its own submit
     }
 
     if (!thought.trim() || sending) return;
@@ -306,7 +423,7 @@ export default function TextCaptureScreen() {
                   sendDisabled && styles.headerSendTextDisabled,
                 ]}
               >
-                {isReclassifying ? "Classifying..." : sending ? "Sending..." : followUpRound > 0 ? "Reply" : "Send"}
+                {isReclassifying ? "Classifying..." : sending ? "Sending..." : (followUpRound > 0 && followUpMode === "text") ? "Reply" : "Send"}
               </Text>
             </Pressable>
           ),
@@ -322,16 +439,70 @@ export default function TextCaptureScreen() {
         </View>
       )}
 
-      <TextInput
-        style={styles.input}
-        value={thought}
-        onChangeText={setThought}
-        placeholder={followUpRound > 0 ? "Add more context..." : "What's on your mind?"}
-        placeholderTextColor="#666"
-        multiline
-        autoFocus
-        textAlignVertical="top"
-      />
+      {/* Voice-first follow-up for misunderstood captures */}
+      {agentQuestion && followUpMode === "voice" && (
+        <View style={styles.followUpVoiceArea}>
+          {isFollowUpRecording && (
+            <Text style={styles.followUpDuration}>
+              {formatDuration(recorderState.durationMillis)}
+            </Text>
+          )}
+          <Pressable
+            onPress={handleFollowUpRecordToggle}
+            disabled={isReclassifying}
+            style={({ pressed }) => [
+              styles.followUpRecordButton,
+              isFollowUpRecording && styles.followUpRecordButtonActive,
+              pressed && { opacity: 0.7 },
+              isReclassifying && { opacity: 0.4 },
+            ]}
+          >
+            <View
+              style={
+                isFollowUpRecording
+                  ? { width: 18, height: 18, borderRadius: 3, backgroundColor: "#ffffff" }
+                  : { width: 18, height: 18, borderRadius: 9, backgroundColor: "#ffffff" }
+              }
+            />
+          </Pressable>
+          <Pressable onPress={() => setFollowUpMode("text")}>
+            <Text style={styles.followUpToggle}>Type instead</Text>
+          </Pressable>
+        </View>
+      )}
+
+      {/* Text follow-up fallback */}
+      {agentQuestion && followUpMode === "text" && (
+        <View>
+          <TextInput
+            style={styles.input}
+            value={thought}
+            onChangeText={setThought}
+            placeholder="Add more context..."
+            placeholderTextColor="#666"
+            multiline
+            autoFocus
+            textAlignVertical="top"
+          />
+          <Pressable onPress={() => setFollowUpMode("voice")}>
+            <Text style={styles.followUpToggle}>Record instead</Text>
+          </Pressable>
+        </View>
+      )}
+
+      {/* Normal text input (not in follow-up mode) */}
+      {!agentQuestion && (
+        <TextInput
+          style={styles.input}
+          value={thought}
+          onChangeText={setThought}
+          placeholder="What's on your mind?"
+          placeholderTextColor="#666"
+          multiline
+          autoFocus
+          textAlignVertical="top"
+        />
+      )}
 
       {/* Step dots, streaming text, and HITL area below input */}
       {showSteps && (
@@ -521,5 +692,34 @@ const styles = StyleSheet.create({
   },
   headerSendTextDisabled: {
     color: "#666",
+  },
+  followUpVoiceArea: {
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  followUpRecordButton: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: "#333",
+    alignItems: "center",
+    justifyContent: "center",
+    alignSelf: "center",
+    marginTop: 12,
+  },
+  followUpRecordButtonActive: {
+    backgroundColor: "#e53935",
+  },
+  followUpToggle: {
+    color: "#4a90d9",
+    fontSize: 13,
+    textAlign: "center",
+    marginTop: 8,
+  },
+  followUpDuration: {
+    color: "#999",
+    fontSize: 13,
+    textAlign: "center",
+    marginTop: 4,
   },
 });

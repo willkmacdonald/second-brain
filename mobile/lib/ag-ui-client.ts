@@ -4,6 +4,7 @@ import type {
   AGUIEventType,
   SendCaptureOptions,
   SendFollowUpOptions,
+  SendFollowUpVoiceOptions,
   SendVoiceCaptureOptions,
   StreamingCallbacks,
 } from "./types";
@@ -271,6 +272,43 @@ export function sendVoiceCapture({
       },
       body: formData,
       pollingInterval: 0, // Disable auto-reconnect
+    },
+  );
+
+  return attachCallbacks(es, callbacks);
+}
+
+/**
+ * Send a voice follow-up for a misunderstood capture.
+ *
+ * Uploads audio to /api/capture/follow-up/voice which transcribes and
+ * reclassifies on the same Foundry thread. Returns a cleanup function.
+ */
+export function sendFollowUpVoice({
+  audioUri,
+  inboxItemId,
+  followUpRound,
+  apiKey,
+  callbacks,
+}: SendFollowUpVoiceOptions): () => void {
+  const formData = new FormData();
+  formData.append("file", {
+    uri: audioUri,
+    type: "audio/m4a",
+    name: "follow-up.m4a",
+  } as any);
+  formData.append("inbox_item_id", inboxItemId);
+  formData.append("follow_up_round", String(followUpRound));
+
+  const es = new EventSource<AGUIEventType>(
+    `${API_BASE_URL}/api/capture/follow-up/voice`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: formData,
+      pollingInterval: 0,
     },
   );
 
