@@ -11,8 +11,8 @@ See: .planning/PROJECT.md (updated 2026-02-25)
 
 Phase: 9 of 12 (HITL Parity and Observability) -- gap closure in progress
 Plan: 5 of 6 complete in current phase
-Status: Phase 09 gap closure plan 05 complete (voice follow-up)
-Last activity: 2026-02-27 -- Phase 9 Plan 05 complete (voice follow-up endpoint + voice-first UI)
+Status: Phase 09 plan 06 checkpoint -- awaiting human action (Foundry instruction update)
+Last activity: 2026-02-27 -- Phase 9 Plan 06 checkpoint (instruction tuning)
 
 Progress: [===========░░░░░░░░░] 40/TBD plans (v1.0 complete, v2.0 phase 9 gap closure)
 
@@ -111,6 +111,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-27
-Stopped at: Completed 09-05-PLAN.md (voice follow-up endpoint + voice-first UI)
-Resume file: .planning/phases/09-hitl-parity-and-observability/09-05-SUMMARY.md
-Resume action: Execute 09-06-PLAN.md (instruction tuning)
+Stopped at: Checkpoint at 09-06 Task 1 (human-action: update Foundry classifier instructions)
+Resume file: .planning/phases/09-hitl-parity-and-observability/09-06-PLAN.md
+Resume action: Continue 09-06-PLAN.md after user updates Foundry agent instructions
