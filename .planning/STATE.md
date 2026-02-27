@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-25)
 ## Current Position
 
 Phase: 9 of 12 (HITL Parity and Observability) -- COMPLETE
-Plan: 2 of 2 complete in current phase
-Status: Phase 09 complete -- ready for Phase 10
-Last activity: 2026-02-27 -- Phase 9 Plan 02 complete (OTel spans on middleware + streaming + recategorize)
+Plan: 3 of 3 complete in current phase
+Status: Phase 09 complete (including gap closure) -- ready for Phase 10
+Last activity: 2026-02-27 -- Phase 9 Plan 03 complete (gap closure: HITL PATCH parity + OTel span fix)
 
-Progress: [==========░░░░░░░░░░] 37/TBD plans (v1.0 complete, v2.0 phase 9 done)
+Progress: [==========░░░░░░░░░░] 38/TBD plans (v1.0 complete, v2.0 phase 9 done)
 
 ## Performance Metrics
 
@@ -24,7 +24,7 @@ Progress: [==========░░░░░░░░░░] 37/TBD plans (v1.0 complete
 - Total execution time: 1.5 hours
 
 **v2.0:**
-- Plans completed: 9
+- Plans completed: 10
 - 06-01: 3 min (2 tasks, 9 files)
 - 06-02: 4 min (2 tasks, 6 files)
 - 06-03: 5 min (3 tasks, 4 files)
@@ -34,6 +34,7 @@ Progress: [==========░░░░░░░░░░] 37/TBD plans (v1.0 complete
 - 08-02: 2 min (2 tasks, 2 files)
 - 09-01: 5 min (2 tasks, 7 files)
 - 09-02: 3 min (2 tasks, 4 files)
+- 09-03: 3 min (2 tasks, 6 files)
 
 ## Accumulated Context
 
@@ -76,6 +77,8 @@ Recent decisions affecting current work:
 - [09-02]: OTel spans inside async generators (not endpoint handlers) to preserve context across async boundaries
 - [09-02]: Debug-level logging retained alongside OTel spans as dual observability output
 - [09-02]: Defensive result extraction in middleware (hasattr/isinstance) handles both raw dict and FunctionResult wrapper
+- [09-03]: Guard handleBucketSelect on hitlInboxItemId (not hitlThreadId) -- PATCH uses inbox ID
+- [09-03]: No SSE connection needed for bucket filing -- simple PATCH/response sufficient
 
 ### Research Findings (Critical)
 
@@ -100,6 +103,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-27
-Stopped at: Completed 09-02-PLAN.md (Phase 9 complete)
-Resume file: .planning/phases/09-hitl-parity-and-observability/09-02-SUMMARY.md
+Stopped at: Completed 09-03-PLAN.md (Phase 9 gap closure complete)
+Resume file: .planning/phases/09-hitl-parity-and-observability/09-03-SUMMARY.md
 Resume action: Begin Phase 10 (Scheduled Nudges)
