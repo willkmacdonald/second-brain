@@ -15,14 +15,14 @@ Transform the Second Brain from a filing cabinet into a proactive thinking partn
 - [ ] **INFRA-11**: Application Insights instance created and connected to the Foundry project
 - [ ] **INFRA-12**: RBAC configured: developer Entra ID (Azure AI User on project), Container App managed identity (Azure AI User on project), Foundry project managed identity (Cognitive Services User on OpenAI resource)
 - [ ] **INFRA-13**: New environment variables configured in `.env`, `config.py`, and deployed Container App (`AZURE_AI_PROJECT_ENDPOINT`, `AZURE_AI_CLASSIFIER_AGENT_ID`, `APPLICATIONINSIGHTS_CONNECTION_STRING`, specialist agent IDs)
-- [ ] **INFRA-14**: Old orchestration code deleted: HandoffBuilder, AGUIWorkflowAdapter, Orchestrator agent, Perception Agent, Whisper integration
+- [x] **INFRA-14**: Old orchestration code deleted: HandoffBuilder, AGUIWorkflowAdapter, Orchestrator agent, Perception Agent, Whisper integration
 
 ### Agent Migration
 
 - [ ] **AGNT-01**: Classifier agent registered as a persistent Foundry agent with stable ID visible in AI Foundry portal
 - [ ] **AGNT-02**: Classifier agent executes in-process Python `@tool` functions (`classify_and_file`, `request_misunderstood`, `mark_as_junk`) through Foundry callback mechanism with results written to Cosmos DB
 - [ ] **AGNT-03**: `AzureAIAgentClient` with `should_cleanup_agent=False` manages agent lifecycle — agent persists across Container App restarts
-- [ ] **AGNT-04**: Orchestrator agent eliminated; code-based routing in FastAPI endpoint replaces HandoffBuilder orchestration
+- [x] **AGNT-04**: Orchestrator agent eliminated; code-based routing in FastAPI endpoint replaces HandoffBuilder orchestration
 - [ ] **AGNT-05**: `transcribe_audio` is a `@tool` callable by the Classifier agent, using `gpt-4o-transcribe` via `AsyncAzureOpenAI` (replaces Whisper)
 - [ ] **AGNT-06**: Agent middleware wired: `AgentMiddleware` for audit logging, `FunctionMiddleware` for tool validation/timing
 
@@ -155,11 +155,11 @@ Transform the Second Brain from a filing cabinet into a proactive thinking partn
 | INFRA-11 | Phase 6: Foundry Infrastructure | Pending |
 | INFRA-12 | Phase 6: Foundry Infrastructure | Pending |
 | INFRA-13 | Phase 6: Foundry Infrastructure | Pending |
-| INFRA-14 | Phase 6: Foundry Infrastructure | Pending |
+| INFRA-14 | Phase 6: Foundry Infrastructure | Complete |
 | AGNT-01 | Phase 7: Classifier Agent Baseline | Pending |
 | AGNT-02 | Phase 7: Classifier Agent Baseline | Pending |
 | AGNT-03 | Phase 7: Classifier Agent Baseline | Pending |
-| AGNT-04 | Phase 6: Foundry Infrastructure | Pending |
+| AGNT-04 | Phase 6: Foundry Infrastructure | Complete |
 | AGNT-05 | Phase 7: Classifier Agent Baseline | Pending |
 | AGNT-06 | Phase 7: Classifier Agent Baseline | Pending |
 | STRM-01 | Phase 8: FoundrySSEAdapter and Streaming | Pending |
