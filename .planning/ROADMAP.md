@@ -189,11 +189,11 @@ Plans:
   2. `classify_and_file` executes locally and writes to Cosmos DB when invoked by the Foundry service during an agent run
   3. `transcribe_audio` works as a @tool callable by the Classifier, producing text from a voice recording via `gpt-4o-transcribe`
   4. `AgentMiddleware` and `FunctionMiddleware` fire during agent runs, producing audit log entries and tool timing in console output
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 07-01: TBD
-- [ ] 07-02: TBD
+- [ ] 07-01-PLAN.md -- Rewrite classification tools (file_capture), create transcription tool, create middleware, rewrite classifier module
+- [ ] 07-02-PLAN.md -- Wire agent registration into FastAPI lifespan, integration test for end-to-end classification
 
 ### Phase 8: FoundrySSEAdapter and Streaming
 **Goal**: Text and voice captures flow end-to-end through the Foundry-backed Classifier, producing the same AG-UI SSE events the mobile app already consumes
