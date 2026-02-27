@@ -18,12 +18,11 @@ TEST_API_KEY = "test-api-key-12345"
 def settings() -> Settings:
     """Provide test-safe settings with placeholder values."""
     return Settings(
-        azure_openai_endpoint="https://test.openai.azure.com/",
-        azure_openai_chat_deployment_name="gpt-4o-test",
+        azure_ai_project_endpoint="https://test.services.ai.azure.com/api/projects/test",
+        azure_ai_classifier_agent_id="test-classifier-id",
+        applicationinsights_connection_string="",
         cosmos_endpoint="https://test.documents.azure.com:443/",
         key_vault_url="https://test-vault.vault.azure.net/",
-        enable_instrumentation=False,
-        enable_sensitive_data=False,
     )
 
 
