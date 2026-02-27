@@ -8,6 +8,13 @@ from dotenv import load_dotenv
 # Load .env BEFORE any other imports that read env vars
 load_dotenv()
 
+from azure.monitor.opentelemetry import configure_azure_monitor  # noqa: E402
+
+# Configure Application Insights immediately after load_dotenv --
+# must run before Azure SDK imports to capture all traces
+configure_azure_monitor()
+
+from agent_framework.azure import AzureAIAgentClient  # noqa: E402
 from azure.identity.aio import (  # noqa: E402
     DefaultAzureCredential as AsyncDefaultAzureCredential,
 )
@@ -72,6 +79,36 @@ async def lifespan(app: FastAPI):
                 "until Cosmos DB is configured."
             )
             app.state.cosmos_manager = None
+
+        # --- Foundry Agent Service (fail fast) ---
+        try:
+            foundry_client = AzureAIAgentClient(
+                credential=credential,
+                project_endpoint=settings.azure_ai_project_endpoint,
+                # model_deployment_name needed for constructor validation
+                # when no agent_id is provided (Phase 7 sets agent_id)
+                model_deployment_name="gpt-4o",
+            )
+            # AzureAIAgentClient is a lazy client -- construction alone does
+            # NOT make a network call, so wrong credentials would pass
+            # silently. Force an auth round-trip to genuinely validate
+            # connectivity + RBAC.
+            async for _ in foundry_client.agents_client.list_agents(
+                limit=1
+            ):
+                break
+            app.state.foundry_client = foundry_client
+            app.state.foundry_credential = credential
+            logger.info(
+                "Foundry client initialized and connectivity validated: %s",
+                settings.azure_ai_project_endpoint,
+            )
+        except Exception:
+            logger.error(
+                "FATAL: Could not initialize Foundry client",
+                exc_info=True,
+            )
+            raise  # Fail fast -- backend is useless without Foundry
 
         app.state.settings = settings
 

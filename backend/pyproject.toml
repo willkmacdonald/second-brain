@@ -14,6 +14,9 @@ dependencies = [
     # Observability -- Application Insights via OTel distro
     "azure-monitor-opentelemetry>=1.8.6",
     "azure-core-tracing-opentelemetry",
+    # Web framework + ASGI server (previously transitive via agent-framework-ag-ui)
+    "fastapi",
+    "uvicorn[standard]",
     # Async HTTP transport (required by azure-identity async credentials)
     "aiohttp",
     # Required by FastAPI for UploadFile
