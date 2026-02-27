@@ -47,6 +47,7 @@ class InboxDocument(BaseDocument):
     status: str = "classified"
     title: str | None = None
     clarificationText: str | None = None
+    foundryThreadId: str | None = None
 
 
 class PeopleDocument(BaseDocument):

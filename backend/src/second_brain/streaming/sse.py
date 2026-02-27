@@ -42,15 +42,28 @@ def classified_event(inbox_item_id: str, bucket: str, confidence: float) -> dict
     }
 
 
-def misunderstood_event(thread_id: str, inbox_item_id: str, question_text: str) -> dict:
-    """Construct a MISUNDERSTOOD event payload."""
+def misunderstood_event(
+    thread_id: str,
+    inbox_item_id: str,
+    question_text: str,
+    foundry_conversation_id: str | None = None,
+) -> dict:
+    """Construct a MISUNDERSTOOD event payload.
+
+    The optional foundry_conversation_id is the Foundry thread ID needed for
+    follow-up calls (distinct from the app-level thread_id used for SSE
+    event correlation).
+    """
+    value: dict = {
+        "threadId": thread_id,
+        "inboxItemId": inbox_item_id,
+        "questionText": question_text,
+    }
+    if foundry_conversation_id:
+        value["foundryConversationId"] = foundry_conversation_id
     return {
         "type": "MISUNDERSTOOD",
-        "value": {
-            "threadId": thread_id,
-            "inboxItemId": inbox_item_id,
-            "questionText": question_text,
-        },
+        "value": value,
     }
 
 
