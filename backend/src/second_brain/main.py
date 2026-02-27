@@ -14,6 +14,13 @@ from azure.monitor.opentelemetry import configure_azure_monitor  # noqa: E402
 # must run before Azure SDK imports to capture all traces
 configure_azure_monitor()
 
+from agent_framework.observability import enable_instrumentation  # noqa: E402
+
+# Enable agent-framework instrumentation AFTER Azure Monitor configures exporters.
+# Automatically tracks gen_ai.usage.input_tokens, gen_ai.usage.output_tokens,
+# and gen_ai.operation.duration as OTel metrics for every get_response() call.
+enable_instrumentation()
+
 from agent_framework.azure import AzureAIAgentClient  # noqa: E402
 from azure.identity.aio import (  # noqa: E402
     DefaultAzureCredential as AsyncDefaultAzureCredential,
