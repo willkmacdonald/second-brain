@@ -353,6 +353,7 @@ async def follow_up(request: Request, body: FollowUpBody) -> StreamingResponse:
         client=client,
         follow_up_text=body.follow_up_text,
         foundry_thread_id=foundry_thread_id,
+        original_inbox_item_id=body.inbox_item_id,
         tools=tools,
         thread_id=foundry_thread_id,
         run_id=run_id,

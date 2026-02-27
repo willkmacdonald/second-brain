@@ -332,6 +332,7 @@ async def stream_follow_up_capture(
     client: AzureAIAgentClient,
     follow_up_text: str,
     foundry_thread_id: str,
+    original_inbox_item_id: str,
     tools: list,
     thread_id: str,
     run_id: str,
@@ -342,6 +343,10 @@ async def stream_follow_up_capture(
     the agent sees its prior classification attempt and the user's responses.
     Yields the same SSE event sequence as stream_text_capture.
 
+    Args:
+        original_inbox_item_id: The Cosmos inbox item ID for the original
+            misunderstood capture, used in the OTel span for traceability.
+
     OTel span created inside the async generator to preserve context.
     """
     with tracer.start_as_current_span("capture_follow_up") as span:
@@ -349,7 +354,7 @@ async def stream_follow_up_capture(
         span.set_attribute("capture.thread_id", thread_id)
         span.set_attribute("capture.run_id", run_id)
         span.set_attribute(
-            "capture.original_inbox_item_id", foundry_thread_id
+            "capture.original_inbox_item_id", original_inbox_item_id
         )
 
         messages = [Message(role="user", text=follow_up_text)]
