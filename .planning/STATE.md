@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-25)
 ## Current Position
 
 Phase: 7 of 12 (Classifier Agent Baseline)
-Plan: 0 of TBD in current phase
-Status: Ready
-Last activity: 2026-02-27 -- Phase 6 complete (Foundry Infrastructure -- all 3 plans done)
+Plan: 1 of 2 in current phase
+Status: In Progress
+Last activity: 2026-02-27 -- Phase 7 Plan 01 complete (tools, middleware, agent registration)
 
-Progress: [======░░░░░░░░░░░░░░] 31/TBD plans (v1.0 complete, v2.0 phase 6 complete)
+Progress: [======░░░░░░░░░░░░░░] 32/TBD plans (v1.0 complete, v2.0 phase 7 plan 1 complete)
 
 ## Performance Metrics
 
@@ -24,10 +24,11 @@ Progress: [======░░░░░░░░░░░░░░] 31/TBD plans (v1.0 
 - Total execution time: 1.5 hours
 
 **v2.0:**
-- Plans completed: 3
+- Plans completed: 4
 - 06-01: 3 min (2 tasks, 9 files)
 - 06-02: 4 min (2 tasks, 6 files)
 - 06-03: 5 min (3 tasks, 4 files)
+- 07-01: 5 min (2 tasks, 9 files)
 
 ## Accumulated Context
 
@@ -49,6 +50,11 @@ Recent decisions affecting current work:
 - [06-02]: fastapi + uvicorn added as direct deps (previously transitive via agent-framework-ag-ui)
 - [06-03]: Custom 'integration' pytest marker registered for deployed endpoint tests
 - [06-03]: RBAC triple verified: developer Azure AI User + Container App MI Azure AI User + Foundry MI Cognitive Services User
+- [07-01]: file_capture returns structured dicts {bucket, confidence, item_id} instead of format strings
+- [07-01]: Misunderstood status writes Inbox only (classificationMeta=None, filedRecordId=None)
+- [07-01]: agentChain updated to ["Classifier"] -- no orchestrator in v2
+- [07-01]: allScores is empty dict {} -- agent-determined, not per-bucket tracking
+- [07-01]: openai added as direct dep for explicit AsyncAzureOpenAI transcription usage
 
 ### Research Findings (Critical)
 
@@ -72,7 +78,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-02-26
-Stopped at: Phase 7 context gathered
-Resume file: .planning/phases/07-classifier-agent-baseline/07-CONTEXT.md
-Resume action: /gsd:plan-phase 7
+Last session: 2026-02-27
+Stopped at: Completed 07-01-PLAN.md
+Resume file: .planning/phases/07-classifier-agent-baseline/07-01-SUMMARY.md
+Resume action: /gsd:execute-phase 07 (plan 02 next)
