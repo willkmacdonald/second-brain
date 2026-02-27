@@ -71,9 +71,9 @@ class ClassifierTools:
             ),
         ],
         title: Annotated[
-            str,
+            str | None,
             Field(description="Brief title (3-6 words) extracted from the text"),
-        ] = "Untitled",
+        ] = None,
     ) -> dict:
         """File a classified capture to Cosmos DB.
 

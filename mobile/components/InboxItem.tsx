@@ -100,7 +100,7 @@ export function InboxItem({ item, onPress, onDelete }: InboxItemProps) {
       : isUnresolved
         ? "Unresolved"
         : item.classificationMeta?.bucket ?? "Unknown";
-  const preview = item.title || item.rawText.slice(0, 60);
+  const preview = (item.title && item.title !== "Untitled") ? item.title : item.rawText.slice(0, 60);
 
   const handleSwipeOpen = () => {
     swipeableRef.current?.close();

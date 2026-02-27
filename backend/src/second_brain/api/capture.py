@@ -57,46 +57,42 @@ async def _stream_with_thread_id_persistence(
 ):
     """Wrap a capture stream generator to persist foundryThreadId on MISUNDERSTOOD.
 
-    Yields all SSE events through to the client. After the inner generator
-    completes, if a MISUNDERSTOOD event was detected, upserts the
-    foundryThreadId to the inbox document in Cosmos.
+    Yields all SSE events through to the client. When a MISUNDERSTOOD event is
+    detected, immediately persists the foundryThreadId to Cosmos before
+    yielding any further events -- this prevents a race condition where the
+    client disconnects after COMPLETE and the Cosmos write never happens.
     """
-    misunderstood_item_id: str | None = None
-    foundry_conversation_id: str | None = None
-
     async for event in inner_generator:
-        yield event
-
-        # Intercept MISUNDERSTOOD events to extract IDs for persistence
+        # Intercept MISUNDERSTOOD events to persist foundryThreadId immediately
         if event.startswith("data: "):
             try:
                 payload = json.loads(event[6:].strip())
                 if payload.get("type") == "MISUNDERSTOOD":
                     value = payload.get("value", {})
-                    misunderstood_item_id = value.get("inboxItemId")
-                    foundry_conversation_id = value.get("foundryConversationId")
+                    item_id = value.get("inboxItemId")
+                    conversation_id = value.get("foundryConversationId")
+                    if item_id and conversation_id:
+                        try:
+                            inbox_container = cosmos_manager.get_container("Inbox")
+                            doc = await inbox_container.read_item(
+                                item=item_id, partition_key="will"
+                            )
+                            doc["foundryThreadId"] = conversation_id
+                            await inbox_container.upsert_item(body=doc)
+                            logger.info(
+                                "Persisted foundryThreadId=%s for inbox item %s",
+                                conversation_id,
+                                item_id,
+                            )
+                        except Exception:
+                            logger.warning(
+                                "Failed to persist foundryThreadId for %s",
+                                item_id,
+                            )
             except (json.JSONDecodeError, AttributeError):
                 pass
 
-    # After stream completes, persist foundryThreadId if MISUNDERSTOOD was detected
-    if misunderstood_item_id and foundry_conversation_id:
-        try:
-            inbox_container = cosmos_manager.get_container("Inbox")
-            doc = await inbox_container.read_item(
-                item=misunderstood_item_id, partition_key="will"
-            )
-            doc["foundryThreadId"] = foundry_conversation_id
-            await inbox_container.upsert_item(body=doc)
-            logger.info(
-                "Persisted foundryThreadId=%s for inbox item %s",
-                foundry_conversation_id,
-                misunderstood_item_id,
-            )
-        except Exception:
-            logger.warning(
-                "Failed to persist foundryThreadId for %s",
-                misunderstood_item_id,
-            )
+        yield event
 
 
 async def _stream_with_reconciliation(
