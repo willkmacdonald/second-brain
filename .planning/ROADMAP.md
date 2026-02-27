@@ -31,7 +31,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 **Milestone Goal:** Transform the Second Brain from a filing cabinet into a proactive thinking partner -- rebuilt on Foundry Agent Service with four specialist agents that follow up over time via push notifications.
 
-- [ ] **Phase 6: Foundry Infrastructure** - Foundry project connectivity, RBAC, Application Insights, old code deletion, async credential migration
+- [x] **Phase 6: Foundry Infrastructure** - Foundry project connectivity, RBAC, Application Insights, old code deletion, async credential migration (completed 2026-02-27)
 - [ ] **Phase 7: Classifier Agent Baseline** - Persistent Classifier agent registered in Foundry with local @tool execution validated in isolation
 - [ ] **Phase 8: FoundrySSEAdapter and Streaming** - New SSE adapter replacing AGUIWorkflowAdapter, text and voice capture end-to-end on Foundry
 - [ ] **Phase 9: HITL Parity and Observability** - All three HITL flows verified on Foundry, Application Insights traces and token metrics
@@ -290,7 +290,7 @@ Plans:
 | 4.2 Swipe-to-delete inbox items | v1.0 | 1/1 | Complete | 2026-02-24 |
 | 4.3 Agent-User UX with unclear item | v1.0 | 10/10 | Complete | 2026-02-25 |
 | 5. Voice Capture | v1.0 | 3/3 | Complete | 2026-02-25 |
-| 6. Foundry Infrastructure | v2.0 | 3/3 | Complete | 2026-02-27 |
+| 6. Foundry Infrastructure | v2.0 | Complete    | 2026-02-27 | 2026-02-27 |
 | 7. Classifier Agent Baseline | v2.0 | 0/TBD | Not started | - |
 | 8. FoundrySSEAdapter and Streaming | v2.0 | 0/TBD | Not started | - |
 | 9. HITL Parity and Observability | v2.0 | 0/TBD | Not started | - |
