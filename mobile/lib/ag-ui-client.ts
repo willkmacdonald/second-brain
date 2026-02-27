@@ -18,18 +18,25 @@ interface AGUIEventPayload {
   delta?: string;
   name?: string;
   stepName?: string;
+  message?: string; // For ERROR events
+  threadId?: string; // For COMPLETE events
+  runId?: string; // For COMPLETE events
   value?: {
     threadId?: string;
     inboxItemId?: string;
     questionText?: string;
+    bucket?: string; // For CLASSIFIED
+    confidence?: number; // For CLASSIFIED
   };
 }
 
 /**
  * Wire up an EventSource to dispatch streaming callbacks.
  *
- * Handles: STEP_STARTED, STEP_FINISHED, TEXT_MESSAGE_CONTENT,
- * CUSTOM (HITL_REQUIRED), RUN_FINISHED, and errors.
+ * Handles both v2 event types (STEP_START, STEP_END, CLASSIFIED,
+ * MISUNDERSTOOD, UNRESOLVED, COMPLETE, ERROR) and legacy v1 types
+ * (STEP_STARTED, STEP_FINISHED, TEXT_MESSAGE_CONTENT, CUSTOM,
+ * RUN_FINISHED, RUN_ERROR) for backward compatibility during development.
  *
  * Returns a cleanup function to abort the connection.
  */
@@ -46,14 +53,65 @@ function attachCallbacks(
       const parsed: AGUIEventPayload = JSON.parse(event.data);
 
       switch (parsed.type) {
-        case "STEP_STARTED":
+        // --- New v2 events ---
+        case "STEP_START":
+        case "STEP_STARTED": // legacy compat
           callbacks.onStepStart?.(parsed.stepName ?? "Unknown");
           break;
 
-        case "STEP_FINISHED":
+        case "STEP_END":
+        case "STEP_FINISHED": // legacy compat
           callbacks.onStepFinish?.(parsed.stepName ?? "Unknown");
           break;
 
+        case "CLASSIFIED":
+          // New v2: CLASSIFIED is top-level, result in value
+          if (parsed.value) {
+            const bucket = parsed.value.bucket ?? "?";
+            const confidence = parsed.value.confidence ?? 0;
+            result = `Filed -> ${bucket} (${confidence.toFixed(2)})`;
+            callbacks.onComplete(result);
+          }
+          break;
+
+        case "MISUNDERSTOOD":
+          // New v2: MISUNDERSTOOD is top-level
+          if (parsed.value?.inboxItemId) {
+            hitlTriggered = true;
+            callbacks.onMisunderstood?.(
+              parsed.value.threadId ?? "",
+              parsed.value.questionText ?? "",
+              parsed.value.inboxItemId,
+            );
+          }
+          break;
+
+        case "UNRESOLVED":
+          // New v2: UNRESOLVED is top-level
+          if (parsed.value?.inboxItemId) {
+            callbacks.onUnresolved?.(parsed.value.inboxItemId);
+          }
+          break;
+
+        case "COMPLETE":
+        case "RUN_FINISHED": // legacy compat
+          if (!hitlTriggered) {
+            // For COMPLETE: if result was already set by CLASSIFIED, onComplete already fired.
+            // For RUN_FINISHED (legacy): fire onComplete with accumulated result.
+            if (parsed.type === "RUN_FINISHED") {
+              callbacks.onComplete(result);
+            }
+          }
+          es.close();
+          break;
+
+        case "ERROR":
+        case "RUN_ERROR": // legacy compat
+          callbacks.onError(parsed.message ?? "Run failed");
+          es.close();
+          break;
+
+        // --- Legacy v1 events (keep during dev) ---
         case "TEXT_MESSAGE_CONTENT":
           if (parsed.delta) {
             result += parsed.delta;
@@ -62,10 +120,9 @@ function attachCallbacks(
           break;
 
         case "CUSTOM":
+          // Legacy v1 wrapper -- handle for backward compat
           if (parsed.name === "HITL_REQUIRED" && parsed.value?.threadId) {
             hitlTriggered = true;
-            // Use questionText from event if available (new flow),
-            // fall back to accumulated result (legacy flow)
             const questionText = parsed.value.questionText || result;
             const inboxItemId = parsed.value.inboxItemId;
             callbacks.onHITLRequired?.(
@@ -85,20 +142,6 @@ function attachCallbacks(
           if (parsed.name === "UNRESOLVED" && parsed.value?.inboxItemId) {
             callbacks.onUnresolved?.(parsed.value.inboxItemId);
           }
-          break;
-
-        case "RUN_FINISHED":
-          // Don't call onComplete if HITL was triggered — the client
-          // is now showing bucket buttons for clarification
-          if (!hitlTriggered) {
-            callbacks.onComplete(result);
-          }
-          es.close();
-          break;
-
-        case "RUN_ERROR":
-          callbacks.onError("Run failed");
-          es.close();
           break;
       }
     } catch {
@@ -133,20 +176,14 @@ export function sendCapture({
 }: SendCaptureOptions): { cleanup: () => void; threadId: string } {
   const threadId = `thread-${Date.now()}`;
 
-  const es = new EventSource<AGUIEventType>(`${API_BASE_URL}/api/ag-ui`, {
+  const es = new EventSource<AGUIEventType>(`${API_BASE_URL}/api/capture`, {
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
     method: "POST",
     body: JSON.stringify({
-      messages: [
-        {
-          id: `msg-${Date.now()}`,
-          role: "user",
-          content: message,
-        },
-      ],
+      text: message,
       thread_id: threadId,
       run_id: `run-${Date.now()}`,
     }),
@@ -252,7 +289,7 @@ export function sendVoiceCapture({
   } as any);
 
   const es = new EventSource<AGUIEventType>(
-    `${API_BASE_URL}/api/voice-capture`,
+    `${API_BASE_URL}/api/capture/voice`,
     {
       method: "POST",
       headers: {
