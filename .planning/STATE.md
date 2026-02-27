@@ -72,7 +72,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-02-27
-Stopped at: Completed Phase 6 (Foundry Infrastructure -- all 3 plans done, RBAC + AppInsights + deployment validated)
-Resume file: .planning/phases/07-classifier-agent/
+Last session: 2026-02-26
+Stopped at: Phase 7 context gathered
+Resume file: .planning/phases/07-classifier-agent-baseline/07-CONTEXT.md
 Resume action: /gsd:plan-phase 7
