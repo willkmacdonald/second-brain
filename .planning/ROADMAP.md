@@ -218,12 +218,15 @@ Plans:
   2. Misunderstood captures trigger conversational follow-up using a fresh Foundry thread with no history contamination from the first classification pass
   3. Recategorize from inbox detail card writes to Cosmos DB and updates the mobile UI
   4. Application Insights shows traces for Foundry agent runs with per-classification visibility including token usage and cost
-**Plans**: 3 plans
+**Plans**: 6 plans
 
 Plans:
 - [x] 09-01-PLAN.md -- HITL parity: follow-up endpoint with thread reuse, pending instant PATCH, mobile updates
 - [x] 09-02-PLAN.md -- Observability: enable_instrumentation(), OTel middleware spans, endpoint-level trace spans
-- [ ] 09-03-PLAN.md -- [Gap fix] Replace sendClarification with direct PATCH in capture screens, fix OTel span attribute
+- [x] 09-03-PLAN.md -- [Gap fix] Replace sendClarification with direct PATCH in capture screens, fix OTel span attribute
+- [ ] 09-04-PLAN.md -- [UAT fix] LOW_CONFIDENCE SSE event for pending captures with bucket buttons on capture screen
+- [ ] 09-05-PLAN.md -- [UAT fix] Voice follow-up for misunderstood clarifications (voice-first, text fallback)
+- [ ] 09-06-PLAN.md -- [UAT fix] Classifier instruction tuning: misunderstood vs pending boundary, follow-up context weighting
 
 ### Phase 10: Specialist Agents
 **Goal**: Four domain-specific agents enrich classified captures with domain intelligence before filing, each writing to its own Cosmos DB container
@@ -294,7 +297,7 @@ Plans:
 | 6. Foundry Infrastructure | v2.0 | Complete    | 2026-02-27 | 2026-02-27 |
 | 7. Classifier Agent Baseline | v2.0 | Complete    | 2026-02-27 | - |
 | 8. FoundrySSEAdapter and Streaming | v2.0 | Complete    | 2026-02-27 | - |
-| 9. HITL Parity and Observability | v2.0 | Complete    | 2026-02-27 | - |
+| 9. HITL Parity and Observability | v2.0 | 3/6 | UAT gap closure | - |
 | 10. Specialist Agents | v2.0 | 0/TBD | Not started | - |
 | 11. Push Notifications | v2.0 | 0/TBD | Not started | - |
 | 12. Proactive Scheduling and Deployment | v2.0 | 0/TBD | Not started | - |
