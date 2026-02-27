@@ -8,9 +8,12 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     """Application settings loaded from .env file and environment variables."""
 
-    # Azure OpenAI
-    azure_openai_endpoint: str = ""
-    azure_openai_chat_deployment_name: str = "gpt-4o"
+    # Azure AI Foundry
+    azure_ai_project_endpoint: str = ""
+    azure_ai_classifier_agent_id: str = ""
+
+    # Application Insights
+    applicationinsights_connection_string: str = ""
 
     # Cosmos DB
     cosmos_endpoint: str = ""
@@ -19,21 +22,14 @@ class Settings(BaseSettings):
     key_vault_url: str = ""
     api_key_secret_name: str = "second-brain-api-key"
 
-    # Azure Blob Storage (voice recordings)
+    # Azure Blob Storage (voice recordings -- kept for future use)
     blob_storage_url: str = ""
-
-    # Azure OpenAI Whisper (transcription)
-    azure_openai_whisper_deployment_name: str = "whisper"
 
     # Classification
     classification_threshold: float = 0.6
 
     # Database
     database_name: str = "second-brain"
-
-    # OpenTelemetry
-    enable_instrumentation: bool = True
-    enable_sensitive_data: bool = False
 
     model_config = {
         "env_file": ".env",

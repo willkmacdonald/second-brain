@@ -1,18 +1,19 @@
 [project]
 name = "second-brain-backend"
 version = "0.1.0"
-description = "The Active Second Brain - AG-UI backend server with multi-agent orchestration"
+description = "The Active Second Brain - FastAPI backend with Azure AI Foundry Agent Service"
 requires-python = ">=3.12"
 dependencies = [
-    # Agent Framework + AG-UI (installs agent-framework-core, fastapi, uvicorn)
-    # NOTE: requires --prerelease=allow during install (RC packages)
-    "agent-framework-ag-ui",
-    "agent-framework-orchestrations",
+    # Agent Framework -- Foundry integration (RC, requires --prerelease=allow for uv install)
+    "agent-framework-azure-ai",
     # Azure services
     "azure-cosmos",
     "azure-identity",
     "azure-keyvault-secrets",
     "azure-storage-blob",
+    # Observability -- Application Insights via OTel distro
+    "azure-monitor-opentelemetry>=1.8.6",
+    "azure-core-tracing-opentelemetry",
     # Async HTTP transport (required by azure-identity async credentials)
     "aiohttp",
     # Required by FastAPI for UploadFile
@@ -25,7 +26,6 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "ruff",
-    "agent-framework-devui",
 ]
 test = [
     "pytest",
@@ -47,7 +47,7 @@ line-length = 88
 select = ["E", "F", "I", "UP", "B", "SIM", "N"]
 
 [tool.ruff.lint.per-file-ignores]
-# main.py must call load_dotenv() and configure_otel_providers() before other imports
+# main.py must call load_dotenv() and configure_azure_monitor() before other imports
 "src/second_brain/main.py" = ["E402", "I001"]
 # Document models use camelCase field names to match Cosmos DB JSON schema
 "src/second_brain/models/documents.py" = ["N815"]
