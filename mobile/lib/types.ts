@@ -1,5 +1,14 @@
 export type AGUIEventType =
   | "message"
+  // New v2 event types
+  | "STEP_START"
+  | "STEP_END"
+  | "CLASSIFIED"
+  | "MISUNDERSTOOD"
+  | "UNRESOLVED"
+  | "COMPLETE"
+  | "ERROR"
+  // Legacy v1 event types (backward compat during dev)
   | "RUN_STARTED"
   | "TEXT_MESSAGE_START"
   | "TEXT_MESSAGE_CONTENT"
