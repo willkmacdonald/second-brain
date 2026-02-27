@@ -3,6 +3,7 @@
 POST /api/capture  -- text capture (JSON body)
 POST /api/capture/voice -- voice capture (multipart file upload)
 POST /api/capture/follow-up -- follow-up for misunderstood captures (SSE)
+POST /api/capture/follow-up/voice -- voice follow-up for misunderstood captures (SSE)
 
 Both capture endpoints stream Foundry agent classification results as
 AG-UI-compatible SSE events. The mobile Expo app consumes these via
@@ -14,7 +15,7 @@ import logging
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from fastapi import APIRouter, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
@@ -364,6 +365,105 @@ async def follow_up(request: Request, body: FollowUpBody) -> StreamingResponse:
         _stream_with_reconciliation(
             generator, cosmos_manager, body.inbox_item_id
         ),
+        media_type="text/event-stream",
+        headers=SSE_HEADERS,
+    )
+
+
+@router.post("/api/capture/follow-up/voice")
+async def follow_up_voice(
+    request: Request,
+    file: UploadFile = File(...),  # noqa: B008
+    inbox_item_id: str = Form(...),  # noqa: B008
+    follow_up_round: int = Form(1),  # noqa: B008
+) -> StreamingResponse:
+    """Stream a voice follow-up classification on the same Foundry thread.
+
+    Accepts multipart audio upload with inbox_item_id. Uploads audio to Blob
+    Storage for audit trail, transcribes via gpt-4o-transcribe from in-memory
+    bytes, then streams the follow-up reclassification. Blob is cleaned up
+    after the stream completes.
+    """
+    # Validate blob storage
+    blob_manager = getattr(request.app.state, "blob_manager", None)
+    if blob_manager is None:
+        raise HTTPException(status_code=503, detail="Blob storage not configured.")
+
+    # Read audio bytes and upload to blob for audit trail
+    audio_bytes = await file.read()
+    blob_url = await blob_manager.upload_audio(
+        audio_bytes=audio_bytes,
+        filename=file.filename or "follow-up.m4a",
+    )
+
+    # Transcribe from in-memory bytes (no blob re-download)
+    openai_client = request.app.state.openai_client
+    if openai_client is None:
+        raise HTTPException(status_code=503, detail="Transcription not configured.")
+
+    transcript = await openai_client.audio.transcriptions.create(
+        model="gpt-4o-transcribe",
+        file=("recording.m4a", audio_bytes, "audio/m4a"),
+    )
+    follow_up_text = transcript.text
+
+    logger.info(
+        "Voice follow-up transcribed: round=%d, inbox=%s, text=%s",
+        follow_up_round,
+        inbox_item_id,
+        follow_up_text[:80],
+    )
+
+    # Look up original inbox item for Foundry thread ID
+    cosmos_manager = request.app.state.cosmos_manager
+    inbox_container = cosmos_manager.get_container("Inbox")
+
+    try:
+        item = await inbox_container.read_item(
+            item=inbox_item_id, partition_key="will"
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Inbox item {inbox_item_id} not found",
+        ) from exc
+
+    foundry_thread_id = item.get("foundryThreadId")
+    if not foundry_thread_id:
+        raise HTTPException(
+            status_code=400,
+            detail="No thread ID for follow-up. Item may not be misunderstood.",
+        )
+
+    client = request.app.state.classifier_client
+    tools = request.app.state.classifier_agent_tools
+    run_id = f"run-{uuid4()}"
+
+    generator = stream_follow_up_capture(
+        client=client,
+        follow_up_text=follow_up_text,
+        foundry_thread_id=foundry_thread_id,
+        original_inbox_item_id=inbox_item_id,
+        tools=tools,
+        thread_id=foundry_thread_id,
+        run_id=run_id,
+    )
+
+    async def stream_with_cleanup():
+        """Wrap follow-up stream with blob cleanup and reconciliation."""
+        try:
+            async for event in _stream_with_reconciliation(
+                generator, cosmos_manager, inbox_item_id
+            ):
+                yield event
+        finally:
+            try:
+                await blob_manager.delete_audio(blob_url)
+            except Exception:
+                logger.warning("Failed to delete voice follow-up blob: %s", blob_url)
+
+    return StreamingResponse(
+        stream_with_cleanup(),
         media_type="text/event-stream",
         headers=SSE_HEADERS,
     )
