@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-25)
 ## Current Position
 
 Phase: 6 of 12 (Foundry Infrastructure)
-Plan: 1 of 3 in current phase
+Plan: 2 of 3 in current phase
 Status: Executing
-Last activity: 2026-02-27 -- Plan 06-01 completed (old orchestration code deleted)
+Last activity: 2026-02-27 -- Plan 06-02 completed (Foundry SDK + AppInsights wired)
 
-Progress: [======░░░░░░░░░░░░░░] 29/TBD plans (v1.0 complete, v2.0 plan 1/3 of phase 6)
+Progress: [======░░░░░░░░░░░░░░] 30/TBD plans (v1.0 complete, v2.0 plan 2/3 of phase 6)
 
 ## Performance Metrics
 
@@ -24,8 +24,9 @@ Progress: [======░░░░░░░░░░░░░░] 29/TBD plans (v1.0 
 - Total execution time: 1.5 hours
 
 **v2.0:**
-- Plans completed: 1
+- Plans completed: 2
 - 06-01: 3 min (2 tasks, 9 files)
+- 06-02: 4 min (2 tasks, 6 files)
 
 ## Accumulated Context
 
@@ -42,6 +43,9 @@ Recent decisions affecting current work:
 - [v2.0]: Projects Agent is a stub -- action item extraction deferred to v2.1
 - [v2.0]: Geofencing deferred to v3.0 -- Saturday morning time-window heuristic instead
 - [06-01]: AsyncDefaultAzureCredential persisted on app.state across lifespan for Foundry client use
+- [06-02]: model_deployment_name='gpt-4o' passed to AzureAIAgentClient constructor (required when no agent_id)
+- [06-02]: agents_client.list_agents(limit=1) used as probe call for fail-fast auth validation
+- [06-02]: fastapi + uvicorn added as direct deps (previously transitive via agent-framework-ag-ui)
 
 ### Research Findings (Critical)
 
@@ -66,6 +70,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-27
-Stopped at: Completed 06-01-PLAN.md (old orchestration code deleted, clean FastAPI shell)
-Resume file: .planning/phases/06-foundry-infrastructure/06-02-PLAN.md
+Stopped at: Completed 06-02-PLAN.md (Foundry SDK + AppInsights wired into FastAPI)
+Resume file: .planning/phases/06-foundry-infrastructure/06-03-PLAN.md
 Resume action: /gsd:execute-phase 6
