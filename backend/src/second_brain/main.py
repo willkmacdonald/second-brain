@@ -28,6 +28,7 @@ from second_brain.agents.middleware import (  # noqa: E402
     AuditAgentMiddleware,
     ToolTimingMiddleware,
 )
+from second_brain.api.capture import router as capture_router  # noqa: E402
 from second_brain.api.health import router as health_router  # noqa: E402
 from second_brain.api.inbox import router as inbox_router  # noqa: E402
 from second_brain.auth import APIKeyMiddleware  # noqa: E402
@@ -104,9 +105,7 @@ async def lifespan(app: FastAPI):
             # NOT make a network call, so wrong credentials would pass
             # silently. Force an auth round-trip to genuinely validate
             # connectivity + RBAC.
-            async for _ in foundry_client.agents_client.list_agents(
-                limit=1
-            ):
+            async for _ in foundry_client.agents_client.list_agents(limit=1):
                 break
             app.state.foundry_client = foundry_client
             app.state.foundry_credential = credential
@@ -150,9 +149,7 @@ async def lifespan(app: FastAPI):
             app.state.openai_client = openai_client
         else:
             app.state.openai_client = None
-            logger.warning(
-                "AZURE_OPENAI_ENDPOINT not set -- transcription unavailable"
-            )
+            logger.warning("AZURE_OPENAI_ENDPOINT not set -- transcription unavailable")
 
         # --- TranscriptionTools + BlobStorage (optional) ---
         blob_manager: BlobStorageManager | None = None
@@ -226,9 +223,10 @@ app = FastAPI(title="Second Brain API", lifespan=lifespan)
 # API key auth middleware -- reads app.state.api_key lazily (set by lifespan)
 app.add_middleware(APIKeyMiddleware)
 
-# Include health check router and inbox router
+# Include routers
 app.include_router(health_router)
 app.include_router(inbox_router)
+app.include_router(capture_router)
 
 if __name__ == "__main__":
     import uvicorn
