@@ -3,7 +3,6 @@ import { API_BASE_URL } from "../constants/config";
 import type {
   AGUIEventType,
   SendCaptureOptions,
-  SendClarificationOptions,
   SendFollowUpOptions,
   SendVoiceCaptureOptions,
   StreamingCallbacks,
@@ -165,7 +164,7 @@ function attachCallbacks(
  *
  * Dispatches streaming events (step progression, text deltas, HITL requests)
  * to the provided callbacks. Returns a cleanup function and the thread ID
- * used for the request (needed for HITL sendClarification).
+ * used for the request.
  */
 export function sendCapture({
   message,
@@ -191,41 +190,6 @@ export function sendCapture({
   const cleanup = attachCallbacks(es, callbacks);
 
   return { cleanup, threadId };
-}
-
-/**
- * Send a clarification response (bucket selection) to resume a paused HITL workflow.
- *
- * POSTs to /api/ag-ui/respond with the thread_id and selected bucket,
- * then streams the continuation events through the same callback pattern.
- *
- * Returns a cleanup function for the SSE connection.
- */
-export function sendClarification({
-  threadId,
-  bucket,
-  apiKey,
-  callbacks,
-  inboxItemId,
-}: SendClarificationOptions): () => void {
-  const es = new EventSource<AGUIEventType>(
-    `${API_BASE_URL}/api/ag-ui/respond`,
-    {
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      method: "POST",
-      body: JSON.stringify({
-        thread_id: threadId,
-        response: bucket,
-        inbox_item_id: inboxItemId,
-      }),
-      pollingInterval: 0,
-    },
-  );
-
-  return attachCallbacks(es, callbacks);
 }
 
 /**

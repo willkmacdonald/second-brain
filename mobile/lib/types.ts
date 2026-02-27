@@ -38,14 +38,6 @@ export interface SendCaptureOptions {
   callbacks: StreamingCallbacks;
 }
 
-export interface SendClarificationOptions {
-  threadId: string;
-  bucket: string;
-  apiKey: string;
-  callbacks: StreamingCallbacks;
-  inboxItemId?: string;
-}
-
 export interface SendFollowUpOptions {
   inboxItemId: string;
   followUpText: string;

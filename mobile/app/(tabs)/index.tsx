@@ -23,10 +23,9 @@ import * as Haptics from "expo-haptics";
 import { CaptureButton } from "../../components/CaptureButton";
 import {
   sendVoiceCapture,
-  sendClarification,
   sendFollowUp,
 } from "../../lib/ag-ui-client";
-import { API_KEY } from "../../constants/config";
+import { API_BASE_URL, API_KEY } from "../../constants/config";
 import { AgentSteps } from "../../components/AgentSteps";
 
 const AGENT_STEPS = ["Processing"];
@@ -360,41 +359,39 @@ export default function CaptureScreen() {
   ]);
 
   const handleBucketSelect = useCallback(
-    (bucket: string) => {
-      if (!hitlThreadId || isResolving) return;
+    async (bucket: string) => {
+      if (!hitlInboxItemId || isResolving) return;
       setIsResolving(true);
       setHitlQuestion(null);
-      setStreamedText("");
 
-      const cleanup = sendClarification({
-        threadId: hitlThreadId,
-        bucket,
-        apiKey: API_KEY,
-        inboxItemId: hitlInboxItemId ?? undefined,
-        callbacks: {
-          onTextDelta: (delta: string) => {
-            setStreamedText((prev) => prev + delta);
+      try {
+        const res = await fetch(
+          `${API_BASE_URL}/api/inbox/${hitlInboxItemId}/recategorize`,
+          {
+            method: "PATCH",
+            headers: {
+              Authorization: `Bearer ${API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ new_bucket: bucket }),
           },
-          onComplete: (result: string) => {
-            setIsResolving(false);
-            Haptics.notificationAsync(
-              Haptics.NotificationFeedbackType.Success,
-            );
-            setToast({ message: result || "Filed", type: "success" });
-            setTimeout(resetVoiceState, AUTO_RESET_MS);
-          },
-          onError: () => {
-            setIsResolving(false);
-            setToast({
-              message: "Couldn\u2019t file. Try again.",
-              type: "error",
-            });
-          },
-        },
-      });
-      cleanupRef.current = cleanup;
+        );
+        if (res.ok) {
+          Haptics.notificationAsync(
+            Haptics.NotificationFeedbackType.Success,
+          );
+          setToast({ message: "Filed", type: "success" });
+          setTimeout(resetVoiceState, AUTO_RESET_MS);
+        } else {
+          setToast({ message: "Couldn\u2019t file. Try again.", type: "error" });
+        }
+      } catch {
+        setToast({ message: "Couldn\u2019t file. Try again.", type: "error" });
+      } finally {
+        setIsResolving(false);
+      }
     },
-    [hitlThreadId, hitlInboxItemId, isResolving, resetVoiceState],
+    [hitlInboxItemId, isResolving, resetVoiceState],
   );
 
   // Whether recording controls should be disabled
