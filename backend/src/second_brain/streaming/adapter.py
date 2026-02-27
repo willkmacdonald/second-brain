@@ -15,6 +15,7 @@ from collections.abc import AsyncGenerator, Mapping
 
 from agent_framework import ChatOptions, Message
 from agent_framework.azure import AzureAIAgentClient
+from opentelemetry import trace
 
 from second_brain.streaming.sse import (
     classified_event,
@@ -29,6 +30,7 @@ from second_brain.streaming.sse import (
 
 logger = logging.getLogger(__name__)
 reasoning_logger = logging.getLogger("second_brain.streaming.reasoning")
+tracer = trace.get_tracer("second_brain.streaming")
 
 
 def _parse_args(raw: object) -> dict:
@@ -92,82 +94,110 @@ async def stream_text_capture(
     Iterates ChatResponseUpdate objects from the Foundry streaming API,
     detects tool outcomes, and yields SSE-formatted JSON events.
     Chain-of-thought reasoning text is suppressed and logged.
+
+    The OTel span is created INSIDE the async generator (not the endpoint
+    handler) so span context is preserved across async generator boundaries.
     """
-    messages = [Message(role="user", text=user_text)]
-    options: ChatOptions = {"tools": tools}
+    with tracer.start_as_current_span("capture_text") as span:
+        span.set_attribute("capture.type", "text")
+        span.set_attribute("capture.thread_id", thread_id)
+        span.set_attribute("capture.run_id", run_id)
 
-    yield encode_sse(step_start_event("Classifying"))
+        messages = [Message(role="user", text=user_text)]
+        options: ChatOptions = {"tools": tools}
 
-    # Outcome tracking
-    detected_tool: str | None = None
-    detected_tool_args: dict = {}
-    tool_result: dict | None = None
-    reasoning_buffer: str = ""
-    chunk_idx: int = 0
-    foundry_conversation_id: str | None = None
+        yield encode_sse(step_start_event("Classifying"))
 
-    try:
-        async with asyncio.timeout(60):
-            stream = client.get_response(
-                messages=messages, stream=True, options=options
-            )
+        # Outcome tracking
+        detected_tool: str | None = None
+        detected_tool_args: dict = {}
+        tool_result: dict | None = None
+        reasoning_buffer: str = ""
+        chunk_idx: int = 0
+        foundry_conversation_id: str | None = None
 
-            async for update in stream:
-                # Capture the Foundry thread ID from the first update that has one
-                if (
-                    getattr(update, "conversation_id", None)
-                    and not foundry_conversation_id
-                ):
-                    foundry_conversation_id = update.conversation_id
-
-                for content in update.contents or []:
-                    if content.type == "text" and getattr(content, "text", None):
-                        reasoning_buffer += content.text
-                        reasoning_logger.info(
-                            "Reasoning chunk",
-                            extra={
-                                "reasoning_text": content.text,
-                                "agent_run_id": run_id,
-                                "chunk_index": chunk_idx,
-                            },
-                        )
-                        chunk_idx += 1
-                        # Do NOT yield -- suppress CoT from SSE
-
-                    elif (
-                        content.type == "function_call"
-                        and getattr(content, "name", None) == "file_capture"
-                    ):
-                        detected_tool = "file_capture"
-                        detected_tool_args = _parse_args(
-                            getattr(content, "arguments", {})
-                        )
-
-                    elif content.type == "function_result":
-                        tool_result = _parse_result(getattr(content, "result", None))
-
-            yield encode_sse(step_end_event("Classifying"))
-
-            # Emit result event
-            if detected_tool == "file_capture":
-                yield encode_sse(
-                    _emit_result_event(
-                        detected_tool_args,
-                        tool_result,
-                        thread_id,
-                        foundry_conversation_id,
-                    )
+        try:
+            async with asyncio.timeout(60):
+                stream = client.get_response(
+                    messages=messages, stream=True, options=options
                 )
-            else:
-                # No tool call detected -- unresolved fallback
-                yield encode_sse(unresolved_event(""))
 
+                async for update in stream:
+                    if (
+                        getattr(update, "conversation_id", None)
+                        and not foundry_conversation_id
+                    ):
+                        foundry_conversation_id = update.conversation_id
+
+                    for content in update.contents or []:
+                        if content.type == "text" and getattr(
+                            content, "text", None
+                        ):
+                            reasoning_buffer += content.text
+                            reasoning_logger.info(
+                                "Reasoning chunk",
+                                extra={
+                                    "reasoning_text": content.text,
+                                    "agent_run_id": run_id,
+                                    "chunk_index": chunk_idx,
+                                },
+                            )
+                            chunk_idx += 1
+
+                        elif (
+                            content.type == "function_call"
+                            and getattr(content, "name", None)
+                            == "file_capture"
+                        ):
+                            detected_tool = "file_capture"
+                            detected_tool_args = _parse_args(
+                                getattr(content, "arguments", {})
+                            )
+
+                        elif content.type == "function_result":
+                            tool_result = _parse_result(
+                                getattr(content, "result", None)
+                            )
+
+                yield encode_sse(step_end_event("Classifying"))
+
+                # Emit result event and set outcome span attributes
+                if detected_tool == "file_capture":
+                    result_src = tool_result or detected_tool_args
+                    status = detected_tool_args.get("status", "")
+                    span.set_attribute(
+                        "capture.outcome",
+                        status if status else "unresolved",
+                    )
+                    span.set_attribute(
+                        "capture.bucket",
+                        result_src.get("bucket", ""),
+                    )
+                    span.set_attribute(
+                        "capture.confidence",
+                        result_src.get("confidence", 0.0),
+                    )
+                    yield encode_sse(
+                        _emit_result_event(
+                            detected_tool_args,
+                            tool_result,
+                            thread_id,
+                            foundry_conversation_id,
+                        )
+                    )
+                else:
+                    span.set_attribute("capture.outcome", "unresolved")
+                    yield encode_sse(unresolved_event(""))
+
+                yield encode_sse(complete_event(thread_id, run_id))
+
+        except (TimeoutError, Exception) as exc:
+            span.record_exception(exc)
+            logger.error(
+                "Text capture stream error: %s", exc, exc_info=True
+            )
+            yield encode_sse(error_event(str(exc)))
             yield encode_sse(complete_event(thread_id, run_id))
-
-    except (TimeoutError, Exception) as exc:
-        logger.error("Text capture stream error: %s", exc, exc_info=True)
-        yield encode_sse(error_event(str(exc)))
-        yield encode_sse(complete_event(thread_id, run_id))
 
 
 async def stream_voice_capture(
@@ -182,91 +212,120 @@ async def stream_voice_capture(
     Voice captures use a single "Processing" step bracket for the entire run.
     The agent calls transcribe_audio then file_capture internally -- the adapter
     observes these as function_call content but does not emit separate step events.
+
+    OTel span created inside the async generator to preserve context.
     """
-    messages = [
-        Message(
-            role="user",
-            text=f"Transcribe and classify this voice recording: {blob_url}",
-        )
-    ]
-    options: ChatOptions = {"tools": tools}
+    with tracer.start_as_current_span("capture_voice") as span:
+        span.set_attribute("capture.type", "voice")
+        span.set_attribute("capture.thread_id", thread_id)
+        span.set_attribute("capture.run_id", run_id)
 
-    yield encode_sse(step_start_event("Processing"))
-
-    # Outcome tracking
-    detected_tool: str | None = None
-    detected_tool_args: dict = {}
-    tool_result: dict | None = None
-    reasoning_buffer: str = ""
-    chunk_idx: int = 0
-    foundry_conversation_id: str | None = None
-
-    try:
-        async with asyncio.timeout(60):
-            stream = client.get_response(
-                messages=messages, stream=True, options=options
+        messages = [
+            Message(
+                role="user",
+                text=(
+                    f"Transcribe and classify this voice recording: {blob_url}"
+                ),
             )
+        ]
+        options: ChatOptions = {"tools": tools}
 
-            async for update in stream:
-                # Capture the Foundry thread ID from the first update that has one
-                if (
-                    getattr(update, "conversation_id", None)
-                    and not foundry_conversation_id
-                ):
-                    foundry_conversation_id = update.conversation_id
+        yield encode_sse(step_start_event("Processing"))
 
-                for content in update.contents or []:
-                    if content.type == "text" and getattr(content, "text", None):
-                        reasoning_buffer += content.text
-                        reasoning_logger.info(
-                            "Reasoning chunk",
-                            extra={
-                                "reasoning_text": content.text,
-                                "agent_run_id": run_id,
-                                "chunk_index": chunk_idx,
-                            },
-                        )
-                        chunk_idx += 1
+        # Outcome tracking
+        detected_tool: str | None = None
+        detected_tool_args: dict = {}
+        tool_result: dict | None = None
+        reasoning_buffer: str = ""
+        chunk_idx: int = 0
+        foundry_conversation_id: str | None = None
 
-                    elif content.type == "function_call":
-                        name = getattr(content, "name", None)
-                        if name == "transcribe_audio":
-                            # Log transcription tool call but do NOT emit
-                            # a separate step event (single step for voice)
-                            logger.info("Voice capture: transcribe_audio called")
-                        elif name == "file_capture":
-                            detected_tool = "file_capture"
-                            detected_tool_args = _parse_args(
-                                getattr(content, "arguments", {})
-                            )
-
-                    elif content.type == "function_result":
-                        # Only capture the last function_result (file_capture)
-                        parsed = _parse_result(getattr(content, "result", None))
-                        if parsed is not None:
-                            tool_result = parsed
-
-            yield encode_sse(step_end_event("Processing"))
-
-            # Emit result event
-            if detected_tool == "file_capture":
-                yield encode_sse(
-                    _emit_result_event(
-                        detected_tool_args,
-                        tool_result,
-                        thread_id,
-                        foundry_conversation_id,
-                    )
+        try:
+            async with asyncio.timeout(60):
+                stream = client.get_response(
+                    messages=messages, stream=True, options=options
                 )
-            else:
-                yield encode_sse(unresolved_event(""))
 
+                async for update in stream:
+                    if (
+                        getattr(update, "conversation_id", None)
+                        and not foundry_conversation_id
+                    ):
+                        foundry_conversation_id = update.conversation_id
+
+                    for content in update.contents or []:
+                        if content.type == "text" and getattr(
+                            content, "text", None
+                        ):
+                            reasoning_buffer += content.text
+                            reasoning_logger.info(
+                                "Reasoning chunk",
+                                extra={
+                                    "reasoning_text": content.text,
+                                    "agent_run_id": run_id,
+                                    "chunk_index": chunk_idx,
+                                },
+                            )
+                            chunk_idx += 1
+
+                        elif content.type == "function_call":
+                            name = getattr(content, "name", None)
+                            if name == "transcribe_audio":
+                                logger.info(
+                                    "Voice capture: transcribe_audio called"
+                                )
+                            elif name == "file_capture":
+                                detected_tool = "file_capture"
+                                detected_tool_args = _parse_args(
+                                    getattr(content, "arguments", {})
+                                )
+
+                        elif content.type == "function_result":
+                            parsed = _parse_result(
+                                getattr(content, "result", None)
+                            )
+                            if parsed is not None:
+                                tool_result = parsed
+
+                yield encode_sse(step_end_event("Processing"))
+
+                # Emit result event and set outcome span attributes
+                if detected_tool == "file_capture":
+                    result_src = tool_result or detected_tool_args
+                    status = detected_tool_args.get("status", "")
+                    span.set_attribute(
+                        "capture.outcome",
+                        status if status else "unresolved",
+                    )
+                    span.set_attribute(
+                        "capture.bucket",
+                        result_src.get("bucket", ""),
+                    )
+                    span.set_attribute(
+                        "capture.confidence",
+                        result_src.get("confidence", 0.0),
+                    )
+                    yield encode_sse(
+                        _emit_result_event(
+                            detected_tool_args,
+                            tool_result,
+                            thread_id,
+                            foundry_conversation_id,
+                        )
+                    )
+                else:
+                    span.set_attribute("capture.outcome", "unresolved")
+                    yield encode_sse(unresolved_event(""))
+
+                yield encode_sse(complete_event(thread_id, run_id))
+
+        except (TimeoutError, Exception) as exc:
+            span.record_exception(exc)
+            logger.error(
+                "Voice capture stream error: %s", exc, exc_info=True
+            )
+            yield encode_sse(error_event(str(exc)))
             yield encode_sse(complete_event(thread_id, run_id))
-
-    except (TimeoutError, Exception) as exc:
-        logger.error("Voice capture stream error: %s", exc, exc_info=True)
-        yield encode_sse(error_event(str(exc)))
-        yield encode_sse(complete_event(thread_id, run_id))
 
 
 async def stream_follow_up_capture(
@@ -282,79 +341,114 @@ async def stream_follow_up_capture(
     Reuses the existing Foundry thread via conversation_id in ChatOptions so
     the agent sees its prior classification attempt and the user's responses.
     Yields the same SSE event sequence as stream_text_capture.
+
+    OTel span created inside the async generator to preserve context.
     """
-    messages = [Message(role="user", text=follow_up_text)]
-    options: ChatOptions = {
-        "tools": tools,
-        "conversation_id": foundry_thread_id,
-    }
+    with tracer.start_as_current_span("capture_follow_up") as span:
+        span.set_attribute("capture.type", "follow_up")
+        span.set_attribute("capture.thread_id", thread_id)
+        span.set_attribute("capture.run_id", run_id)
+        span.set_attribute(
+            "capture.original_inbox_item_id", foundry_thread_id
+        )
 
-    yield encode_sse(step_start_event("Classifying"))
+        messages = [Message(role="user", text=follow_up_text)]
+        options: ChatOptions = {
+            "tools": tools,
+            "conversation_id": foundry_thread_id,
+        }
 
-    # Outcome tracking
-    detected_tool: str | None = None
-    detected_tool_args: dict = {}
-    tool_result: dict | None = None
-    reasoning_buffer: str = ""
-    chunk_idx: int = 0
-    foundry_conversation_id: str | None = None
+        yield encode_sse(step_start_event("Classifying"))
 
-    try:
-        async with asyncio.timeout(60):
-            stream = client.get_response(
-                messages=messages, stream=True, options=options
-            )
+        # Outcome tracking
+        detected_tool: str | None = None
+        detected_tool_args: dict = {}
+        tool_result: dict | None = None
+        reasoning_buffer: str = ""
+        chunk_idx: int = 0
+        foundry_conversation_id: str | None = None
 
-            async for update in stream:
-                if (
-                    getattr(update, "conversation_id", None)
-                    and not foundry_conversation_id
-                ):
-                    foundry_conversation_id = update.conversation_id
-
-                for content in update.contents or []:
-                    if content.type == "text" and getattr(content, "text", None):
-                        reasoning_buffer += content.text
-                        reasoning_logger.info(
-                            "Follow-up reasoning chunk",
-                            extra={
-                                "reasoning_text": content.text,
-                                "agent_run_id": run_id,
-                                "chunk_index": chunk_idx,
-                            },
-                        )
-                        chunk_idx += 1
-
-                    elif (
-                        content.type == "function_call"
-                        and getattr(content, "name", None) == "file_capture"
-                    ):
-                        detected_tool = "file_capture"
-                        detected_tool_args = _parse_args(
-                            getattr(content, "arguments", {})
-                        )
-
-                    elif content.type == "function_result":
-                        tool_result = _parse_result(getattr(content, "result", None))
-
-            yield encode_sse(step_end_event("Classifying"))
-
-            # Emit result event
-            if detected_tool == "file_capture":
-                yield encode_sse(
-                    _emit_result_event(
-                        detected_tool_args,
-                        tool_result,
-                        thread_id,
-                        foundry_conversation_id,
-                    )
+        try:
+            async with asyncio.timeout(60):
+                stream = client.get_response(
+                    messages=messages, stream=True, options=options
                 )
-            else:
-                yield encode_sse(unresolved_event(""))
 
+                async for update in stream:
+                    if (
+                        getattr(update, "conversation_id", None)
+                        and not foundry_conversation_id
+                    ):
+                        foundry_conversation_id = update.conversation_id
+
+                    for content in update.contents or []:
+                        if content.type == "text" and getattr(
+                            content, "text", None
+                        ):
+                            reasoning_buffer += content.text
+                            reasoning_logger.info(
+                                "Follow-up reasoning chunk",
+                                extra={
+                                    "reasoning_text": content.text,
+                                    "agent_run_id": run_id,
+                                    "chunk_index": chunk_idx,
+                                },
+                            )
+                            chunk_idx += 1
+
+                        elif (
+                            content.type == "function_call"
+                            and getattr(content, "name", None)
+                            == "file_capture"
+                        ):
+                            detected_tool = "file_capture"
+                            detected_tool_args = _parse_args(
+                                getattr(content, "arguments", {})
+                            )
+
+                        elif content.type == "function_result":
+                            tool_result = _parse_result(
+                                getattr(content, "result", None)
+                            )
+
+                yield encode_sse(step_end_event("Classifying"))
+
+                # Emit result event and set outcome span attributes
+                if detected_tool == "file_capture":
+                    result_src = tool_result or detected_tool_args
+                    status = detected_tool_args.get("status", "")
+                    span.set_attribute(
+                        "capture.outcome",
+                        status if status else "unresolved",
+                    )
+                    span.set_attribute(
+                        "capture.bucket",
+                        result_src.get("bucket", ""),
+                    )
+                    span.set_attribute(
+                        "capture.confidence",
+                        result_src.get("confidence", 0.0),
+                    )
+                    yield encode_sse(
+                        _emit_result_event(
+                            detected_tool_args,
+                            tool_result,
+                            thread_id,
+                            foundry_conversation_id,
+                        )
+                    )
+                else:
+                    span.set_attribute("capture.outcome", "unresolved")
+                    yield encode_sse(unresolved_event(""))
+
+                yield encode_sse(complete_event(thread_id, run_id))
+
+        except (TimeoutError, Exception) as exc:
+            span.record_exception(exc)
+            logger.error(
+                "Follow-up capture stream error: %s",
+                exc,
+                exc_info=True,
+            )
+            yield encode_sse(error_event(str(exc)))
             yield encode_sse(complete_event(thread_id, run_id))
-
-    except (TimeoutError, Exception) as exc:
-        logger.error("Follow-up capture stream error: %s", exc, exc_info=True)
-        yield encode_sse(error_event(str(exc)))
-        yield encode_sse(complete_event(thread_id, run_id))
