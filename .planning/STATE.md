@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-25)
 ## Current Position
 
 Phase: 9 of 12 (HITL Parity and Observability) -- gap closure in progress
-Plan: 4 of 6 complete in current phase
-Status: Phase 09 gap closure plan 04 complete (LOW_CONFIDENCE event)
-Last activity: 2026-02-27 -- Phase 9 Plan 04 complete (LOW_CONFIDENCE SSE event + mobile bucket buttons)
+Plan: 5 of 6 complete in current phase
+Status: Phase 09 gap closure plan 05 complete (voice follow-up)
+Last activity: 2026-02-27 -- Phase 9 Plan 05 complete (voice follow-up endpoint + voice-first UI)
 
-Progress: [==========░░░░░░░░░░] 39/TBD plans (v1.0 complete, v2.0 phase 9 gap closure)
+Progress: [===========░░░░░░░░░] 40/TBD plans (v1.0 complete, v2.0 phase 9 gap closure)
 
 ## Performance Metrics
 
@@ -24,7 +24,7 @@ Progress: [==========░░░░░░░░░░] 39/TBD plans (v1.0 complete
 - Total execution time: 1.5 hours
 
 **v2.0:**
-- Plans completed: 11
+- Plans completed: 12
 - 06-01: 3 min (2 tasks, 9 files)
 - 06-02: 4 min (2 tasks, 6 files)
 - 06-03: 5 min (3 tasks, 4 files)
@@ -36,6 +36,7 @@ Progress: [==========░░░░░░░░░░] 39/TBD plans (v1.0 complete
 - 09-02: 3 min (2 tasks, 4 files)
 - 09-03: 3 min (2 tasks, 6 files)
 - 09-04: 2 min (2 tasks, 7 files)
+- 09-05: 5 min (2 tasks, 5 files)
 
 ## Accumulated Context
 
@@ -83,6 +84,9 @@ Recent decisions affecting current work:
 - [09-04]: LOW_CONFIDENCE event uses same value shape as CLASSIFIED (inboxItemId, bucket, confidence)
 - [09-04]: Follow-up LOW_CONFIDENCE auto-accepts with toast (user already provided extra context)
 - [09-04]: hitlTriggered=true on LOW_CONFIDENCE prevents COMPLETE from double-firing onComplete
+- [09-05]: Voice follow-up transcribes in endpoint (not agent tool) -- avoids extra round-trip
+- [09-05]: In-memory audio_bytes used for transcription -- blob is audit trail only, no re-download
+- [09-05]: Voice is default follow-up mode; text is fallback via toggle
 
 ### Research Findings (Critical)
 
@@ -107,6 +111,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-27
-Stopped at: Completed 09-04-PLAN.md (LOW_CONFIDENCE SSE event + mobile bucket buttons)
-Resume file: .planning/phases/09-hitl-parity-and-observability/09-04-SUMMARY.md
-Resume action: Execute 09-05-PLAN.md (voice follow-up)
+Stopped at: Completed 09-05-PLAN.md (voice follow-up endpoint + voice-first UI)
+Resume file: .planning/phases/09-hitl-parity-and-observability/09-05-SUMMARY.md
+Resume action: Execute 09-06-PLAN.md (instruction tuning)
