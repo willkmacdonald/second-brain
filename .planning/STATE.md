@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-02-25)
 
 ## Current Position
 
-Phase: 9 of 12 (HITL Parity and Observability) -- COMPLETE
-Plan: 3 of 3 complete in current phase
-Status: Phase 09 complete (including gap closure) -- ready for Phase 10
-Last activity: 2026-02-27 -- Phase 9 Plan 03 complete (gap closure: HITL PATCH parity + OTel span fix)
+Phase: 9 of 12 (HITL Parity and Observability) -- gap closure in progress
+Plan: 4 of 6 complete in current phase
+Status: Phase 09 gap closure plan 04 complete (LOW_CONFIDENCE event)
+Last activity: 2026-02-27 -- Phase 9 Plan 04 complete (LOW_CONFIDENCE SSE event + mobile bucket buttons)
 
-Progress: [==========░░░░░░░░░░] 38/TBD plans (v1.0 complete, v2.0 phase 9 done)
+Progress: [==========░░░░░░░░░░] 39/TBD plans (v1.0 complete, v2.0 phase 9 gap closure)
 
 ## Performance Metrics
 
@@ -24,7 +24,7 @@ Progress: [==========░░░░░░░░░░] 38/TBD plans (v1.0 complete
 - Total execution time: 1.5 hours
 
 **v2.0:**
-- Plans completed: 10
+- Plans completed: 11
 - 06-01: 3 min (2 tasks, 9 files)
 - 06-02: 4 min (2 tasks, 6 files)
 - 06-03: 5 min (3 tasks, 4 files)
@@ -35,6 +35,7 @@ Progress: [==========░░░░░░░░░░] 38/TBD plans (v1.0 complete
 - 09-01: 5 min (2 tasks, 7 files)
 - 09-02: 3 min (2 tasks, 4 files)
 - 09-03: 3 min (2 tasks, 6 files)
+- 09-04: 2 min (2 tasks, 7 files)
 
 ## Accumulated Context
 
@@ -79,6 +80,9 @@ Recent decisions affecting current work:
 - [09-02]: Defensive result extraction in middleware (hasattr/isinstance) handles both raw dict and FunctionResult wrapper
 - [09-03]: Guard handleBucketSelect on hitlInboxItemId (not hitlThreadId) -- PATCH uses inbox ID
 - [09-03]: No SSE connection needed for bucket filing -- simple PATCH/response sufficient
+- [09-04]: LOW_CONFIDENCE event uses same value shape as CLASSIFIED (inboxItemId, bucket, confidence)
+- [09-04]: Follow-up LOW_CONFIDENCE auto-accepts with toast (user already provided extra context)
+- [09-04]: hitlTriggered=true on LOW_CONFIDENCE prevents COMPLETE from double-firing onComplete
 
 ### Research Findings (Critical)
 
@@ -103,6 +107,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-27
-Stopped at: Completed 09-03-PLAN.md (Phase 9 gap closure complete)
-Resume file: .planning/phases/09-hitl-parity-and-observability/09-03-SUMMARY.md
-Resume action: Begin Phase 10 (Scheduled Nudges)
+Stopped at: Completed 09-04-PLAN.md (LOW_CONFIDENCE SSE event + mobile bucket buttons)
+Resume file: .planning/phases/09-hitl-parity-and-observability/09-04-SUMMARY.md
+Resume action: Execute 09-05-PLAN.md (voice follow-up)
