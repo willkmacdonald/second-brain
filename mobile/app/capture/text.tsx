@@ -100,6 +100,12 @@ export default function TextCaptureScreen() {
         onTextDelta: (delta: string) => {
           setStreamedText((prev) => prev + delta);
         },
+        onLowConfidence: (_inboxItemId: string, bucket: string, confidence: number) => {
+          setIsReclassifying(false);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          setToast({ message: `Filed -> ${bucket} (${confidence.toFixed(2)})`, type: "success" });
+          setTimeout(resetState, AUTO_RESET_MS);
+        },
         onMisunderstood: (_threadId: string, questionText: string, _inboxItemId: string) => {
           // Still misunderstood -- show next question
           setAgentQuestion(questionText);
@@ -170,6 +176,14 @@ export default function TextCaptureScreen() {
         },
         onTextDelta: (delta: string) => {
           setStreamedText((prev) => prev + delta);
+        },
+        onLowConfidence: (inboxItemId: string, bucket: string, _confidence: number) => {
+          // Show bucket buttons for low-confidence classification
+          setHitlInboxItemId(inboxItemId);
+          setHitlQuestion(`Best guess: ${bucket}. Which bucket?`);
+          setShowSteps(true); // CRITICAL: bucket buttons are gated on {showSteps && ...}
+          setSending(false);
+          setHitlTopBuckets([bucket]);
         },
         onMisunderstood: (threadId: string, questionText: string, inboxItemId: string) => {
           void threadId;

@@ -85,6 +85,18 @@ function attachCallbacks(
           }
           break;
 
+        case "LOW_CONFIDENCE":
+          // Low-confidence classification -- show bucket buttons for manual filing
+          if (parsed.value) {
+            hitlTriggered = true; // Prevents COMPLETE from firing onComplete
+            callbacks.onLowConfidence?.(
+              parsed.value.inboxItemId ?? "",
+              parsed.value.bucket ?? "?",
+              parsed.value.confidence ?? 0,
+            );
+          }
+          break;
+
         case "UNRESOLVED":
           // New v2: UNRESOLVED is top-level
           callbacks.onUnresolved?.(parsed.value?.inboxItemId ?? "");

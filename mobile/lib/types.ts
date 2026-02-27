@@ -4,6 +4,7 @@ export type AGUIEventType =
   | "STEP_START"
   | "STEP_END"
   | "CLASSIFIED"
+  | "LOW_CONFIDENCE"
   | "MISUNDERSTOOD"
   | "UNRESOLVED"
   | "COMPLETE"
@@ -26,6 +27,7 @@ export interface StreamingCallbacks {
   onStepFinish?: (stepName: string) => void;
   onTextDelta?: (delta: string) => void;
   onHITLRequired?: (threadId: string, questionText: string, inboxItemId?: string) => void;
+  onLowConfidence?: (inboxItemId: string, bucket: string, confidence: number) => void;
   onMisunderstood?: (threadId: string, questionText: string, inboxItemId: string) => void;
   onUnresolved?: (inboxItemId: string) => void;
   onComplete: (result: string) => void;
