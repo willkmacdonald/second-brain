@@ -12,6 +12,10 @@ class Settings(BaseSettings):
     azure_ai_project_endpoint: str = ""
     azure_ai_classifier_agent_id: str = ""
 
+    # Azure OpenAI (transcription API -- separate from Foundry project endpoint)
+    azure_openai_endpoint: str = ""
+    azure_openai_transcription_deployment: str = "gpt-4o-transcribe"
+
     # Application Insights
     applicationinsights_connection_string: str = ""
 

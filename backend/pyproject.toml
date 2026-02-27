@@ -6,6 +6,8 @@ requires-python = ">=3.12"
 dependencies = [
     # Agent Framework -- Foundry integration (RC, requires --prerelease=allow for uv install)
     "agent-framework-azure-ai",
+    # Azure OpenAI (direct dep for transcribe_audio -- transitive via azure-ai-agents)
+    "openai",
     # Azure services
     "azure-cosmos",
     "azure-identity",
@@ -56,6 +58,8 @@ select = ["E", "F", "I", "UP", "B", "SIM", "N"]
 "src/second_brain/models/documents.py" = ["N815"]
 # Classification tools access camelCase ClassificationMeta fields
 "src/second_brain/tools/classification.py" = ["N815"]
+# Transcription tools access camelCase fields
+"src/second_brain/tools/transcription.py" = ["N815"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
