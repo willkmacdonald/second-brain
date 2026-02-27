@@ -21,7 +21,7 @@ Transform the Second Brain from a filing cabinet into a proactive thinking partn
 
 - [x] **AGNT-01**: Classifier agent registered as a persistent Foundry agent with stable ID visible in AI Foundry portal
 - [x] **AGNT-02**: Classifier agent executes in-process Python `@tool` functions (`classify_and_file`, `request_misunderstood`, `mark_as_junk`) through Foundry callback mechanism with results written to Cosmos DB
-- [ ] **AGNT-03**: `AzureAIAgentClient` with `should_cleanup_agent=False` manages agent lifecycle — agent persists across Container App restarts
+- [x] **AGNT-03**: `AzureAIAgentClient` with `should_cleanup_agent=False` manages agent lifecycle — agent persists across Container App restarts
 - [x] **AGNT-04**: Orchestrator agent eliminated; code-based routing in FastAPI endpoint replaces HandoffBuilder orchestration
 - [x] **AGNT-05**: `transcribe_audio` is a `@tool` callable by the Classifier agent, using `gpt-4o-transcribe` via `AsyncAzureOpenAI` (replaces Whisper)
 - [x] **AGNT-06**: Agent middleware wired: `AgentMiddleware` for audit logging, `FunctionMiddleware` for tool validation/timing
@@ -158,7 +158,7 @@ Transform the Second Brain from a filing cabinet into a proactive thinking partn
 | INFRA-14 | Phase 6: Foundry Infrastructure | Complete |
 | AGNT-01 | Phase 7: Classifier Agent Baseline | Complete |
 | AGNT-02 | Phase 7: Classifier Agent Baseline | Complete |
-| AGNT-03 | Phase 7: Classifier Agent Baseline | Pending |
+| AGNT-03 | Phase 7: Classifier Agent Baseline | Complete |
 | AGNT-04 | Phase 6: Foundry Infrastructure | Complete |
 | AGNT-05 | Phase 7: Classifier Agent Baseline | Complete |
 | AGNT-06 | Phase 7: Classifier Agent Baseline | Complete |
