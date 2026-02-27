@@ -42,6 +42,18 @@ def classified_event(inbox_item_id: str, bucket: str, confidence: float) -> dict
     }
 
 
+def low_confidence_event(inbox_item_id: str, bucket: str, confidence: float) -> dict:
+    """Construct a LOW_CONFIDENCE event payload for pending items."""
+    return {
+        "type": "LOW_CONFIDENCE",
+        "value": {
+            "inboxItemId": inbox_item_id,
+            "bucket": bucket,
+            "confidence": confidence,
+        },
+    }
+
+
 def misunderstood_event(
     thread_id: str,
     inbox_item_id: str,

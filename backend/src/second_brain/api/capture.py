@@ -100,10 +100,10 @@ async def _stream_with_reconciliation(
     cosmos_manager,
     original_inbox_id: str,
 ):
-    """Wrap follow-up stream to reconcile orphan inbox documents on CLASSIFIED.
+    """Wrap follow-up stream to reconcile orphan inbox documents on CLASSIFIED or LOW_CONFIDENCE.
 
     Yields all SSE events through to the client. After the inner generator
-    completes, if a CLASSIFIED result was detected:
+    completes, if a CLASSIFIED or LOW_CONFIDENCE result was detected:
     1. Read the new inbox doc by its item_id
     2. Copy classificationMeta and filedRecordId to the original inbox doc
     3. Update original's status to "classified", set updatedAt
@@ -131,6 +131,11 @@ async def _stream_with_reconciliation(
                     value = payload.get("value", {})
                     new_item_id = value.get("inboxItemId")
                     is_classified = True
+
+                elif event_type == "LOW_CONFIDENCE":
+                    value = payload.get("value", {})
+                    new_item_id = value.get("inboxItemId")
+                    is_classified = True  # Same reconciliation path as CLASSIFIED
 
                 elif event_type == "MISUNDERSTOOD":
                     value = payload.get("value", {})

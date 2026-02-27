@@ -22,6 +22,7 @@ from second_brain.streaming.sse import (
     complete_event,
     encode_sse,
     error_event,
+    low_confidence_event,
     misunderstood_event,
     step_end_event,
     step_start_event,
@@ -75,8 +76,11 @@ def _emit_result_event(
             thread_id, item_id, question_text, foundry_conversation_id
         )
 
-    if status in ("classified", "pending"):
+    if status == "classified":
         return classified_event(item_id, bucket, confidence)
+
+    if status == "pending":
+        return low_confidence_event(item_id, bucket, confidence)
 
     # No recognized status -- unresolved fallback
     return unresolved_event(item_id)
