@@ -13,7 +13,7 @@ Transform the Second Brain from a filing cabinet into a proactive thinking partn
 
 - [x] **INFRA-10**: AI Foundry project connectivity validated with model deployment accessible from project endpoint
 - [x] **INFRA-11**: Application Insights instance created and connected to the Foundry project
-- [ ] **INFRA-12**: RBAC configured: developer Entra ID (Azure AI User on project), Container App managed identity (Azure AI User on project), Foundry project managed identity (Cognitive Services User on OpenAI resource)
+- [x] **INFRA-12**: RBAC configured: developer Entra ID (Azure AI User on project), Container App managed identity (Azure AI User on project), Foundry project managed identity (Cognitive Services User on OpenAI resource)
 - [x] **INFRA-13**: New environment variables configured in `.env`, `config.py`, and deployed Container App (`AZURE_AI_PROJECT_ENDPOINT`, `AZURE_AI_CLASSIFIER_AGENT_ID`, `APPLICATIONINSIGHTS_CONNECTION_STRING`, specialist agent IDs)
 - [x] **INFRA-14**: Old orchestration code deleted: HandoffBuilder, AGUIWorkflowAdapter, Orchestrator agent, Perception Agent, Whisper integration
 
@@ -153,7 +153,7 @@ Transform the Second Brain from a filing cabinet into a proactive thinking partn
 |-------------|-------|--------|
 | INFRA-10 | Phase 6: Foundry Infrastructure | Complete |
 | INFRA-11 | Phase 6: Foundry Infrastructure | Complete |
-| INFRA-12 | Phase 6: Foundry Infrastructure | Pending |
+| INFRA-12 | Phase 6: Foundry Infrastructure | Complete |
 | INFRA-13 | Phase 6: Foundry Infrastructure | Complete |
 | INFRA-14 | Phase 6: Foundry Infrastructure | Complete |
 | AGNT-01 | Phase 7: Classifier Agent Baseline | Pending |

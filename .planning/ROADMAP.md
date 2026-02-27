@@ -176,9 +176,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 06-01-PLAN.md -- Delete old orchestration code (agents, workflow, AG-UI endpoints, tests)
-- [ ] 06-02-PLAN.md -- Add Foundry SDK + AppInsights deps, config.py update, AzureAIAgentClient init, enhanced health endpoint
-- [ ] 06-03-PLAN.md -- RBAC configuration, AppInsights connection, deployment validation
+- [x] 06-01-PLAN.md -- Delete old orchestration code (agents, workflow, AG-UI endpoints, tests)
+- [x] 06-02-PLAN.md -- Add Foundry SDK + AppInsights deps, config.py update, AzureAIAgentClient init, enhanced health endpoint
+- [x] 06-03-PLAN.md -- RBAC configuration, AppInsights connection, deployment validation
 
 ### Phase 7: Classifier Agent Baseline
 **Goal**: The Classifier is a persistent Foundry-registered agent that executes local @tool functions and writes to Cosmos DB, validated in isolation before touching the live streaming pipeline
@@ -290,7 +290,7 @@ Plans:
 | 4.2 Swipe-to-delete inbox items | v1.0 | 1/1 | Complete | 2026-02-24 |
 | 4.3 Agent-User UX with unclear item | v1.0 | 10/10 | Complete | 2026-02-25 |
 | 5. Voice Capture | v1.0 | 3/3 | Complete | 2026-02-25 |
-| 6. Foundry Infrastructure | v2.0 | 0/TBD | Not started | - |
+| 6. Foundry Infrastructure | v2.0 | 3/3 | Complete | 2026-02-27 |
 | 7. Classifier Agent Baseline | v2.0 | 0/TBD | Not started | - |
 | 8. FoundrySSEAdapter and Streaming | v2.0 | 0/TBD | Not started | - |
 | 9. HITL Parity and Observability | v2.0 | 0/TBD | Not started | - |

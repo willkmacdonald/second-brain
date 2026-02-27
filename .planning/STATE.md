@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-25)
 
 **Core value:** One-tap capture from a phone instantly routes through an agent chain that classifies, files, and proactively follows up -- with zero organizational effort.
-**Current focus:** Phase 6 -- Foundry Infrastructure (v2.0 Proactive Second Brain)
+**Current focus:** Phase 7 -- Classifier Agent Baseline (v2.0 Proactive Second Brain)
 
 ## Current Position
 
-Phase: 6 of 12 (Foundry Infrastructure)
-Plan: 2 of 3 in current phase
-Status: Executing
-Last activity: 2026-02-27 -- Plan 06-02 completed (Foundry SDK + AppInsights wired)
+Phase: 7 of 12 (Classifier Agent Baseline)
+Plan: 0 of TBD in current phase
+Status: Ready
+Last activity: 2026-02-27 -- Phase 6 complete (Foundry Infrastructure -- all 3 plans done)
 
-Progress: [======░░░░░░░░░░░░░░] 30/TBD plans (v1.0 complete, v2.0 plan 2/3 of phase 6)
+Progress: [======░░░░░░░░░░░░░░] 31/TBD plans (v1.0 complete, v2.0 phase 6 complete)
 
 ## Performance Metrics
 
@@ -24,9 +24,10 @@ Progress: [======░░░░░░░░░░░░░░] 30/TBD plans (v1.0 
 - Total execution time: 1.5 hours
 
 **v2.0:**
-- Plans completed: 2
+- Plans completed: 3
 - 06-01: 3 min (2 tasks, 9 files)
 - 06-02: 4 min (2 tasks, 6 files)
+- 06-03: 5 min (3 tasks, 4 files)
 
 ## Accumulated Context
 
@@ -46,6 +47,8 @@ Recent decisions affecting current work:
 - [06-02]: model_deployment_name='gpt-4o' passed to AzureAIAgentClient constructor (required when no agent_id)
 - [06-02]: agents_client.list_agents(limit=1) used as probe call for fail-fast auth validation
 - [06-02]: fastapi + uvicorn added as direct deps (previously transitive via agent-framework-ag-ui)
+- [06-03]: Custom 'integration' pytest marker registered for deployed endpoint tests
+- [06-03]: RBAC triple verified: developer Azure AI User + Container App MI Azure AI User + Foundry MI Cognitive Services User
 
 ### Research Findings (Critical)
 
@@ -70,6 +73,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-27
-Stopped at: Completed 06-02-PLAN.md (Foundry SDK + AppInsights wired into FastAPI)
-Resume file: .planning/phases/06-foundry-infrastructure/06-03-PLAN.md
-Resume action: /gsd:execute-phase 6
+Stopped at: Completed Phase 6 (Foundry Infrastructure -- all 3 plans done, RBAC + AppInsights + deployment validated)
+Resume file: .planning/phases/07-classifier-agent/
+Resume action: /gsd:plan-phase 7
