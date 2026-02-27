@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-02-25)
 
 ## Current Position
 
-Phase: 9 of 12 (HITL Parity and Observability) -- IN PROGRESS
-Plan: 1 of 2 complete in current phase
-Status: Executing Phase 09
-Last activity: 2026-02-27 -- Phase 9 Plan 01 complete (HITL parity: follow-up endpoint + pending PATCH)
+Phase: 9 of 12 (HITL Parity and Observability) -- COMPLETE
+Plan: 2 of 2 complete in current phase
+Status: Phase 09 complete -- ready for Phase 10
+Last activity: 2026-02-27 -- Phase 9 Plan 02 complete (OTel spans on middleware + streaming + recategorize)
 
-Progress: [=========░░░░░░░░░░░] 36/TBD plans (v1.0 complete, v2.0 phase 9 plan 1 done)
+Progress: [==========░░░░░░░░░░] 37/TBD plans (v1.0 complete, v2.0 phase 9 done)
 
 ## Performance Metrics
 
@@ -24,7 +24,7 @@ Progress: [=========░░░░░░░░░░░] 36/TBD plans (v1.0 comple
 - Total execution time: 1.5 hours
 
 **v2.0:**
-- Plans completed: 8
+- Plans completed: 9
 - 06-01: 3 min (2 tasks, 9 files)
 - 06-02: 4 min (2 tasks, 6 files)
 - 06-03: 5 min (3 tasks, 4 files)
@@ -33,6 +33,7 @@ Progress: [=========░░░░░░░░░░░] 36/TBD plans (v1.0 comple
 - 08-01: 3 min (2 tasks, 6 files)
 - 08-02: 2 min (2 tasks, 2 files)
 - 09-01: 5 min (2 tasks, 7 files)
+- 09-02: 3 min (2 tasks, 4 files)
 
 ## Accumulated Context
 
@@ -72,6 +73,9 @@ Recent decisions affecting current work:
 - [09-01]: foundryConversationId in MISUNDERSTOOD event payload for wrapper extraction
 - [09-01]: Orphan reconciliation copies classification to original doc and deletes new doc (same as v1)
 - [09-01]: handlePendingResolve delegates to handleRecategorize for instant PATCH confirm (no SSE)
+- [09-02]: OTel spans inside async generators (not endpoint handlers) to preserve context across async boundaries
+- [09-02]: Debug-level logging retained alongside OTel spans as dual observability output
+- [09-02]: Defensive result extraction in middleware (hasattr/isinstance) handles both raw dict and FunctionResult wrapper
 
 ### Research Findings (Critical)
 
@@ -96,6 +100,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-27
-Stopped at: Completed 09-01-PLAN.md
-Resume file: .planning/phases/09-hitl-parity-and-observability/09-01-SUMMARY.md
-Resume action: Execute 09-02-PLAN.md (Observability)
+Stopped at: Completed 09-02-PLAN.md (Phase 9 complete)
+Resume file: .planning/phases/09-hitl-parity-and-observability/09-02-SUMMARY.md
+Resume action: Begin Phase 10 (Scheduled Nudges)

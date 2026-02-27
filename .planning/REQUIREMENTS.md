@@ -40,8 +40,8 @@ Transform the Second Brain from a filing cabinet into a proactive thinking partn
 
 ### Observability
 
-- [ ] **OBSV-01**: Application Insights receives traces from Foundry agent runs with per-classification visibility
-- [ ] **OBSV-02**: Token usage and cost metrics visible in Foundry portal or Application Insights
+- [x] **OBSV-01**: Application Insights receives traces from Foundry agent runs with per-classification visibility
+- [x] **OBSV-02**: Token usage and cost metrics visible in Foundry portal or Application Insights
 
 ### Specialist Agents
 
@@ -168,8 +168,8 @@ Transform the Second Brain from a filing cabinet into a proactive thinking partn
 | HITL-01 | Phase 9: HITL Parity and Observability | Complete |
 | HITL-02 | Phase 9: HITL Parity and Observability | Complete |
 | HITL-03 | Phase 9: HITL Parity and Observability | Complete |
-| OBSV-01 | Phase 9: HITL Parity and Observability | Pending |
-| OBSV-02 | Phase 9: HITL Parity and Observability | Pending |
+| OBSV-01 | Phase 9: HITL Parity and Observability | Complete |
+| OBSV-02 | Phase 9: HITL Parity and Observability | Complete |
 | SPEC-01 | Phase 10: Specialist Agents | Pending |
 | SPEC-02 | Phase 10: Specialist Agents | Pending |
 | SPEC-03 | Phase 10: Specialist Agents | Pending |
