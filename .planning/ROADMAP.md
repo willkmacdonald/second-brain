@@ -34,7 +34,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 6: Foundry Infrastructure** - Foundry project connectivity, RBAC, Application Insights, old code deletion, async credential migration (completed 2026-02-27)
 - [x] **Phase 7: Classifier Agent Baseline** - Persistent Classifier agent registered in Foundry with local @tool execution validated in isolation (completed 2026-02-27)
 - [x] **Phase 8: FoundrySSEAdapter and Streaming** - New SSE adapter replacing AGUIWorkflowAdapter, text and voice capture end-to-end on Foundry (completed 2026-02-27)
-- [ ] **Phase 9: HITL Parity and Observability** - All three HITL flows verified on Foundry, Application Insights traces and token metrics
+- [x] **Phase 9: HITL Parity and Observability** - All three HITL flows verified on Foundry, Application Insights traces and token metrics (completed 2026-02-27)
 - [ ] **Phase 10: Specialist Agents** - Four domain agents (Admin, Ideas, People, Projects) with post-classification routing and Cosmos DB writes
 - [ ] **Phase 11: Push Notifications** - Expo push token registration, delivery pipeline, throttling, quiet hours, deep links, action buttons
 - [ ] **Phase 12: Proactive Scheduling and Deployment** - APScheduler cron jobs for all agent nudges, deployed to Azure Container Apps with updated CI/CD
@@ -294,7 +294,7 @@ Plans:
 | 6. Foundry Infrastructure | v2.0 | Complete    | 2026-02-27 | 2026-02-27 |
 | 7. Classifier Agent Baseline | v2.0 | Complete    | 2026-02-27 | - |
 | 8. FoundrySSEAdapter and Streaming | v2.0 | Complete    | 2026-02-27 | - |
-| 9. HITL Parity and Observability | v2.0 | 0/TBD | Not started | - |
+| 9. HITL Parity and Observability | v2.0 | Complete    | 2026-02-27 | - |
 | 10. Specialist Agents | v2.0 | 0/TBD | Not started | - |
 | 11. Push Notifications | v2.0 | 0/TBD | Not started | - |
 | 12. Proactive Scheduling and Deployment | v2.0 | 0/TBD | Not started | - |
