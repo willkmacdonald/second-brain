@@ -221,7 +221,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 09-01-PLAN.md -- HITL parity: follow-up endpoint with thread reuse, pending instant PATCH, mobile updates
+- [x] 09-01-PLAN.md -- HITL parity: follow-up endpoint with thread reuse, pending instant PATCH, mobile updates
 - [ ] 09-02-PLAN.md -- Observability: enable_instrumentation(), OTel middleware spans, endpoint-level trace spans
 
 ### Phase 10: Specialist Agents

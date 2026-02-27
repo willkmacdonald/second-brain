@@ -34,9 +34,9 @@ Transform the Second Brain from a filing cabinet into a proactive thinking partn
 
 ### HITL Parity
 
-- [ ] **HITL-01**: Low-confidence captures filed as pending with bucket buttons for recategorization (direct Cosmos write, unchanged)
-- [ ] **HITL-02**: Misunderstood captures trigger conversational follow-up using fresh Foundry thread (no conversation history contamination)
-- [ ] **HITL-03**: Recategorize from inbox detail card works end-to-end (direct Cosmos write, unchanged)
+- [x] **HITL-01**: Low-confidence captures filed as pending with bucket buttons for recategorization (direct Cosmos write, unchanged)
+- [x] **HITL-02**: Misunderstood captures trigger conversational follow-up using fresh Foundry thread (no conversation history contamination)
+- [x] **HITL-03**: Recategorize from inbox detail card works end-to-end (direct Cosmos write, unchanged)
 
 ### Observability
 
@@ -165,9 +165,9 @@ Transform the Second Brain from a filing cabinet into a proactive thinking partn
 | STRM-01 | Phase 8: FoundrySSEAdapter and Streaming | Complete |
 | STRM-02 | Phase 8: FoundrySSEAdapter and Streaming | Complete |
 | STRM-03 | Phase 8: FoundrySSEAdapter and Streaming | Complete |
-| HITL-01 | Phase 9: HITL Parity and Observability | Pending |
-| HITL-02 | Phase 9: HITL Parity and Observability | Pending |
-| HITL-03 | Phase 9: HITL Parity and Observability | Pending |
+| HITL-01 | Phase 9: HITL Parity and Observability | Complete |
+| HITL-02 | Phase 9: HITL Parity and Observability | Complete |
+| HITL-03 | Phase 9: HITL Parity and Observability | Complete |
 | OBSV-01 | Phase 9: HITL Parity and Observability | Pending |
 | OBSV-02 | Phase 9: HITL Parity and Observability | Pending |
 | SPEC-01 | Phase 10: Specialist Agents | Pending |

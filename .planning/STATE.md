@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-25)
 
 **Core value:** One-tap capture from a phone instantly routes through an agent chain that classifies, files, and proactively follows up -- with zero organizational effort.
-**Current focus:** Phase 8 -- FoundrySSEAdapter and Streaming (v2.0 Proactive Second Brain)
+**Current focus:** Phase 9 -- HITL Parity and Observability (v2.0 Proactive Second Brain)
 
 ## Current Position
 
-Phase: 8 of 12 (FoundrySSEAdapter and Streaming) -- COMPLETE
-Plan: 2 of 2 in current phase
-Status: Phase 08 Complete
-Last activity: 2026-02-27 -- Phase 8 Plan 02 complete (mobile event parser + endpoint URLs)
+Phase: 9 of 12 (HITL Parity and Observability) -- IN PROGRESS
+Plan: 1 of 2 complete in current phase
+Status: Executing Phase 09
+Last activity: 2026-02-27 -- Phase 9 Plan 01 complete (HITL parity: follow-up endpoint + pending PATCH)
 
-Progress: [========░░░░░░░░░░░░] 35/TBD plans (v1.0 complete, v2.0 phase 8 complete)
+Progress: [=========░░░░░░░░░░░] 36/TBD plans (v1.0 complete, v2.0 phase 9 plan 1 done)
 
 ## Performance Metrics
 
@@ -24,7 +24,7 @@ Progress: [========░░░░░░░░░░░░] 35/TBD plans (v1.0 comp
 - Total execution time: 1.5 hours
 
 **v2.0:**
-- Plans completed: 7
+- Plans completed: 8
 - 06-01: 3 min (2 tasks, 9 files)
 - 06-02: 4 min (2 tasks, 6 files)
 - 06-03: 5 min (3 tasks, 4 files)
@@ -32,6 +32,7 @@ Progress: [========░░░░░░░░░░░░] 35/TBD plans (v1.0 comp
 - 07-02: 3 min (2 tasks, 2 files)
 - 08-01: 3 min (2 tasks, 6 files)
 - 08-02: 2 min (2 tasks, 2 files)
+- 09-01: 5 min (2 tasks, 7 files)
 
 ## Accumulated Context
 
@@ -67,6 +68,10 @@ Recent decisions affecting current work:
 - [08-02]: CLASSIFIED fires onComplete immediately; COMPLETE only closes EventSource (no double-fire)
 - [08-02]: Legacy v1 event types retained in union and switch for backward compat during dev
 - [08-02]: sendClarification and sendFollowUp unchanged -- Phase 9 scope
+- [09-01]: Wrapper generator pattern for post-stream side effects (persistence, reconciliation) -- adapter stays pure
+- [09-01]: foundryConversationId in MISUNDERSTOOD event payload for wrapper extraction
+- [09-01]: Orphan reconciliation copies classification to original doc and deletes new doc (same as v1)
+- [09-01]: handlePendingResolve delegates to handleRecategorize for instant PATCH confirm (no SSE)
 
 ### Research Findings (Critical)
 
@@ -91,6 +96,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-27
-Stopped at: Completed 08-02-PLAN.md (Phase 08 complete)
-Resume file: .planning/phases/08-foundrysseadapter-and-streaming/08-02-SUMMARY.md
-Resume action: Begin Phase 09 planning
+Stopped at: Completed 09-01-PLAN.md
+Resume file: .planning/phases/09-hitl-parity-and-observability/09-01-SUMMARY.md
+Resume action: Execute 09-02-PLAN.md (Observability)
