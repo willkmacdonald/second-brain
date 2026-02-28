@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-25)
 
 **Core value:** One-tap capture from a phone instantly routes through an agent chain that classifies, files, and proactively follows up -- with zero organizational effort.
-**Current focus:** Phase 9 -- HITL Parity and Observability (v2.0 Proactive Second Brain)
+**Current focus:** Phase 9 -- HITL Parity and Observability (v2.0 Proactive Second Brain) -- COMPLETE
 
 ## Current Position
 
-Phase: 9 of 12 (HITL Parity and Observability) -- gap closure in progress
-Plan: 5 of 6 complete in current phase
-Status: Phase 09 plan 06 checkpoint -- awaiting human action (Foundry instruction update)
-Last activity: 2026-02-27 -- Phase 9 Plan 06 checkpoint (instruction tuning)
+Phase: 9 of 12 (HITL Parity and Observability) -- COMPLETE
+Plan: 6 of 6 complete in current phase
+Status: Phase 09 complete -- ready for Phase 10
+Last activity: 2026-02-27 -- Phase 9 Plan 06 complete (instruction tuning)
 
-Progress: [===========░░░░░░░░░] 40/TBD plans (v1.0 complete, v2.0 phase 9 gap closure)
+Progress: [============░░░░░░░░] 41/TBD plans (v1.0 complete, v2.0 phase 9 complete)
 
 ## Performance Metrics
 
@@ -24,7 +24,7 @@ Progress: [===========░░░░░░░░░] 40/TBD plans (v1.0 complete, 
 - Total execution time: 1.5 hours
 
 **v2.0:**
-- Plans completed: 12
+- Plans completed: 13
 - 06-01: 3 min (2 tasks, 9 files)
 - 06-02: 4 min (2 tasks, 6 files)
 - 06-03: 5 min (3 tasks, 4 files)
@@ -37,6 +37,7 @@ Progress: [===========░░░░░░░░░] 40/TBD plans (v1.0 complete, 
 - 09-03: 3 min (2 tasks, 6 files)
 - 09-04: 2 min (2 tasks, 7 files)
 - 09-05: 5 min (2 tasks, 5 files)
+- 09-06: 1 min (1 task, 0 files -- portal instruction update)
 
 ## Accumulated Context
 
@@ -87,6 +88,9 @@ Recent decisions affecting current work:
 - [09-05]: Voice follow-up transcribes in endpoint (not agent tool) -- avoids extra round-trip
 - [09-05]: In-memory audio_bytes used for transcription -- blob is audit trail only, no re-download
 - [09-05]: Voice is default follow-up mode; text is fallback via toggle
+- [09-06]: Misunderstood reserved for genuinely nonsensical input; any classifiable text (even 0.3 confidence) uses pending
+- [09-06]: Follow-up context overrides initial ambiguity entirely (not averaged with it)
+- [09-06]: Action-verb weighting: build/create -> Projects, reach out/call -> People, thinking/what if -> Ideas, pay/book -> Admin
 
 ### Research Findings (Critical)
 
@@ -111,6 +115,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-27
-Stopped at: Checkpoint at 09-06 Task 1 (human-action: update Foundry classifier instructions)
-Resume file: .planning/phases/09-hitl-parity-and-observability/09-06-PLAN.md
-Resume action: Continue 09-06-PLAN.md after user updates Foundry agent instructions
+Stopped at: Completed 09-06-PLAN.md -- Phase 9 fully complete
+Resume file: None -- phase 9 complete, ready for Phase 10 planning
+Resume action: Plan Phase 10 (Specialist Agents)
