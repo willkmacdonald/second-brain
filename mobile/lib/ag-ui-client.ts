@@ -100,6 +100,7 @@ function attachCallbacks(
 
         case "UNRESOLVED":
           // New v2: UNRESOLVED is top-level
+          hitlTriggered = true; // Prevent COMPLETE from firing misleading onComplete
           callbacks.onUnresolved?.(parsed.value?.inboxItemId ?? "");
           break;
 
@@ -150,6 +151,7 @@ function attachCallbacks(
             );
           }
           if (parsed.name === "UNRESOLVED" && parsed.value?.inboxItemId) {
+            hitlTriggered = true;
             callbacks.onUnresolved?.(parsed.value.inboxItemId);
           }
           break;
