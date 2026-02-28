@@ -12,7 +12,6 @@ import asyncio
 import json
 import logging
 from collections.abc import AsyncGenerator, Mapping
-from datetime import UTC, datetime
 from uuid import uuid4
 
 from agent_framework import ChatOptions, Message
