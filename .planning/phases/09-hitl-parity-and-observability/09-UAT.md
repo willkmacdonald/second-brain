@@ -1,9 +1,9 @@
 ---
-status: complete
+status: diagnosed
 phase: 09-hitl-parity-and-observability
 source: [09-01-SUMMARY.md, 09-02-SUMMARY.md, 09-03-SUMMARY.md, 09-04-SUMMARY.md, 09-05-SUMMARY.md, 09-06-SUMMARY.md]
 started: 2026-02-27T21:00:00Z
-updated: 2026-02-27T21:20:00Z
+updated: 2026-02-27T21:30:00Z
 ---
 
 ## Current Test
@@ -71,17 +71,29 @@ skipped: 0
   reason: "User reported: does not clean up the original junk note. After clarifying via text, the original misunderstood note remains in the inbox alongside the newly filed clarified item — two items instead of one."
   severity: major
   test: 3
-  root_cause: ""
-  artifacts: []
-  missing: []
-  debug_session: ""
+  root_cause: "Two interacting bugs: (1) tool_result from file_capture is never populated in SSE events — Foundry streaming API doesn't propagate function_result content blocks back through the stream, so inboxItemId in all SSE events is always empty string. (2) The post-hoc reconciliation fallback in _stream_with_reconciliation fails silently — ContainerProxy.read_item returns Call status: false (visible in App Insights trace), and the broad except Exception handler swallows the error. The file_capture tool always creates a NEW inbox doc during follow-up instead of updating the existing misunderstood doc in-place."
+  artifacts:
+    - path: "backend/src/second_brain/streaming/adapter.py"
+      issue: "_emit_result_event uses tool_result or detected_tool_args to get item_id, but tool_result is always None and detected_tool_args has no item_id field"
+    - path: "backend/src/second_brain/api/capture.py"
+      issue: "_stream_with_reconciliation fallback query and Cosmos read_item fails silently (Call status: false in App Insights trace)"
+    - path: "backend/src/second_brain/tools/classification.py"
+      issue: "file_capture always creates a NEW inbox doc with new UUID during follow-up instead of updating existing misunderstood doc"
+  missing:
+    - "Redesign follow-up so file_capture updates the existing misunderstood doc in-place instead of creating an orphan"
+    - "Pass original_inbox_item_id into file_capture tool context so it can UPDATE instead of CREATE"
+    - "Eliminate post-hoc reconciliation entirely — no orphan means no reconciliation needed"
+  debug_session: ".planning/debug/followup-orphan-not-reconciled.md"
 
 - truth: "Voice follow-up reclassification cleans up the original misunderstood item, leaving only the clarified version"
   status: failed
   reason: "User reported: same as voice version - after clarifying the misunderstood comment, it filed it under Admin but the original misunderstood note was never cleaned up and it was actually filed under the same bucket. So now two things instead of one clarified thing."
   severity: major
   test: 4
-  root_cause: ""
-  artifacts: []
-  missing: []
-  debug_session: ""
+  root_cause: "Same root cause as Gap 1 — file_capture creates a new orphan doc during voice follow-up, and reconciliation fails silently."
+  artifacts:
+    - path: "backend/src/second_brain/api/capture.py"
+      issue: "Same _stream_with_reconciliation failure applies to voice follow-up path"
+  missing:
+    - "Same fix as Gap 1 — update existing doc in-place during follow-up (both text and voice share the same code path)"
+  debug_session: ".planning/debug/followup-orphan-not-reconciled.md"
