@@ -121,9 +121,7 @@ async def _safety_net_file_as_misunderstood(
 
     # Persist foundryThreadId immediately so follow-up can find it
     if foundry_conversation_id:
-        doc = await inbox_container.read_item(
-            item=inbox_doc_id, partition_key="will"
-        )
+        doc = await inbox_container.read_item(item=inbox_doc_id, partition_key="will")
         doc["foundryThreadId"] = foundry_conversation_id
         await inbox_container.upsert_item(body=doc)
 
@@ -193,9 +191,7 @@ async def stream_text_capture(
                         foundry_conversation_id = update.conversation_id
 
                     for content in update.contents or []:
-                        if content.type == "text" and getattr(
-                            content, "text", None
-                        ):
+                        if content.type == "text" and getattr(content, "text", None):
                             reasoning_buffer += content.text
                             reasoning_logger.info(
                                 "Reasoning chunk",
@@ -209,8 +205,7 @@ async def stream_text_capture(
 
                         elif (
                             content.type == "function_call"
-                            and getattr(content, "name", None)
-                            == "file_capture"
+                            and getattr(content, "name", None) == "file_capture"
                         ):
                             detected_tool = "file_capture"
                             detected_tool_args = _parse_args(
@@ -251,8 +246,11 @@ async def stream_text_capture(
                 elif cosmos_manager:
                     # Safety net: agent didn't call file_capture
                     event = await _safety_net_file_as_misunderstood(
-                        cosmos_manager, user_text, thread_id,
-                        foundry_conversation_id, span,
+                        cosmos_manager,
+                        user_text,
+                        thread_id,
+                        foundry_conversation_id,
+                        span,
                     )
                     yield encode_sse(event)
                 else:
@@ -263,9 +261,7 @@ async def stream_text_capture(
 
         except (TimeoutError, Exception) as exc:
             span.record_exception(exc)
-            logger.error(
-                "Text capture stream error: %s", exc, exc_info=True
-            )
+            logger.error("Text capture stream error: %s", exc, exc_info=True)
             yield encode_sse(error_event(str(exc)))
             yield encode_sse(complete_event(thread_id, run_id))
 
@@ -294,9 +290,7 @@ async def stream_voice_capture(
         messages = [
             Message(
                 role="user",
-                text=(
-                    f"Transcribe and classify this voice recording: {blob_url}"
-                ),
+                text=(f"Transcribe and classify this voice recording: {blob_url}"),
             )
         ]
         options: ChatOptions = {"tools": tools}
@@ -327,9 +321,7 @@ async def stream_voice_capture(
                         foundry_conversation_id = update.conversation_id
 
                     for content in update.contents or []:
-                        if content.type == "text" and getattr(
-                            content, "text", None
-                        ):
+                        if content.type == "text" and getattr(content, "text", None):
                             reasoning_buffer += content.text
                             reasoning_logger.info(
                                 "Reasoning chunk",
@@ -345,9 +337,7 @@ async def stream_voice_capture(
                             name = getattr(content, "name", None)
                             last_function_call = name
                             if name == "transcribe_audio":
-                                logger.info(
-                                    "Voice capture: transcribe_audio called"
-                                )
+                                logger.info("Voice capture: transcribe_audio called")
                             elif name == "file_capture":
                                 detected_tool = "file_capture"
                                 detected_tool_args = _parse_args(
@@ -355,9 +345,7 @@ async def stream_voice_capture(
                                 )
 
                         elif content.type == "function_result":
-                            parsed = _parse_result(
-                                getattr(content, "result", None)
-                            )
+                            parsed = _parse_result(getattr(content, "result", None))
                             if parsed is not None:
                                 tool_result = parsed
                                 # Capture transcript from transcribe_audio
@@ -395,8 +383,11 @@ async def stream_voice_capture(
                     # Use transcript if available, otherwise the blob URL.
                     raw_text = transcript_text or f"[Voice recording: {blob_url}]"
                     event = await _safety_net_file_as_misunderstood(
-                        cosmos_manager, raw_text, thread_id,
-                        foundry_conversation_id, span,
+                        cosmos_manager,
+                        raw_text,
+                        thread_id,
+                        foundry_conversation_id,
+                        span,
                     )
                     yield encode_sse(event)
                 else:
@@ -407,9 +398,7 @@ async def stream_voice_capture(
 
         except (TimeoutError, Exception) as exc:
             span.record_exception(exc)
-            logger.error(
-                "Voice capture stream error: %s", exc, exc_info=True
-            )
+            logger.error("Voice capture stream error: %s", exc, exc_info=True)
             yield encode_sse(error_event(str(exc)))
             yield encode_sse(complete_event(thread_id, run_id))
 
@@ -440,9 +429,7 @@ async def stream_follow_up_capture(
         span.set_attribute("capture.type", "follow_up")
         span.set_attribute("capture.thread_id", thread_id)
         span.set_attribute("capture.run_id", run_id)
-        span.set_attribute(
-            "capture.original_inbox_item_id", original_inbox_item_id
-        )
+        span.set_attribute("capture.original_inbox_item_id", original_inbox_item_id)
 
         messages = [Message(role="user", text=follow_up_text)]
         options: ChatOptions = {
@@ -474,9 +461,7 @@ async def stream_follow_up_capture(
                         foundry_conversation_id = update.conversation_id
 
                     for content in update.contents or []:
-                        if content.type == "text" and getattr(
-                            content, "text", None
-                        ):
+                        if content.type == "text" and getattr(content, "text", None):
                             reasoning_buffer += content.text
                             reasoning_logger.info(
                                 "Follow-up reasoning chunk",
@@ -490,8 +475,7 @@ async def stream_follow_up_capture(
 
                         elif (
                             content.type == "function_call"
-                            and getattr(content, "name", None)
-                            == "file_capture"
+                            and getattr(content, "name", None) == "file_capture"
                         ):
                             detected_tool = "file_capture"
                             detected_tool_args = _parse_args(
@@ -532,8 +516,11 @@ async def stream_follow_up_capture(
                 elif cosmos_manager:
                     # Safety net: agent didn't call file_capture on follow-up
                     event = await _safety_net_file_as_misunderstood(
-                        cosmos_manager, follow_up_text, thread_id,
-                        foundry_conversation_id, span,
+                        cosmos_manager,
+                        follow_up_text,
+                        thread_id,
+                        foundry_conversation_id,
+                        span,
                     )
                     yield encode_sse(event)
                 else:

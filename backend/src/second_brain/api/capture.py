@@ -119,9 +119,7 @@ async def _stream_with_follow_up_context(
                     payload = json.loads(event[6:].strip())
                     if payload.get("type") == "MISUNDERSTOOD":
                         value = payload.get("value", {})
-                        foundry_conversation_id = value.get(
-                            "foundryConversationId"
-                        )
+                        foundry_conversation_id = value.get("foundryConversationId")
                 except (json.JSONDecodeError, AttributeError):
                     pass
             yield event
@@ -246,8 +244,8 @@ async def follow_up(request: Request, body: FollowUpBody) -> StreamingResponse:
 
     Used for misunderstood captures that need conversational follow-up.
     Reads the original inbox item to get the stored foundryThreadId, then
-    streams the follow-up classification with thread reuse. If the follow-up
-    results in CLASSIFIED, reconciles the orphan inbox document.
+    streams the follow-up classification with thread reuse. Sets follow-up
+    context so file_capture updates the existing misunderstood doc in-place.
     """
     cosmos_manager = request.app.state.cosmos_manager
     inbox_container = cosmos_manager.get_container("Inbox")
@@ -286,9 +284,7 @@ async def follow_up(request: Request, body: FollowUpBody) -> StreamingResponse:
     )
 
     return StreamingResponse(
-        _stream_with_follow_up_context(
-            generator, body.inbox_item_id, cosmos_manager
-        ),
+        _stream_with_follow_up_context(generator, body.inbox_item_id, cosmos_manager),
         media_type="text/event-stream",
         headers=SSE_HEADERS,
     )
@@ -305,8 +301,9 @@ async def follow_up_voice(
 
     Accepts multipart audio upload with inbox_item_id. Uploads audio to Blob
     Storage for audit trail, transcribes via gpt-4o-transcribe from in-memory
-    bytes, then streams the follow-up reclassification. Blob is cleaned up
-    after the stream completes.
+    bytes, then streams the follow-up reclassification with follow-up context
+    set so file_capture updates the existing misunderstood doc in-place.
+    Blob is cleaned up after the stream completes.
     """
     # Validate blob storage
     blob_manager = getattr(request.app.state, "blob_manager", None)
@@ -343,9 +340,7 @@ async def follow_up_voice(
     inbox_container = cosmos_manager.get_container("Inbox")
 
     try:
-        item = await inbox_container.read_item(
-            item=inbox_item_id, partition_key="will"
-        )
+        item = await inbox_container.read_item(item=inbox_item_id, partition_key="will")
     except Exception as exc:
         raise HTTPException(
             status_code=404,
