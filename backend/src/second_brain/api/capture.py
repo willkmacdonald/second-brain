@@ -279,6 +279,7 @@ async def capture(request: Request, body: TextCaptureBody) -> StreamingResponse:
         tools=tools,
         thread_id=thread_id,
         run_id=run_id,
+        cosmos_manager=cosmos_manager,
     )
 
     return StreamingResponse(
@@ -328,6 +329,7 @@ async def capture_voice(
             tools=tools,
             thread_id=thread_id,
             run_id=run_id,
+            cosmos_manager=cosmos_manager,
         )
         try:
             async for event in _stream_with_thread_id_persistence(
@@ -389,6 +391,7 @@ async def follow_up(request: Request, body: FollowUpBody) -> StreamingResponse:
         tools=tools,
         thread_id=foundry_thread_id,
         run_id=run_id,
+        cosmos_manager=cosmos_manager,
     )
 
     return StreamingResponse(
@@ -477,6 +480,7 @@ async def follow_up_voice(
         tools=tools,
         thread_id=foundry_thread_id,
         run_id=run_id,
+        cosmos_manager=cosmos_manager,
     )
 
     async def stream_with_cleanup():

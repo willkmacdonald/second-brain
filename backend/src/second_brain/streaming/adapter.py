@@ -12,6 +12,8 @@ import asyncio
 import json
 import logging
 from collections.abc import AsyncGenerator, Mapping
+from datetime import UTC, datetime
+from uuid import uuid4
 
 from agent_framework import ChatOptions, Message
 from agent_framework.azure import AzureAIAgentClient
@@ -86,12 +88,70 @@ def _emit_result_event(
     return unresolved_event(item_id)
 
 
+async def _safety_net_file_as_misunderstood(
+    cosmos_manager,
+    raw_text: str,
+    thread_id: str,
+    foundry_conversation_id: str | None,
+    span,
+) -> dict:
+    """File a capture as misunderstood when the agent fails to call file_capture.
+
+    This is a safety net — the agent is an LLM and sometimes skips tool calls.
+    Every capture MUST produce a filed item. When the agent doesn't cooperate,
+    the adapter writes the misunderstood doc directly and emits a MISUNDERSTOOD
+    event so the user gets a follow-up prompt instead of a dead end.
+
+    Returns the MISUNDERSTOOD event dict ready for encode_sse().
+    """
+    from second_brain.models.documents import InboxDocument
+
+    inbox_doc_id = str(uuid4())
+    inbox_doc = InboxDocument(
+        id=inbox_doc_id,
+        rawText=raw_text,
+        source="text",
+        title="Untitled",
+        filedRecordId=None,
+        classificationMeta=None,
+        status="misunderstood",
+    )
+
+    inbox_container = cosmos_manager.get_container("Inbox")
+    await inbox_container.create_item(body=inbox_doc.model_dump(mode="json"))
+
+    # Persist foundryThreadId immediately so follow-up can find it
+    if foundry_conversation_id:
+        doc = await inbox_container.read_item(
+            item=inbox_doc_id, partition_key="will"
+        )
+        doc["foundryThreadId"] = foundry_conversation_id
+        await inbox_container.upsert_item(body=doc)
+
+    span.set_attribute("capture.outcome", "misunderstood")
+    span.set_attribute("capture.safety_net", True)
+    logger.warning(
+        "Safety-net: agent skipped file_capture, filed as misunderstood "
+        "(inbox_id=%s, text=%s)",
+        inbox_doc_id,
+        raw_text[:80],
+    )
+
+    return misunderstood_event(
+        thread_id,
+        inbox_doc_id,
+        "I didn\u2019t quite catch that. Could you clarify?",
+        foundry_conversation_id,
+    )
+
+
 async def stream_text_capture(
     client: AzureAIAgentClient,
     user_text: str,
     tools: list,
     thread_id: str,
     run_id: str,
+    cosmos_manager=None,
 ) -> AsyncGenerator[str, None]:
     """Stream a text capture through the Classifier agent as AG-UI SSE events.
 
@@ -189,6 +249,13 @@ async def stream_text_capture(
                             foundry_conversation_id,
                         )
                     )
+                elif cosmos_manager:
+                    # Safety net: agent didn't call file_capture
+                    event = await _safety_net_file_as_misunderstood(
+                        cosmos_manager, user_text, thread_id,
+                        foundry_conversation_id, span,
+                    )
+                    yield encode_sse(event)
                 else:
                     span.set_attribute("capture.outcome", "unresolved")
                     yield encode_sse(unresolved_event(""))
@@ -210,6 +277,7 @@ async def stream_voice_capture(
     tools: list,
     thread_id: str,
     run_id: str,
+    cosmos_manager=None,
 ) -> AsyncGenerator[str, None]:
     """Stream a voice capture through the Classifier agent as AG-UI SSE events.
 
@@ -240,6 +308,8 @@ async def stream_voice_capture(
         detected_tool: str | None = None
         detected_tool_args: dict = {}
         tool_result: dict | None = None
+        last_function_call: str | None = None
+        transcript_text: str | None = None
         reasoning_buffer: str = ""
         chunk_idx: int = 0
         foundry_conversation_id: str | None = None
@@ -274,6 +344,7 @@ async def stream_voice_capture(
 
                         elif content.type == "function_call":
                             name = getattr(content, "name", None)
+                            last_function_call = name
                             if name == "transcribe_audio":
                                 logger.info(
                                     "Voice capture: transcribe_audio called"
@@ -290,6 +361,9 @@ async def stream_voice_capture(
                             )
                             if parsed is not None:
                                 tool_result = parsed
+                                # Capture transcript from transcribe_audio
+                                if last_function_call == "transcribe_audio":
+                                    transcript_text = parsed.get("raw", "")
 
                 yield encode_sse(step_end_event("Processing"))
 
@@ -317,6 +391,15 @@ async def stream_voice_capture(
                             foundry_conversation_id,
                         )
                     )
+                elif cosmos_manager:
+                    # Safety net: agent didn't call file_capture.
+                    # Use transcript if available, otherwise the blob URL.
+                    raw_text = transcript_text or f"[Voice recording: {blob_url}]"
+                    event = await _safety_net_file_as_misunderstood(
+                        cosmos_manager, raw_text, thread_id,
+                        foundry_conversation_id, span,
+                    )
+                    yield encode_sse(event)
                 else:
                     span.set_attribute("capture.outcome", "unresolved")
                     yield encode_sse(unresolved_event(""))
@@ -340,6 +423,7 @@ async def stream_follow_up_capture(
     tools: list,
     thread_id: str,
     run_id: str,
+    cosmos_manager=None,
 ) -> AsyncGenerator[str, None]:
     """Stream a follow-up classification attempt on the same Foundry thread.
 
@@ -446,6 +530,13 @@ async def stream_follow_up_capture(
                             foundry_conversation_id,
                         )
                     )
+                elif cosmos_manager:
+                    # Safety net: agent didn't call file_capture on follow-up
+                    event = await _safety_net_file_as_misunderstood(
+                        cosmos_manager, follow_up_text, thread_id,
+                        foundry_conversation_id, span,
+                    )
+                    yield encode_sse(event)
                 else:
                     span.set_attribute("capture.outcome", "unresolved")
                     yield encode_sse(unresolved_event(""))
