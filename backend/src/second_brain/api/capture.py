@@ -147,14 +147,44 @@ async def _stream_with_reconciliation(
                 pass
 
     # Reconciliation after stream completes
-    if is_classified and new_item_id:
+    if is_classified:
         try:
             inbox_container = cosmos_manager.get_container("Inbox")
 
             # Read the new doc created by file_capture
-            new_doc = await inbox_container.read_item(
-                item=new_item_id, partition_key="will"
-            )
+            if new_item_id:
+                new_doc = await inbox_container.read_item(
+                    item=new_item_id, partition_key="will"
+                )
+            else:
+                # Fallback: inboxItemId was empty (tool_result not streamed).
+                # Query for the most recent inbox doc that isn't the original.
+                query = (
+                    "SELECT * FROM c WHERE c.userId = 'will' "
+                    "AND c.id != @originalId "
+                    "ORDER BY c.createdAt DESC OFFSET 0 LIMIT 1"
+                )
+                params = [{"name": "@originalId", "value": original_inbox_id}]
+                results = [
+                    item
+                    async for item in inbox_container.query_items(
+                        query=query,
+                        parameters=params,
+                        partition_key="will",
+                    )
+                ]
+                if not results:
+                    logger.warning(
+                        "Reconciliation: no orphan doc found for original=%s",
+                        original_inbox_id,
+                    )
+                    return
+                new_doc = results[0]
+                new_item_id = new_doc["id"]
+                logger.info(
+                    "Reconciliation: resolved orphan via query, id=%s",
+                    new_item_id,
+                )
 
             # Read the original misunderstood doc
             original_doc = await inbox_container.read_item(
