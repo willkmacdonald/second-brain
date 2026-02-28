@@ -55,6 +55,7 @@ export default function TextCaptureScreen() {
   const [isReclassifying, setIsReclassifying] = useState(false);
   const [followUpMode, setFollowUpMode] = useState<"voice" | "text">("voice");
   const [isFollowUpRecording, setIsFollowUpRecording] = useState(false);
+  const [micPermissionGranted, setMicPermissionGranted] = useState(false);
   const cleanupRef = useRef<(() => void) | null>(null);
 
   // Audio recorder for voice follow-up
@@ -71,7 +72,9 @@ export default function TextCaptureScreen() {
   // Request mic permission when entering voice follow-up mode
   useEffect(() => {
     if (followUpMode === "voice" && agentQuestion) {
-      AudioModule.requestRecordingPermissionsAsync();
+      AudioModule.requestRecordingPermissionsAsync().then((status) => {
+        setMicPermissionGranted(status.granted);
+      });
     }
   }, [followUpMode, agentQuestion]);
 
@@ -240,12 +243,16 @@ export default function TextCaptureScreen() {
     if (isFollowUpRecording) {
       await handleVoiceFollowUpSubmit();
     } else {
+      if (!micPermissionGranted) {
+        setToast({ message: "Mic permission required", type: "error" });
+        return;
+      }
       await audioRecorder.prepareToRecordAsync();
       audioRecorder.record();
       setIsFollowUpRecording(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     }
-  }, [isFollowUpRecording, audioRecorder, handleVoiceFollowUpSubmit]);
+  }, [isFollowUpRecording, micPermissionGranted, audioRecorder, handleVoiceFollowUpSubmit]);
 
   const handleSubmit = useCallback(() => {
     if (followUpRound > 0 && followUpMode === "text") {
