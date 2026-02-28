@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-25)
 
 **Core value:** One-tap capture from a phone instantly routes through an agent chain that classifies, files, and proactively follows up -- with zero organizational effort.
-**Current focus:** Phase 9 -- HITL Parity and Observability (v2.0 Proactive Second Brain) -- COMPLETE
+**Current focus:** Phase 9 -- HITL Parity and Observability (v2.0 Proactive Second Brain) -- gap closure
 
 ## Current Position
 
-Phase: 9 of 12 (HITL Parity and Observability) -- COMPLETE
-Plan: 6 of 6 complete in current phase
-Status: Phase 09 complete -- ready for Phase 10
-Last activity: 2026-02-27 -- Phase 9 Plan 06 complete (instruction tuning)
+Phase: 9 of 12 (HITL Parity and Observability) -- gap closure
+Plan: 7 of 7 complete in current phase
+Status: Phase 09 gap closure plan 07 complete -- follow-up orphan bug fixed
+Last activity: 2026-02-28 -- Phase 9 Plan 07 complete (follow-up orphan fix)
 
-Progress: [============░░░░░░░░] 41/TBD plans (v1.0 complete, v2.0 phase 9 complete)
+Progress: [============░░░░░░░░] 42/TBD plans (v1.0 complete, v2.0 phase 9 gap closure)
 
 ## Performance Metrics
 
@@ -24,7 +24,7 @@ Progress: [============░░░░░░░░] 41/TBD plans (v1.0 complete, v2
 - Total execution time: 1.5 hours
 
 **v2.0:**
-- Plans completed: 13
+- Plans completed: 14
 - 06-01: 3 min (2 tasks, 9 files)
 - 06-02: 4 min (2 tasks, 6 files)
 - 06-03: 5 min (3 tasks, 4 files)
@@ -38,6 +38,7 @@ Progress: [============░░░░░░░░] 41/TBD plans (v1.0 complete, v2
 - 09-04: 2 min (2 tasks, 7 files)
 - 09-05: 5 min (2 tasks, 5 files)
 - 09-06: 1 min (1 task, 0 files -- portal instruction update)
+- 09-07: 4 min (2 tasks, 3 files -- follow-up orphan fix)
 
 ## Accumulated Context
 
@@ -91,6 +92,9 @@ Recent decisions affecting current work:
 - [09-06]: Misunderstood reserved for genuinely nonsensical input; any classifiable text (even 0.3 confidence) uses pending
 - [09-06]: Follow-up context overrides initial ambiguity entirely (not averaged with it)
 - [09-06]: Action-verb weighting: build/create -> Projects, reach out/call -> People, thinking/what if -> Ideas, pay/book -> Admin
+- [09-07]: ContextVar for follow-up state instead of tool parameter (file_capture is a @tool, cannot add params agent doesn't know)
+- [09-07]: Preserve original rawText, store follow-up as clarificationText (not overwrite)
+- [09-07]: Delete _stream_with_reconciliation entirely -- preventing orphans is better than cleaning them up
 
 ### Research Findings (Critical)
 
@@ -114,7 +118,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-02-27
-Stopped at: Completed 09-06-PLAN.md -- Phase 9 fully complete
-Resume file: None -- phase 9 complete, ready for Phase 10 planning
-Resume action: Plan Phase 10 (Specialist Agents)
+Last session: 2026-02-28
+Stopped at: Completed 09-07-PLAN.md -- Phase 9 gap closure (follow-up orphan fix)
+Resume file: None -- deploy and UAT retest follow-up flows
+Resume action: Deploy to Azure Container Apps, retest UAT tests 3 and 4
