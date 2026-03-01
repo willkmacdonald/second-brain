@@ -239,8 +239,20 @@ async def recategorize_inbox_item(
             old_filed_id = item.get("filedRecordId")
             span.set_attribute("recategorize.old_bucket", old_bucket or "")
 
-            # Same-bucket is a no-op
+            # Same-bucket: skip cross-container move, but still promote
+            # pending -> classified when user confirms the best-guess bucket.
             if old_bucket == body.new_bucket:
+                if item.get("status") == "pending":
+                    item["status"] = "classified"
+                    item["updatedAt"] = datetime.now(UTC).isoformat()
+                    # Tag agent chain with User confirmation
+                    old_chain = list(old_meta.get("agentChain", []))
+                    if "User" not in old_chain:
+                        old_chain.append("User")
+                        old_meta["agentChain"] = old_chain
+                        old_meta["classifiedBy"] = "User"
+                        item["classificationMeta"] = old_meta
+                    await inbox_container.upsert_item(body=item)
                 span.set_attribute("recategorize.success", True)
                 return dict(item)
 

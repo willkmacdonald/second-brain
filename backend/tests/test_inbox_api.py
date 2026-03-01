@@ -54,6 +54,25 @@ SAMPLE_PEOPLE_ITEM = {
     },
 }
 
+SAMPLE_PENDING_ITEM = {
+    "id": "inbox-300",
+    "userId": "will",
+    "rawText": "dentist appointment next week",
+    "title": "Dentist appointment",
+    "status": "pending",
+    "createdAt": "2026-02-28T10:00:00Z",
+    "updatedAt": "2026-02-28T10:00:00Z",
+    "filedRecordId": "admin-doc-id",
+    "classificationMeta": {
+        "bucket": "Admin",
+        "confidence": 0.45,
+        "allScores": {"People": 0.05, "Projects": 0.10, "Ideas": 0.40, "Admin": 0.45},
+        "classifiedBy": "Classifier",
+        "agentChain": ["Orchestrator", "Classifier"],
+        "classifiedAt": "2026-02-28T10:00:00Z",
+    },
+}
+
 
 @pytest.fixture
 def inbox_app(mock_cosmos_manager: MagicMock) -> FastAPI:
@@ -134,6 +153,39 @@ async def test_recategorize_same_bucket_noop(
         container.create_item.assert_not_called()
         container.delete_item.assert_not_called()
     inbox_container.upsert_item.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_recategorize_same_bucket_promotes_pending(
+    inbox_app: FastAPI,
+    mock_cosmos_manager: MagicMock,
+) -> None:
+    """PATCH with same bucket on a pending item promotes status to classified."""
+    inbox_container = mock_cosmos_manager.get_container("Inbox")
+    inbox_container.read_item.return_value = {**SAMPLE_PENDING_ITEM}
+
+    transport = httpx.ASGITransport(app=inbox_app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.patch(
+            "/api/inbox/inbox-300/recategorize",
+            json={"new_bucket": "Admin"},
+            headers={"Authorization": f"Bearer {TEST_API_KEY}"},
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "classified"
+    assert data["classificationMeta"]["classifiedBy"] == "User"
+    assert "User" in data["classificationMeta"]["agentChain"]
+
+    # Inbox doc was upserted to promote status
+    inbox_container.upsert_item.assert_called_once()
+
+    # No cross-container move (same bucket)
+    for name in ("People", "Projects", "Ideas", "Admin"):
+        container = mock_cosmos_manager.get_container(name)
+        container.create_item.assert_not_called()
+        container.delete_item.assert_not_called()
 
 
 @pytest.mark.asyncio
