@@ -122,6 +122,10 @@ Recent decisions affecting current work:
 
 None.
 
+### Roadmap Evolution
+
+- Phase 09.1 inserted after Phase 9: Mobile UX review and refinements (URGENT)
+
 ### Blockers/Concerns
 
 - [Open]: Foundry pricing vs Chat Completions pricing -- monitor during execution
