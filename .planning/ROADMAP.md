@@ -72,11 +72,11 @@ See: .planning/milestones/v2.0-ROADMAP.md
   1. ShoppingLists container exists in Cosmos DB and individual shopping list item documents can be created, queried by store, and deleted
   2. AdminTools class with `add_shopping_list_items` @tool writes items to Cosmos with store field, and the tool is callable from a test harness independent of any agent
   3. Admin Agent has a separate AzureAIAgentClient instance configuration with its own tool list (no tool leakage to Classifier)
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 10-01: TBD
-- [ ] 10-02: TBD
+- [ ] 10-01-PLAN.md -- Data models, CosmosManager extension, AdminTools @tool, unit tests
+- [ ] 10-02-PLAN.md -- Admin Agent registration, config, lifespan wiring, integration tests
 
 ### Phase 11: Admin Agent and Capture Handoff
 **Goal**: Admin-classified captures are silently enriched by the Admin Agent in the background, with items routed to the correct store shopping list
