@@ -83,27 +83,27 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AGNT-01 | — | Pending |
-| AGNT-02 | — | Pending |
-| AGNT-03 | — | Pending |
-| AGNT-04 | — | Pending |
-| SHOP-01 | — | Pending |
-| SHOP-02 | — | Pending |
-| SHOP-03 | — | Pending |
-| SHOP-04 | — | Pending |
-| SHOP-05 | — | Pending |
-| RCPE-01 | — | Pending |
-| RCPE-02 | — | Pending |
-| RCPE-03 | — | Pending |
-| MOBL-01 | — | Pending |
-| MOBL-02 | — | Pending |
-| MOBL-03 | — | Pending |
+| AGNT-01 | Phase 11 | Pending |
+| AGNT-02 | Phase 10 | Pending |
+| AGNT-03 | Phase 11 | Pending |
+| AGNT-04 | Phase 11 | Pending |
+| SHOP-01 | Phase 10 | Pending |
+| SHOP-02 | Phase 10 | Pending |
+| SHOP-03 | Phase 11 | Pending |
+| SHOP-04 | Phase 11 | Pending |
+| SHOP-05 | Phase 12 | Pending |
+| RCPE-01 | Phase 13 | Pending |
+| RCPE-02 | Phase 13 | Pending |
+| RCPE-03 | Phase 13 | Pending |
+| MOBL-01 | Phase 12 | Pending |
+| MOBL-02 | Phase 12 | Pending |
+| MOBL-03 | Phase 12 | Pending |
 
 **Coverage:**
 - v3.0 requirements: 15 total
-- Mapped to phases: 0
-- Unmapped: 15 ⚠️
+- Mapped to phases: 15/15
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-01*
-*Last updated: 2026-03-01 after initial definition*
+*Last updated: 2026-03-01 after roadmap creation (Phases 10-13)*

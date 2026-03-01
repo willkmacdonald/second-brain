@@ -4,7 +4,7 @@
 
 - [x] **v1.0 Text & Voice Capture Loop** - Phases 1-5 plus 4.1, 4.2, 4.3 (shipped 2026-02-25, partial)
 - [x] **v2.0 Foundry Migration & HITL Parity** - Phases 6-9 plus 9.1 (shipped 2026-03-01)
-- [ ] **v3.0 Proactive Second Brain** - Phases 10-12 (planned)
+- [ ] **v3.0 Admin Agent & Shopping Lists** - Phases 10-13 (in progress)
 
 ## Phases
 
@@ -39,13 +39,14 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 </details>
 
-### v3.0 Proactive Second Brain (Phases 10-12)
+### v3.0 Admin Agent & Shopping Lists (Phases 10-13)
 
-**Milestone Goal:** Transform the Second Brain from a filing cabinet into a proactive thinking partner — four specialist agents that follow up over time via push notifications.
+**Milestone Goal:** Add the first specialist agent (Admin Agent) that enriches Admin-classified captures with store-based shopping list management, including YouTube recipe ingredient extraction. Admin Agent works silently in the background -- results appear on a new Status & Priorities screen.
 
-- [ ] **Phase 10: Specialist Agents** - Four domain agents (Admin, Ideas, People, Projects) with post-classification routing and Cosmos DB writes
-- [ ] **Phase 11: Push Notifications** - Expo push token registration, delivery pipeline, throttling, quiet hours, deep links, action buttons
-- [ ] **Phase 12: Proactive Scheduling and Deployment** - APScheduler cron jobs for all agent nudges, deployed to Azure Container Apps with updated CI/CD
+- [ ] **Phase 10: Data Foundation and Admin Tools** - Pydantic models, Cosmos container, and AdminTools @tool class for shopping list writes
+- [ ] **Phase 11: Admin Agent and Capture Handoff** - Persistent Admin Agent in Foundry with silent background processing after Classifier files to Inbox
+- [ ] **Phase 12: Shopping List API and Status Screen** - REST endpoints and mobile tab for viewing, expanding, and removing shopping list items
+- [ ] **Phase 13: YouTube Recipe Extraction** - YouTube URL capture to ingredient extraction to shopping list items with source attribution
 
 ## Phase Details
 
@@ -63,57 +64,73 @@ See: .planning/milestones/v2.0-ROADMAP.md
 
 </details>
 
-### Phase 10: Specialist Agents
-**Goal**: Four domain-specific agents enrich classified captures with domain intelligence before filing, each writing to its own Cosmos DB container
-**Depends on**: Phase 9
-**Requirements**: SPEC-01, SPEC-02, SPEC-03, SPEC-04, SPEC-05, SPEC-06
+### Phase 10: Data Foundation and Admin Tools
+**Goal**: Shopping list data model and tool functions exist so downstream phases can write and read shopping list items
+**Depends on**: Phase 9.1 (v2.0 complete)
+**Requirements**: AGNT-02, SHOP-01, SHOP-02
 **Success Criteria** (what must be TRUE):
-  1. Admin, Ideas, People, and Projects agents are visible as persistent agents in the AI Foundry portal with stable IDs
-  2. After classification, the FastAPI endpoint routes the capture to the correct specialist agent based on the classified bucket
-  3. Each specialist agent's @tool functions write enriched data to the correct Cosmos DB container (Admin to Admin, People to People, etc.)
-  4. People Agent's `log_interaction` tool updates the `last_interaction` timestamp on the Person document
-  5. Projects Agent is registered and functional as a stub (accepts captures, files them, but does not extract action items)
+  1. ShoppingLists container exists in Cosmos DB and individual shopping list item documents can be created, queried by store, and deleted
+  2. AdminTools class with `add_shopping_list_items` @tool writes items to Cosmos with store field, and the tool is callable from a test harness independent of any agent
+  3. Admin Agent has a separate AzureAIAgentClient instance configuration with its own tool list (no tool leakage to Classifier)
 **Plans**: TBD
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 10 to break down)
+- [ ] 10-01: TBD
+- [ ] 10-02: TBD
 
-### Phase 11: Push Notifications
-**Goal**: The backend can deliver push notifications to Will's phone with frequency throttling, quiet hours, deep links, and action buttons -- proven end-to-end before any scheduler is connected
+### Phase 11: Admin Agent and Capture Handoff
+**Goal**: Admin-classified captures are silently enriched by the Admin Agent in the background, with items routed to the correct store shopping list
 **Depends on**: Phase 10
-**Requirements**: PUSH-01, PUSH-02, PUSH-03, PUSH-04, PUSH-05, PUSH-06, PUSH-07, PUSH-08, DPLY-03
+**Requirements**: AGNT-01, AGNT-03, AGNT-04, SHOP-03, SHOP-04
 **Success Criteria** (what must be TRUE):
-  1. Expo push token is registered on app startup and stored in Cosmos DB via `POST /api/push-token`
-  2. A test push notification sent from the backend arrives on Will's device via Expo Push Service
-  3. Notification frequency budget (max 3/day) and quiet hours (9pm-8am) reject sends that would violate limits
-  4. Tapping a notification deep-links to the relevant capture/person/idea in the app (not home screen)
-  5. Notification action buttons ("Done" and "Snooze 1 week") trigger `POST /api/nudge/respond` and update the item in Cosmos DB
+  1. Admin Agent is visible as a persistent agent in the AI Foundry portal with a stable agent_id that survives backend restarts
+  2. When a user captures "need cat litter and milk", the Classifier files it to Inbox as Admin, then the Admin Agent silently processes it and items appear on the correct store lists (pet store and Jewel)
+  3. Inbox items classified as Admin have a "processed" flag set to true after the Admin Agent completes its work
+  4. The capture flow completes and returns to the user without streaming Admin Agent work -- no SSE events from the Admin Agent reach the mobile app during capture
+  5. Multi-item captures referencing different stores result in items split across the correct store lists from a single capture
 **Plans**: TBD
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 11 to break down)
+- [ ] 11-01: TBD
+- [ ] 11-02: TBD
+- [ ] 11-03: TBD
 
-### Phase 12: Proactive Scheduling and Deployment
-**Goal**: Specialist agents proactively nudge Will at the right times via scheduled jobs, and the complete v3.0 system is deployed to Azure Container Apps
-**Depends on**: Phase 11
-**Requirements**: SCHED-01, SCHED-02, SCHED-03, SCHED-04, SCHED-05, SCHED-06, DPLY-01, DPLY-02
+### Phase 12: Shopping List API and Status Screen
+**Goal**: Users can view their shopping lists grouped by store and remove items they have purchased
+**Depends on**: Phase 11 (data written by Admin Agent)
+**Requirements**: MOBL-01, MOBL-02, MOBL-03, SHOP-05
 **Success Criteria** (what must be TRUE):
-  1. APScheduler runs in the FastAPI lifespan with cron triggers for all scheduled agent jobs
-  2. Admin Agent sends a Friday 5pm digest summarizing pending Admin captures and a Saturday 9am errand nudge
-  3. Ideas Agent sends a weekly check-in (Tue-Thu, 10am) for the stalest un-nudged idea with contextual agent-generated copy
-  4. People Agent sends a relationship nudge when the interaction gap exceeds 4 weeks (max 1/day, daily 8am scan)
-  5. All scheduled notifications use agent-generated copy referencing actual capture content and the migrated backend is deployed to Azure Container Apps with updated CI/CD
+  1. A "Status & Priorities" tab exists in the mobile app as the third tab, and tapping it shows shopping lists grouped by store with item counts
+  2. User can expand a store section to see individual items and swipe to remove an item (optimistic UI with rollback on failure)
+  3. Shopping list data refreshes when the Status screen gains focus, so newly added items from captures appear without manual pull-to-refresh
+  4. REST API endpoints exist for fetching shopping lists (`GET /api/shopping-lists`), and deleting items (`DELETE /api/shopping-lists/items/{id}`)
 **Plans**: TBD
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 12 to break down)
+- [ ] 12-01: TBD
+- [ ] 12-02: TBD
+
+### Phase 13: YouTube Recipe Extraction
+**Goal**: Users can paste a YouTube recipe URL and have ingredients automatically extracted and added to their grocery shopping list
+**Depends on**: Phase 11 (Admin Agent pipeline)
+**Requirements**: RCPE-01, RCPE-02, RCPE-03
+**Success Criteria** (what must be TRUE):
+  1. User pastes a YouTube recipe URL as a text capture, it gets classified as Admin, and the Admin Agent extracts ingredients from the video's captions
+  2. Extracted ingredients appear on the grocery store shopping list (e.g., Jewel) as individual items
+  3. Shopping list items originating from a recipe show source attribution (recipe name and/or YouTube URL) so the user knows where the item came from
+  4. When captions are unavailable for a YouTube video, the system fails gracefully with a clear message rather than silently dropping the capture
+**Plans**: TBD
+
+Plans:
+- [ ] 13-01: TBD
+- [ ] 13-02: TBD
 
 ## Progress
 
 **Execution Order:**
 - v1.0: 1 -> 2 -> 3 -> 4 -> 4.1 -> 4.2 -> 4.3 -> 5 (complete)
 - v2.0: 6 -> 7 -> 8 -> 9 -> 9.1 (complete)
-- v3.0: 10 -> 11 -> 12
+- v3.0: 10 -> 11 -> 12 -> 13
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -130,6 +147,7 @@ Plans:
 | 8. FoundrySSEAdapter and Streaming | v2.0 | 2/2 | Complete | 2026-02-27 |
 | 9. HITL Parity and Observability | v2.0 | 7/7 | Complete | 2026-02-28 |
 | 9.1 Mobile UX Review | v2.0 | 2/2 | Complete | 2026-03-01 |
-| 10. Specialist Agents | v3.0 | 0/TBD | Not started | - |
-| 11. Push Notifications | v3.0 | 0/TBD | Not started | - |
-| 12. Proactive Scheduling | v3.0 | 0/TBD | Not started | - |
+| 10. Data Foundation and Admin Tools | v3.0 | 0/TBD | Not started | - |
+| 11. Admin Agent and Capture Handoff | v3.0 | 0/TBD | Not started | - |
+| 12. Shopping List API and Status Screen | v3.0 | 0/TBD | Not started | - |
+| 13. YouTube Recipe Extraction | v3.0 | 0/TBD | Not started | - |
