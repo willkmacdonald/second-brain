@@ -1,433 +1,355 @@
-# Stack Research
+# Stack Research: v3.0 Admin Agent & Shopping Lists
 
-**Domain:** Multi-agent proactive personal knowledge management
-**Project:** Active Second Brain — v2.0 Foundry Migration + Proactive Specialist Agents
-**Researched:** 2026-02-25
-**Confidence:** HIGH for packages/versions from official sources; MEDIUM for geofencing reliability (known open issues); LOW for Foundry specialist agent orchestration pattern (no direct precedent found)
+**Domain:** Multi-agent personal capture system -- adding first specialist agent
+**Project:** Active Second Brain -- v3.0 Admin Agent & Shopping Lists
+**Researched:** 2026-03-01
+**Confidence:** HIGH for all recommendations (official docs, PyPI, existing codebase patterns verified)
 
 ---
 
 ## Context: What This Covers
 
-This document covers all **new or changed** stack elements for the v2.0 milestone. The existing validated stack (FastAPI, Expo/React Native, Cosmos DB, Blob Storage, Azure Container Apps, Ruff, uv) is unchanged. Six new capability areas are addressed:
+This document covers **only new or changed** stack elements for the v3.0 milestone. Four new capability areas are addressed:
 
-1. **Foundry Agent Service migration** — `AzureAIAgentClient` + specialist agents per bucket
-2. **gpt-4o-transcribe** — replaces Whisper for voice transcription
-3. **Expo push notifications** — backend-triggered proactive alerts to the mobile app
-4. **Background geofencing** — location-triggered captures on the mobile side
-5. **Scheduled agent execution** — cron-like Friday digests, weekly nudges, project follow-ups
-6. **Enhanced observability** — Application Insights wired to Foundry agents
+1. **Admin Agent (second persistent Foundry agent)** -- same pattern as Classifier, no new packages
+2. **YouTube transcript extraction** -- `youtube-transcript-api` for fetching captions
+3. **Shopping list data model** -- new Cosmos DB container, Pydantic models
+4. **"Status & Priorities" mobile screen** -- new tab in expo-router, no new mobile packages
 
----
-
-## New and Changed Packages
-
-### Python Backend Additions
-
-| Package | Version | Purpose | Why |
-|---------|---------|---------|-----|
-| `agent-framework-azure-ai` | `1.0.0rc1` (RC, install `--pre`) | `AzureAIAgentClient` for Foundry Agent Service | The Agent Framework connector to Foundry. Without this, agent runs are local in-memory; with it, agents are persistent server-side resources with Foundry-managed threads. |
-| `azure-ai-projects` | `1.0.0` (GA) | `AIProjectClient` for agent CRUD — create, delete, list persistent agents | Required for managing agent lifecycle: creating the 4 specialist agents at startup, storing their IDs in env vars. Released July 31, 2025. |
-| `azure-ai-agents` | `1.1.0` (GA) | `ConnectedAgentTool` model and lower-level agents SDK | Pulled in transitively by `azure-ai-projects` but pin explicitly for `ConnectedAgentTool` type imports. Released August 5, 2025. |
-| `azure-monitor-opentelemetry` | `1.6.0` | Application Insights via OpenTelemetry distro (`configure_azure_monitor()`) | One-call setup routes all OTel spans, logs, and metrics to Application Insights. The `azure-monitor-opentelemetry-distro` package name is deprecated — use this one. |
-| `APScheduler` | `3.11.2` (stable) | `AsyncIOScheduler` with cron triggers for scheduled agent execution | Production-stable Python job scheduler. v4 is still alpha (4.0.0a6 as of Apr 2025) — do not use. `AsyncIOScheduler` integrates with FastAPI's asyncio event loop and is started/stopped via lifespan context manager. |
-| `exponent-server-sdk` | `2.2.0` (stable, sync) | Send Expo push notifications from Python backend | Official Python SDK for Expo Push Service. Use the sync version (`exponent-server-sdk`) because push notifications are fire-and-forget calls from scheduler jobs, not from async FastAPI routes. If called from a FastAPI route, use `asyncio.get_event_loop().run_in_executor()` or `httpx.AsyncClient` directly. |
-
-### Python Backend — Keep Unchanged
-
-| Package | Notes |
-|---------|-------|
-| `agent-framework-core` | Still required — provides `Agent`, `Message`, `@tool`, `AgentSession` |
-| `agent-framework-orchestrations` | Required only if HandoffBuilder stays; may be removed after migration |
-| `agent-framework-ag-ui` | AG-UI SSE endpoint unchanged |
-| `azure-identity` | `DefaultAzureCredential` / `AzureCliCredential` — unified `credential=` param since RC1 |
-| `azure-cosmos`, `azure-storage-blob`, `azure-keyvault-secrets` | All unchanged |
-| `openai` | Still required for `AsyncAzureOpenAI` — now used for `gpt-4o-transcribe` instead of Whisper |
-| `fastapi`, `uvicorn`, `aiohttp` | Unchanged |
-| `pydantic-settings`, `python-dotenv` | Still in use for `Settings` class (AF internals dropped pydantic-settings in RC1 but your code still uses it) |
-
-### Python Backend — Remove
-
-| Package | Why Remove |
-|---------|-----------|
-| `agent-framework-orchestrations` | Remove once HandoffBuilder orchestration code is deleted (v2.0 replaces with code-based routing) |
-| Nothing else | All other existing packages stay |
-
-### Mobile (Expo/React Native) Additions
-
-Current mobile: `expo ~54.0.33`, `react-native 0.81.5`
-
-| Package | Version | Purpose | Why |
-|---------|---------|---------|-----|
-| `expo-notifications` | `~0.32.x` (SDK 54 compatible) | Receive push notification tokens, display notifications, handle notification tap events | Official Expo push notification library. Required for backend-triggered proactive alerts. As of SDK 54, does not work in Expo Go — requires a development build for testing. |
-| `expo-device` | `~7.0.x` (SDK 54 compatible) | Check if running on a physical device before requesting push token | Required by `expo-notifications` — prevents push token requests on simulators/emulators where it always fails. |
-| `expo-location` | `~19.0.8` (SDK 54 compatible) | `startGeofencingAsync` + `stopGeofencingAsync` for background region monitoring | Official Expo geofencing API. Works with `expo-task-manager` to trigger background tasks when device enters/exits a region. |
-| `expo-task-manager` | `~1.1.x` (SDK 54 compatible) | Define background task handlers for geofencing events | Required companion to `expo-location` geofencing. Task definitions must be at the top-level module scope, not inside React components. |
-
-### Mobile — Keep Unchanged
-
-| Package | Notes |
-|---------|-------|
-| All existing packages | `expo-audio`, `expo-constants`, `expo-router`, `@ag-ui/core`, etc. — zero changes |
+The existing validated stack is **unchanged**:
+- `agent-framework-azure-ai` 1.0.0rc2 (AzureAIAgentClient)
+- `agent-framework-core` 1.0.0rc2 (@tool, middleware, ChatOptions)
+- FastAPI + uvicorn (backend)
+- `azure-cosmos` (Cosmos DB)
+- Expo 54 + expo-router 6 + react-native-sse (mobile)
+- Azure Container Apps + GitHub Actions CI/CD
+- Application Insights + OTel
 
 ---
 
-## pyproject.toml Changes (Backend)
+## New Package: Backend
 
-```toml
-[project]
-dependencies = [
-    # Agent Framework + AG-UI (RC - requires --prerelease=allow)
-    "agent-framework-ag-ui",
-    # Remove agent-framework-orchestrations after HandoffBuilder deletion
-    # NEW: Foundry Agent Service integration
-    "agent-framework-azure-ai",
-    # Azure services (existing)
-    "azure-cosmos",
-    "azure-identity",
-    "azure-keyvault-secrets",
-    "azure-storage-blob",
-    # NEW: Foundry Agent lifecycle management
-    "azure-ai-projects>=1.0.0",
-    "azure-ai-agents>=1.1.0",
-    # NEW: Application Insights via OTel distro
-    "azure-monitor-opentelemetry>=1.6.0",
-    # NEW: Scheduled agent execution (proactive digests, nudges, follow-ups)
-    "APScheduler>=3.11.2,<4.0",
-    # NEW: Expo push notifications from backend
-    "exponent-server-sdk>=2.2.0",
-    # Unchanged
-    "aiohttp",
-    "openai",
-    "python-multipart",
-    "pydantic-settings",
-    "python-dotenv",
-]
+### youtube-transcript-api
+
+| Attribute | Value |
+|-----------|-------|
+| **Package** | `youtube-transcript-api` |
+| **Version** | `1.2.4` |
+| **Released** | 2026-01-29 |
+| **Python** | >=3.8, <3.15 |
+| **License** | MIT |
+| **Confidence** | HIGH (verified on PyPI, GitHub) |
+
+**Why this library:** Extracts YouTube video transcripts without requiring a YouTube Data API key, OAuth, or headless browser. Uses an undocumented YouTube API endpoint to fetch captions (manual or auto-generated). This is the de facto standard for this task -- 3.8K+ GitHub stars, actively maintained, used by Microsoft's markitdown project.
+
+**Why not alternatives:**
+- **YouTube Data API v3**: Requires OAuth/API key setup, rate limits, caption download requires separate flow. Overkill for extracting text.
+- **yt-dlp subtitle extraction**: Heavy dependency (full video downloader), slower, more complex API.
+- **Paid transcript APIs (Supadata, AssemblyAI)**: Unnecessary cost and auth complexity when free library works.
+
+**v1.x API (current -- breaking changes from 0.x):**
+
+```python
+from youtube_transcript_api import YouTubeTranscriptApi
+
+ytt_api = YouTubeTranscriptApi()
+transcript = ytt_api.fetch("dQw4w9WgXcQ", languages=["en"])
+
+# FetchedTranscript is iterable -- each snippet has .text, .start, .duration
+full_text = " ".join(snippet.text for snippet in transcript)
 ```
 
-Install commands:
+**Key v1.x changes from 0.x (do NOT use old API):**
+- `YouTubeTranscriptApi.get_transcript()` (static) is **removed** -- use `ytt_api.fetch()`
+- `YouTubeTranscriptApi.list_transcripts()` (static) is **removed** -- use `ytt_api.list()`
+- Must instantiate `YouTubeTranscriptApi()` first (constructor accepts proxy config)
 
-```bash
-# Foundry Agent Service
-uv pip install agent-framework-azure-ai --prerelease=allow
-uv pip install "azure-ai-projects>=1.0.0" "azure-ai-agents>=1.1.0"
-# Observability
-uv pip install "azure-monitor-opentelemetry>=1.6.0"
-# Scheduler
-uv pip install "APScheduler>=3.11.2,<4.0"
-# Push notifications
-uv pip install "exponent-server-sdk>=2.2.0"
-```
+**Integration with Admin Agent:** The Admin Agent will have a `@tool` function `extract_recipe_from_youtube` that:
+1. Parses YouTube URL to extract video ID
+2. Calls `ytt_api.fetch(video_id)` to get transcript
+3. Joins snippet text into a single string
+4. Passes transcript to GPT-4o (via the agent's own reasoning) to extract structured ingredients
+5. Calls `add_shopping_list_items` tool to file items to correct stores
 
-## mobile/package.json Changes
-
-```bash
-# Push notifications
-npx expo install expo-notifications expo-device
-# Geofencing
-npx expo install expo-location expo-task-manager
-```
-
-Resulting additions to `dependencies`:
-
-```json
-{
-  "expo-notifications": "~0.32.0",
-  "expo-device": "~7.0.0",
-  "expo-location": "~19.0.0",
-  "expo-task-manager": "~1.1.0"
-}
-```
-
-Use `npx expo install` (not `npm install`) — it picks versions compatible with your exact SDK.
+**Risk:** Uses undocumented YouTube API. YouTube can change/block at any time. Mitigation: the library is actively maintained and adapts quickly to YouTube changes (multiple patches in 2025-2026). Acceptable risk for a personal project.
 
 ---
 
-## Azure Resources: New Additions
+## No New Packages Required
 
-| Resource | Type | Notes |
-|----------|------|-------|
-| AI Foundry Account | `Microsoft.CognitiveServices/accounts` | New resource type (NOT old Hub-based ML workspace). Created via Foundry portal. |
-| Foundry Project | Child of AI Foundry Account | Provides `https://<account>.services.ai.azure.com/api/projects/<project>` endpoint. |
-| gpt-4o-transcribe deployment | Model deployment in Foundry Project | Deploy `gpt-4o-transcribe` model; use East US2 region (currently the only region with global standard availability). |
-| Application Insights | `Microsoft.Insights/components` | Connected to Container App and Foundry project for agent run traces, token usage, cost. |
-| Container App Jobs (optional) | Scheduled Container App Jobs | Alternative to APScheduler for digest/nudge jobs. Runs on cron without occupying the always-on Container App. See "Scheduling Strategy" section below. |
+### Second Persistent Foundry Agent (Admin Agent)
 
----
-
-## New Environment Variables
-
-| Variable | Format | Source |
-|----------|--------|--------|
-| `AZURE_AI_PROJECT_ENDPOINT` | `https://<account>.services.ai.azure.com/api/projects/<project>` | Foundry portal → Project overview |
-| `AZURE_AI_MODEL_DEPLOYMENT_NAME` | `gpt-4o` | Foundry portal → Models + Endpoints |
-| `AZURE_AI_TRANSCRIBE_DEPLOYMENT_NAME` | `gpt-4o-transcribe` | Foundry portal → Models + Endpoints |
-| `AZURE_AI_ADMIN_AGENT_ID` | Foundry agent ID (stable after creation) | Output from agent creation script |
-| `AZURE_AI_PROJECTS_AGENT_ID` | Foundry agent ID | Output from agent creation script |
-| `AZURE_AI_PEOPLE_AGENT_ID` | Foundry agent ID | Output from agent creation script |
-| `AZURE_AI_IDEAS_AGENT_ID` | Foundry agent ID | Output from agent creation script |
-| `APPLICATIONINSIGHTS_CONNECTION_STRING` | `InstrumentationKey=...;IngestionEndpoint=...` | Azure portal → Application Insights → Overview |
-| `EXPO_PUSH_ACCESS_TOKEN` | String token | Expo EAS dashboard (optional; Expo Push API works without token for development) |
-
----
-
-## SDK Integration Patterns
-
-### 1. AzureAIAgentClient — Foundry-backed Specialist Agents
-
-Four specialist agents (Admin, Projects, People, Ideas) replace the previous Orchestrator + Classifier. Each is a persistent Foundry agent with a stable ID:
+**No new backend packages needed.** The Admin Agent uses the exact same pattern as the Classifier agent already in production:
 
 ```python
-from agent_framework.azure import AzureAIAgentClient
-from azure.identity.aio import DefaultAzureCredential
+# Existing pattern in main.py (line 104-128, 182-198):
+# 1. Create AzureAIAgentClient with credential + project_endpoint
+# 2. ensure_classifier_agent() validates/creates persistent agent
+# 3. Create second AzureAIAgentClient with agent_id + middleware
 
-# At FastAPI lifespan startup — create or reference persistent agents
-async with DefaultAzureCredential() as credential:
-    client = AzureAIAgentClient(credential=credential)
-
-    # Register agent once; subsequent runs reference the stable ID
-    admin_agent = await client.as_agent(
-        name="AdminAgent",
-        instructions="You are the Admin specialist...",
-        tools=[classify_and_file, request_misunderstood],
-        should_cleanup_agent=False,  # REQUIRED: persist across restarts
-    )
-```
-
-Each agent is created once and its ID stored in an environment variable (`AZURE_AI_ADMIN_AGENT_ID`). The FastAPI lifespan loads by ID on subsequent starts:
-
-```python
-# config.py
-azure_ai_admin_agent_id: str = ""  # populated from env or agent creation
-```
-
-### 2. gpt-4o-transcribe — Drop-in Whisper Replacement
-
-Same API surface as Whisper — same `audio.transcriptions.create()` method, just different model name and API version:
-
-```python
-from openai import AsyncAzureOpenAI
-
-async with AsyncAzureOpenAI(
-    azure_endpoint=settings.azure_openai_endpoint,
-    api_version="2025-03-01-preview",  # Required for gpt-4o-transcribe
-    azure_ad_token_provider=token_provider,
-) as client:
-    transcript = await client.audio.transcriptions.create(
-        model=settings.azure_ai_transcribe_deployment_name,  # "gpt-4o-transcribe"
-        file=audio_file,
-        response_format="text",
-    )
-```
-
-No changes to the `@tool` decorator or the agent wiring — only the model name and API version change.
-
-### 3. APScheduler — Scheduled Agent Execution
-
-`AsyncIOScheduler` runs in the same event loop as FastAPI. Started/stopped via lifespan context manager:
-
-```python
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.triggers.cron import CronTrigger
-from contextlib import asynccontextmanager
-
-scheduler = AsyncIOScheduler(timezone="UTC")
-
-@scheduler.scheduled_job(CronTrigger(day_of_week="fri", hour=17, minute=0))
-async def friday_digest():
-    """Run the Digest agent every Friday at 5pm UTC."""
-    session = digest_agent.create_session()
-    await digest_agent.run("Generate this week's summary", session=session)
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    scheduler.start()
-    yield
-    scheduler.shutdown()
-```
-
-Jobs are in-memory only (lost on restart) which is acceptable for scheduled digests — the next scheduled run catches up. No persistent jobstore required for this use case.
-
-**Alternative: Container App Jobs.** For digest/nudge jobs that should run even if the main Container App is scaled to zero, consider Azure Container App Scheduled Jobs (cron trigger, separate container, free when not running). This adds deployment complexity but decouples scheduling from the always-on service. Decision deferred to planning phase.
-
-### 4. Expo Push Notifications — Backend to Mobile
-
-**Mobile side (token registration):**
-
-```typescript
-import * as Notifications from 'expo-notifications';
-import * as Device from 'expo-device';
-import Constants from 'expo-constants';
-
-async function registerForPushNotificationsAsync(): Promise<string | null> {
-    if (!Device.isDevice) return null;  // Simulators can't receive pushes
-
-    const { status } = await Notifications.requestPermissionsAsync();
-    if (status !== 'granted') return null;
-
-    const token = await Notifications.getExpoPushTokenAsync({
-        projectId: Constants.expoConfig?.extra?.eas?.projectId,
-    });
-    return token.data;  // "ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]"
-}
-```
-
-Token is stored on the backend (new `devices` or `admin` Cosmos DB document per user).
-
-**Backend side (sending):**
-
-```python
-from exponent_server_sdk import PushClient, PushMessage
-
-def send_push_notification(expo_token: str, title: str, body: str) -> None:
-    response = PushClient().publish(
-        PushMessage(to=expo_token, title=title, body=body)
-    )
-    response.validate_response()
-```
-
-`exponent-server-sdk` uses `requests` (sync) internally. Call from APScheduler jobs directly. For FastAPI async routes, wrap in `asyncio.get_event_loop().run_in_executor(None, send_push_notification, ...)` if needed.
-
-### 5. Background Geofencing — Mobile Side
-
-Geofencing requires `expo-location` + `expo-task-manager`. Task definition must be at the **top-level module scope**, not inside React components:
-
-```typescript
-// app/_layout.tsx (top-level, before any exports)
-import * as TaskManager from 'expo-task-manager';
-import * as Location from 'expo-location';
-
-const GEOFENCE_TASK = 'LOCATION_GEOFENCE';
-
-TaskManager.defineTask(GEOFENCE_TASK, ({ data, error }) => {
-    if (error) { console.error(error); return; }
-    const { eventType, region } = data as any;
-    if (eventType === Location.GeofencingEventType.Enter) {
-        // Trigger a capture prompt or send to backend
-    }
-});
-
-// Start monitoring (after requesting background location permission)
-await Location.startGeofencingAsync(GEOFENCE_TASK, [
-    { latitude: 37.7749, longitude: -122.4194, radius: 100 }
-]);
-```
-
-**Key limitations:**
-- iOS: max 20 regions simultaneously
-- Android: terminated app does NOT restart on geofence event (unlike iOS)
-- Both platforms: requires "always" background location permission (triggers App Store review scrutiny)
-- Requires development build — does not work in Expo Go
-- Known open issues with event firing on app open (GitHub issue #33433) — validate in phase testing
-
-### 6. Application Insights — Foundry Agent Observability
-
-One call at FastAPI startup, before the app is created:
-
-```python
-from azure.monitor.opentelemetry import configure_azure_monitor
-
-configure_azure_monitor(
-    connection_string=settings.applicationinsights_connection_string
+# For Admin Agent -- exact same pattern:
+admin_client = AzureAIAgentClient(
+    credential=credential,
+    project_endpoint=settings.azure_ai_project_endpoint,
+    agent_id=admin_agent_id,
+    should_cleanup_agent=False,
+    middleware=[AuditAgentMiddleware(), ToolTimingMiddleware()],
 )
 ```
 
-Agent Framework's existing OpenTelemetry spans route automatically to Application Insights. No agent code changes. Specialist agent runs appear as separate traces with:
-- Per-agent token usage
-- Tool call duration (classify_and_file, transcribe_audio)
-- Classification outcome as a span attribute
-- Cost per run (computed from token counts)
+**What changes in existing code:**
+
+| File | Change | Impact |
+|------|--------|--------|
+| `config.py` | Add `azure_ai_admin_agent_id: str = ""` setting | Env var for Admin Agent ID |
+| `agents/admin.py` | New file: `ensure_admin_agent()` (copy pattern from `classifier.py`) | Agent registration |
+| `tools/admin.py` | New file: `AdminTools` class with shopping list @tool functions | Admin Agent tools |
+| `main.py` lifespan | Add Admin Agent registration + client creation block | Startup init |
+| `streaming/adapter.py` | Add `stream_admin_capture()` or adapt `_emit_result_event` for Admin outcomes | SSE streaming |
+| `api/capture.py` | Add handoff logic: when Classifier classifies as Admin, invoke Admin Agent | Capture flow |
+| Container Apps env | Add `AZURE_AI_ADMIN_AGENT_ID` env var | Deployment |
+
+**AzureAIAgentClient constructor supports multiple instances** (verified from official docs):
+- Each instance takes an `agent_id` pointing to a different persistent agent
+- They share the same `credential` and `project_endpoint`
+- `should_cleanup_agent=False` prevents deletion of persistent agents
+- `middleware` list is per-client -- reuse the same `AuditAgentMiddleware` and `ToolTimingMiddleware` instances
+
+### Classifier-to-Admin Handoff (Code-Based Routing)
+
+**No Connected Agents, no HandoffBuilder, no new packages.** The handoff is pure FastAPI code-based routing -- the pattern already validated and documented as a key decision in PROJECT.md.
+
+The flow:
+1. Classifier classifies capture as "Admin" with `file_capture` tool
+2. Capture endpoint detects `bucket == "Admin"` in the streamed `file_capture` result
+3. FastAPI code invokes Admin Agent with the captured text + admin doc ID
+4. Admin Agent calls its tools (`add_shopping_list_items`, `extract_recipe_from_youtube`)
+5. SSE events from Admin Agent are streamed to the mobile app
+
+**Why NOT Connected Agents:** Per PROJECT.md key decisions, Connected Agents require moving @tool functions to Azure Functions -- out of scope. Code-based routing is simpler, already proven, and gives full control over the handoff.
+
+### Shopping List Data Model (Cosmos DB)
+
+**No new Cosmos DB packages.** Uses existing `azure-cosmos` async client via `CosmosManager`.
+
+**What changes:**
+
+| Change | Detail |
+|--------|--------|
+| New container: `ShoppingLists` | Single container for all shopping list data, partitioned by `/userId` (consistent with all other containers) |
+| `CONTAINER_NAMES` list in `cosmos.py` | Add `"ShoppingLists"` to the list |
+| New Pydantic models in `models/documents.py` | `ShoppingListItem`, `ShoppingListDocument` |
+| Create container in Cosmos DB | One-time Azure Portal or CLI operation |
+
+**Data Model Design:**
+
+```python
+class ShoppingListItem(BaseModel):
+    """Single item on a shopping list."""
+    name: str                          # "cat litter", "chicken breast"
+    quantity: str | None = None        # "2 lbs", "1 bag", "3"
+    category: str | None = None       # "meat", "produce" (for within-store grouping)
+    checked: bool = False              # Swipe-to-check on mobile
+    sourceRecipeUrl: str | None = None # YouTube URL if from recipe extraction
+    addedAt: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+class ShoppingListDocument(BaseDocument):
+    """Shopping list for a specific store.
+
+    One document per store (e.g., "Jewel", "CVS", "pet store").
+    Items are embedded in the document -- no separate container for items.
+    """
+    storeName: str                     # "Jewel", "CVS", "Costco"
+    items: list[ShoppingListItem] = Field(default_factory=list)
+    # Inherits: id, userId, createdAt, updatedAt, rawText, classificationMeta
+```
+
+**Why embedded items (not separate documents):**
+- Single-user system -- no concurrency concerns
+- Shopping lists are small (10-50 items per store)
+- Reads are always "give me the list for store X" -- single document read, no cross-partition query
+- Removes or checks are patch operations on the same document
+- Keeps Cosmos RU consumption minimal (1 RU per point read)
+
+**Why `/userId` partition key (not `/storeName`):**
+- Consistent with all 5 existing containers
+- Single-user system -- all data under partition key `"will"`
+- No hot partition risk (single user)
+- Cross-store queries (show all lists) work within same partition
+
+**Why single `ShoppingLists` container (not reusing `Admin`):**
+- Shopping lists have different lifecycle than Admin captures (persistent lists vs one-time captures)
+- `AdminDocument` has `rawText`/`classificationMeta` -- shopping lists don't need these fields
+- Separating concerns makes the query model cleaner
+
+### Mobile: Status & Priorities Screen
+
+**No new mobile packages needed.** Uses existing expo-router tab layout pattern.
+
+**What changes:**
+
+| File | Change |
+|------|--------|
+| `mobile/app/(tabs)/status.tsx` | New file: Status & Priorities screen |
+| `mobile/app/(tabs)/_layout.tsx` | Add third `Tabs.Screen` entry for "Status" |
+| API calls | `GET /api/shopping-lists` -- new REST endpoint, standard `fetch()` |
+| Swipe-to-remove | Reuse `react-native-gesture-handler` (already installed, v2.28.0) |
+
+The existing tab layout in `_layout.tsx` uses the standard `Tabs` component from expo-router with `Tabs.Screen` entries. Adding a third tab is trivial -- no new dependencies, no layout changes.
 
 ---
 
-## Scheduling Strategy: APScheduler vs Container App Jobs
+## Recommended Stack (Complete for v3.0)
 
-| Approach | When to Use | Pros | Cons |
-|----------|-------------|------|------|
-| **APScheduler in-process** | Digest/nudge jobs that must access agent objects already in memory | Zero extra infra, co-located with agents, simple deployment | Scheduling state lost on restart; requires always-on Container App instance |
-| **Azure Container App Jobs** | Jobs that run even when main app is scaled to zero; jobs that are long-running or CPU-intensive | Decoupled from main app, free when idle, proper retry/history tracking | Extra deployment artifact; can't directly share agent objects — must call via HTTP API |
+### Backend -- New Dependencies
 
-**Recommendation for v2.0:** Start with APScheduler in-process. The Friday digest and weekly nudges are lightweight tasks that benefit from sharing the already-initialized Foundry agent connections. If the main app needs to scale to zero (not currently required), migrate digest jobs to Container App Jobs in v3.0.
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| `youtube-transcript-api` | `1.2.4` | YouTube transcript extraction | De facto standard, no API key needed, MIT license, actively maintained |
 
----
+### Backend -- Existing (No Changes)
 
-## Version Compatibility
+| Technology | Version | Purpose | Status |
+|------------|---------|---------|--------|
+| `agent-framework-azure-ai` | `1.0.0rc2` | AzureAIAgentClient for Foundry | Already installed, unchanged |
+| `agent-framework-core` | `1.0.0rc2` | @tool, middleware, ChatOptions | Already installed, unchanged |
+| `azure-cosmos` | (current) | Cosmos DB async client | Already installed, add 1 container |
+| `fastapi` | (current) | Web framework | Already installed, add new routes |
+| `openai` | (current) | gpt-4o-transcribe | Already installed, unchanged |
+| `pydantic-settings` | (current) | Config management | Already installed, add 1 setting |
+| `azure-monitor-opentelemetry` | >=1.8.6 | Application Insights | Already installed, unchanged |
 
-| Package A | Compatible With | Notes |
-|-----------|-----------------|-------|
-| `agent-framework-core 1.0.0rc1` | `agent-framework-azure-ai 1.0.0rc1` | Both promoted to RC1 together Feb 19, 2026. Use same RC tag. |
-| `azure-ai-projects 1.0.0` | `azure-ai-agents 1.1.0` | `azure-ai-agents` is a dependency of `azure-ai-projects`. Pin both to avoid drift. |
-| `azure-monitor-opentelemetry 1.6.0` | `opentelemetry-sdk` (managed) | Do NOT manually pin `opentelemetry-sdk` — let the distro control it to avoid conflicts. |
-| `expo ~54.0.33` | `expo-notifications ~0.32.x` | Use `npx expo install` to get exact SDK-54-compatible version; do not manually pick versions. |
-| `expo ~54.0.33` | `expo-location ~19.0.8` | Same — use `npx expo install`. |
-| `APScheduler 3.11.x` | Python `>=3.8` | v3 stable; v4 is alpha (do not use in production). |
-| `gpt-4o-transcribe` | `openai` Python SDK `>=1.0` + `api_version="2025-03-01-preview"` | Requires preview API version; standard `2024-xx-xx` versions return 404 for this model. |
+### Mobile -- No New Dependencies
 
----
+| Technology | Version | Purpose | Status |
+|------------|---------|---------|--------|
+| `expo-router` | ~6.0.23 | Tab navigation | Already installed, add 1 tab |
+| `react-native-gesture-handler` | ~2.28.0 | Swipe gestures | Already installed, reuse for swipe-to-remove |
+| `react-native-sse` | ^1.2.1 | SSE streaming | Already installed, unchanged |
 
-## What NOT to Add
+### Infrastructure -- Changes
 
-| Avoid | Why | Use Instead |
-|-------|-----|-------------|
-| `APScheduler 4.x` | Still in alpha (4.0.0a6 as of April 2025); breaking API changes from v3 | `APScheduler 3.11.x` — stable, well-documented, same AsyncIOScheduler pattern |
-| `azure-monitor-opentelemetry-distro` | Deprecated package name | `azure-monitor-opentelemetry` |
-| Direct `opentelemetry-sdk` pin | Version conflicts with distro's internal pins | Let `azure-monitor-opentelemetry` control OTel versions |
-| Hub-based AI Foundry project | Deprecated since May 2025; incompatible with current SDK/REST API | New `Microsoft.CognitiveServices/accounts` Foundry resource |
-| `expo-background-fetch` | Deprecated in SDK 52, removed in SDK 53+ | `expo-background-task` (if periodic background polling is needed) or geofencing via `expo-location` |
-| `expo-background-task` for geofencing | This is for periodic background polling, not geofencing | `expo-location.startGeofencingAsync()` for location-triggered events |
-| `exponent-server-sdk-async` | Last maintained version unclear; the sync SDK works for scheduled jobs | `exponent-server-sdk 2.2.0` (sync, actively maintained, released July 2025) |
-| `HandoffBuilder` / `AGUIWorkflowAdapter` | Incompatible with multi-specialist-agent design; local-only orchestration with no portal visibility | Code-based routing in FastAPI: inspect the capture type, choose the specialist agent directly |
-| `ConnectedAgentTool` for specialist routing | Connected Agents max depth is 2, and subagents CANNOT call local `@tool` functions (requires Azure Functions) | Code-based routing: FastAPI reads capture type and directly invokes the matching specialist agent |
+| Resource | Change | Notes |
+|----------|--------|-------|
+| Cosmos DB | Add `ShoppingLists` container | Partition key `/userId`, create via Azure Portal/CLI |
+| AI Foundry | Create Admin Agent | In AI Foundry portal, save agent ID to env var |
+| Container Apps | Add `AZURE_AI_ADMIN_AGENT_ID` env var | Same deployment, just new config |
 
 ---
 
 ## Alternatives Considered
 
-| Recommended | Alternative | Why Not Alternative |
-|-------------|-------------|---------------------|
-| APScheduler in FastAPI lifespan | Azure Container App Jobs | APScheduler is simpler and shares initialized agent connections. Container App Jobs are better for zero-scale scenarios (not currently needed). |
-| `exponent-server-sdk` (sync) | Direct `httpx.post` to Expo Push API | SDK handles token validation, chunking, receipt checking. httpx is fine but more boilerplate for the same outcome. |
-| `expo-location` geofencing | Third-party geofencing libraries (react-native-geolocation) | `expo-location` is officially maintained and integrates with `expo-task-manager`. Third-party libraries require bare workflow (ejecting from managed Expo). |
-| Code-based routing to specialist agents | Connected Agents (Foundry server-side) | Connected Agents cannot call local Python `@tool` functions — all tools would need to move to Azure Functions. v3.0 concern, not v2.0. |
-| `gpt-4o-transcribe` | `whisper-1` (keep existing) | `gpt-4o-transcribe` is ~50% lower word error rate and is the forward-looking Azure audio model. Drop-in replacement for the `audio.transcriptions.create()` call — no refactoring needed. |
+| Category | Recommended | Alternative | Why Not |
+|----------|-------------|-------------|---------|
+| YouTube transcripts | `youtube-transcript-api` | YouTube Data API v3 | OAuth/API key overhead, rate limits, more complex for simple transcript extraction |
+| YouTube transcripts | `youtube-transcript-api` | `yt-dlp` | Massive dependency (video downloader), slower, overkill for captions |
+| Agent handoff | Code-based FastAPI routing | Connected Agents (Foundry) | Requires Azure Functions for @tool execution -- out of scope per PROJECT.md |
+| Agent handoff | Code-based FastAPI routing | HandoffBuilder | Was replaced in v2.0 -- incompatible with AzureAIAgentClient |
+| Shopping list storage | Embedded items in store document | Separate items container | Over-engineering for single-user; embedded items = 1 RU reads, simpler queries |
+| Shopping list storage | New `ShoppingLists` container | Reuse `Admin` container | Different lifecycle, different schema, cleaner separation |
+| Recipe extraction | Agent reasoning + transcript text | Dedicated recipe extraction library | No good Python library for this; GPT-4o reasoning on transcript text is more flexible and accurate |
+
+---
+
+## Installation
+
+```bash
+# Single new dependency
+cd backend
+uv pip install youtube-transcript-api --prerelease=allow
+```
+
+**Note:** `--prerelease=allow` is still needed because `agent-framework-azure-ai` 1.0.0rc2 is a pre-release. Adding `youtube-transcript-api` (which is GA) does not change this requirement.
+
+After adding to `pyproject.toml`:
+```toml
+dependencies = [
+    # ... existing deps ...
+    # YouTube transcript extraction for recipe URLs
+    "youtube-transcript-api",
+]
+```
+
+Then: `uv pip compile pyproject.toml -o requirements.txt` or `uv lock` to update the lock file.
+
+---
+
+## What NOT to Add
+
+These were considered and explicitly rejected:
+
+| Library/Package | Why Not |
+|-----------------|---------|
+| `beautifulsoup4` / `requests` | Not needed -- `youtube-transcript-api` handles transcript fetching internally |
+| `langchain` | Massive dependency chain for simple transcript-to-LLM pipeline. The Agent Framework already provides the tool/agent pattern |
+| `instructor` | Structured output extraction from GPT. Unnecessary -- the Admin Agent can call a `add_shopping_list_items` @tool with structured params directly |
+| `expo-notifications` | Push notifications deferred to v3.1+ per PROJECT.md |
+| `expo-location` | Location-aware reminders deferred to v3.1+ per PROJECT.md |
+| `@expo/vector-icons` | Unicode icons in tabs work fine for MVP (existing pattern) |
+| `react-native-reanimated` | Swipe-to-remove works with existing `react-native-gesture-handler` |
+| `azure-ai-projects` v2.0.0b4 | Pre-release, unstable API, not needed -- `agent-framework-azure-ai` handles all agent lifecycle via `agents_client` |
+| Any state management library (Zustand, Redux) | Single-screen shopping list state. React `useState` + `useEffect` with `fetch()` is sufficient for v3.0 |
+
+---
+
+## Integration Points
+
+### How New Code Connects to Existing Stack
+
+```
+Mobile App (Expo)
+  |
+  |-- POST /api/capture (text/voice)
+  |     |
+  |     v
+  |   Classifier Agent (existing)
+  |     |-- file_capture tool --> Cosmos DB (Inbox + bucket container)
+  |     |-- When bucket == "Admin":
+  |     |     |
+  |     |     v
+  |     |   Admin Agent (NEW) -- code-based routing in FastAPI
+  |     |     |-- extract_recipe_from_youtube tool (NEW)
+  |     |     |     |-- youtube-transcript-api --> transcript text
+  |     |     |     |-- Agent reasoning --> structured ingredients
+  |     |     |     v
+  |     |     |-- add_shopping_list_items tool (NEW)
+  |     |     |     |-- CosmosManager --> ShoppingLists container
+  |     |     |     v
+  |     |     |-- SSE events back to mobile app
+  |     |
+  |-- GET /api/shopping-lists (NEW)
+  |     |
+  |     v
+  |   CosmosManager --> ShoppingLists container
+  |     |
+  |     v
+  |   JSON response --> Status & Priorities screen (NEW tab)
+  |
+  |-- PATCH /api/shopping-lists/{store}/items/{item} (NEW)
+        |
+        v
+      CosmosManager --> update item.checked / remove item
+```
+
+### Shared Resources (Lifespan Singletons)
+
+| Resource | Used By Classifier | Used By Admin Agent |
+|----------|-------------------|---------------------|
+| `credential` (AsyncDefaultAzureCredential) | Yes | Yes (same instance) |
+| `cosmos_manager` (CosmosManager) | Yes (Inbox, Admin containers) | Yes (ShoppingLists container) |
+| `AuditAgentMiddleware` | Yes | Yes (same instance) |
+| `ToolTimingMiddleware` | Yes | Yes (same instance) |
+| `foundry_client` (probe client) | Yes | Yes (same instance, list_agents validation) |
 
 ---
 
 ## Sources
 
-### HIGH Confidence (Official docs, PyPI, official release notes)
-
-- [Microsoft Agent Framework — Azure AI Foundry Provider (Microsoft Learn)](https://learn.microsoft.com/en-us/agent-framework/agents/providers/azure-ai-foundry) — `AzureAIAgentClient`, `should_cleanup_agent`, credential pattern; updated 2026-02-23
-- [Python 2026 Significant Changes Guide (Microsoft Learn)](https://learn.microsoft.com/en-us/agent-framework/support/upgrade/python-2026-significant-changes) — RC1 breaking changes: unified credential param, `AgentSession` API
-- [Connected Agents How-To (Microsoft Learn)](https://learn.microsoft.com/en-us/azure/ai-foundry/agents/how-to/connected-agents?view=foundry-classic) — max depth 2 limitation, no local `@tool` support; updated 2026-02-25
-- [Azure Container Apps Jobs (Microsoft Learn)](https://learn.microsoft.com/en-us/azure/container-apps/jobs) — scheduled jobs with cron expressions, trigger types; updated 2026-01-28
-- [Agent Background Responses (Microsoft Learn)](https://learn.microsoft.com/en-us/agent-framework/user-guide/agents/agent-background-responses) — continuation token pattern, Python support "coming soon" for background responses
-- [azure-ai-projects on PyPI](https://pypi.org/project/azure-ai-projects/) — Version 1.0.0 GA, July 31, 2025
-- [azure-ai-agents on PyPI](https://pypi.org/project/azure-ai-agents/) — Version 1.1.0, August 5, 2025
-- [azure-monitor-opentelemetry on PyPI](https://pypi.org/project/azure-monitor-opentelemetry/) — Latest stable
-- [APScheduler on PyPI](https://pypi.org/project/APScheduler/) — v3.11.2 stable (Dec 22, 2025); v4.0.0a6 alpha only
-- [exponent-server-sdk on PyPI](https://pypi.org/project/exponent-server-sdk/) — v2.2.0 (July 3, 2025)
-- [expo-notifications (Expo Docs)](https://docs.expo.dev/versions/latest/sdk/notifications/) — Installation, `getExpoPushTokenAsync`, SDK 54 requirements (dev build required)
-- [expo-notifications Push Setup (Expo Docs)](https://docs.expo.dev/push-notifications/push-notifications-setup/) — Setup steps, FCM for Android, APNs for iOS
-- [expo-location (Expo Docs)](https://docs.expo.dev/versions/latest/sdk/location/) — `startGeofencingAsync`, permissions, iOS 20-region limit, Android termination behavior
-- [expo-task-manager (Expo Docs)](https://docs.expo.dev/versions/latest/sdk/task-manager/) — Top-level `defineTask` requirement, platform support
-- [Expo SDK 54 Changelog](https://expo.dev/changelog/sdk-54) — expo-notifications deprecated exports removed; React Native 0.81
-- [Azure OpenAI Audio Models blog (Microsoft Foundry Blog)](https://devblogs.microsoft.com/foundry/get-started-azure-openai-advanced-audio-models/) — `gpt-4o-transcribe`, `api_version="2025-03-01-preview"`, East US2 availability
-- [gpt-4o-transcribe on OpenAI platform](https://platform.openai.com/docs/models/gpt-4o-transcribe) — model name, response formats, comparison to whisper-1
-
-### MEDIUM Confidence (Verified against secondary sources)
-
-- APScheduler + FastAPI lifespan pattern — consistent across multiple tutorials/Stack Overflow; use of `AsyncIOScheduler` with `CronTrigger` is the established pattern
-- `exponent-server-sdk` sync call from scheduler jobs — standard pattern; async variant (`exponent-server-sdk-async`) has unclear maintenance status
-- Expo SDK 54 + expo-notifications requiring dev build — confirmed by SDK 53 and 54 changelogs; consistent with Expo's ongoing deprecation of Expo Go for advanced features
-
-### LOW Confidence (Needs validation in implementation phase)
-
-- **Geofencing on Android after app termination**: Official docs say terminated Android app does NOT restart on geofence event. iOS does restart. This means Android geofencing silently stops working after the user kills the app. If geofencing is a key feature, this limitation needs to be surfaced in UX (e.g., a status indicator showing geofencing is active).
-- **4 specialist agents + APScheduler stability**: Running 4 persistent Foundry agents + a scheduler in the same FastAPI lifespan has not been validated. Monitor for memory growth and thread contention during testing.
-- **gpt-4o-transcribe East US2 only**: Currently `global standard` deployment type only in East US2. If the Foundry project is in a different region, check current availability at deployment time — regions expand regularly but not guaranteed at time of writing.
-
----
-
-*Stack research for: Active Second Brain v2.0 — Foundry migration + proactive specialist agents + push notifications + geofencing + scheduled execution*
-*Researched: 2026-02-25*
+- [youtube-transcript-api on PyPI](https://pypi.org/project/youtube-transcript-api/) -- version 1.2.4, release date, API
+- [youtube-transcript-api GitHub](https://github.com/jdepoix/youtube-transcript-api) -- v1.x API, migration from 0.x
+- [agent-framework-azure-ai on PyPI](https://pypi.org/project/agent-framework-azure-ai/) -- version 1.0.0rc2
+- [AzureAIAgentClient API reference](https://learn.microsoft.com/en-us/python/api/agent-framework-core/agent_framework.azure.azureaiagentclient?view=agent-framework-python-latest) -- constructor params, middleware, agent_id
+- [Microsoft Agent Framework GitHub](https://github.com/microsoft/agent-framework) -- multi-agent patterns
+- [Cosmos DB partitioning overview](https://learn.microsoft.com/en-us/azure/cosmos-db/partitioning-overview) -- partition key design
+- [Expo Router tabs documentation](https://docs.expo.dev/router/advanced/tabs/) -- adding new tab screens
+- [Foundry Agent Service overview](https://learn.microsoft.com/en-us/azure/foundry/agents/overview?view=foundry-classic) -- multi-agent orchestration

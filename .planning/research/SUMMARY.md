@@ -1,243 +1,192 @@
 # Project Research Summary
 
-**Project:** Active Second Brain — v2.0 Foundry Migration + Proactive Specialist Agents
-**Domain:** Multi-agent proactive personal knowledge management (FastAPI + Expo + Azure AI Foundry)
-**Researched:** 2026-02-25
-**Confidence:** MEDIUM-HIGH overall. Stack and features are grounded in official sources. Architecture has one confirmed design element that requires empirical validation (FoundrySSEAdapter event surface). Pitfalls are thoroughly documented with recovery strategies and phase mappings.
-
----
+**Project:** Second Brain v3.0 — Admin Agent & Shopping Lists
+**Domain:** Multi-agent personal capture system with specialist agent routing
+**Researched:** 2026-03-01
+**Confidence:** HIGH
 
 ## Executive Summary
 
-The Active Second Brain v2.0 encompasses two milestones in one research cycle: (1) migrating the existing capture pipeline from `HandoffBuilder` + `AGUIWorkflowAdapter` to Azure AI Foundry Agent Service with persistent specialist agents, and (2) adding a proactive notification layer driven by APScheduler-triggered specialist agents. The single most critical finding across all four research files is unanimous: **HandoffBuilder and AzureAIAgentClient are fundamentally incompatible and cannot coexist**. The Orchestrator agent is eliminated entirely. FastAPI becomes the code-based orchestrator via `if/elif` routing after classification — this replaces `HandoffBuilder` with approximately 20 lines of Python.
+Second Brain v3.0 adds the first specialist agent (Admin Agent) to an existing single-agent capture pipeline. The system already classifies captures into People/Projects/Ideas/Admin buckets via a persistent Foundry Agent Service agent — v3.0 makes the "Admin" bucket actionable by routing those captures through a second agent that manages store-based shopping lists and extracts ingredients from YouTube recipe URLs. The core approach is code-based sequential routing in FastAPI (not Foundry Connected Agents), which is the only viable pattern given that Connected Agents cannot invoke local @tool functions. The architecture is an incremental extension of v2.0's proven patterns: one new `AzureAIAgentClient`, one new tool class, one new Cosmos container, one new REST API router, and one new mobile tab.
 
-The proactive notification layer is architecturally straightforward once the Foundry migration stabilizes, but carries one irreversible UX risk: notification fatigue. If Will disables iOS notifications for the app, the permission cannot be re-granted programmatically. This means throttling and quiet hours must be built into the notification dispatcher before any agent scheduler is connected to push delivery — not added as a polish step. Beyond that constraint, the proactive layer follows standard patterns: APScheduler in-process (not Container App Jobs, which cannot share initialized agent connections), Expo Push Service for APNs/FCM delivery, and agent-generated copy that reads current Cosmos DB state at nudge time. Geofencing is explicitly deferred to v3.0 in favor of a weekend-morning time-window heuristic that delivers 80% of the value with 5% of the complexity.
+The recommended approach is well-scoped and straightforward to implement because the patterns are already established in the codebase. Admin Agent registration mirrors `ensure_classifier_agent()` exactly. Tool structure mirrors `ClassifierTools`. The SSE streaming adapter is extended (not rewritten) to handle a two-phase pipeline. The single significant new dependency is `youtube-transcript-api` (v1.2.4), but there is a critical deployment risk: cloud provider IPs (Azure Container Apps) are actively blocked by YouTube's servers when using this library. Research confirms this as a well-documented, high-frequency failure mode across GitHub issues #303, #317, and #511. The correct mitigation is the official YouTube Data API v3 with an API key, not a proxy workaround, for all production use.
 
-The recommended implementation sequence has a hard dependency chain: Foundry infrastructure and credentials first, then single-agent Classifier baseline, then FoundrySSEAdapter rewrite, then HITL validation, then the four specialist agents, then push notification infrastructure, then proactive scheduling. Each phase validates independently before the next adds complexity. The v2.0 MVP delivers people nudges, Friday digest, ideas check-ins, and errand timing — all backed by agent-generated copy referencing the user's actual captured content.
-
----
+The three primary risks are: (1) YouTube transcript extraction via `youtube-transcript-api` fails in production on Azure IPs — switch to YouTube Data API v3 from the start, not as a retrofit; (2) concurrent writes to shopping list data require the Cosmos DB Patch API or individual-item documents to avoid lost updates under concurrent Admin Agent writes and user swipe-to-remove actions; (3) the SSE adapter must be extended with new Admin-specific event types or the mobile app will show no confirmation that any Admin capture was processed. None of these risks are blockers — each has a clear prevention strategy that must be built in from the start rather than patched later.
 
 ## Key Findings
 
 ### Recommended Stack
 
-See `.planning/research/STACK.md` for full details.
+The existing stack requires only one new package for v3.0. The `youtube-transcript-api` (v1.2.4) handles YouTube caption extraction without an API key in local environments, but research confirms it is unreliable on Azure datacenter IPs. The practical implication: plan for YouTube Data API v3 integration from the start rather than discovering the cloud IP block after deployment. All other components — `agent-framework-azure-ai`, `azure-cosmos`, FastAPI, Expo/expo-router, Azure Container Apps CI/CD — are unchanged and already in production.
 
-The existing validated stack (FastAPI, Expo/React Native 0.81.5 SDK 54, Cosmos DB, Azure Container Apps, uv, Ruff) is unchanged. Six new capability areas add targeted packages.
+**Core technologies:**
+- `youtube-transcript-api` v1.2.4: YouTube transcript extraction — use for local dev only; use YouTube Data API v3 for production cloud deployment
+- `agent-framework-azure-ai` v1.0.0rc2: AzureAIAgentClient for Admin Agent — same package as Classifier, reuse existing patterns exactly
+- `azure-cosmos` (existing): ShoppingLists container — one new container with `/userId` partition key, one line added to `CONTAINER_NAMES`
+- `expo-router` v6 (existing): Third tab for Status screen — add one `Tabs.Screen` entry, no new mobile packages required
 
-**Core technologies added:**
-- `agent-framework-azure-ai 1.0.0rc1`: `AzureAIAgentClient` connector to Foundry Agent Service — required for persistent server-side agents. Install with `--prerelease=allow`. RC1 promoted February 19, 2026; stable enough for production.
-- `azure-ai-projects 1.0.0` + `azure-ai-agents 1.1.0`: Agent lifecycle management (CRUD for persistent agents). Both GA as of July-August 2025. Pin both together to avoid version drift.
-- `APScheduler 3.11.2`: `AsyncIOScheduler` with cron triggers for Friday digests, weekly nudges, daily People scans. Use v3 only — v4 is still alpha (4.0.0a6). Starts in FastAPI lifespan; shares initialized agent connections.
-- `azure-monitor-opentelemetry 1.6.0`: One-call Application Insights setup via `configure_azure_monitor()`. Do not pin `opentelemetry-sdk` directly — let the distro manage it.
-- `exponent-server-sdk 2.2.0`: Expo Push Service Python SDK (sync). Called from APScheduler jobs, not async FastAPI routes.
-- `expo-notifications ~0.32.x` + `expo-device ~7.0.x`: Expo SDK 54 push notification packages. Require development build — Expo Go insufficient for production push tokens.
-- `gpt-4o-transcribe`: Drop-in replacement for Whisper via same `audio.transcriptions.create()` API. Requires `api_version="2025-03-01-preview"`. Currently East US2 global standard only.
-
-**Critical version constraint:** `agent-framework-azure-ai` RC1 requires `azure.identity.aio.DefaultAzureCredential` (async), not the sync variant from `azure.identity`. This is a silent breaking change from the existing codebase and must be addressed before any Foundry SDK code runs.
-
-**What NOT to add:** `APScheduler 4.x` (alpha), `HandoffBuilder` or `AGUIWorkflowAdapter` (dead code after migration), `ConnectedAgentTool` for specialist routing (local `@tool` functions unsupported), `expo-background-fetch` (removed in SDK 53+), Hub-based AI Foundry projects (deprecated May 2025).
+**Version-critical detail:** The v1.x `youtube-transcript-api` API is a breaking change from v0.x. Do NOT use the old static `YouTubeTranscriptApi.get_transcript()` — instantiate `YouTubeTranscriptApi()` and use `.fetch()`. See STACK.md for the correct v1.x usage.
 
 ### Expected Features
 
-See `.planning/research/FEATURES.md` for full details.
+**Must have (table stakes):**
+- Classifier to Admin Agent inline handoff — core premise of v3.0; code-based routing detects `bucket == "Admin"` and invokes Admin Agent in the same SSE stream
+- Store-based shopping lists in Cosmos DB — one document per store (or one per item; see Gaps); items grouped by store (Jewel, CVS, Pet Store)
+- Agent-driven store routing — Admin Agent instructions map item categories to stores; routing evolves without code deployment
+- Ad hoc item capture to correct store — primary use case (est. 70% of usage); voice/text capture lands in the right store list automatically
+- YouTube recipe URL to ingredient extraction — stated project goal; pipeline is transcript fetch → agent reasoning → add items
+- Status & Priorities screen (third mobile tab) — displays shopping lists grouped by store with check-off and swipe-to-remove
+- Swipe-to-remove on shopping list items — matches existing Inbox UX; requires atomic Cosmos writes to avoid lost updates
 
-**Must have for v2.0 (P1 — table stakes for the "proactive" promise):**
-- Push token registration on app startup — nothing proactive works without the device token stored server-side
-- APScheduler in FastAPI lifespan — trigger mechanism for all scheduled agent runs
-- People Agent relationship nudge — daily 8am scan; fire if `last_interaction` > 4 weeks; highest-value agent for personal system
-- Admin Agent Friday evening digest — one notification/week summarizing pending Admin captures; proves the digest pattern
-- Admin Agent errand timing — surface errand captures Saturday 9am (time-window heuristic, not geofencing)
-- Ideas Agent weekly check-in — "any new thoughts on X?" for the stalest idea; prevents Ideas from becoming a graveyard
-- Notification frequency budget — max 3 nudges/day total, max 2/week per agent; must be built before any scheduler connects to push delivery
-- Quiet hours enforcement — no notifications 9pm-8am (UTC-adjusted); server-side check in scheduler
+**Should have (differentiators):**
+- Voice capture to shopping list items — zero additional code once handoff exists; the existing voice pipeline flows through automatically
+- Multi-store splitting from single capture — "need milk and cat litter" files to two stores in one capture; primarily agent instruction quality
+- Recipe source attribution on items — items from YouTube recipes show which recipe they came from
+- Real-time streaming feedback during Admin processing — SSE step events show "Classifying... Routing to Admin... Extracting recipe..." rather than a blank spinner
 
-**Should have (P2 — add after core proactive loop is validated):**
-- Projects Agent action item extraction — real-time trigger on Projects classification; new `action_item` Cosmos DB document type
-- Projects Agent weekly progress check-in — "2 open items on [project]. On track?" — requires action item extraction first
-- `last_interaction` field on People documents — written by `classify_and_file` when bucket=People; currently uses capture date as proxy
-- Notification action buttons — Expo `setNotificationCategoryAsync` with "Done" + "Snooze 1 week"; backend `/api/nudge/respond` endpoint
-- Notification deep links — tap notification lands in relevant capture, not app home screen
-
-**Defer to v3.0+ (P3):**
-- Background geofencing — Android terminated-app limitation makes it unreliable for errand reminders; weekend morning time-window covers the value
-- Per-person nudge frequency settings — settings creep; add only when explicitly requested
-- Calendar integration — OAuth scope complexity; out of bounds for v2.0
-- Digest as conversation — complex AG-UI threading redesign not justified for one-way weekly summary
-
-**Key anti-feature to avoid:** Independent per-agent notification scheduling without a shared budget. Four agents firing independently create notification storms that cause iOS notification opt-out — an action that cannot be reversed programmatically.
+**Defer to v3.1+:**
+- Push notifications for list updates — pull-based UI is sufficient for single user at v3.0
+- Location-aware store reminders — geofencing complexity, Expo managed workflow limitations
+- Auto-ordering (Chewy.com, etc.) — requires computer use, extreme complexity
+- Item deduplication/merge — accept duplicates for now; user can manually delete
+- Recipe website scraping for non-YouTube URLs — `recipe-scrapers` supports 611 sites but is out of scope for v3.0
 
 ### Architecture Approach
 
-See `.planning/research/ARCHITECTURE.md` for full details.
-
-The v2.0 architecture centers on five persistent Foundry-backed agents (Classifier + Admin, Projects, People, Ideas specialists) all invoked directly by the FastAPI process. Connected Agents are explicitly ruled out for v2.0 because they cannot call local Python `@tool` functions, and every specialist agent needs Cosmos DB write access via `@tool`. FastAPI acts as the code-based orchestrator: after Classifier determines the bucket, `if/elif` logic selects which specialist to invoke for enrichment.
+The v3.0 architecture extends the existing pipeline with a sequential two-phase capture flow. Phase 1 is unchanged: the Classifier Agent classifies the capture and calls `file_capture` to bucket it. Phase 2 is new: if `bucket == "Admin"`, FastAPI code routes to the Admin Agent client which runs its tool chain (`add_shopping_list_items`, optionally `fetch_youtube_transcript`). The handoff is deterministic code logic, not agent-to-agent communication. The SSE stream continues across both phases — the mobile app sees one unbroken stream with Classifier events followed by Admin events. The Status screen is a separate REST data-fetching screen (not SSE), identical in pattern to the Inbox screen but with a purpose-built hierarchical API response shape.
 
 **Major components:**
-1. `AzureAIAgentClient` (in FastAPI lifespan): Single shared client, all five agents created at startup with `should_cleanup_agent=False`. Agent IDs stored in environment variables and reused on restart.
-2. `FoundrySSEAdapter` (~150 lines, replaces 340-line `AGUIWorkflowAdapter`): Wraps `classifier_agent.run(stream=True)`, processes `AgentResponseUpdate` events (not `WorkflowEvent`), emits AG-UI events. Complete rewrite of surrounding plumbing; outcome-detection logic and custom event emission are preserved in concept.
-3. `APScheduler AsyncIOScheduler` (in FastAPI lifespan): Cron-based triggers for Friday digest, weekly nudges, daily People scans. Shares initialized Cosmos connections and agent objects — this is why Container App Jobs are not used.
-4. `PushNotificationService` (`services/push_notifications.py`): Async `httpx` wrapper around Expo Push HTTP API. Fetches stored token from Cosmos Admin container on first call, caches it. Called by scheduler jobs.
-5. Specialist agents (`agents/people.py`, `agents/projects.py`, `agents/ideas.py`, `agents/admin.py`): Foundry-backed agents with domain-specific `@tool` functions registered at `as_agent()` creation time.
-6. New API endpoints: `POST /api/push-token` (device registration), `POST /api/geofence` (deferred), `POST /api/nudge/respond` (v2.x).
-
-**Confirmed architectural patterns:**
-- Tool registration happens at `as_agent(tools=[...])` creation time, not at `run()` time — this is a documented breaking change from `AzureOpenAIChatClient`
-- HITL follow-up always creates a fresh Foundry thread to avoid conversation history contamination from the first failed classification pass
-- `should_cleanup_agent=False` is mandatory for all persistent agents; agent IDs stored as env vars from day one
-- FastAPI is the orchestrator via `if/elif`, not Foundry Connected Agents
-
-**Deleted components:** `agents/orchestrator.py` (Orchestrator eliminated), `agents/workflow.py` (AGUIWorkflowAdapter replaced by FoundrySSEAdapter).
+1. `AdminTools` (tools/admin.py) — @tool functions for shopping list CRUD and YouTube transcript fetching; bound to `CosmosManager` via constructor injection, same as `ClassifierTools`
+2. `ensure_admin_agent()` (agents/admin.py) — self-healing Admin Agent registration on startup; mirrors `ensure_classifier_agent()` exactly
+3. `stream_admin_enrichment()` (streaming/adapter.py) — extends SSE adapter for two-phase pipeline; emits Admin-specific events (`ADMIN_ENRICHED`, `SHOPPING_ITEM_ADDED`, `RECIPE_EXTRACTED`, `EXTRACTION_FAILED`)
+4. `api/shopping_lists.py` — REST router for Status screen: `GET /api/shopping-lists`, `PATCH` item checked, `DELETE` item
+5. `StatusScreen` (mobile/app/(tabs)/status.tsx) — third tab; fetches on focus, collapsible store sections, swipe-to-remove with optimistic UI
+6. `ShoppingListDocument` / `ShoppingItem` (models/documents.py) — Pydantic schemas for the new `ShoppingLists` Cosmos container
 
 ### Critical Pitfalls
 
-See `.planning/research/PITFALLS.md` for full details. 13 pitfalls documented; top 7 are critical.
+1. **Thread cross-contamination between Classifier and Admin Agent** — Create a separate `AzureAIAgentClient` instance for the Admin Agent with its own `agent_id`. Never pass the Classifier's Foundry thread to the Admin Agent. Microsoft docs explicitly warn this is unsafe. The Admin Agent gets ephemeral threads (one-shot per capture), the Classifier gets persistent threads. This separation must be the starting design, not a retrofit.
 
-1. **HandoffBuilder + AzureAIAgentClient incompatibility** — Delete `HandoffBuilder` and `AGUIWorkflowAdapter` before writing any migration code. They cannot coexist. HTTP 400 "invalid payload" on multi-agent runs is the symptom (confirmed GitHub issue #3097). Replacement is code-based FastAPI routing to sequential `agent.run()` calls.
+2. **YouTube transcript extraction blocked on Azure cloud IPs** — `youtube-transcript-api` works locally but fails in production on Azure Container Apps. YouTube actively blocks cloud datacenter IP ranges. GitHub issues #303, #317, #511 all confirm this. Use the YouTube Data API v3 (official, authenticated, not blocked) for production. Do not attempt residential proxy workarounds for a hobby project.
 
-2. **Connected Agents cannot call local @tool functions** — Confirmed in official docs. Sub-agent `requires_action` events are handled server-side; the FastAPI process never receives the callback. The Classifier's Cosmos DB writes silently never execute. Do not use Connected Agents in v2.0. Reserve for v3.0 with Azure Functions.
+3. **Shopping list array writes create race conditions** — The Admin Agent (writing items) and the user (swiping to remove) can write to the same Cosmos document concurrently. Cosmos DB defaults to Last Writer Wins, so one write will silently overwrite the other. Use the Cosmos DB Patch API for atomic array operations, or — strongly preferred per PITFALLS.md — model each item as its own Cosmos document with a `store` field, enabling independent create/delete with no array index fragility.
 
-3. **`should_cleanup_agent=True` (default) destroys persistent agents** — Default deletes the server-side agent resource on `close()`. Container App scale-to-zero triggers cleanup, accumulating hundreds of stale agents and invalidating stored IDs. Use `should_cleanup_agent=False` for all agents.
+4. **Admin Agent tools registered on Classifier client (tool leakage)** — If shopping list tools are added to the Classifier's tool list, the Classifier will opportunistically call `add_shopping_item` directly, bypassing the Admin Agent's store-routing logic. Maintain strictly separate tool lists per agent client from day one.
 
-4. **AGUIWorkflowAdapter is a complete rewrite, not a migration** — The existing adapter checks `WorkflowEvent` types that do not exist in the `AzureAIAgentClient` stream. The new `FoundrySSEAdapter` must handle `AgentResponseUpdate` objects. The outcome-detection logic is reusable in concept but all event-type handling is a replacement. Budget ~150 lines and a full test cycle against the mobile client.
-
-5. **Notification fatigue is irreversible** — iOS notification permission, once revoked, cannot be re-granted programmatically. Build frequency throttling (max 1/agent/day, 3/day total) and quiet hours (9pm-8am) into the notification dispatcher before connecting any scheduler to push delivery. CHI 2025 research confirms: even a modest increase in suggestion frequency can cut user preference for a proactive assistant by half.
-
-6. **Async credential mismatch** — `AzureAIAgentClient` requires `azure.identity.aio.DefaultAzureCredential`. The existing codebase uses the sync version. Update all credential imports before writing any Foundry client code. Do not share credential objects between the Foundry client and other sync Azure clients.
-
-7. **Three RBAC assignments required** — Developer Entra ID + Container App managed identity need "Azure AI User" on Foundry project; Foundry project managed identity needs "Cognitive Services User" on the Azure OpenAI resource. Missing any one causes 403/401 errors that surface only in specific deployment contexts.
-
----
+5. **SSE adapter assumes single-agent tool detection** — The existing adapter only recognizes `file_capture` as a terminal tool call. Admin Agent tool calls are silently ignored without adapter extension. New event types are required: `ADMIN_ENRICHED`, `SHOPPING_ITEM_ADDED`, `RECIPE_EXTRACTED`, `EXTRACTION_FAILED`. The mobile `ag-ui-client.ts` switch statement must handle these types for the user to see any confirmation of Admin processing.
 
 ## Implications for Roadmap
 
-The research establishes a clear dependency chain that determines phase ordering. Foundry infrastructure prerequisites block all SDK work. The Classifier baseline validates the tool execution model before building the adapter. The FoundrySSEAdapter must be proven before HITL validation adds complexity. Push notification infrastructure must be proven before scheduler logic is connected. Throttling must exist before any agent fires a push.
+Based on combined research, the dependency chain is clear and the build order is driven by data-before-behavior: the data model and tools must exist before the agent can be registered, the agent must exist before the capture handoff can work, and the handoff must write data before the mobile screen has anything to display. YouTube extraction is the highest-risk feature and should be layered on last after the core ad hoc item pipeline is validated.
 
-### Phase 1: Foundry Infrastructure and Prerequisites
-**Rationale:** Before any code, Azure resources and RBAC must be correct. Three separate RBAC assignments, async credential type, and agent persistence strategy have all caused silent failures that are expensive to diagnose mid-implementation. This phase also includes deleting `HandoffBuilder` and `AGUIWorkflowAdapter` before they can cause confusion — they are dead code from the first line of Foundry migration code.
-**Delivers:** AI Foundry Account + Project provisioned; gpt-4o-transcribe deployed in East US2; Application Insights instance wired; all three RBAC assignments verified independently; async credentials in codebase (`azure.identity.aio`); `HandoffBuilder` and `AGUIWorkflowAdapter` deleted; new env vars in `.env` and `config.py`; `agent-framework-azure-ai` installed and import verified.
-**Avoids:** Pitfalls 6 (credential mismatch), 7 (RBAC — three assignments), 3 (agent persistence strategy locked in before first agent is created).
+### Phase 1: Data Foundation
 
-### Phase 2: Single-Agent Classifier Baseline
-**Rationale:** Validate `AzureAIAgentClient` with the existing Classifier before introducing any new agents. This is the lowest-risk entry point — the Classifier is already functionally proven; only the client type changes. Critically: confirm that `classify_and_file` writes to Cosmos DB when called by the Foundry service. If tool execution fails here, the architecture changes before any adapter or specialist agent work is done.
-**Delivers:** Classifier agent visible in Foundry portal with stable ID across restarts; `classify_and_file` confirmed writing to Cosmos DB during a Foundry-managed run; agent ID captured for `AZURE_AI_CLASSIFIER_AGENT_ID` env var; `classifier.py` updated with `AzureAIAgentClient`; `should_cleanup_agent=False` verified working.
-**Avoids:** Pitfalls 1 (HandoffBuilder already gone), 2 (tool execution confirmed before building multi-agent layer), 4 (tools registered at creation time, not run time).
-**Uses:** `agent-framework-azure-ai`, `azure-ai-projects`, `azure.identity.aio`.
+**Rationale:** Every downstream component (agent tools, API endpoints, mobile screen) depends on Pydantic models and the Cosmos container. Zero of the remaining phases can function without this layer. Must be first.
+**Delivers:** `ShoppingListDocument` + `ShoppingItem` Pydantic models; `"ShoppingLists"` added to `CONTAINER_NAMES`; `AdminTools` class with `add_shopping_list_items` @tool writing to Cosmos; `ShoppingLists` container created in Azure Portal.
+**Addresses:** TS-2 (store-based data model), TS-3 (store routing via tool)
+**Avoids:** Pitfall 9 (container not created before code writes to it), Pitfall 3 (data model decision locked in early with Patch API or individual docs)
 
-### Phase 3: FoundrySSEAdapter and FastAPI Integration
-**Rationale:** With the Classifier baseline confirmed, replace the AG-UI streaming layer. The `FoundrySSEAdapter` (~150 lines) is the riskiest migration component — silent SSE failures are hard to debug once specialist agents add noise to the picture. Validating against the mobile client at this stage means any streaming problems are attributable to the adapter alone.
-**Delivers:** `FoundrySSEAdapter` replacing `AGUIWorkflowAdapter`; `main.py` lifespan migrated to `AzureAIAgentClient`; Orchestrator deleted; text and voice capture pipelines working end-to-end; `CLASSIFIED`/`MISUNDERSTOOD`/`UNRESOLVED` custom events verified against mobile app; HITL follow-up confirmed using fresh Foundry threads.
-**Avoids:** Pitfall 4 (AGUIWorkflowAdapter rewrite correctly scoped as complete replacement), Pitfall 13 (HITL thread contamination — fresh thread strategy validated here).
-**Implements:** `FoundrySSEAdapter` architecture component.
+### Phase 2: Admin Agent Registration
 
-### Phase 4: HITL Validation and Observability
-**Rationale:** HITL flows are the highest functional risk because they depend on the adapter's custom event emission and thread management. Validate all three HITL paths explicitly before declaring migration complete. Wire Application Insights and confirm traces, token usage, and cost metrics appear in the Foundry portal.
-**Delivers:** All three HITL flows verified end-to-end (low-confidence bucket buttons; misunderstood follow-up with fresh thread; recategorize); Application Insights traces in portal for a classification run; token usage and cost metrics confirmed; v2.0 Foundry migration declared complete.
-**Uses:** `configure_azure_monitor()` with `APPLICATIONINSIGHTS_CONNECTION_STRING`; fresh `thread_id` per follow-up endpoint call.
+**Rationale:** The Admin Agent must exist as a registered Foundry agent before the capture pipeline can invoke it. Agent instructions — written in the Foundry portal — determine all store-routing behavior and must be written alongside the code.
+**Delivers:** `ensure_admin_agent()` function in agents/admin.py; `azure_ai_admin_agent_id` config setting; Admin Agent client initialized in main.py lifespan; `AZURE_AI_ADMIN_AGENT_ID` env var on Container Apps; Admin Agent instructions written in Foundry portal with store routing rules.
+**Addresses:** TS-1 (second persistent Foundry agent), TS-3 (agent-driven store routing)
+**Avoids:** Pitfall 1 (thread contamination — separate AzureAIAgentClient instance from day one), Pitfall 4 (tool leakage — separate tool lists per agent from day one)
 
-### Phase 5: Specialist Agents (People, Projects, Ideas, Admin)
-**Rationale:** With infrastructure, Classifier baseline, and streaming layer proven, the four specialist agents can be added using the same creation pattern. Each agent follows the tool-at-creation-time rule. FastAPI routing code (`if/elif` on classified bucket) is straightforward. Adding agents one at a time and verifying Cosmos DB writes after each reduces debugging surface.
-**Delivers:** Four persistent Foundry-backed specialist agents created with IDs stored in env vars; domain tools wired at creation time (`log_interaction`, `add_action_item`, `enrich_idea`, `schedule_reminder`); post-classification enrichment routing in FastAPI endpoint handler; Cosmos DB writes verified for each specialist.
-**Avoids:** Pitfall 2 (explicit decision: code-based routing, not Connected Agents), Pitfall 4 (tool registration at creation time).
-**Implements:** `agents/people.py`, `agents/projects.py`, `agents/ideas.py`, `agents/admin.py` and corresponding `tools/` files.
+### Phase 3: Capture Pipeline Integration
 
-### Phase 6: Push Notification Infrastructure
-**Rationale:** The entire proactive feature depends on push delivery. This infrastructure phase proves the full cycle (token registration → Expo Push API → APNs/FCM → device) before any agent scheduling is connected. Push receipt polling for `DeviceNotRegistered` detection must be implemented here — not as a later polish step — because silent delivery failures are the second biggest proactive feature risk after notification fatigue.
-**Delivers:** `POST /api/push-token` endpoint; `PushNotificationService` with token storage in Cosmos Admin container; Expo push token registration on app startup; receipt polling for `DeviceNotRegistered` detection; notification frequency budget utility (max 3/day total, max 2/week per agent); quiet hours enforcement (9pm-8am); end-to-end push delivery verified with development build (not Expo Go).
-**Avoids:** Pitfalls 6 (permission sequence before `getExpoPushTokenAsync()`), 7 (two-stage receipt system implemented), 9 (notification budget built before any scheduler connects).
-**Uses:** `exponent-server-sdk 2.2.0`, `expo-notifications`, `expo-device`.
+**Rationale:** With the data layer (Phase 1) and agent registered (Phase 2), the end-to-end ad hoc item capture flow can be wired together. The SSE adapter extension and new event types must be done in this phase — retrofitting them later creates mobile/backend misalignment risk.
+**Delivers:** `stream_admin_enrichment()` in adapter.py; conditional Admin routing in `stream_text_capture()` and `stream_voice_capture()`; new SSE events (`ADMIN_ENRICHED`, `SHOPPING_ITEM_ADDED`); mobile handles new event types and shows store confirmation toast; per-step timeout values increased for two-agent pipeline (recommended: 90 seconds total).
+**Addresses:** TS-1 (handoff), TS-4 (ad hoc item capture), D-1 (voice capture flows through automatically), D-4 (streaming feedback)
+**Avoids:** Pitfall 5 (adapter single-agent assumption), Pitfall 8 (ContextVar scope — pass `inbox_item_id` explicitly, not via ContextVar), Pitfall 10 (generic CLASSIFIED feedback is useless for Admin captures), Pitfall 11 (60-second timeout insufficient for two-agent pipeline)
 
-### Phase 7: Proactive Agent Scheduling (APScheduler + Nudge Logic)
-**Rationale:** Only after push infrastructure is proven and the notification budget is in place should the scheduler be connected. All specialist agents and the push pipeline are independently proven; this phase composes them into the proactive loop. `gpt-4o-transcribe` replaces Whisper in this phase as well (drop-in, same API call).
-**Delivers:** `AsyncIOScheduler` in FastAPI lifespan; Friday digest (Admin Agent, 5pm UTC Friday); People nudge (daily 8am scan, 4-week threshold); Ideas check-in (weekly, stalest idea, Tue-Thu rotation); errand timing (Saturday 9am); quiet hours enforced in all job functions; gpt-4o-transcribe deployed and wired.
-**Avoids:** Pitfall 9 (notification fatigue — budget utility from Phase 6 gates all sends), Pitfall 10 (APScheduler timezone configuration with `timezone="Europe/London"` for DST handling).
-**Uses:** `APScheduler 3.11.2`, `PushNotificationService`, all specialist agents from Phase 5.
-**Implements:** `services/scheduler.py` with all job functions.
+### Phase 4: Shopping List API and Status Screen
+
+**Rationale:** Once Cosmos has shopping list data written by Phase 3, the REST endpoints and mobile screen can be built. The API and mobile screen are relatively independent of Phase 3 implementation details — they read from Cosmos, so they can be built in parallel with Phase 3 once the data model (Phase 1) is finalized.
+**Delivers:** `api/shopping_lists.py` router (`GET /api/shopping-lists`, `PATCH` check item, `DELETE` item); `StatusScreen` mobile component (third tab, collapsible store sections, item list); swipe-to-remove with optimistic UI and rollback; tab layout update in `_layout.tsx`.
+**Addresses:** TS-6 (Status screen), TS-7 (swipe-to-remove)
+**Avoids:** Pitfall 12 (data shape mismatch — design shopping list API independently from InboxListResponse; response is hierarchical store/items, not flat)
+
+### Phase 5: YouTube Recipe Extraction
+
+**Rationale:** Enhancement layer on top of the working ad hoc item pipeline. Deliberately last because YouTube extraction has the most implementation uncertainty (cloud IP blocking, caption availability, timeout pressure from a third network dependency). The full v3.0 value proposition — daily shopping list management via voice/text capture — is delivered without YouTube extraction.
+**Delivers:** `fetch_youtube_transcript` @tool; YouTube Data API v3 integration (not `youtube-transcript-api` for production); Admin Agent instructions updated for recipe handling; `RECIPE_EXTRACTED` and `EXTRACTION_FAILED` SSE events; fallback chain for missing captions ("No captions available — paste recipe text directly"); end-to-end test with real YouTube recipe URLs.
+**Addresses:** TS-5 (YouTube recipe extraction), D-3 (recipe source attribution on items)
+**Avoids:** Pitfall 2 (cloud IP blocking — use YouTube Data API v3, not `youtube-transcript-api` in production), Pitfall 6 (missing captions — build graceful fallback chain before considering this done)
 
 ### Phase Ordering Rationale
 
-- **Infrastructure before code:** Foundry RBAC, credential type, and resource provisioning are preconditions for all Foundry SDK work. Wrong credential type causes silent failures that obscure real bugs in subsequent phases.
-- **One agent before many:** Validating the Classifier in isolation proves the `AzureAIAgentClient` + `@tool` pattern cheaply. Adding four specialist agents to a broken baseline multiplies debugging surface.
-- **Streaming adapter early:** The FoundrySSEAdapter is the riskiest migration component and the most mobile-app-visible. Validating it before specialist agents means streaming problems are attributable to the adapter, not to agent interactions.
-- **HITL validation before specialist agents:** HITL flows depend on the adapter. Confirming them before Phase 5 means specialist agent work starts from a fully validated foundation.
-- **Push infrastructure before scheduling:** Proving delivery independently means scheduling failures are attributable to scheduler code, not to push infrastructure.
-- **Throttling before scheduling:** The notification budget utility is built in Phase 6 (push infrastructure) and gates all sends in Phase 7. The order of operations prevents notification fatigue at launch.
+- **Data before behavior:** Pydantic models and Cosmos container in Phase 1 unblock all downstream phases. The decision between embedded array vs. individual item documents must be made here and cannot be changed cheaply later.
+- **Agent before handoff:** The Admin Agent must be registered (Phase 2) before the capture pipeline can route to it (Phase 3). Writing agent instructions alongside registration is critical — routing accuracy depends on instruction quality.
+- **Ad hoc items before recipe extraction:** The core shopping list use case (Phases 3-4) should work reliably and be validated before adding the complexity of YouTube extraction (Phase 5). This allows store routing quality to be assessed with simple text captures first.
+- **YouTube extraction deliberately last:** It has the highest implementation risk (cloud IP blocking is a confirmed production failure mode, not a hypothetical) and is the most separable enhancement. The daily-use value of the system is fully delivered without it.
+- **Status screen parallelizable with Phase 3:** The API endpoints read from Cosmos written by Phase 1 models. They can be built alongside Phase 3 if bandwidth allows, since the only shared dependency is the Phase 1 data model.
 
 ### Research Flags
 
-Phases likely needing `/gsd:research-phase` during planning:
-- **Phase 3 (FoundrySSEAdapter):** The exact structure of `AgentResponseUpdate` events from a live Foundry agent stream needs empirical validation during Phase 2 standalone testing before writing the Phase 3 event handler. This is a 5-minute smoke test, not a full research phase — but the finding should be documented before Phase 3 planning begins.
-- **Phase 7 (APScheduler timezone):** Whether `timezone="Europe/London"` in `AsyncIOScheduler` handles DST correctly in the Azure Container Apps environment is a configuration decision. APScheduler's DST handling is the better default (avoids manual cron updates twice a year), but needs a decision documented before scheduler implementation begins.
+Phases likely needing deeper research during planning:
+- **Phase 5 (YouTube extraction):** YouTube Data API v3 setup, caption download API surface, and handling auto-generated vs manual caption types need implementation-time research. STACK.md covers `youtube-transcript-api` thoroughly but does not fully document the YouTube Data API v3 alternative path. Treat this as pre-work before Phase 5 starts.
+- **Phase 3 (SSE adapter extension):** The two-phase streaming pipeline is novel for this codebase. The adapter refactor scope, new event type contracts, and mobile event handling should be designed carefully before coding to avoid mobile/backend misalignment that would require changes to both sides.
 
-Phases with standard patterns (skip research-phase):
-- **Phase 1:** Entirely documented via official Azure portal flows and `az cli` commands, plus the official 2026 Significant Changes migration guide.
-- **Phase 2:** `AzureAIAgentClient` + local `@tool` pattern documented in official Agent Framework samples with code.
-- **Phase 4:** Application Insights is `configure_azure_monitor()` with one env var. HITL thread strategy is an explicit architectural decision, not a research question.
-- **Phase 5:** Same creation pattern as Phase 2, repeated four times with domain-specific tools.
-- **Phase 6:** Expo push setup extensively documented; receipt polling pattern is well-known from Expo official docs.
-
----
+Phases with standard patterns (skip research):
+- **Phase 1 (Data Foundation):** Pydantic models and Cosmos container are identical to existing containers and tool class patterns. No unknowns.
+- **Phase 2 (Admin Agent Registration):** Exact mirror of `ensure_classifier_agent()`. No new patterns.
+- **Phase 4 (Shopping List API + Status Screen):** REST endpoints follow existing FastAPI router patterns. Expo tab addition is documented and trivial. Optimistic UI matches existing Inbox swipe-to-delete pattern.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | Official PyPI versions, official Expo SDK 54 docs, official Microsoft Learn docs. The only LOW-confidence item is gpt-4o-transcribe East US2 availability — validate at deployment time. `agent-framework-azure-ai` RC2 status (vs. RC1) is minor version-tracking, not architectural risk. |
-| Features | HIGH | Notification UX patterns backed by CHI 2025 research and industry benchmarks (OneSignal, CleverTap). Geofencing limitations confirmed via official Expo docs and open GitHub issues. Agent behavior specifications are prompt engineering decisions, not technical unknowns. |
-| Architecture | MEDIUM-HIGH | Foundry integration patterns confirmed via official docs (updated Feb 2026). FoundrySSEAdapter design is sound but `AgentResponseUpdate` event surface needs empirical confirmation during Phase 2. Agent ID persistence, RBAC, and code-based orchestration patterns are high confidence. |
-| Pitfalls | HIGH | 13 pitfalls documented with confirmed causes, warning signs, recovery strategies, and phase mappings. HandoffBuilder incompatibility confirmed via GitHub issue #3097. Connected Agents @tool limitation confirmed in official docs. Notification fatigue backed by CHI 2025 research. All four research files independently reach the same conclusions on the top pitfalls. |
+| Stack | HIGH | All existing packages verified in production. `youtube-transcript-api` fully researched including cloud IP blocking pitfall. YouTube Data API v3 is the correct production alternative. One new dependency only. |
+| Features | HIGH | Feature set is small and well-defined. Scope tightly bounded by PROJECT.md anti-features list. No ambiguous requirements. Usage scenario estimates (70% ad hoc, 15% recipe, 10% at-store, 5% multi-store) are plausible for single-user system. |
+| Architecture | HIGH | Code-based routing pattern is identical to existing Classifier pattern. Handoff mechanics, data model, SSE extension, and REST API design are all detailed and verified against codebase. Component boundaries are clear. |
+| Pitfalls | HIGH | 12 pitfalls identified. Critical pitfalls verified via official docs, confirmed GitHub issues, and direct codebase analysis. Cloud IP blocking has multiple independent source confirmations across 2024-2026. Cosmos race condition prevention is well-documented. |
 
-**Overall confidence:** MEDIUM-HIGH
+**Overall confidence:** HIGH
 
 ### Gaps to Address
 
-- **FoundrySSEAdapter event surface:** Confirm that `classifier_agent.run(stream=True)` produces `AgentResponseUpdate` objects (not `WorkflowEvent` types) during Phase 2 standalone testing. This takes 5 minutes and removes ambiguity from the Phase 3 implementation. Document the exact content types found in `update.contents` before writing the Phase 3 event handler.
+- **YouTube Data API v3 implementation path:** Research confirmed `youtube-transcript-api` won't work in production but did not fully document the YouTube Data API v3 setup (Google Cloud project, API key, caption download endpoint, handling caption types). Resolve before Phase 5 begins — treat as Phase 5 pre-work research.
 
-- **APScheduler timezone handling:** `AsyncIOScheduler` supports `timezone="Europe/London"` (via `pytz` or `zoneinfo`) which handles DST automatically. Validate that this works correctly in the Azure Container Apps environment before committing to it in Phase 7. The alternative (UTC offset hardcoded) requires manual cron updates twice a year — documenting this decision explicitly prevents future confusion.
+- **Individual item documents vs embedded array — firm decision needed before Phase 1:** PITFALLS.md recommends individual item documents (one Cosmos document per shopping list item) for atomicity and no array index fragility. STACK.md and ARCHITECTURE.md both describe embedded arrays in a store document. This must be decided before Phase 1 starts. Recommendation: go with individual item documents — the Pitfall 3 analysis is rigorous on concurrent write risks and serverless Cosmos DB pricing is per-RU not per-document, so document count is not a cost concern.
 
-- **gpt-4o-transcribe region availability:** Currently East US2 global standard only. If the Foundry project is in a different region, validate availability at Phase 7 deployment time. Region expansion is ongoing but not guaranteed for all target regions.
+- **Admin Agent instruction quality:** Store routing accuracy depends entirely on instructions written in the Foundry portal. These can only be validated empirically after the end-to-end pipeline works. Plan for an instruction-tuning sub-step in Phase 3 after first captures flow through. Consider the `get_store_registry` grounding tool (Pitfall 7) to reduce routing non-determinism from the start.
 
-- **4 specialist agents + APScheduler memory stability:** Running 5 persistent Foundry agent connections + APScheduler in the same FastAPI lifespan has not been validated in production. Monitor Application Insights for memory growth and thread contention during Phase 7 testing.
-
-- **Android geofencing after force-quit:** Confirmed platform limitation (deferred to v3.0). If v3.0 pursues geofencing, Android OEM behavior (Samsung, Xiaomi, OnePlus treat force-quit as hard kill) must be surfaced in UX design as "best effort" not reliable trigger.
-
----
+- **Two-agent pipeline timeout UX:** PITFALLS.md recommends 90 seconds for the full multi-agent pipeline including YouTube extraction. Confirm the current mobile progress indicator design handles this gracefully. A 90-second capture with no progress feedback will feel broken. SSE step events ("Classifying...", "Routing to Admin...", "Extracting recipe...") are essential, not optional, for this timeout range.
 
 ## Sources
 
-### Primary (HIGH confidence — official docs, PyPI releases)
+### Primary (HIGH confidence)
+- [youtube-transcript-api PyPI](https://pypi.org/project/youtube-transcript-api/) — v1.2.4 release date, v1.x API, install instructions
+- [youtube-transcript-api GitHub](https://github.com/jdepoix/youtube-transcript-api) — cloud IP blocking issues #303, #317, #511
+- [AzureAIAgentClient API Reference](https://learn.microsoft.com/en-us/python/api/agent-framework-core/agent_framework.azure.azureaiagentclient?view=agent-framework-python-latest) — agent_id, should_cleanup_agent, thread isolation warnings
+- [Azure AI Agent Orchestration Patterns](https://learn.microsoft.com/en-us/azure/architecture/ai-ml/guide/ai-agent-design-patterns) — routing/dispatch pattern, multi-agent design
+- [Foundry Agent Service overview](https://learn.microsoft.com/en-us/azure/foundry/agents/overview?view=foundry-classic) — persistent agents, multi-agent orchestration
+- [Azure AI Foundry Connected Agents](https://learn.microsoft.com/en-us/azure/ai-foundry/agents/how-to/connected-agents?view=foundry-classic) — confirms local @tool limitation (rules out Connected Agents)
+- [HandoffBuilder GitHub issue #3097](https://github.com/microsoft/agent-framework/issues/3097) — confirms HandoffBuilder bugs with AzureAIClient (rules out HandoffBuilder)
+- [Cosmos DB Partial Document Update](https://learn.microsoft.com/en-us/azure/cosmos-db/partial-document-update) — Patch API, atomic array operations
+- [Cosmos DB Optimistic Concurrency Control](https://learn.microsoft.com/en-us/azure/cosmos-db/database-transactions-optimistic-concurrency) — ETag-based concurrency, Last Writer Wins behavior
+- [Expo Router tabs documentation](https://docs.expo.dev/router/advanced/tabs/) — adding new tab screens
+- Existing codebase (`backend/src/second_brain/`) — all current patterns verified by reading source
 
-- [Microsoft Learn — Azure AI Foundry Provider (Agent Framework)](https://learn.microsoft.com/en-us/agent-framework/agents/providers/azure-ai-foundry) — `AzureAIAgentClient`, `should_cleanup_agent`, credential pattern; updated 2026-02-23
-- [Microsoft Learn — Python 2026 Significant Changes Guide](https://learn.microsoft.com/en-us/agent-framework/support/upgrade/python-2026-significant-changes) — RC1 breaking changes: unified credential param, `AgentSession` API
-- [Microsoft Learn — Connected Agents How-To](https://learn.microsoft.com/en-us/azure/ai-foundry/agents/how-to/connected-agents?view=foundry-classic) — max depth 2, no local @tool support; updated 2026-02-25
-- [Microsoft Learn — Container Apps Jobs](https://learn.microsoft.com/en-us/azure/container-apps/jobs) — scheduled jobs, UTC-only cron limitation; updated 2026-01-28
-- [azure-ai-projects on PyPI](https://pypi.org/project/azure-ai-projects/) — v1.0.0 GA, July 31, 2025
-- [azure-ai-agents on PyPI](https://pypi.org/project/azure-ai-agents/) — v1.1.0, August 5, 2025
-- [APScheduler on PyPI](https://pypi.org/project/APScheduler/) — v3.11.2 stable; v4.0.0a6 alpha only
-- [exponent-server-sdk on PyPI](https://pypi.org/project/exponent-server-sdk/) — v2.2.0, July 3, 2025
-- [Expo Notifications SDK docs](https://docs.expo.dev/versions/latest/sdk/notifications/) — push token, SDK 54 requirements, dev build required
-- [Expo Push Notifications setup](https://docs.expo.dev/push-notifications/push-notifications-setup/) — FCM for Android, APNs for iOS
-- [Expo Location SDK docs](https://docs.expo.dev/versions/latest/sdk/location/) — geofencing limitations, iOS 20-region limit, Android force-quit behavior
-- [Azure OpenAI Audio Models blog](https://devblogs.microsoft.com/foundry/get-started-azure-openai-advanced-audio-models/) — `gpt-4o-transcribe`, API version, East US2
-- [azure-monitor-opentelemetry on PyPI](https://pypi.org/project/azure-monitor-opentelemetry/) — latest stable
-
-### Secondary (MEDIUM confidence — multiple sources agree)
-
-- Agent Framework GitHub issue #3097 — HandoffBuilder + AzureAIAgentClient incompatibility confirmed via PR #4083
-- APScheduler + FastAPI lifespan integration — consistent across multiple tutorials; `AsyncIOScheduler` with `CronTrigger` is established pattern
-- Expo SDK 54 + expo-notifications dev build requirement — confirmed by SDK 53 and 54 changelogs
-- CHI 2025 — "Need Help? Designing Proactive AI Assistants" — notification frequency preference research (frequency increase halves user preference)
-- OneSignal — frequency capping research (2-5 notifications/week optimal ceiling)
-- [Clarify — Top Personal CRM Apps 2025](https://www.getclarify.ai/blog/top-personal-crm-apps) — Clay, Dex, Covve reconnect nudge patterns
-- [Expo Geofencing issue #25875](https://github.com/expo/expo/issues/25875) — Android geofencing not working as expected (open issue)
-
-### Tertiary (LOW confidence — needs validation in implementation)
-
-- 4 specialist agents + APScheduler memory stability in production: not validated; monitor during Phase 7
-- FoundrySSEAdapter `AgentResponseUpdate` exact event surface: designed from documentation but needs empirical confirmation during Phase 2 standalone testing
-- gpt-4o-transcribe availability outside East US2: regions expand regularly; validate at deployment time
-- APScheduler `timezone="Europe/London"` behavior in Azure Container Apps: standard Python behavior but validate in target environment
+### Secondary (MEDIUM confidence)
+- [Building a nutritional co-pilot using LLMs](https://medium.com/@kbambalov/building-a-nutritional-co-pilot-using-llms-part-1-recipe-extraction-e112645ef9fd) — recipe extraction patterns via LLM
+- [AnyList features](https://www.anylist.com/features) — competitive context for shopping list UX conventions
+- [NerdWallet best grocery list apps 2025](https://www.nerdwallet.com/finance/learn/best-grocery-list-apps) — market context, user expectations
+- [Nielsen Norman Group: contextual swipe](https://www.nngroup.com/articles/contextual-swipe/) — swipe-to-remove UX conventions
 
 ---
-*Research completed: 2026-02-25*
+
+## Files in This Research Set
+
+| File | Purpose |
+|------|---------|
+| `.planning/research/STACK.md` | Technology recommendations — 1 new package, integration points, what NOT to add |
+| `.planning/research/FEATURES.md` | Feature landscape — table stakes, differentiators, anti-features, usage scenarios |
+| `.planning/research/ARCHITECTURE.md` | Architecture patterns — handoff design, data model, SSE extension, build order |
+| `.planning/research/PITFALLS.md` | Domain pitfalls — 12 pitfalls with prevention strategies, phase-specific warnings |
+| `.planning/research/SUMMARY.md` | This file — executive summary and roadmap implications |
+
+---
+*Research completed: 2026-03-01*
 *Ready for roadmap: yes*
