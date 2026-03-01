@@ -2,45 +2,55 @@
 
 ## What This Is
 
-A personal capture-and-intelligence system that turns fleeting thoughts — voice notes, photos, text — into organized, actionable records across four buckets (People, Projects, Ideas, Admin). Built as a multi-agent system using Microsoft Agent Framework with an Expo mobile app as the capture surface. Will's only job is to capture the thought; seven specialist agents handle everything else.
+A personal capture-and-intelligence system that turns fleeting thoughts — voice notes and text — into organized, actionable records across four buckets (People, Projects, Ideas, Admin). Built on Azure AI Foundry Agent Service with a persistent Classifier agent and an Expo mobile app as the capture surface. Will's only job is to capture the thought; the agent handles classification, filing, and HITL clarification automatically.
 
 ## Core Value
 
-One-tap capture from a phone instantly routes through an agent chain that classifies, files, and sharpens thoughts into concrete next actions — with zero organizational effort from the user.
+One-tap capture from a phone instantly routes through an agent that classifies, files, and clarifies — with zero organizational effort from the user.
 
-## Current Milestone: v2.0 Proactive Second Brain
+## Current State (after v2.0)
 
-**Goal:** Transform the Second Brain from a filing cabinet into a proactive thinking partner — rebuilt on Foundry Agent Service with four specialist agents that follow up over time. Captures still flow in via text/voice, but now each bucket has a specialist agent that understands its domain and proactively nudges Will at the right time.
+**Shipped:** v2.0 Foundry Migration & HITL Parity (2026-03-01)
+**Architecture:** Azure AI Foundry Agent Service with persistent Classifier agent, FastAPI code-based routing, SSE streaming to Expo mobile app
+**Codebase:** ~2,800 LOC Python (backend), ~19,800 LOC TypeScript (mobile)
+**Deployed:** Azure Container Apps with CI/CD via GitHub Actions
 
-**Target features:**
-- Foundry Agent Service infrastructure (persistent agents, Connected Agents, server threads)
-- Hard delete old orchestration code (HandoffBuilder, AzureOpenAIChatClient, Perception Agent, Whisper)
-- `gpt-4o-transcribe` replaces Whisper for voice transcription
-- Application Insights observability (per-agent traces, token usage, cost)
-- **Admin Agent** — errand timing awareness (weekend vs weekday), Friday evening weekend planning digest, location-aware reminders (geofencing)
-- **Ideas Agent** — weekly nudge per idea ("any new thoughts on X?"), keeps ideas alive
-- **Projects Agent** — tracks action items, follows up on progress ("are you on track?"), accountability partner
-- **People Agent** — relationship nudges ("haven't talked to X in Y weeks"), follow-up reminders, interaction tracking
-- Push notifications (Expo) for all proactive nudges
-- Background geofencing for location-aware errand reminders
-- All v1 capture flows working on new foundation (text, voice, HITL)
-- Mobile app capture UX unchanged (AG-UI SSE interface stays the same)
+**What works today:**
+- Text capture → Classifier agent → filed to Cosmos DB with confidence scoring
+- Voice capture → `gpt-4o-transcribe` → Classifier agent → filed
+- Low-confidence captures show bucket buttons for manual selection
+- Misunderstood captures trigger conversational follow-up (text + voice)
+- Unified capture screen with Voice/Text toggle (voice default)
+- Granular processing feedback (Uploading → Classifying)
+- Inbox with detail cards, recategorize, swipe-to-delete
+- Application Insights observability with OTel spans and token usage
+
+## Next Milestone: v3.0 Proactive Second Brain
+
+**Goal:** Transform the filing cabinet into a proactive thinking partner. Four specialist agents per bucket that follow up over time via push notifications.
+
+*Requirements to be defined via `/gsd:new-milestone`*
 
 ## Requirements
 
-### Validated (v1.0)
+### Validated
 
-- [x] Text capture from Expo app routes through Orchestrator → Classifier → filed to Cosmos DB
-- [x] Voice capture transcribed by Perception Agent, then classified and filed
-- [x] Classifier Agent classifies into People/Projects/Ideas/Admin with confidence scoring
-- [x] Low-confidence captures trigger clarification conversation with the user (HITL)
-- [x] AG-UI protocol streams real-time agent handoff visibility to the app
-- [x] Misunderstood captures trigger conversational follow-up
-- [x] Inbox view with detail cards and recategorize capability
+- [x] Text capture from Expo app routes through Classifier → filed to Cosmos DB — v1.0
+- [x] Voice capture transcribed by gpt-4o-transcribe, then classified and filed — v1.0, v2.0
+- [x] Classifier Agent classifies into People/Projects/Ideas/Admin with confidence scoring — v1.0
+- [x] Low-confidence captures trigger bucket selection buttons (HITL) — v1.0, v2.0
+- [x] Misunderstood captures trigger conversational follow-up (text + voice) — v1.0, v2.0
+- [x] AG-UI SSE streams real-time agent feedback to the app — v1.0, v2.0
+- [x] Inbox view with detail cards and recategorize capability — v1.0
+- [x] Foundry Agent Service migration: persistent Classifier, AzureAIAgentClient, local @tool — v2.0
+- [x] FoundrySSEAdapter replaces AGUIWorkflowAdapter — v2.0
+- [x] Application Insights with OTel spans and token usage tracking — v2.0
+- [x] All three HITL flows working on Foundry (low-confidence, misunderstood, recategorize) — v2.0
+- [x] Unified capture screen with Voice/Text toggle, inline text, processing stages — v2.0
 
-### Active (v2.0)
+### Active (v3.0)
 
-*Defined in .planning/REQUIREMENTS.md*
+*To be defined via `/gsd:new-milestone`*
 
 ### Future (v3.0+)
 
@@ -48,73 +58,65 @@ One-tap capture from a phone instantly routes through an agent chain that classi
 - Cross-references extracted (people mentioned in projects, projects mentioned with people)
 - Daily digest delivered at 6:30 AM CT with top actions, blockers, and wins (<150 words)
 - Weekly review digest on Sunday 9 AM CT
-- Ad-hoc "what's on my plate" queries answered via Digest Agent
-- Entity Resolution Agent runs nightly to merge duplicate People records
-- Evaluation Agent produces weekly system health reports
 - Full-text search across all buckets
+- Entity Resolution Agent for duplicate People records
 
 ### Out of Scope
 
 - Multi-user / multi-tenancy — single-user system for Will only
 - Offline capture — requires connectivity
 - Real-time chat — not core to the capture loop
-- Cost ceiling optimization — optimize for capability
-- Full-text search — deferred to v3.0+
-- Share sheet extension — deferred to v3.0+
-- Video keyframe extraction — deferred to v3.0+
+- Background geofencing — Expo managed workflow limitations; time-window heuristic covers 80% of value
+- Connected Agents pattern — requires moving @tool functions to Azure Functions
+- Projects Agent action item extraction — deferred to after core agents proven
+- Calendar integration — OAuth scope complexity out of bounds
 
 ## Context
 
-**Who:** Will Macdonald — Microsoft Manufacturing Industry Advisor (MedTech focus) by day, AI/Python hobbyist developer by night. Child at Lane Tech, does woodworking.
+**Who:** Will Macdonald — Microsoft Manufacturing Industry Advisor (MedTech focus) by day, AI/Python hobbyist developer by night.
 
-**Problem:** Traditional note-taking systems fail because they require organizational effort at capture time. Open cognitive loops pile up across work and personal life. The brain is for thinking, not storage.
+**Problem:** Traditional note-taking systems fail because they require organizational effort at capture time. Open cognitive loops pile up. The brain is for thinking, not storage.
 
-**Learning goal:** This is explicitly a learning project for multi-agent orchestration patterns using Microsoft Agent Framework. The architecture (7 agents, handoff pattern, AG-UI, OpenTelemetry) is chosen to deeply learn these patterns, not because a simpler architecture couldn't work.
+**Learning goal:** This is explicitly a learning project for multi-agent orchestration patterns using Microsoft Agent Framework. The architecture is chosen to deeply learn these patterns.
 
-**Agent team (v2.0):**
-1. **Orchestrator** — routes input to the right specialist, manages Connected Agent invocations
-2. **Classifier** — classifies captures into People/Projects/Ideas/Admin with confidence scoring
-3. **Admin Agent** — errand/task specialist: timing awareness, location reminders, weekend digest
-4. **Projects Agent** — action item tracking, progress follow-ups, accountability nudges
-5. **Ideas Agent** — weekly idea check-ins, keeps captured ideas alive
-6. **People Agent** — relationship tracking, interaction nudges, follow-up reminders
+**Agent team (current):**
+1. **Classifier** — persistent Foundry agent that classifies captures into People/Projects/Ideas/Admin with confidence scoring, executes `file_capture` and `transcribe_audio` @tools locally
 
-**Data model:** Cosmos DB with 5 containers (Inbox, People, Projects, Ideas, Admin), all partitioned by `/userId`. Minimalist fields — "painfully small" to ensure adoption.
+**Agent team (v3.0 target):**
+2. **Admin Agent** — errand/task specialist: timing awareness, weekend digest
+3. **Projects Agent** — action item tracking, progress follow-ups (stub initially)
+4. **Ideas Agent** — weekly idea check-ins, keeps captured ideas alive
+5. **People Agent** — relationship tracking, interaction nudges
 
-**Existing decisions:** 18 design decisions already resolved in the PRD covering auth (API key), entity resolution (lazy nightly), mode dimension, offline (not needed), cost (no cap), digest timing (6:30 AM CT), notifications (silent except HITL/digests), and architecture choices.
+**Data model:** Cosmos DB with 5 containers (Inbox, People, Projects, Ideas, Admin), all partitioned by `/userId`.
 
 ## Constraints
 
 - **Tech stack**: Microsoft Agent Framework (Python), Azure AI Foundry Agent Service, Expo/React Native, Azure Container Apps, Cosmos DB, Blob Storage
-- **Agent client**: `AzureAIAgentClient` from `agent-framework-azure-ai` (Foundry Agent Service — NOT `AzureOpenAIChatClient`)
+- **Agent client**: `AzureAIAgentClient` from `agent-framework-azure-ai` (Foundry Agent Service)
 - **Protocol**: AG-UI (SSE event stream) for agent-to-frontend communication
-- **LLM**: Azure OpenAI GPT-4o (with `gpt-4o-transcribe` for voice — replaces Whisper)
+- **LLM**: Azure OpenAI GPT-4o (with `gpt-4o-transcribe` for voice)
 - **Platform**: iOS and Android via Expo
-- **Single user**: No multi-tenancy design needed — hardcode `userId: "will"`
-- **Observability**: Application Insights + Foundry portal (replaces DevUI-only observability)
-- **Infrastructure**: AI Foundry project required (project endpoint, Azure AI User RBAC)
-- **First-time framework**: Will is learning Agent Framework through this project — expect discovery and iteration
+- **Single user**: No multi-tenancy — hardcode `userId: "will"`
+- **Observability**: Application Insights + Foundry portal
+- **Infrastructure**: AI Foundry project (project endpoint, Azure AI User RBAC)
 
 ## Key Decisions
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Microsoft Agent Framework for multi-agent orchestration | Explicit learning goal + handoff pattern + OpenTelemetry + DevUI | — Pending |
-| AG-UI protocol for frontend communication | Open standard, real-time streaming, handoff visibility | — Pending |
-| Handoff pattern (not parallel) | Specialists own their domain + clarification conversation | — Pending |
-| Action Agent separate from Classifier | Single responsibility — classify vs sharpen are different skills | — Pending |
-| Cosmos DB NoSQL | JSON documents, serverless pricing, free tier, simple for single-user | — Pending |
-| API key auth (not Azure AD) | Single user, simplest approach, stored in Expo Secure Store | — Pending |
-| GPT-4o for all agents | Proven model, native Agent Framework support, lower cost than GPT-5.2 | — Pending |
-| Evaluation Agent in Phase 4 | Needs weeks of data before patterns emerge | — Pending |
-| Claude Code + GSD methodology | Development approach; fallback to spec-driven if GSD impedes | — Pending |
-| AzureOpenAIChatClient + HandoffBuilder for v1 | Simplest option to learn Agent Framework basics first | ✓ Good — learned fundamentals, now graduating |
-| Foundry Agent Service migration (v2.0) | Learning goal demands real infrastructure: persistent agents, server threads, Connected Agents, portal observability | — Pending |
-| v2.0 scope = migration only | Same features as v1 rebuilt on Foundry. Action/People/Digests/Search deferred to v3.0 | ⚠️ Revisit — expanded to proactive specialist agents |
-| v2.0 scope = proactive specialist agents | Filing cabinet → thinking partner. Specialist agents per bucket with follow-up behaviors. Full Foundry + intelligence in one milestone | — Pending |
-| Push notifications for nudges | All proactive behaviors delivered via push. Expo push notification system | — Pending |
-| Background geofencing for errands | Location-aware reminders for Admin Agent errand tracking | — Pending |
-| gpt-4o-transcribe replaces Whisper | Better quality, simpler pipeline, hard delete Perception Agent + Whisper code | — Pending |
+| Microsoft Agent Framework for multi-agent orchestration | Explicit learning goal + handoff pattern + OpenTelemetry | ✓ Good — learned fundamentals through v1 and v2 |
+| AG-UI protocol for frontend communication | Open standard, real-time streaming, handoff visibility | ✓ Good — works well for SSE streaming |
+| Cosmos DB NoSQL | JSON documents, serverless pricing, free tier | ✓ Good — simple, effective for single-user |
+| API key auth (not Azure AD) | Single user, simplest approach | ✓ Good — no issues |
+| GPT-4o for all agents | Proven model, native Agent Framework support | ✓ Good — quality and cost acceptable |
+| AzureOpenAIChatClient + HandoffBuilder for v1 | Simplest option to learn Agent Framework basics | ✓ Good — learned fundamentals, graduated to Foundry |
+| Foundry Agent Service migration (v2.0) | Persistent agents, server threads, portal observability | ✓ Good — cleaner architecture, better observability |
+| FastAPI code-based routing (no Orchestrator agent) | Connected Agents can't call local @tools | ✓ Good — simpler, more reliable than HandoffBuilder |
+| gpt-4o-transcribe replaces Whisper | Better quality, simpler pipeline | ✓ Good — cleaner voice capture |
+| ContextVar for follow-up state | file_capture is @tool, can't add params agent doesn't know | ✓ Good — eliminated orphan reconciliation |
+| Unified capture screen (v2.0) | Two screens were redundant | ✓ Good — simpler UX, voice-first design |
+| v2.0 scope = Foundry migration only | Original scope (specialist agents + push) too large. Ship migration, defer proactive features | ✓ Good — clean cut point |
 
 ---
-*Last updated: 2026-02-25 after v2.0 milestone redefinition (proactive specialist agents)*
+*Last updated: 2026-03-01 after v2.0 milestone*
