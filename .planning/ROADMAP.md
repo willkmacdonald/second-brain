@@ -234,7 +234,7 @@ Plans:
 **Goal:** Consolidate the two redundant capture screens into a single unified screen with Voice/Text mode toggle, inline text capture, granular processing feedback stages, and follow-up mode switching via persistent top toggles
 **Requirements**: UX-01, UX-02, UX-03, UX-04, UX-05
 **Depends on:** Phase 9
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 09.1-01-PLAN.md -- Unified capture screen: Voice/Text toggle, text capture integration, processing stages, dead code cleanup

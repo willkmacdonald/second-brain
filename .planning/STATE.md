@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Proactive Second Brain
-status: unknown
-last_updated: "2026-03-01T03:29:18.678Z"
+status: executing
+last_updated: "2026-03-01T04:45:21Z"
 progress:
   total_phases: 12
   completed_phases: 10
-  total_plans: 42
-  completed_plans: 41
+  total_plans: 43
+  completed_plans: 42
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-25)
 
 **Core value:** One-tap capture from a phone instantly routes through an agent chain that classifies, files, and proactively follows up -- with zero organizational effort.
-**Current focus:** Phase 9 -- HITL Parity and Observability (v2.0 Proactive Second Brain) -- gap closure
+**Current focus:** Phase 9.1 -- Mobile UX Review and Refinements (v2.0 Proactive Second Brain)
 
 ## Current Position
 
-Phase: 9 of 12 (HITL Parity and Observability) -- gap closure
-Plan: 7 of 7 complete in current phase
-Status: Phase 09 gap closure plan 07 complete -- follow-up orphan bug fixed
-Last activity: 2026-02-28 -- Phase 9 Plan 07 complete (follow-up orphan fix)
+Phase: 9.1 of 12 (Mobile UX Review and Refinements)
+Plan: 1 of 2 complete in current phase
+Status: Phase 09.1 plan 01 complete -- unified capture screen with Voice/Text toggle
+Last activity: 2026-03-01 -- Phase 9.1 Plan 01 complete (unified capture screen)
 
-Progress: [============░░░░░░░░] 42/TBD plans (v1.0 complete, v2.0 phase 9 gap closure)
+Progress: [============░░░░░░░░] 42/TBD plans (v1.0 complete, v2.0 phase 9.1 mobile UX)
 
 ## Performance Metrics
 
@@ -52,6 +52,7 @@ Progress: [============░░░░░░░░] 42/TBD plans (v1.0 complete, v2
 - 09-05: 5 min (2 tasks, 5 files)
 - 09-06: 1 min (1 task, 0 files -- portal instruction update)
 - 09-07: 4 min (2 tasks, 3 files -- follow-up orphan fix)
+- 09.1-01: 3 min (2 tasks, 5 files -- unified capture screen)
 
 ## Accumulated Context
 
@@ -108,6 +109,10 @@ Recent decisions affecting current work:
 - [09-07]: ContextVar for follow-up state instead of tool parameter (file_capture is a @tool, cannot add params agent doesn't know)
 - [09-07]: Preserve original rawText, store follow-up as clarificationText (not overwrite)
 - [09-07]: Delete _stream_with_reconciliation entirely -- preventing orphans is better than cleaning them up
+- [09.1-01]: Voice pre-selected as default mode on startup (was text)
+- [09.1-01]: Processing stages (uploading/classifying) replace AgentSteps pill indicators
+- [09.1-01]: Follow-up mode switching via top Voice/Text toggles instead of inline links
+- [09.1-01]: Bucket selection buttons shown whenever hitlQuestion is set (no longer gated on showSteps)
 
 ### Research Findings (Critical)
 
@@ -135,7 +140,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-02-28
-Stopped at: Completed 09-07-PLAN.md -- Phase 9 gap closure (follow-up orphan fix)
-Resume file: None -- deploy and UAT retest follow-up flows
-Resume action: Deploy to Azure Container Apps, retest UAT tests 3 and 4
+Last session: 2026-03-01
+Stopped at: Completed 09.1-01-PLAN.md -- unified capture screen
+Resume file: .planning/phases/09.1-mobile-ux-review-and-refinements/09.1-02-PLAN.md
+Resume action: Execute plan 02 of phase 09.1 (additional UX refinements)
