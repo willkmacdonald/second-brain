@@ -5,14 +5,13 @@ import {
   Pressable,
   Text,
   StyleSheet,
-  ScrollView,
   Animated,
   Alert,
   Platform,
   ToastAndroid,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
 import {
   useAudioRecorder,
   AudioModule,
@@ -20,16 +19,14 @@ import {
   RecordingPresets,
 } from "expo-audio";
 import * as Haptics from "expo-haptics";
-import { CaptureButton } from "../../components/CaptureButton";
 import {
+  sendCapture,
   sendVoiceCapture,
   sendFollowUp,
   sendFollowUpVoice,
 } from "../../lib/ag-ui-client";
 import { API_BASE_URL, API_KEY } from "../../constants/config";
-import { AgentSteps } from "../../components/AgentSteps";
 
-const AGENT_STEPS = ["Processing"];
 const BUCKETS = ["People", "Projects", "Ideas", "Admin"];
 const AUTO_RESET_MS = 2500;
 
@@ -46,10 +43,6 @@ function showToast(message: string) {
   }
 }
 
-function showComingSoon() {
-  showToast("Coming soon");
-}
-
 /** Format milliseconds as M:SS */
 function formatDuration(ms: number): string {
   const s = Math.floor(ms / 1000);
@@ -58,19 +51,19 @@ function formatDuration(ms: number): string {
 }
 
 export default function CaptureScreen() {
-  const [mode, setMode] = useState<"text" | "voice">("text");
+  const [mode, setMode] = useState<"voice" | "text">("voice");
+  const [thought, setThought] = useState("");
 
   // Voice recording state
   const [isRecording, setIsRecording] = useState(false);
   const [permissionGranted, setPermissionGranted] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
-  const [currentStep, setCurrentStep] = useState<string | null>(null);
-  const [completedSteps, setCompletedSteps] = useState<string[]>([]);
-  const [streamedText, setStreamedText] = useState("");
-  const [showSteps, setShowSteps] = useState(false);
+  const [processingStage, setProcessingStage] = useState<
+    "uploading" | "transcribing" | "classifying" | null
+  >(null);
 
-  // HITL state (same as text.tsx)
+  // HITL state
   const [hitlQuestion, setHitlQuestion] = useState<string | null>(null);
   const [hitlThreadId, setHitlThreadId] = useState<string | null>(null);
   const [hitlInboxItemId, setHitlInboxItemId] = useState<string | null>(null);
@@ -83,7 +76,6 @@ export default function CaptureScreen() {
   >(null);
   const [isReclassifying, setIsReclassifying] = useState(false);
   const [followUpText, setFollowUpText] = useState("");
-  const [followUpMode, setFollowUpMode] = useState<"voice" | "text">("voice");
 
   // Pulsing animation for recording indicator
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -153,12 +145,10 @@ export default function CaptureScreen() {
     };
   }, []);
 
-  const resetVoiceState = useCallback(() => {
+  const resetState = useCallback(() => {
     setProcessing(false);
-    setShowSteps(false);
-    setCurrentStep(null);
-    setCompletedSteps([]);
-    setStreamedText("");
+    setProcessingStage(null);
+    setThought("");
     setHitlQuestion(null);
     setHitlThreadId(null);
     setHitlInboxItemId(null);
@@ -168,8 +158,7 @@ export default function CaptureScreen() {
     setMisunderstoodInboxItemId(null);
     setIsReclassifying(false);
     setFollowUpText("");
-    setFollowUpMode("voice");
-    // Do NOT reset mode -- stay in voice mode after filing (per CONTEXT.md)
+    setMode("voice");
   }, []);
 
   const handleRecordToggle = useCallback(async () => {
@@ -202,28 +191,25 @@ export default function CaptureScreen() {
 
       // Upload and process
       setProcessing(true);
-      setShowSteps(true);
+      setProcessingStage("uploading");
 
       const cleanup = sendVoiceCapture({
         audioUri: uri,
         apiKey: API_KEY,
         callbacks: {
-          onStepStart: (stepName: string) => {
-            setCurrentStep(stepName);
+          onStepStart: () => {
+            setProcessingStage("classifying");
           },
-          onStepFinish: (stepName: string) => {
-            setCompletedSteps((prev) => [...prev, stepName]);
-            setCurrentStep(null);
-          },
-          onTextDelta: (delta: string) => {
-            setStreamedText((prev) => prev + delta);
-          },
-          onLowConfidence: (inboxItemId: string, bucket: string, _confidence: number) => {
-            // Show bucket buttons for low-confidence classification
+          onStepFinish: () => {},
+          onLowConfidence: (
+            inboxItemId: string,
+            bucket: string,
+            _confidence: number,
+          ) => {
             setHitlInboxItemId(inboxItemId);
             setHitlQuestion(`Best guess: ${bucket}. Which bucket?`);
-            setShowSteps(true); // CRITICAL: bucket buttons are gated on {showSteps && ...}
             setProcessing(false);
+            setProcessingStage(null);
             setHitlTopBuckets([bucket]);
           },
           onMisunderstood: (
@@ -235,15 +221,16 @@ export default function CaptureScreen() {
             setMisunderstoodInboxItemId(inboxItemId);
             setFollowUpRound(1);
             setProcessing(false);
-            setShowSteps(false);
+            setProcessingStage(null);
           },
           onUnresolved: (_inboxItemId: string) => {
             setProcessing(false);
+            setProcessingStage(null);
             setToast({
               message: "Couldn\u2019t classify. Check inbox later.",
               type: "error",
             });
-            setTimeout(resetVoiceState, AUTO_RESET_MS);
+            setTimeout(resetState, AUTO_RESET_MS);
           },
           onHITLRequired: (
             threadId: string,
@@ -254,6 +241,7 @@ export default function CaptureScreen() {
             setHitlQuestion(questionText);
             setHitlInboxItemId(inboxItemId ?? null);
             setProcessing(false);
+            setProcessingStage(null);
 
             // Extract top 2 buckets from questionText
             const mentioned: string[] = [];
@@ -266,16 +254,17 @@ export default function CaptureScreen() {
           },
           onComplete: (result: string) => {
             setProcessing(false);
+            setProcessingStage(null);
             Haptics.notificationAsync(
               Haptics.NotificationFeedbackType.Success,
             );
             setToast({ message: result || "Captured", type: "success" });
-            setTimeout(resetVoiceState, AUTO_RESET_MS);
+            setTimeout(resetState, AUTO_RESET_MS);
           },
           onError: (error: string) => {
             console.error("Voice capture error:", error);
             setProcessing(false);
-            setShowSteps(false);
+            setProcessingStage(null);
             setToast({
               message: error || "Couldn\u2019t file your capture. Try again.",
               type: "error",
@@ -296,18 +285,85 @@ export default function CaptureScreen() {
     permissionGranted,
     audioRecorder,
     recorderState.durationMillis,
-    resetVoiceState,
+    resetState,
   ]);
+
+  const handleTextSubmit = useCallback(() => {
+    if (!thought.trim() || processing) return;
+    if (!API_KEY) {
+      setToast({ message: "No API key configured", type: "error" });
+      return;
+    }
+
+    setProcessing(true);
+    setProcessingStage("classifying");
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    const captureResult = sendCapture({
+      message: thought.trim(),
+      apiKey: API_KEY,
+      callbacks: {
+        onStepStart: () => setProcessingStage("classifying"),
+        onStepFinish: () => {},
+        onLowConfidence: (
+          inboxItemId: string,
+          bucket: string,
+          _confidence: number,
+        ) => {
+          setHitlInboxItemId(inboxItemId);
+          setHitlQuestion(`Best guess: ${bucket}. Which bucket?`);
+          setProcessing(false);
+          setProcessingStage(null);
+          setHitlTopBuckets([bucket]);
+        },
+        onMisunderstood: (
+          _threadId: string,
+          questionText: string,
+          inboxItemId: string,
+        ) => {
+          setAgentQuestion(questionText);
+          setMisunderstoodInboxItemId(inboxItemId);
+          setFollowUpRound(1);
+          setThought("");
+          setProcessing(false);
+          setProcessingStage(null);
+        },
+        onUnresolved: () => {
+          setProcessing(false);
+          setProcessingStage(null);
+          setToast({
+            message: "Couldn\u2019t classify. Check inbox later.",
+            type: "error",
+          });
+          setTimeout(resetState, AUTO_RESET_MS);
+        },
+        onComplete: (result: string) => {
+          setProcessing(false);
+          setProcessingStage(null);
+          Haptics.notificationAsync(
+            Haptics.NotificationFeedbackType.Success,
+          );
+          setToast({ message: result || "Captured", type: "success" });
+          setTimeout(resetState, AUTO_RESET_MS);
+        },
+        onError: (error: string) => {
+          setProcessing(false);
+          setProcessingStage(null);
+          setToast({
+            message: error || "Couldn\u2019t file your capture. Try again.",
+            type: "error",
+          });
+        },
+      },
+    });
+    cleanupRef.current = captureResult.cleanup;
+  }, [thought, processing, resetState]);
 
   const handleFollowUpSubmit = useCallback(() => {
     if (!followUpText.trim() || isReclassifying || !misunderstoodInboxItemId)
       return;
 
     setIsReclassifying(true);
-    setShowSteps(true);
-    setCurrentStep(null);
-    setCompletedSteps([]);
-    setStreamedText("");
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     const cleanup = sendFollowUp({
@@ -316,21 +372,22 @@ export default function CaptureScreen() {
       followUpRound: followUpRound,
       apiKey: API_KEY,
       callbacks: {
-        onStepStart: (stepName: string) => {
-          setCurrentStep(stepName);
-        },
-        onStepFinish: (stepName: string) => {
-          setCompletedSteps((prev) => [...prev, stepName]);
-          setCurrentStep(null);
-        },
-        onTextDelta: (delta: string) => {
-          setStreamedText((prev) => prev + delta);
-        },
-        onLowConfidence: (_inboxItemId: string, bucket: string, confidence: number) => {
+        onStepStart: () => {},
+        onStepFinish: () => {},
+        onLowConfidence: (
+          _inboxItemId: string,
+          bucket: string,
+          confidence: number,
+        ) => {
           setIsReclassifying(false);
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          setToast({ message: `Filed -> ${bucket} (${confidence.toFixed(2)})`, type: "success" });
-          setTimeout(resetVoiceState, AUTO_RESET_MS);
+          Haptics.notificationAsync(
+            Haptics.NotificationFeedbackType.Success,
+          );
+          setToast({
+            message: `Filed -> ${bucket} (${confidence.toFixed(2)})`,
+            type: "success",
+          });
+          setTimeout(resetState, AUTO_RESET_MS);
         },
         onMisunderstood: (
           _threadId: string,
@@ -341,7 +398,6 @@ export default function CaptureScreen() {
           setFollowUpRound((prev) => prev + 1);
           setFollowUpText("");
           setIsReclassifying(false);
-          setShowSteps(false);
         },
         onUnresolved: (_inboxItemId: string) => {
           setIsReclassifying(false);
@@ -349,13 +405,15 @@ export default function CaptureScreen() {
             message: "Couldn\u2019t classify. Check inbox later.",
             type: "error",
           });
-          setTimeout(resetVoiceState, AUTO_RESET_MS);
+          setTimeout(resetState, AUTO_RESET_MS);
         },
         onComplete: (result: string) => {
           setIsReclassifying(false);
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          Haptics.notificationAsync(
+            Haptics.NotificationFeedbackType.Success,
+          );
           setToast({ message: result || "Filed", type: "success" });
-          setTimeout(resetVoiceState, AUTO_RESET_MS);
+          setTimeout(resetState, AUTO_RESET_MS);
         },
         onError: () => {
           setIsReclassifying(false);
@@ -372,7 +430,7 @@ export default function CaptureScreen() {
     isReclassifying,
     misunderstoodInboxItemId,
     followUpRound,
-    resetVoiceState,
+    resetState,
   ]);
 
   const handleVoiceFollowUp = useCallback(async () => {
@@ -396,10 +454,6 @@ export default function CaptureScreen() {
     }
 
     setIsReclassifying(true);
-    setShowSteps(true);
-    setCurrentStep(null);
-    setCompletedSteps([]);
-    setStreamedText("");
 
     const cleanup = sendFollowUpVoice({
       audioUri: uri,
@@ -407,21 +461,22 @@ export default function CaptureScreen() {
       followUpRound: followUpRound,
       apiKey: API_KEY,
       callbacks: {
-        onStepStart: (stepName: string) => {
-          setCurrentStep(stepName);
-        },
-        onStepFinish: (stepName: string) => {
-          setCompletedSteps((prev) => [...prev, stepName]);
-          setCurrentStep(null);
-        },
-        onTextDelta: (delta: string) => {
-          setStreamedText((prev) => prev + delta);
-        },
-        onLowConfidence: (_inboxItemId: string, bucket: string, confidence: number) => {
+        onStepStart: () => {},
+        onStepFinish: () => {},
+        onLowConfidence: (
+          _inboxItemId: string,
+          bucket: string,
+          confidence: number,
+        ) => {
           setIsReclassifying(false);
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          setToast({ message: `Filed -> ${bucket} (${confidence.toFixed(2)})`, type: "success" });
-          setTimeout(resetVoiceState, AUTO_RESET_MS);
+          Haptics.notificationAsync(
+            Haptics.NotificationFeedbackType.Success,
+          );
+          setToast({
+            message: `Filed -> ${bucket} (${confidence.toFixed(2)})`,
+            type: "success",
+          });
+          setTimeout(resetState, AUTO_RESET_MS);
         },
         onMisunderstood: (
           _threadId: string,
@@ -431,7 +486,6 @@ export default function CaptureScreen() {
           setAgentQuestion(questionText);
           setFollowUpRound((prev) => prev + 1);
           setIsReclassifying(false);
-          setShowSteps(false);
         },
         onUnresolved: (_inboxItemId: string) => {
           setIsReclassifying(false);
@@ -439,13 +493,15 @@ export default function CaptureScreen() {
             message: "Couldn\u2019t classify. Check inbox later.",
             type: "error",
           });
-          setTimeout(resetVoiceState, AUTO_RESET_MS);
+          setTimeout(resetState, AUTO_RESET_MS);
         },
         onComplete: (result: string) => {
           setIsReclassifying(false);
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          Haptics.notificationAsync(
+            Haptics.NotificationFeedbackType.Success,
+          );
           setToast({ message: result || "Filed", type: "success" });
-          setTimeout(resetVoiceState, AUTO_RESET_MS);
+          setTimeout(resetState, AUTO_RESET_MS);
         },
         onError: () => {
           setIsReclassifying(false);
@@ -463,7 +519,7 @@ export default function CaptureScreen() {
     audioRecorder,
     recorderState.durationMillis,
     followUpRound,
-    resetVoiceState,
+    resetState,
   ]);
 
   const handleFollowUpRecordToggle = useCallback(async () => {
@@ -506,7 +562,7 @@ export default function CaptureScreen() {
             Haptics.NotificationFeedbackType.Success,
           );
           setToast({ message: "Filed", type: "success" });
-          setTimeout(resetVoiceState, AUTO_RESET_MS);
+          setTimeout(resetState, AUTO_RESET_MS);
         } else {
           setToast({ message: "Couldn\u2019t file. Try again.", type: "error" });
         }
@@ -516,7 +572,7 @@ export default function CaptureScreen() {
         setIsResolving(false);
       }
     },
-    [hitlInboxItemId, isResolving, resetVoiceState],
+    [hitlInboxItemId, isResolving, resetState],
   );
 
   // Whether recording controls should be disabled
@@ -538,128 +594,67 @@ export default function CaptureScreen() {
         </View>
       )}
 
-      {/* Capture buttons -- always visible at top */}
-      <View style={mode === "voice" ? styles.buttonRow : styles.buttonStack}>
-        <CaptureButton
-          label="Voice"
-          icon={"\uD83C\uDF99\uFE0F"}
+      {/* Voice/Text toggle row -- ALWAYS visible */}
+      <View style={styles.toggleRow}>
+        <Pressable
+          style={[
+            styles.toggleButton,
+            mode === "voice" && styles.toggleActive,
+          ]}
           onPress={() => setMode("voice")}
-          active={mode === "voice"}
-        />
-        <CaptureButton
-          label="Text"
-          icon={"\u270D\uFE0F"}
-          onPress={() => router.push("/capture/text")}
-        />
-        {mode === "text" && (
-          <>
-            <CaptureButton
-              label="Photo"
-              icon={"\uD83D\uDCF7"}
-              onPress={showComingSoon}
-              disabled
-            />
-            <CaptureButton
-              label="Video"
-              icon={"\uD83C\uDFA5"}
-              onPress={showComingSoon}
-              disabled
-            />
-          </>
-        )}
+        >
+          <Text style={styles.toggleIcon}>{"\uD83C\uDF99\uFE0F"}</Text>
+          <Text style={styles.toggleLabel}>Voice</Text>
+        </Pressable>
+        <Pressable
+          style={[
+            styles.toggleButton,
+            mode === "text" && styles.toggleActive,
+          ]}
+          onPress={() => setMode("text")}
+        >
+          <Text style={styles.toggleIcon}>{"\u270D\uFE0F"}</Text>
+          <Text style={styles.toggleLabel}>Text</Text>
+        </Pressable>
       </View>
 
-      {/* Voice recording UI -- rendered below buttons when in voice mode */}
-      {mode === "voice" && (
-        <View style={styles.voiceArea}>
-          {/* Agent question bubble for HITL follow-up */}
-          {agentQuestion && (
-            <View style={styles.agentQuestionBubble}>
-              <Text style={styles.agentQuestionText}>{agentQuestion}</Text>
-              <Text style={styles.followUpHint}>
-                Reply below (follow-up {followUpRound} of 2)
-              </Text>
-            </View>
-          )}
-
-          {/* Voice-first follow-up for misunderstood captures */}
-          {agentQuestion && followUpMode === "voice" && (
-            <View style={styles.followUpVoiceArea}>
-              {isRecording && (
-                <Text style={styles.followUpDuration}>
-                  {formatDuration(recorderState.durationMillis)}
-                </Text>
-              )}
-              <Pressable
-                onPress={handleFollowUpRecordToggle}
-                disabled={isReclassifying}
-                style={({ pressed }) => [
-                  styles.followUpRecordButton,
-                  isRecording && styles.followUpRecordButtonActive,
-                  pressed && { opacity: 0.7 },
-                  isReclassifying && styles.recordDisabled,
-                ]}
-              >
-                <View
-                  style={
-                    isRecording ? styles.recordStopIcon : styles.recordMicIcon
-                  }
-                />
-              </Pressable>
-              <Pressable onPress={() => setFollowUpMode("text")}>
-                <Text style={styles.followUpToggle}>Type instead</Text>
-              </Pressable>
-            </View>
-          )}
-
-          {/* Text follow-up fallback */}
-          {agentQuestion && followUpMode === "text" && (
-            <View>
-              <View style={styles.followUpRow}>
-                <TextInput
-                  style={styles.followUpInput}
-                  value={followUpText}
-                  onChangeText={setFollowUpText}
-                  placeholder="Add more context..."
-                  placeholderTextColor="#666"
-                  multiline
-                />
-                <Pressable
-                  onPress={handleFollowUpSubmit}
-                  disabled={!followUpText.trim() || isReclassifying}
-                  style={({ pressed }) => [
-                    styles.followUpSendButton,
-                    pressed && styles.sendPressed,
-                    (!followUpText.trim() || isReclassifying) &&
-                      styles.sendDisabled,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.followUpSendText,
-                      (!followUpText.trim() || isReclassifying) &&
-                        styles.sendTextDisabled,
-                    ]}
-                  >
-                    {isReclassifying ? "..." : "Reply"}
-                  </Text>
-                </Pressable>
-              </View>
-              <Pressable onPress={() => setFollowUpMode("voice")}>
-                <Text style={styles.followUpToggle}>Record instead</Text>
-              </Pressable>
-            </View>
-          )}
-
-          {/* Timer -- visible only during recording */}
-          {isRecording && (
-            <Text style={styles.timer}>
-              {formatDuration(recorderState.durationMillis)}
+      {/* Main content area */}
+      <View style={styles.contentArea}>
+        {/* Agent question bubble -- shown during HITL follow-up */}
+        {agentQuestion && (
+          <View style={styles.agentQuestionBubble}>
+            <Text style={styles.agentQuestionText}>{agentQuestion}</Text>
+            <Text style={styles.followUpHint}>
+              Reply below (follow-up {followUpRound} of 2)
             </Text>
-          )}
+          </View>
+        )}
 
-          {/* Record button with pulsing ring */}
-          {!agentQuestion && (
+        {/* Processing stage indicator -- replaces record button/text input during processing */}
+        {processingStage && (
+          <View style={styles.processingArea}>
+            <ActivityIndicator size="large" color="#4a90d9" />
+            <Text style={styles.processingStageText}>
+              {processingStage === "uploading"
+                ? "Uploading..."
+                : processingStage === "classifying"
+                  ? "Classifying..."
+                  : "Processing..."}
+            </Text>
+          </View>
+        )}
+
+        {/* Voice mode content (record button, timer) -- hidden during processing and HITL question */}
+        {mode === "voice" && !processingStage && !agentQuestion && (
+          <View style={styles.voiceArea}>
+            {/* Timer -- visible only during recording */}
+            {isRecording && (
+              <Text style={styles.timer}>
+                {formatDuration(recorderState.durationMillis)}
+              </Text>
+            )}
+
+            {/* Record button with pulsing ring */}
             <View style={styles.recordContainer}>
               {isRecording && (
                 <Animated.View
@@ -683,75 +678,148 @@ export default function CaptureScreen() {
                 />
               </Pressable>
             </View>
-          )}
 
-          {/* Status text */}
-          {!isRecording && !processing && !showSteps && !agentQuestion && (
-            <Text style={styles.voiceHint}>
-              {permissionGranted ? "Tap to record" : "Mic permission required"}
-            </Text>
-          )}
-          {processing && !showSteps && (
-            <Text style={styles.voiceHint}>Uploading...</Text>
-          )}
+            {/* Status text */}
+            {!isRecording && !processing && (
+              <Text style={styles.voiceHint}>
+                {permissionGranted
+                  ? "Tap to record"
+                  : "Mic permission required"}
+              </Text>
+            )}
+          </View>
+        )}
 
-          {/* Step dots, streaming text, and HITL area */}
-          {showSteps && (
-            <View style={styles.feedbackArea}>
-              <AgentSteps
-                steps={AGENT_STEPS}
-                currentStep={currentStep}
-                completedSteps={completedSteps}
+        {/* Text mode content (text input + send button) -- hidden during processing */}
+        {mode === "text" && !processingStage && !agentQuestion && (
+          <View style={styles.textInputContainer}>
+            <TextInput
+              style={styles.textInput}
+              value={thought}
+              onChangeText={setThought}
+              placeholder="What's on your mind?"
+              placeholderTextColor="#666"
+              multiline
+              autoFocus
+              textAlignVertical="top"
+            />
+            <Pressable
+              onPress={handleTextSubmit}
+              disabled={!thought.trim() || processing}
+              style={({ pressed }) => [
+                styles.sendButton,
+                pressed && { opacity: 0.7 },
+                (!thought.trim() || processing) && { opacity: 0.4 },
+              ]}
+            >
+              <Text style={styles.sendButtonText}>
+                {processing ? "..." : "Send"}
+              </Text>
+            </Pressable>
+          </View>
+        )}
+
+        {/* Voice follow-up (record button for reply) -- shown during HITL follow-up in voice mode */}
+        {agentQuestion && mode === "voice" && (
+          <View style={styles.followUpVoiceArea}>
+            {isRecording && (
+              <Text style={styles.followUpDuration}>
+                {formatDuration(recorderState.durationMillis)}
+              </Text>
+            )}
+            <Pressable
+              onPress={handleFollowUpRecordToggle}
+              disabled={isReclassifying}
+              style={({ pressed }) => [
+                styles.followUpRecordButton,
+                isRecording && styles.followUpRecordButtonActive,
+                pressed && { opacity: 0.7 },
+                isReclassifying && styles.recordDisabled,
+              ]}
+            >
+              <View
+                style={
+                  isRecording ? styles.recordStopIcon : styles.recordMicIcon
+                }
               />
+            </Pressable>
+          </View>
+        )}
 
-              {streamedText.length > 0 && (
-                <ScrollView style={styles.streamContainer}>
-                  <Text style={styles.streamedText}>{streamedText}</Text>
-                </ScrollView>
-              )}
+        {/* Text follow-up (text input for reply) -- shown during HITL follow-up in text mode */}
+        {agentQuestion && mode === "text" && (
+          <View style={styles.followUpRow}>
+            <TextInput
+              style={styles.followUpInput}
+              value={followUpText}
+              onChangeText={setFollowUpText}
+              placeholder="Add more context..."
+              placeholderTextColor="#666"
+              multiline
+            />
+            <Pressable
+              onPress={handleFollowUpSubmit}
+              disabled={!followUpText.trim() || isReclassifying}
+              style={({ pressed }) => [
+                styles.followUpSendButton,
+                pressed && styles.sendPressed,
+                (!followUpText.trim() || isReclassifying) &&
+                  styles.sendDisabled,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.followUpSendText,
+                  (!followUpText.trim() || isReclassifying) &&
+                    styles.sendTextDisabled,
+                ]}
+              >
+                {isReclassifying ? "..." : "Reply"}
+              </Text>
+            </Pressable>
+          </View>
+        )}
 
-              {hitlQuestion !== null && (
-                <View style={styles.hitlContainer}>
-                  <Text style={styles.hitlQuestion}>{hitlQuestion}</Text>
-                  <View style={styles.bucketRow}>
-                    {BUCKETS.map((bucket) => {
-                      const isTopBucket = hitlTopBuckets.includes(bucket);
-                      return (
-                        <Pressable
-                          key={bucket}
-                          onPress={() => handleBucketSelect(bucket)}
-                          disabled={isResolving}
-                          style={({ pressed }) => [
-                            isTopBucket
-                              ? styles.bucketButtonPrimary
-                              : styles.bucketButtonSecondary,
-                            pressed && styles.bucketPressed,
-                            isResolving && styles.bucketDisabled,
-                          ]}
-                        >
-                          <Text
-                            style={
-                              isTopBucket
-                                ? styles.bucketTextPrimary
-                                : styles.bucketTextSecondary
-                            }
-                          >
-                            {bucket}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                </View>
-              )}
-
-              {isResolving && (
-                <Text style={styles.resolvingText}>Filing...</Text>
-              )}
+        {/* Bucket selection buttons -- shown for low-confidence classification */}
+        {hitlQuestion !== null && (
+          <View style={styles.hitlContainer}>
+            <Text style={styles.hitlQuestion}>{hitlQuestion}</Text>
+            <View style={styles.bucketRow}>
+              {BUCKETS.map((bucket) => {
+                const isTopBucket = hitlTopBuckets.includes(bucket);
+                return (
+                  <Pressable
+                    key={bucket}
+                    onPress={() => handleBucketSelect(bucket)}
+                    disabled={isResolving}
+                    style={({ pressed }) => [
+                      isTopBucket
+                        ? styles.bucketButtonPrimary
+                        : styles.bucketButtonSecondary,
+                      pressed && styles.bucketPressed,
+                      isResolving && styles.bucketDisabled,
+                    ]}
+                  >
+                    <Text
+                      style={
+                        isTopBucket
+                          ? styles.bucketTextPrimary
+                          : styles.bucketTextSecondary
+                      }
+                    >
+                      {bucket}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </View>
-          )}
-        </View>
-      )}
+          </View>
+        )}
+
+        {isResolving && (
+          <Text style={styles.resolvingText}>Filing...</Text>
+        )}
+      </View>
     </SafeAreaView>
   );
 }
@@ -761,17 +829,39 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#0f0f23",
   },
-  buttonStack: {
-    flex: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  buttonRow: {
+  toggleRow: {
     flexDirection: "row",
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: 12,
+    paddingBottom: 8,
     gap: 12,
-    height: 100,
+  },
+  toggleButton: {
+    flex: 1,
+    height: 72,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#1a1a2e",
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: "transparent",
+    overflow: "hidden",
+  },
+  toggleActive: {
+    borderColor: "#4a90d9",
+  },
+  toggleIcon: {
+    fontSize: 32,
+    marginBottom: 4,
+  },
+  toggleLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#ffffff",
+  },
+  contentArea: {
+    flex: 1,
+    paddingHorizontal: 16,
   },
   toastContainer: {
     position: "absolute",
@@ -802,7 +892,6 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 16,
   },
   timer: {
     fontSize: 48,
@@ -860,6 +949,44 @@ const styles = StyleSheet.create({
     color: "#666",
     marginTop: 16,
   },
+  textInputContainer: {
+    backgroundColor: "#1a1a2e",
+    borderRadius: 12,
+    padding: 12,
+    minHeight: 120,
+    position: "relative",
+  },
+  textInput: {
+    fontSize: 18,
+    color: "#ffffff",
+    paddingBottom: 40,
+    minHeight: 80,
+    textAlignVertical: "top",
+  },
+  sendButton: {
+    position: "absolute",
+    bottom: 10,
+    right: 10,
+    backgroundColor: "#4a90d9",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  sendButtonText: {
+    color: "#ffffff",
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  processingArea: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  processingStageText: {
+    fontSize: 16,
+    color: "#999",
+    marginTop: 12,
+  },
   agentQuestionBubble: {
     backgroundColor: "#1a1a2e",
     borderRadius: 12,
@@ -914,22 +1041,6 @@ const styles = StyleSheet.create({
   },
   sendTextDisabled: {
     color: "#999",
-  },
-  feedbackArea: {
-    marginTop: 20,
-    backgroundColor: "#1a1a2e",
-    borderRadius: 12,
-    padding: 12,
-    alignSelf: "stretch",
-  },
-  streamContainer: {
-    maxHeight: 100,
-    marginTop: 8,
-  },
-  streamedText: {
-    fontSize: 14,
-    color: "#999",
-    lineHeight: 20,
   },
   hitlContainer: {
     marginTop: 12,
@@ -1003,12 +1114,6 @@ const styles = StyleSheet.create({
   },
   followUpRecordButtonActive: {
     backgroundColor: "#e53935",
-  },
-  followUpToggle: {
-    color: "#4a90d9",
-    fontSize: 13,
-    textAlign: "center",
-    marginTop: 8,
   },
   followUpDuration: {
     color: "#999",
