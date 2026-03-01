@@ -25,11 +25,18 @@ One-tap capture from a phone instantly routes through an agent that classifies, 
 - Inbox with detail cards, recategorize, swipe-to-delete
 - Application Insights observability with OTel spans and token usage
 
-## Next Milestone: v3.0 Proactive Second Brain
+## Current Milestone: v3.0 Admin Agent & Shopping Lists
 
-**Goal:** Transform the filing cabinet into a proactive thinking partner. Four specialist agents per bucket that follow up over time via push notifications.
+**Goal:** Add the first specialist agent (Admin Agent) that enriches captures with store-based shopping list management, including YouTube recipe ingredient extraction.
 
-*Requirements to be defined via `/gsd:new-milestone`*
+**Target features:**
+- Admin Agent as persistent Foundry agent with Classifier → Admin Agent inline handoff
+- Store-based shopping lists (Jewel, CVS, pet store, etc.) with agent-driven store routing
+- YouTube recipe URL → ingredient extraction → shopping list items
+- Ad hoc item capture ("need cat litter") → Admin Agent → assigned to correct store list
+- New "Status & Priorities" screen showing agent-processed output (v3.0: shopping lists only)
+- Swipe-to-remove on shopping list items
+- No push notifications this milestone — pull-based UI
 
 ## Requirements
 
@@ -50,10 +57,25 @@ One-tap capture from a phone instantly routes through an agent that classifies, 
 
 ### Active (v3.0)
 
-*To be defined via `/gsd:new-milestone`*
+- [ ] Admin Agent as persistent Foundry agent (like Classifier)
+- [ ] Classifier → Admin Agent inline handoff at capture time
+- [ ] Store-based shopping lists in Cosmos DB
+- [ ] Agent instructions route items to correct store
+- [ ] YouTube recipe URL → ingredient extraction → shopping list items
+- [ ] Ad hoc item capture → Admin Agent → correct store list
+- [ ] "Status & Priorities" screen with shopping lists per store
+- [ ] Swipe-to-remove on shopping list items
 
-### Future (v3.0+)
+### Future (v3.1+)
 
+- Push notifications for agent-processed output
+- Location-aware reminders (notify near store with items on list)
+- Recurring item auto-ordering (computer use for Chewy.com, etc.)
+- "I've got free hours" → Admin Agent surfaces fitting tasks
+- Weekend meal prep planning pipeline
+- Projects Agent — action item tracking, progress follow-ups
+- Ideas Agent — weekly idea check-ins, keeps captured ideas alive
+- People Agent — relationship tracking, interaction nudges
 - Photo/video capture processed by vision model
 - Cross-references extracted (people mentioned in projects, projects mentioned with people)
 - Daily digest delivered at 6:30 AM CT with top actions, blockers, and wins (<150 words)
@@ -68,7 +90,9 @@ One-tap capture from a phone instantly routes through an agent that classifies, 
 - Real-time chat — not core to the capture loop
 - Background geofencing — Expo managed workflow limitations; time-window heuristic covers 80% of value
 - Connected Agents pattern — requires moving @tool functions to Azure Functions
-- Projects Agent action item extraction — deferred to after core agents proven
+- Push notifications — deferred to v3.1+ (pull-based UI sufficient for v3.0)
+- Location-aware reminders — Expo managed workflow limitations; deferred to v3.1+
+- Other specialist agents (Projects, Ideas, People) — prove pattern with Admin first
 - Calendar integration — OAuth scope complexity out of bounds
 
 ## Context
@@ -83,10 +107,7 @@ One-tap capture from a phone instantly routes through an agent that classifies, 
 1. **Classifier** — persistent Foundry agent that classifies captures into People/Projects/Ideas/Admin with confidence scoring, executes `file_capture` and `transcribe_audio` @tools locally
 
 **Agent team (v3.0 target):**
-2. **Admin Agent** — errand/task specialist: timing awareness, weekend digest
-3. **Projects Agent** — action item tracking, progress follow-ups (stub initially)
-4. **Ideas Agent** — weekly idea check-ins, keeps captured ideas alive
-5. **People Agent** — relationship tracking, interaction nudges
+2. **Admin Agent** — household operations manager: store-based shopping lists, YouTube recipe ingredient extraction, ad hoc item routing to correct store via agent instructions
 
 **Data model:** Cosmos DB with 5 containers (Inbox, People, Projects, Ideas, Admin), all partitioned by `/userId`.
 
@@ -119,4 +140,4 @@ One-tap capture from a phone instantly routes through an agent that classifies, 
 | v2.0 scope = Foundry migration only | Original scope (specialist agents + push) too large. Ship migration, defer proactive features | ✓ Good — clean cut point |
 
 ---
-*Last updated: 2026-03-01 after v2.0 milestone*
+*Last updated: 2026-03-01 after v3.0 milestone started*
