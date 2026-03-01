@@ -229,6 +229,17 @@ Plans:
 - [x] 09-06-PLAN.md -- [UAT fix] Classifier instruction tuning: misunderstood vs pending boundary, follow-up context weighting
 - [ ] 09-07-PLAN.md -- [UAT fix] Follow-up in-place update: file_capture updates existing misunderstood doc instead of creating orphan
 
+### Phase 09.1: Mobile UX review and refinements (INSERTED)
+
+**Goal:** Consolidate the two redundant capture screens into a single unified screen with Voice/Text mode toggle, inline text capture, granular processing feedback stages, and follow-up mode switching via persistent top toggles
+**Requirements**: UX-01, UX-02, UX-03, UX-04, UX-05
+**Depends on:** Phase 9
+**Plans:** 2 plans
+
+Plans:
+- [ ] 09.1-01-PLAN.md -- Unified capture screen: Voice/Text toggle, text capture integration, processing stages, dead code cleanup
+- [ ] 09.1-02-PLAN.md -- UAT checkpoint: verify unified screen on real device
+
 ### Phase 10: Specialist Agents
 **Goal**: Four domain-specific agents enrich classified captures with domain intelligence before filing, each writing to its own Cosmos DB container
 **Depends on**: Phase 9
