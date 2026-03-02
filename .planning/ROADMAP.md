@@ -75,7 +75,7 @@ See: .planning/milestones/v2.0-ROADMAP.md
 **Plans**: 2 plans
 
 Plans:
-- [ ] 10-01-PLAN.md -- Data models, CosmosManager extension, AdminTools @tool, unit tests
+- [x] 10-01-PLAN.md -- Data models, CosmosManager extension, AdminTools @tool, unit tests
 - [ ] 10-02-PLAN.md -- Admin Agent registration, config, lifespan wiring, integration tests
 
 ### Phase 11: Admin Agent and Capture Handoff
@@ -147,7 +147,7 @@ Plans:
 | 8. FoundrySSEAdapter and Streaming | v2.0 | 2/2 | Complete | 2026-02-27 |
 | 9. HITL Parity and Observability | v2.0 | 7/7 | Complete | 2026-02-28 |
 | 9.1 Mobile UX Review | v2.0 | 2/2 | Complete | 2026-03-01 |
-| 10. Data Foundation and Admin Tools | v3.0 | 0/TBD | Not started | - |
+| 10. Data Foundation and Admin Tools | v3.0 | 1/2 | In progress | - |
 | 11. Admin Agent and Capture Handoff | v3.0 | 0/TBD | Not started | - |
 | 12. Shopping List API and Status Screen | v3.0 | 0/TBD | Not started | - |
 | 13. YouTube Recipe Extraction | v3.0 | 0/TBD | Not started | - |

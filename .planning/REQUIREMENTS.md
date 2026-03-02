@@ -16,8 +16,8 @@ Requirements for v3.0 Admin Agent & Shopping Lists. Each maps to roadmap phases.
 
 ### Shopping Lists
 
-- [ ] **SHOP-01**: Shopping list items stored in Cosmos DB, grouped by store
-- [ ] **SHOP-02**: Admin Agent routes items to correct store based on agent instructions (Jewel, CVS, pet store, etc.)
+- [x] **SHOP-01**: Shopping list items stored in Cosmos DB, grouped by store
+- [x] **SHOP-02**: Admin Agent routes items to correct store based on agent instructions (Jewel, CVS, pet store, etc.)
 - [ ] **SHOP-03**: User can capture ad hoc items ("need cat litter") that flow through Classifier → Admin Agent → correct store list
 - [ ] **SHOP-04**: Admin Agent splits multi-item captures across multiple stores from a single capture
 - [ ] **SHOP-05**: User can swipe-to-remove items from shopping lists
@@ -87,8 +87,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AGNT-02 | Phase 10 | Pending |
 | AGNT-03 | Phase 11 | Pending |
 | AGNT-04 | Phase 11 | Pending |
-| SHOP-01 | Phase 10 | Pending |
-| SHOP-02 | Phase 10 | Pending |
+| SHOP-01 | Phase 10 | Complete |
+| SHOP-02 | Phase 10 | Complete |
 | SHOP-03 | Phase 11 | Pending |
 | SHOP-04 | Phase 11 | Pending |
 | SHOP-05 | Phase 12 | Pending |
