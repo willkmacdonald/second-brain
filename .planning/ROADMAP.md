@@ -157,7 +157,7 @@ Plans:
 | 9. HITL Parity and Observability | v2.0 | 7/7 | Complete | 2026-02-28 |
 | 9.1 Mobile UX Review | v2.0 | 2/2 | Complete | 2026-03-01 |
 | 10. Data Foundation and Admin Tools | 2/2 | Complete    | 2026-03-02 | - |
-| 11. Admin Agent and Capture Handoff | 2/2 | Complete   | 2026-03-02 | - |
+| 11. Admin Agent and Capture Handoff | 2/2 | Complete    | 2026-03-02 | - |
 | 12. Shopping List API and Status Screen | v3.0 | 0/TBD | Not started | - |
 | 13. YouTube Recipe Extraction | v3.0 | 0/TBD | Not started | - |
 
