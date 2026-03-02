@@ -12,7 +12,7 @@ Requirements for v3.0 Admin Agent & Shopping Lists. Each maps to roadmap phases.
 - [ ] **AGNT-01**: Admin Agent registered as persistent Foundry agent on startup (mirrors Classifier pattern)
 - [x] **AGNT-02**: Admin Agent has separate AzureAIAgentClient instance with own agent_id and tool list
 - [ ] **AGNT-03**: Admin Agent processes Inbox items classified as Admin, running silently after Classifier files to Inbox
-- [ ] **AGNT-04**: Inbox items get a "processed" flag after Admin Agent handles them
+- [x] **AGNT-04**: Inbox items get a "processed" flag after Admin Agent handles them
 
 ### Shopping Lists
 
@@ -86,7 +86,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AGNT-01 | Phase 11 | Pending |
 | AGNT-02 | Phase 10 | Complete |
 | AGNT-03 | Phase 11 | Pending |
-| AGNT-04 | Phase 11 | Pending |
+| AGNT-04 | Phase 11 | Complete |
 | SHOP-01 | Phase 10 | Complete |
 | SHOP-02 | Phase 10 | Complete |
 | SHOP-03 | Phase 11 | Pending |

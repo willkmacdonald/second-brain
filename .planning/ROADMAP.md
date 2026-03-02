@@ -88,12 +88,21 @@ Plans:
   3. Inbox items classified as Admin have a "processed" flag set to true after the Admin Agent completes its work
   4. The capture flow completes and returns to the user without streaming Admin Agent work -- no SSE events from the Admin Agent reach the mobile app during capture
   5. Multi-item captures referencing different stores result in items split across the correct store lists from a single capture
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 11-01: TBD
-- [ ] 11-02: TBD
-- [ ] 11-03: TBD
+- [ ] 11-01-PLAN.md -- InboxDocument adminProcessingStatus field, process_admin_capture background function, unit tests
+- [ ] 11-02-PLAN.md -- Wire fire-and-forget trigger into adapter/capture/main, Foundry instructions, end-to-end verification
+
+### Phase 11.1: Classifier Multi-Bucket Splitting (INSERTED)
+
+**Goal:** [Urgent work - to be planned]
+**Requirements**: TBD
+**Depends on:** Phase 11
+**Plans:** 1/2 plans executed
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 11.1 to break down)
 
 ### Phase 12: Shopping List API and Status Screen
 **Goal**: Users can view their shopping lists grouped by store and remove items they have purchased
@@ -148,6 +157,16 @@ Plans:
 | 9. HITL Parity and Observability | v2.0 | 7/7 | Complete | 2026-02-28 |
 | 9.1 Mobile UX Review | v2.0 | 2/2 | Complete | 2026-03-01 |
 | 10. Data Foundation and Admin Tools | 2/2 | Complete    | 2026-03-02 | - |
-| 11. Admin Agent and Capture Handoff | v3.0 | 0/TBD | Not started | - |
+| 11. Admin Agent and Capture Handoff | 1/2 | In Progress|  | - |
 | 12. Shopping List API and Status Screen | v3.0 | 0/TBD | Not started | - |
 | 13. YouTube Recipe Extraction | v3.0 | 0/TBD | Not started | - |
+
+### Phase 14: App Insights Operational Audit
+
+**Goal:** Review and streamline App Insights logging setup to ensure operational effectiveness and efficiency. Audit log levels, query patterns, alert configuration, and cost. Ensure Python logger output is structured and actionable, not noisy.
+**Requirements**: TBD
+**Depends on:** Phase 13
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 14 to break down)
