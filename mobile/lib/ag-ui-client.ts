@@ -27,6 +27,8 @@ interface AGUIEventPayload {
     questionText?: string;
     bucket?: string; // For CLASSIFIED
     confidence?: number; // For CLASSIFIED
+    buckets?: string[]; // For multi-split CLASSIFIED
+    itemIds?: string[]; // For multi-split CLASSIFIED
   };
 }
 
@@ -67,9 +69,17 @@ function attachCallbacks(
         case "CLASSIFIED":
           // New v2: CLASSIFIED is top-level, result in value
           if (parsed.value) {
+            const buckets = parsed.value.buckets;
             const bucket = parsed.value.bucket ?? "?";
             const confidence = parsed.value.confidence ?? 0;
-            result = `Filed -> ${bucket} (${confidence.toFixed(2)})`;
+
+            if (buckets && buckets.length > 1) {
+              // Multi-split: "Filed to Admin, Ideas"
+              result = `Filed to ${buckets.join(", ")}`;
+            } else {
+              // Single: "Filed -> Admin (0.85)"
+              result = `Filed -> ${bucket} (${confidence.toFixed(2)})`;
+            }
             callbacks.onComplete(result);
           }
           break;
