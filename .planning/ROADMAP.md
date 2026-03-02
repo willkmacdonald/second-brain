@@ -76,7 +76,7 @@ See: .planning/milestones/v2.0-ROADMAP.md
 
 Plans:
 - [x] 10-01-PLAN.md -- Data models, CosmosManager extension, AdminTools @tool, unit tests
-- [ ] 10-02-PLAN.md -- Admin Agent registration, config, lifespan wiring, integration tests
+- [x] 10-02-PLAN.md -- Admin Agent registration, config, lifespan wiring, integration tests
 
 ### Phase 11: Admin Agent and Capture Handoff
 **Goal**: Admin-classified captures are silently enriched by the Admin Agent in the background, with items routed to the correct store shopping list
