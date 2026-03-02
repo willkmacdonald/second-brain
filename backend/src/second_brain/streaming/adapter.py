@@ -18,7 +18,10 @@ from agent_framework import ChatOptions, Message
 from agent_framework.azure import AzureAIAgentClient
 from opentelemetry import trace
 
-from second_brain.processing.admin_handoff import process_admin_capture
+from second_brain.processing.admin_handoff import (
+    process_admin_capture,
+    process_admin_captures_batch,
+)
 from second_brain.streaming.sse import (
     classified_event,
     complete_event,
@@ -173,10 +176,10 @@ async def stream_text_capture(
 
         yield encode_sse(step_start_event("Classifying"))
 
-        # Outcome tracking
-        detected_tool: str | None = None
-        detected_tool_args: dict = {}
-        tool_result: dict | None = None
+        # Multi-result tracking (Phase 11.1)
+        file_capture_results: list[dict] = []
+        current_fc_name: str | None = None
+        current_fc_args: dict = {}
         reasoning_buffer: str = ""
         chunk_idx: int = 0
         foundry_conversation_id: str | None = None
@@ -207,73 +210,137 @@ async def stream_text_capture(
                             )
                             chunk_idx += 1
 
-                        elif (
-                            content.type == "function_call"
-                            and getattr(content, "name", None) == "file_capture"
-                        ):
-                            detected_tool = "file_capture"
-                            detected_tool_args = _parse_args(
-                                getattr(content, "arguments", {})
-                            )
+                        elif content.type == "function_call":
+                            name = getattr(content, "name", None)
+                            current_fc_name = name
+                            if name == "file_capture":
+                                current_fc_args = _parse_args(
+                                    getattr(content, "arguments", {})
+                                )
 
                         elif content.type == "function_result":
-                            tool_result = _parse_result(
+                            parsed = _parse_result(
                                 getattr(content, "result", None)
                             )
+                            if current_fc_name == "file_capture" and parsed is not None:
+                                merged = {**current_fc_args, **(parsed or {})}
+                                file_capture_results.append(merged)
+                            current_fc_name = None
 
                 yield encode_sse(step_end_event("Classifying"))
 
                 # Emit result event and set outcome span attributes
-                if detected_tool == "file_capture":
-                    result_src = tool_result or detected_tool_args
-                    status = detected_tool_args.get("status", "")
-                    span.set_attribute(
-                        "capture.outcome",
-                        status if status else "unresolved",
-                    )
+                if file_capture_results:
+                    # Use first result as primary (backward-compatible)
+                    primary = file_capture_results[0]
+                    all_buckets = [r.get("bucket", "?") for r in file_capture_results]
+                    all_item_ids = [r.get("item_id", "") for r in file_capture_results]
+
+                    # Check statuses for edge cases
+                    statuses = [r.get("status", "classified") for r in file_capture_results]
+
+                    # OTel attributes
+                    span.set_attribute("capture.outcome", "classified")
+                    span.set_attribute("capture.split_count", len(file_capture_results))
+                    span.set_attribute("capture.buckets", ",".join(all_buckets))
                     span.set_attribute(
                         "capture.bucket",
-                        result_src.get("bucket", ""),
+                        primary.get("bucket", ""),
                     )
                     span.set_attribute(
                         "capture.confidence",
-                        result_src.get("confidence", 0.0),
+                        primary.get("confidence", 0.0),
                     )
-                    yield encode_sse(
-                        _emit_result_event(
-                            detected_tool_args,
-                            tool_result,
-                            thread_id,
-                            foundry_conversation_id,
-                        )
-                    )
-                    # Trigger Admin Agent background processing
-                    result_src_for_admin = tool_result or detected_tool_args
-                    admin_bucket = result_src_for_admin.get("bucket", "")
-                    admin_item_id = result_src_for_admin.get("item_id", "")
-                    if (
-                        admin_bucket == "Admin"
-                        and admin_client is not None
-                        and admin_item_id
-                        and background_tasks is not None
-                    ):
-                        task = asyncio.create_task(
-                            process_admin_capture(
-                                admin_client=admin_client,
-                                admin_tools=admin_tools or [],
-                                cosmos_manager=cosmos_manager,
-                                inbox_item_id=admin_item_id,
-                                raw_text=user_text,
+
+                    if "misunderstood" in statuses:
+                        # Rare edge case: treat as misunderstood for whole capture
+                        yield encode_sse(
+                            misunderstood_event(
+                                thread_id,
+                                primary.get("item_id", ""),
+                                "I didn\u2019t quite catch that. Could you clarify?",
+                                foundry_conversation_id,
                             )
                         )
+                    elif "pending" in statuses:
+                        # Any low-confidence: show low-confidence for first pending item
+                        pending_item = next(
+                            r for r in file_capture_results if r.get("status") == "pending"
+                        )
+                        yield encode_sse(
+                            low_confidence_event(
+                                pending_item.get("item_id", ""),
+                                pending_item.get("bucket", "?"),
+                                pending_item.get("confidence", 0.0),
+                            )
+                        )
+                    else:
+                        # All classified -- emit aggregated CLASSIFIED
+                        if len(file_capture_results) > 1:
+                            yield encode_sse(
+                                classified_event(
+                                    primary.get("item_id", ""),
+                                    primary.get("bucket", "?"),
+                                    primary.get("confidence", 0.0),
+                                    buckets=all_buckets,
+                                    item_ids=all_item_ids,
+                                )
+                            )
+                        else:
+                            # Single result: use original format (no extra arrays)
+                            yield encode_sse(
+                                classified_event(
+                                    primary.get("item_id", ""),
+                                    primary.get("bucket", "?"),
+                                    primary.get("confidence", 0.0),
+                                )
+                            )
+
+                    # Admin Agent batching
+                    admin_results = [
+                        r for r in file_capture_results if r.get("bucket") == "Admin"
+                    ]
+                    if (
+                        admin_results
+                        and admin_client is not None
+                        and background_tasks is not None
+                    ):
+                        if len(admin_results) == 1:
+                            # Single Admin item: use existing single-item function
+                            task = asyncio.create_task(
+                                process_admin_capture(
+                                    admin_client=admin_client,
+                                    admin_tools=admin_tools or [],
+                                    cosmos_manager=cosmos_manager,
+                                    inbox_item_id=admin_results[0].get("item_id", ""),
+                                    raw_text=admin_results[0].get("text", user_text),
+                                )
+                            )
+                        else:
+                            # Multiple Admin items: batch processing
+                            task = asyncio.create_task(
+                                process_admin_captures_batch(
+                                    admin_client=admin_client,
+                                    admin_tools=admin_tools or [],
+                                    cosmos_manager=cosmos_manager,
+                                    admin_items=[
+                                        {
+                                            "inbox_item_id": r.get("item_id", ""),
+                                            "raw_text": r.get("text", ""),
+                                        }
+                                        for r in admin_results
+                                    ],
+                                )
+                            )
                         background_tasks.add(task)
                         task.add_done_callback(background_tasks.discard)
                         logger.info(
-                            "Spawned Admin Agent background task for inbox item %s",
-                            admin_item_id,
+                            "Spawned Admin Agent background task for %d item(s)",
+                            len(admin_results),
                         )
+
                 elif cosmos_manager:
-                    # Safety net: agent didn't call file_capture
+                    # Safety net: no file_capture calls at all
                     event = await _safety_net_file_as_misunderstood(
                         cosmos_manager,
                         user_text,
@@ -329,11 +396,10 @@ async def stream_voice_capture(
 
         yield encode_sse(step_start_event("Processing"))
 
-        # Outcome tracking
-        detected_tool: str | None = None
-        detected_tool_args: dict = {}
-        tool_result: dict | None = None
-        last_function_call: str | None = None
+        # Multi-result tracking (Phase 11.1)
+        file_capture_results: list[dict] = []
+        current_fc_name: str | None = None
+        current_fc_args: dict = {}
         transcript_text: str | None = None
         reasoning_buffer: str = ""
         chunk_idx: int = 0
@@ -367,78 +433,141 @@ async def stream_voice_capture(
 
                         elif content.type == "function_call":
                             name = getattr(content, "name", None)
-                            last_function_call = name
+                            current_fc_name = name
                             if name == "transcribe_audio":
                                 logger.info("Voice capture: transcribe_audio called")
                             elif name == "file_capture":
-                                detected_tool = "file_capture"
-                                detected_tool_args = _parse_args(
+                                current_fc_args = _parse_args(
                                     getattr(content, "arguments", {})
                                 )
 
                         elif content.type == "function_result":
-                            parsed = _parse_result(getattr(content, "result", None))
+                            parsed = _parse_result(
+                                getattr(content, "result", None)
+                            )
                             if parsed is not None:
-                                tool_result = parsed
-                                # Capture transcript from transcribe_audio
-                                if last_function_call == "transcribe_audio":
+                                if current_fc_name == "transcribe_audio":
                                     transcript_text = parsed.get("raw", "")
+                                elif current_fc_name == "file_capture":
+                                    merged = {**current_fc_args, **(parsed or {})}
+                                    file_capture_results.append(merged)
+                            current_fc_name = None
 
                 yield encode_sse(step_end_event("Processing"))
 
                 # Emit result event and set outcome span attributes
-                if detected_tool == "file_capture":
-                    result_src = tool_result or detected_tool_args
-                    status = detected_tool_args.get("status", "")
-                    span.set_attribute(
-                        "capture.outcome",
-                        status if status else "unresolved",
-                    )
+                if file_capture_results:
+                    # Use first result as primary (backward-compatible)
+                    primary = file_capture_results[0]
+                    all_buckets = [r.get("bucket", "?") for r in file_capture_results]
+                    all_item_ids = [r.get("item_id", "") for r in file_capture_results]
+
+                    # Check statuses for edge cases
+                    statuses = [r.get("status", "classified") for r in file_capture_results]
+
+                    # OTel attributes
+                    span.set_attribute("capture.outcome", "classified")
+                    span.set_attribute("capture.split_count", len(file_capture_results))
+                    span.set_attribute("capture.buckets", ",".join(all_buckets))
                     span.set_attribute(
                         "capture.bucket",
-                        result_src.get("bucket", ""),
+                        primary.get("bucket", ""),
                     )
                     span.set_attribute(
                         "capture.confidence",
-                        result_src.get("confidence", 0.0),
+                        primary.get("confidence", 0.0),
                     )
-                    yield encode_sse(
-                        _emit_result_event(
-                            detected_tool_args,
-                            tool_result,
-                            thread_id,
-                            foundry_conversation_id,
-                        )
-                    )
-                    # Trigger Admin Agent background processing
-                    result_src_for_admin = tool_result or detected_tool_args
-                    admin_bucket = result_src_for_admin.get("bucket", "")
-                    admin_item_id = result_src_for_admin.get("item_id", "")
-                    if (
-                        admin_bucket == "Admin"
-                        and admin_client is not None
-                        and admin_item_id
-                        and background_tasks is not None
-                    ):
-                        # Use transcript for Admin Agent if available
-                        admin_raw_text = transcript_text or f"[Voice recording: {blob_url}]"
-                        task = asyncio.create_task(
-                            process_admin_capture(
-                                admin_client=admin_client,
-                                admin_tools=admin_tools or [],
-                                cosmos_manager=cosmos_manager,
-                                inbox_item_id=admin_item_id,
-                                raw_text=admin_raw_text,
+
+                    if "misunderstood" in statuses:
+                        # Rare edge case: treat as misunderstood for whole capture
+                        yield encode_sse(
+                            misunderstood_event(
+                                thread_id,
+                                primary.get("item_id", ""),
+                                "I didn\u2019t quite catch that. Could you clarify?",
+                                foundry_conversation_id,
                             )
                         )
+                    elif "pending" in statuses:
+                        # Any low-confidence: show low-confidence for first pending item
+                        pending_item = next(
+                            r for r in file_capture_results if r.get("status") == "pending"
+                        )
+                        yield encode_sse(
+                            low_confidence_event(
+                                pending_item.get("item_id", ""),
+                                pending_item.get("bucket", "?"),
+                                pending_item.get("confidence", 0.0),
+                            )
+                        )
+                    else:
+                        # All classified -- emit aggregated CLASSIFIED
+                        if len(file_capture_results) > 1:
+                            yield encode_sse(
+                                classified_event(
+                                    primary.get("item_id", ""),
+                                    primary.get("bucket", "?"),
+                                    primary.get("confidence", 0.0),
+                                    buckets=all_buckets,
+                                    item_ids=all_item_ids,
+                                )
+                            )
+                        else:
+                            # Single result: use original format (no extra arrays)
+                            yield encode_sse(
+                                classified_event(
+                                    primary.get("item_id", ""),
+                                    primary.get("bucket", "?"),
+                                    primary.get("confidence", 0.0),
+                                )
+                            )
+
+                    # Admin Agent batching
+                    admin_results = [
+                        r for r in file_capture_results if r.get("bucket") == "Admin"
+                    ]
+                    if (
+                        admin_results
+                        and admin_client is not None
+                        and background_tasks is not None
+                    ):
+                        voice_fallback = transcript_text or f"[Voice recording: {blob_url}]"
+                        if len(admin_results) == 1:
+                            # Single Admin item: use existing single-item function
+                            task = asyncio.create_task(
+                                process_admin_capture(
+                                    admin_client=admin_client,
+                                    admin_tools=admin_tools or [],
+                                    cosmos_manager=cosmos_manager,
+                                    inbox_item_id=admin_results[0].get("item_id", ""),
+                                    raw_text=admin_results[0].get("text", voice_fallback),
+                                )
+                            )
+                        else:
+                            # Multiple Admin items: batch processing
+                            task = asyncio.create_task(
+                                process_admin_captures_batch(
+                                    admin_client=admin_client,
+                                    admin_tools=admin_tools or [],
+                                    cosmos_manager=cosmos_manager,
+                                    admin_items=[
+                                        {
+                                            "inbox_item_id": r.get("item_id", ""),
+                                            "raw_text": r.get("text", voice_fallback),
+                                        }
+                                        for r in admin_results
+                                    ],
+                                )
+                            )
                         background_tasks.add(task)
                         task.add_done_callback(background_tasks.discard)
                         logger.info(
-                            "Spawned Admin Agent background task for voice inbox item %s",
-                            admin_item_id,
+                            "Spawned Admin Agent background task for %d voice item(s)",
+                            len(admin_results),
                         )
+
                 elif cosmos_manager:
-                    # Safety net: agent didn't call file_capture.
+                    # Safety net: no file_capture calls at all.
                     # Use transcript if available, otherwise the blob URL.
                     raw_text = transcript_text or f"[Voice recording: {blob_url}]"
                     event = await _safety_net_file_as_misunderstood(
