@@ -30,6 +30,7 @@ from azure.keyvault.secrets.aio import SecretClient as KeyVaultSecretClient  # n
 from fastapi import FastAPI  # noqa: E402
 from openai import AsyncAzureOpenAI  # noqa: E402
 
+from second_brain.agents.admin import ensure_admin_agent  # noqa: E402
 from second_brain.agents.classifier import ensure_classifier_agent  # noqa: E402
 from second_brain.agents.middleware import (  # noqa: E402
     AuditAgentMiddleware,
@@ -42,6 +43,7 @@ from second_brain.auth import APIKeyMiddleware  # noqa: E402
 from second_brain.config import get_settings  # noqa: E402
 from second_brain.db.blob_storage import BlobStorageManager  # noqa: E402
 from second_brain.db.cosmos import CosmosManager  # noqa: E402
+from second_brain.tools.admin import AdminTools  # noqa: E402
 from second_brain.tools.classification import ClassifierTools  # noqa: E402
 from second_brain.tools.transcription import TranscriptionTools  # noqa: E402
 
@@ -202,6 +204,47 @@ async def lifespan(app: FastAPI):
             classifier_agent_id,
             len(agent_tools),
         )
+
+        # --- Admin Agent Registration (non-fatal) ---
+        # Admin Agent is not required for core capture flow. If registration
+        # fails, log warning and continue -- Phase 11 will handle the
+        # capture-to-admin handoff and can check if admin_client is available.
+        try:
+            admin_agent_id = await ensure_admin_agent(
+                foundry_client=foundry_client,
+                stored_agent_id=settings.azure_ai_admin_agent_id,
+            )
+            app.state.admin_agent_id = admin_agent_id
+
+            # --- AdminTools (uses Cosmos for shopping list writes) ---
+            admin_tools = AdminTools(cosmos_manager=cosmos_mgr)
+            app.state.admin_tools = admin_tools
+
+            # --- Admin AzureAIAgentClient (separate from Classifier) ---
+            admin_client = AzureAIAgentClient(
+                credential=credential,
+                project_endpoint=settings.azure_ai_project_endpoint,
+                agent_id=admin_agent_id,
+                should_cleanup_agent=False,
+                middleware=[AuditAgentMiddleware(), ToolTimingMiddleware()],
+            )
+            app.state.admin_client = admin_client
+            app.state.admin_agent_tools = [admin_tools.add_shopping_list_items]
+
+            logger.info(
+                "Admin agent ready: id=%s tools=%d",
+                admin_agent_id,
+                len(app.state.admin_agent_tools),
+            )
+        except Exception:
+            logger.warning(
+                "Admin agent registration failed -- admin features unavailable",
+                exc_info=True,
+            )
+            app.state.admin_agent_id = None
+            app.state.admin_client = None
+            app.state.admin_tools = None
+            app.state.admin_agent_tools = []
 
         app.state.settings = settings
 
