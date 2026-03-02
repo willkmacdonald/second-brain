@@ -87,6 +87,21 @@ class AdminDocument(BaseDocument):
     inboxRecordId: str | None = None
 
 
+KNOWN_STORES: list[str] = ["jewel", "cvs", "pet_store", "other"]
+
+
+class ShoppingListItem(BaseModel):
+    """Individual shopping list item in the ShoppingLists Cosmos container.
+
+    Partition key is /store (not /userId like other containers).
+    Items exist until deleted -- no status tracking, no timestamps.
+    """
+
+    id: str = Field(default_factory=lambda: str(uuid4()))
+    store: str  # Partition key: "jewel", "cvs", "pet_store", "other"
+    name: str  # Full natural language: "2 lbs ground beef", "cat litter"
+
+
 CONTAINER_MODELS: dict[str, type[BaseDocument]] = {
     "Inbox": InboxDocument,
     "People": PeopleDocument,
