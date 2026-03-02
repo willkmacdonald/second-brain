@@ -105,11 +105,13 @@ Plans:
   3. Multiple Admin-classified split items trigger a single batched Admin Agent background task
   4. Single-intent captures behave identically to pre-11.1 behavior
   5. Voice captures support multi-split identically to text captures
-**Plans**: 2 plans
+**Plans**: 4 plans
 
 Plans:
 - [x] 11.1-01-PLAN.md -- Backend adapter multi-result collection, SSE event extension, batch admin handoff, unit tests
 - [x] 11.1-02-PLAN.md -- Mobile client multi-bucket toast, Classifier Foundry instruction update
+- [ ] 11.1-03-PLAN.md -- (GAP CLOSURE) Fix adapter batched tool call handling with call_id-based pairing
+- [ ] 11.1-04-PLAN.md -- (GAP CLOSURE) Revise Classifier Foundry instructions for conversational phrasing tolerance
 
 ### Phase 12: Shopping List API and Status Screen
 **Goal**: Users can view their shopping lists grouped by store and remove items they have purchased
@@ -165,7 +167,7 @@ Plans:
 | 9.1 Mobile UX Review | v2.0 | 2/2 | Complete | 2026-03-01 |
 | 10. Data Foundation and Admin Tools | 2/2 | Complete    | 2026-03-02 | - |
 | 11. Admin Agent and Capture Handoff | 2/2 | Complete    | 2026-03-02 | - |
-| 11.1 Classifier Multi-Bucket Splitting | v3.0 | Complete    | 2026-03-02 | 2026-03-02 |
+| 11.1 Classifier Multi-Bucket Splitting | v3.0 | 2/4 (gap closure) | In Progress | - |
 | 12. Shopping List API and Status Screen | v3.0 | 0/TBD | Not started | - |
 | 13. YouTube Recipe Extraction | v3.0 | 0/TBD | Not started | - |
 
