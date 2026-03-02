@@ -96,13 +96,20 @@ Plans:
 
 ### Phase 11.1: Classifier Multi-Bucket Splitting (INSERTED)
 
-**Goal:** [Urgent work - to be planned]
-**Requirements**: TBD
+**Goal:** When a user captures mixed-content text containing multiple distinct intents targeting different buckets, the Classifier splits it into separate inbox items per bucket. Single-intent captures remain unaffected.
+**Requirements**: SPLIT-01, SPLIT-02, SPLIT-03, SPLIT-04, SPLIT-05
 **Depends on:** Phase 11
-**Plans:** 2/2 plans complete
+**Success Criteria** (what must be TRUE):
+  1. Capturing "need milk and remind me to call the vet" produces two inbox items: one Admin, one in the appropriate bucket for the vet reminder
+  2. The mobile toast shows "Filed to Admin, People" (multi-bucket format) for multi-split and "Filed -> Admin (0.85)" (existing format) for single-intent
+  3. Multiple Admin-classified split items trigger a single batched Admin Agent background task
+  4. Single-intent captures behave identically to pre-11.1 behavior
+  5. Voice captures support multi-split identically to text captures
+**Plans**: 2 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 11.1 to break down)
+- [ ] 11.1-01-PLAN.md -- Backend adapter multi-result collection, SSE event extension, batch admin handoff, unit tests
+- [ ] 11.1-02-PLAN.md -- Mobile client multi-bucket toast, Classifier Foundry instruction update
 
 ### Phase 12: Shopping List API and Status Screen
 **Goal**: Users can view their shopping lists grouped by store and remove items they have purchased
@@ -166,7 +173,7 @@ Plans:
 **Goal:** Review and streamline App Insights logging setup to ensure operational effectiveness and efficiency. Audit log levels, query patterns, alert configuration, and cost. Ensure Python logger output is structured and actionable, not noisy.
 **Requirements**: TBD
 **Depends on:** Phase 13
-**Plans:** 0 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] TBD (run /gsd:plan-phase 14 to break down)

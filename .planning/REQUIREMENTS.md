@@ -22,6 +22,14 @@ Requirements for v3.0 Admin Agent & Shopping Lists. Each maps to roadmap phases.
 - [x] **SHOP-04**: Admin Agent splits multi-item captures across multiple stores from a single capture
 - [ ] **SHOP-05**: User can swipe-to-remove items from shopping lists
 
+### Classifier Multi-Bucket Splitting
+
+- [x] **SPLIT-01**: Mixed-content captures with intents targeting different buckets produce separate inbox items per bucket
+- [ ] **SPLIT-02**: Single SSE event confirms all filed buckets to the user with multi-bucket toast format
+- [x] **SPLIT-03**: Admin-classified split items trigger Admin Agent background processing in a single batched task
+- [x] **SPLIT-04**: Single-intent captures are unaffected -- behavior identical to pre-split flow
+- [x] **SPLIT-05**: Voice captures support multi-split identically to text captures
+
 ### Recipe Extraction
 
 - [ ] **RCPE-01**: User can paste a YouTube URL that gets classified as Admin, and Admin Agent extracts recipe ingredients
@@ -98,10 +106,15 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MOBL-01 | Phase 12 | Pending |
 | MOBL-02 | Phase 12 | Pending |
 | MOBL-03 | Phase 12 | Pending |
+| SPLIT-01 | Phase 11.1 | Complete |
+| SPLIT-02 | Phase 11.1 | Pending |
+| SPLIT-03 | Phase 11.1 | Complete |
+| SPLIT-04 | Phase 11.1 | Complete |
+| SPLIT-05 | Phase 11.1 | Complete |
 
 **Coverage:**
-- v3.0 requirements: 15 total
-- Mapped to phases: 15/15
+- v3.0 requirements: 20 total
+- Mapped to phases: 20/20
 - Unmapped: 0
 
 ---

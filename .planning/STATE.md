@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Admin Agent & Shopping Lists
-status: unknown
-last_updated: "2026-03-02T03:49:29.319Z"
+status: in-progress
+last_updated: "2026-03-02T04:29:00.000Z"
 progress:
   total_phases: 12
   completed_phases: 8
-  total_plans: 32
-  completed_plans: 31
+  total_plans: 34
+  completed_plans: 32
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-01)
 
 **Core value:** One-tap capture from a phone instantly routes through an agent that classifies, files, and clarifies -- with zero organizational effort.
-**Current focus:** v3.0 Admin Agent & Shopping Lists -- executing Phase 11
+**Current focus:** v3.0 Admin Agent & Shopping Lists -- executing Phase 11.1
 
 ## Current Position
 
-Phase: 11 of 13 (Admin Agent and Capture Handoff) -- COMPLETE
-Plan: 2 of 2 (complete)
-Status: Completed Phase 11 -- Admin Agent capture handoff fully wired and verified
-Last activity: 2026-03-02 -- Completed 11-02 (Capture Handoff Wiring)
+Phase: 11.1 of 13 (Classifier Multi-Bucket Splitting)
+Plan: 1 of 2 (11.1-01 complete)
+Status: Completed 11.1-01 -- Multi-result streaming and batch Admin handoff
+Last activity: 2026-03-02 -- Completed 11.1-01 (Multi-Result Streaming)
 
-Progress: [████░░░░░░] 50% (v3.0)
+Progress: [█████░░░░░] 55% (v3.0)
 
 ## Performance Metrics
 
@@ -42,7 +42,7 @@ Progress: [████░░░░░░] 50% (v3.0)
 - Timeline: 2026-02-26 to 2026-03-01 (4 days)
 
 **Velocity (v3.0):**
-- Total plans completed: 4
+- Total plans completed: 5
 - Average duration: 3.0 min
 
 | Phase | Plan | Duration | Tasks | Files |
@@ -51,6 +51,7 @@ Progress: [████░░░░░░] 50% (v3.0)
 | 10 | 02 | 2 min | 3 | 4 |
 | 11 | 01 | 3 min | 2 | 4 |
 | 11 | 02 | 5 min | 3 | 3 |
+| 11.1 | 01 | 3 min | 2 | 5 |
 
 ## Accumulated Context
 
@@ -69,6 +70,10 @@ v2.0 decisions archived to .planning/milestones/v2.0-ROADMAP.md
 - [11-02] getattr with safe defaults for admin refs -- graceful degradation when Admin Agent registration fails
 - [11-02] Admin Agent only on initial captures, not follow-ups -- follow-ups are reclassification, not new captures
 - [11-02] Admin Agent instructions already correct in Foundry portal -- no manual update needed
+- [11.1-01] Extend classified_event with optional params (not new event type) -- backward-compatible
+- [11.1-01] Conditional dict: buckets/itemIds absent (not null) for single-item events
+- [11.1-01] process_admin_captures_batch delegates to existing process_admin_capture -- code reuse
+- [11.1-01] Safety net triggers on empty file_capture_results list, not detected_tool check
 
 ### Research Findings (Critical for v3.0)
 
@@ -95,5 +100,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Completed 11-02-PLAN.md (Capture Handoff Wiring) -- Phase 11 complete
-Resume action: /gsd:execute-phase 11.1 (Classifier Multi-Bucket Splitting)
+Stopped at: Completed 11.1-01-PLAN.md (Multi-Result Streaming and Batch Admin Handoff)
+Resume action: /gsd:execute-phase 11.1 (continue with 11.1-02)
