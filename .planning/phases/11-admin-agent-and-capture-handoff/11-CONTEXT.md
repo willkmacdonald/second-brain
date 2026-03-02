@@ -54,7 +54,8 @@ Admin-classified captures are silently processed by the Admin Agent in the backg
 <deferred>
 ## Deferred Ideas
 
-- App Insights log hygiene audit — user wants to understand the current state of App Insights logging and ensure it's not becoming a mess. Future phase or standalone task.
+- Classifier multi-bucket splitting — now Phase 11.1
+- App Insights operational audit — now Phase 14
 - Retry mechanism for failed Admin Agent processing — could add a scheduled sweep or manual retry in a future phase
 - User-configurable store mapping — letting users add/rename stores from the mobile app
 
