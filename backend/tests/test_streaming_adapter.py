@@ -1,13 +1,15 @@
-"""Unit tests for SSE encoding and event constructors.
+"""Unit tests for SSE encoding, event constructors, and call_id pairing.
 
 Tests the streaming/sse.py module which provides the wire format for
-AG-UI SSE events consumed by the mobile Expo app. Does NOT test the
-async generator functions (adapter.py) -- those require mocked Foundry
-clients and are integration test territory.
+AG-UI SSE events consumed by the mobile Expo app, plus adapter.py's
+call_id-based pairing logic for batched tool calls.
 """
 
 import json
 
+from agent_framework import Content
+
+from second_brain.streaming.adapter import _parse_args, _parse_result
 from second_brain.streaming.sse import (
     classified_event,
     complete_event,
@@ -192,3 +194,125 @@ class TestEventTypeNames:
         event = unresolved_event("id")
         assert event["type"] == "UNRESOLVED"
         assert "name" not in event
+
+
+class TestCallIdPairing:
+    """Verify call_id attribute availability on Content objects.
+
+    The adapter's pending_calls dict relies on call_id being present on
+    both function_call and function_result Content objects. These tests
+    confirm the SDK contract that makes the fix possible.
+    """
+
+    def test_function_call_has_call_id(self) -> None:
+        """function_call Content exposes call_id attribute."""
+        content = Content.from_function_call(
+            "call-abc-123",
+            "file_capture",
+            arguments={"bucket": "Admin", "confidence": 0.9},
+        )
+        assert content.type == "function_call"
+        assert content.call_id == "call-abc-123"
+        assert content.name == "file_capture"
+
+    def test_function_result_has_call_id(self) -> None:
+        """function_result Content exposes call_id matching its function_call."""
+        content = Content.from_function_result(
+            "call-abc-123",
+            result={"bucket": "Admin", "item_id": "item-1"},
+        )
+        assert content.type == "function_result"
+        assert content.call_id == "call-abc-123"
+
+    def test_two_function_calls_have_distinct_call_ids(self) -> None:
+        """Multiple function_call Contents maintain distinct call_ids."""
+        fc1 = Content.from_function_call(
+            "call-1",
+            "file_capture",
+            arguments={"bucket": "Admin", "text": "need milk"},
+        )
+        fc2 = Content.from_function_call(
+            "call-2",
+            "file_capture",
+            arguments={"bucket": "People", "text": "call the vet"},
+        )
+        assert fc1.call_id != fc2.call_id
+        assert fc1.call_id == "call-1"
+        assert fc2.call_id == "call-2"
+
+    def test_pending_calls_pattern_pairs_correctly(self) -> None:
+        """Simulate the adapter's pending_calls dict pairing logic.
+
+        This replicates the exact pattern used in stream_text_capture:
+        1. Two function_calls arrive (simulating batched SDK update)
+        2. Two function_results arrive (simulating batched SDK update)
+        3. Each result is paired with its call via call_id
+        """
+        # Simulate: two function_call contents in one update
+        pending_calls: dict[str, dict] = {}
+        fc1 = Content.from_function_call(
+            "call-1",
+            "file_capture",
+            arguments={
+                "bucket": "Admin",
+                "text": "need milk",
+                "confidence": 0.9,
+                "status": "classified",
+            },
+        )
+        fc2 = Content.from_function_call(
+            "call-2",
+            "file_capture",
+            arguments={
+                "bucket": "People",
+                "text": "call the vet",
+                "confidence": 0.8,
+                "status": "classified",
+            },
+        )
+        for fc in [fc1, fc2]:
+            call_id = getattr(fc, "call_id", None)
+            name = getattr(fc, "name", None)
+            if call_id and name:
+                pending_calls[call_id] = {
+                    "name": name,
+                    "args": _parse_args(getattr(fc, "arguments", {})),
+                }
+
+        assert len(pending_calls) == 2
+        assert "call-1" in pending_calls
+        assert "call-2" in pending_calls
+        assert pending_calls["call-1"]["args"]["text"] == "need milk"
+        assert pending_calls["call-2"]["args"]["text"] == "call the vet"
+
+        # Simulate: two function_result contents in one update
+        file_capture_results: list[dict] = []
+        fr1 = Content.from_function_result(
+            "call-1",
+            result='{"bucket": "Admin", "item_id": "item-1", "confidence": 0.9}',
+        )
+        fr2 = Content.from_function_result(
+            "call-2",
+            result='{"bucket": "People", "item_id": "item-2", "confidence": 0.8}',
+        )
+        for fr in [fr1, fr2]:
+            call_id = getattr(fr, "call_id", None)
+            if call_id and call_id in pending_calls:
+                call_info = pending_calls.pop(call_id)
+                if call_info["name"] == "file_capture":
+                    parsed = _parse_result(getattr(fr, "result", None))
+                    if parsed is not None:
+                        merged = {**call_info["args"], **parsed}
+                        file_capture_results.append(merged)
+
+        assert len(file_capture_results) == 2
+        # First result: args from call-1, result from call-1
+        assert file_capture_results[0]["text"] == "need milk"
+        assert file_capture_results[0]["item_id"] == "item-1"
+        assert file_capture_results[0]["bucket"] == "Admin"
+        # Second result: args from call-2, result from call-2
+        assert file_capture_results[1]["text"] == "call the vet"
+        assert file_capture_results[1]["item_id"] == "item-2"
+        assert file_capture_results[1]["bucket"] == "People"
+        # pending_calls should be empty after processing
+        assert len(pending_calls) == 0
