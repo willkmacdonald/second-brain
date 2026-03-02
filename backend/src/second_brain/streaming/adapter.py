@@ -18,6 +18,7 @@ from agent_framework import ChatOptions, Message
 from agent_framework.azure import AzureAIAgentClient
 from opentelemetry import trace
 
+from second_brain.processing.admin_handoff import process_admin_capture
 from second_brain.streaming.sse import (
     classified_event,
     complete_event,
@@ -149,6 +150,9 @@ async def stream_text_capture(
     thread_id: str,
     run_id: str,
     cosmos_manager=None,
+    admin_client: AzureAIAgentClient | None = None,
+    admin_tools: list | None = None,
+    background_tasks: set | None = None,
 ) -> AsyncGenerator[str, None]:
     """Stream a text capture through the Classifier agent as AG-UI SSE events.
 
@@ -243,6 +247,31 @@ async def stream_text_capture(
                             foundry_conversation_id,
                         )
                     )
+                    # Trigger Admin Agent background processing
+                    result_src_for_admin = tool_result or detected_tool_args
+                    admin_bucket = result_src_for_admin.get("bucket", "")
+                    admin_item_id = result_src_for_admin.get("item_id", "")
+                    if (
+                        admin_bucket == "Admin"
+                        and admin_client is not None
+                        and admin_item_id
+                        and background_tasks is not None
+                    ):
+                        task = asyncio.create_task(
+                            process_admin_capture(
+                                admin_client=admin_client,
+                                admin_tools=admin_tools or [],
+                                cosmos_manager=cosmos_manager,
+                                inbox_item_id=admin_item_id,
+                                raw_text=user_text,
+                            )
+                        )
+                        background_tasks.add(task)
+                        task.add_done_callback(background_tasks.discard)
+                        logger.info(
+                            "Spawned Admin Agent background task for inbox item %s",
+                            admin_item_id,
+                        )
                 elif cosmos_manager:
                     # Safety net: agent didn't call file_capture
                     event = await _safety_net_file_as_misunderstood(
@@ -273,6 +302,9 @@ async def stream_voice_capture(
     thread_id: str,
     run_id: str,
     cosmos_manager=None,
+    admin_client: AzureAIAgentClient | None = None,
+    admin_tools: list | None = None,
+    background_tasks: set | None = None,
 ) -> AsyncGenerator[str, None]:
     """Stream a voice capture through the Classifier agent as AG-UI SSE events.
 
@@ -378,6 +410,33 @@ async def stream_voice_capture(
                             foundry_conversation_id,
                         )
                     )
+                    # Trigger Admin Agent background processing
+                    result_src_for_admin = tool_result or detected_tool_args
+                    admin_bucket = result_src_for_admin.get("bucket", "")
+                    admin_item_id = result_src_for_admin.get("item_id", "")
+                    if (
+                        admin_bucket == "Admin"
+                        and admin_client is not None
+                        and admin_item_id
+                        and background_tasks is not None
+                    ):
+                        # Use transcript for Admin Agent if available
+                        admin_raw_text = transcript_text or f"[Voice recording: {blob_url}]"
+                        task = asyncio.create_task(
+                            process_admin_capture(
+                                admin_client=admin_client,
+                                admin_tools=admin_tools or [],
+                                cosmos_manager=cosmos_manager,
+                                inbox_item_id=admin_item_id,
+                                raw_text=admin_raw_text,
+                            )
+                        )
+                        background_tasks.add(task)
+                        task.add_done_callback(background_tasks.discard)
+                        logger.info(
+                            "Spawned Admin Agent background task for voice inbox item %s",
+                            admin_item_id,
+                        )
                 elif cosmos_manager:
                     # Safety net: agent didn't call file_capture.
                     # Use transcript if available, otherwise the blob URL.
