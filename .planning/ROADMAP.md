@@ -108,8 +108,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 11.1-01-PLAN.md -- Backend adapter multi-result collection, SSE event extension, batch admin handoff, unit tests
-- [ ] 11.1-02-PLAN.md -- Mobile client multi-bucket toast, Classifier Foundry instruction update
+- [x] 11.1-01-PLAN.md -- Backend adapter multi-result collection, SSE event extension, batch admin handoff, unit tests
+- [x] 11.1-02-PLAN.md -- Mobile client multi-bucket toast, Classifier Foundry instruction update
 
 ### Phase 12: Shopping List API and Status Screen
 **Goal**: Users can view their shopping lists grouped by store and remove items they have purchased
@@ -146,7 +146,7 @@ Plans:
 **Execution Order:**
 - v1.0: 1 -> 2 -> 3 -> 4 -> 4.1 -> 4.2 -> 4.3 -> 5 (complete)
 - v2.0: 6 -> 7 -> 8 -> 9 -> 9.1 (complete)
-- v3.0: 10 -> 11 -> 12 -> 13
+- v3.0: 10 -> 11 -> 11.1 -> 12 -> 13
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -165,6 +165,7 @@ Plans:
 | 9.1 Mobile UX Review | v2.0 | 2/2 | Complete | 2026-03-01 |
 | 10. Data Foundation and Admin Tools | 2/2 | Complete    | 2026-03-02 | - |
 | 11. Admin Agent and Capture Handoff | 2/2 | Complete    | 2026-03-02 | - |
+| 11.1 Classifier Multi-Bucket Splitting | v3.0 | 2/2 | Complete | 2026-03-02 |
 | 12. Shopping List API and Status Screen | v3.0 | 0/TBD | Not started | - |
 | 13. YouTube Recipe Extraction | v3.0 | 0/TBD | Not started | - |
 
