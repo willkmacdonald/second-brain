@@ -165,7 +165,7 @@ Plans:
 | 9.1 Mobile UX Review | v2.0 | 2/2 | Complete | 2026-03-01 |
 | 10. Data Foundation and Admin Tools | 2/2 | Complete    | 2026-03-02 | - |
 | 11. Admin Agent and Capture Handoff | 2/2 | Complete    | 2026-03-02 | - |
-| 11.1 Classifier Multi-Bucket Splitting | v3.0 | 2/2 | Complete | 2026-03-02 |
+| 11.1 Classifier Multi-Bucket Splitting | v3.0 | Complete    | 2026-03-02 | 2026-03-02 |
 | 12. Shopping List API and Status Screen | v3.0 | 0/TBD | Not started | - |
 | 13. YouTube Recipe Extraction | v3.0 | 0/TBD | Not started | - |
 
@@ -174,7 +174,7 @@ Plans:
 **Goal:** Review and streamline App Insights logging setup to ensure operational effectiveness and efficiency. Audit log levels, query patterns, alert configuration, and cost. Ensure Python logger output is structured and actionable, not noisy.
 **Requirements**: TBD
 **Depends on:** Phase 13
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] TBD (run /gsd:plan-phase 14 to break down)
