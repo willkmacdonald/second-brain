@@ -1,0 +1,111 @@
+"""Background processing for Admin-classified captures.
+
+Provides process_admin_capture() -- a fire-and-forget coroutine that
+calls the Admin Agent non-streaming, routes shopping items to store lists,
+and updates the inbox item's adminProcessingStatus.
+"""
+
+import asyncio
+import logging
+
+from agent_framework import ChatOptions, Message
+from agent_framework.azure import AzureAIAgentClient
+from opentelemetry import trace
+
+from second_brain.db.cosmos import CosmosManager
+
+logger = logging.getLogger(__name__)
+tracer = trace.get_tracer("second_brain.processing")
+
+
+async def process_admin_capture(
+    admin_client: AzureAIAgentClient,
+    admin_tools: list,
+    cosmos_manager: CosmosManager,
+    inbox_item_id: str,
+    raw_text: str,
+) -> None:
+    """Process an Admin-classified capture in the background.
+
+    Calls the Admin Agent (non-streaming) to parse items and route
+    to shopping lists via add_shopping_list_items. Updates the inbox
+    item's adminProcessingStatus to 'processed' or 'failed'.
+
+    This function is designed to be called via asyncio.create_task() --
+    it never raises (all exceptions are caught and logged).
+
+    Args:
+        admin_client: AzureAIAgentClient configured for the Admin Agent.
+        admin_tools: List of tool functions (e.g., [admin_tools.add_shopping_list_items]).
+        cosmos_manager: CosmosManager for inbox status updates.
+        inbox_item_id: The Cosmos inbox document ID to update after processing.
+        raw_text: The user's original capture text to send to the Admin Agent.
+    """
+    with tracer.start_as_current_span("admin_agent_process") as span:
+        span.set_attribute("admin.inbox_item_id", inbox_item_id)
+        span.set_attribute("admin.raw_text_length", len(raw_text))
+
+        # Set status to pending immediately
+        try:
+            inbox_container = cosmos_manager.get_container("Inbox")
+            doc = await inbox_container.read_item(
+                item=inbox_item_id, partition_key="will"
+            )
+            doc["adminProcessingStatus"] = "pending"
+            await inbox_container.upsert_item(body=doc)
+        except Exception as exc:
+            span.record_exception(exc)
+            logger.error(
+                "Failed to set pending status for inbox item %s: %s",
+                inbox_item_id,
+                exc,
+                exc_info=True,
+            )
+            return  # Cannot proceed without the inbox item
+
+        try:
+            messages = [Message(role="user", text=raw_text)]
+            options = ChatOptions(tools=admin_tools)
+
+            async with asyncio.timeout(60):
+                response = await admin_client.get_response(
+                    messages=messages, options=options
+                )
+
+            # Update inbox item status to processed
+            doc = await inbox_container.read_item(
+                item=inbox_item_id, partition_key="will"
+            )
+            doc["adminProcessingStatus"] = "processed"
+            await inbox_container.upsert_item(body=doc)
+
+            span.set_attribute("admin.outcome", "processed")
+            logger.info(
+                "Admin Agent processed inbox item %s: %s",
+                inbox_item_id,
+                response.text[:100] if response.text else "(no text)",
+            )
+
+        except Exception as exc:
+            span.record_exception(exc)
+            span.set_attribute("admin.outcome", "failed")
+            logger.error(
+                "Admin Agent failed for inbox item %s: %s",
+                inbox_item_id,
+                exc,
+                exc_info=True,
+            )
+
+            # Update inbox item status to failed
+            try:
+                doc = await inbox_container.read_item(
+                    item=inbox_item_id, partition_key="will"
+                )
+                doc["adminProcessingStatus"] = "failed"
+                await inbox_container.upsert_item(body=doc)
+            except Exception as update_exc:
+                logger.error(
+                    "Failed to update inbox status to 'failed' for %s: %s",
+                    inbox_item_id,
+                    update_exc,
+                )

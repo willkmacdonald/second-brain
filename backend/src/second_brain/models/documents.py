@@ -48,6 +48,7 @@ class InboxDocument(BaseDocument):
     title: str | None = None
     clarificationText: str | None = None
     foundryThreadId: str | None = None
+    adminProcessingStatus: str | None = None  # None, "pending", "processed", "failed"
 
 
 class PeopleDocument(BaseDocument):
