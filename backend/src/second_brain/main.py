@@ -246,6 +246,11 @@ async def lifespan(app: FastAPI):
             app.state.admin_tools = None
             app.state.admin_agent_tools = []
 
+        # --- Background task tracking ---
+        # Strong references prevent GC of fire-and-forget tasks.
+        # Tasks self-remove via add_done_callback when complete.
+        app.state.background_tasks: set = set()
+
         app.state.settings = settings
 
         yield
