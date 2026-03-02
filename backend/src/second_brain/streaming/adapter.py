@@ -178,8 +178,7 @@ async def stream_text_capture(
 
         # Multi-result tracking (Phase 11.1)
         file_capture_results: list[dict] = []
-        current_fc_name: str | None = None
-        current_fc_args: dict = {}
+        pending_calls: dict[str, dict] = {}  # call_id -> {name, args}
         reasoning_buffer: str = ""
         chunk_idx: int = 0
         foundry_conversation_id: str | None = None
@@ -211,21 +210,23 @@ async def stream_text_capture(
                             chunk_idx += 1
 
                         elif content.type == "function_call":
+                            call_id = getattr(content, "call_id", None)
                             name = getattr(content, "name", None)
-                            current_fc_name = name
-                            if name == "file_capture":
-                                current_fc_args = _parse_args(
-                                    getattr(content, "arguments", {})
-                                )
+                            if call_id and name:
+                                pending_calls[call_id] = {
+                                    "name": name,
+                                    "args": _parse_args(getattr(content, "arguments", {})) if name == "file_capture" else {},
+                                }
 
                         elif content.type == "function_result":
-                            parsed = _parse_result(
-                                getattr(content, "result", None)
-                            )
-                            if current_fc_name == "file_capture" and parsed is not None:
-                                merged = {**current_fc_args, **(parsed or {})}
-                                file_capture_results.append(merged)
-                            current_fc_name = None
+                            call_id = getattr(content, "call_id", None)
+                            if call_id and call_id in pending_calls:
+                                call_info = pending_calls.pop(call_id)
+                                if call_info["name"] == "file_capture":
+                                    parsed = _parse_result(getattr(content, "result", None))
+                                    if parsed is not None:
+                                        merged = {**call_info["args"], **parsed}
+                                        file_capture_results.append(merged)
 
                 yield encode_sse(step_end_event("Classifying"))
 
@@ -398,8 +399,7 @@ async def stream_voice_capture(
 
         # Multi-result tracking (Phase 11.1)
         file_capture_results: list[dict] = []
-        current_fc_name: str | None = None
-        current_fc_args: dict = {}
+        pending_calls: dict[str, dict] = {}  # call_id -> {name, args}
         transcript_text: str | None = None
         reasoning_buffer: str = ""
         chunk_idx: int = 0
@@ -432,26 +432,27 @@ async def stream_voice_capture(
                             chunk_idx += 1
 
                         elif content.type == "function_call":
+                            call_id = getattr(content, "call_id", None)
                             name = getattr(content, "name", None)
-                            current_fc_name = name
-                            if name == "transcribe_audio":
-                                logger.info("Voice capture: transcribe_audio called")
-                            elif name == "file_capture":
-                                current_fc_args = _parse_args(
-                                    getattr(content, "arguments", {})
-                                )
+                            if call_id and name:
+                                if name == "transcribe_audio":
+                                    logger.info("Voice capture: transcribe_audio called")
+                                pending_calls[call_id] = {
+                                    "name": name,
+                                    "args": _parse_args(getattr(content, "arguments", {})) if name == "file_capture" else {},
+                                }
 
                         elif content.type == "function_result":
-                            parsed = _parse_result(
-                                getattr(content, "result", None)
-                            )
-                            if parsed is not None:
-                                if current_fc_name == "transcribe_audio":
-                                    transcript_text = parsed.get("raw", "")
-                                elif current_fc_name == "file_capture":
-                                    merged = {**current_fc_args, **(parsed or {})}
-                                    file_capture_results.append(merged)
-                            current_fc_name = None
+                            call_id = getattr(content, "call_id", None)
+                            if call_id and call_id in pending_calls:
+                                call_info = pending_calls.pop(call_id)
+                                parsed = _parse_result(getattr(content, "result", None))
+                                if parsed is not None:
+                                    if call_info["name"] == "transcribe_audio":
+                                        transcript_text = parsed.get("raw", "")
+                                    elif call_info["name"] == "file_capture":
+                                        merged = {**call_info["args"], **parsed}
+                                        file_capture_results.append(merged)
 
                 yield encode_sse(step_end_event("Processing"))
 
