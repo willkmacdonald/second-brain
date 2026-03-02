@@ -9,17 +9,17 @@ Requirements for v3.0 Admin Agent & Shopping Lists. Each maps to roadmap phases.
 
 ### Agent Infrastructure
 
-- [ ] **AGNT-01**: Admin Agent registered as persistent Foundry agent on startup (mirrors Classifier pattern)
+- [x] **AGNT-01**: Admin Agent registered as persistent Foundry agent on startup (mirrors Classifier pattern)
 - [x] **AGNT-02**: Admin Agent has separate AzureAIAgentClient instance with own agent_id and tool list
-- [ ] **AGNT-03**: Admin Agent processes Inbox items classified as Admin, running silently after Classifier files to Inbox
+- [x] **AGNT-03**: Admin Agent processes Inbox items classified as Admin, running silently after Classifier files to Inbox
 - [x] **AGNT-04**: Inbox items get a "processed" flag after Admin Agent handles them
 
 ### Shopping Lists
 
 - [x] **SHOP-01**: Shopping list items stored in Cosmos DB, grouped by store
 - [x] **SHOP-02**: Admin Agent routes items to correct store based on agent instructions (Jewel, CVS, pet store, etc.)
-- [ ] **SHOP-03**: User can capture ad hoc items ("need cat litter") that flow through Classifier → Admin Agent → correct store list
-- [ ] **SHOP-04**: Admin Agent splits multi-item captures across multiple stores from a single capture
+- [x] **SHOP-03**: User can capture ad hoc items ("need cat litter") that flow through Classifier → Admin Agent → correct store list
+- [x] **SHOP-04**: Admin Agent splits multi-item captures across multiple stores from a single capture
 - [ ] **SHOP-05**: User can swipe-to-remove items from shopping lists
 
 ### Recipe Extraction
@@ -83,14 +83,14 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AGNT-01 | Phase 11 | Pending |
+| AGNT-01 | Phase 11 | Complete |
 | AGNT-02 | Phase 10 | Complete |
-| AGNT-03 | Phase 11 | Pending |
+| AGNT-03 | Phase 11 | Complete |
 | AGNT-04 | Phase 11 | Complete |
 | SHOP-01 | Phase 10 | Complete |
 | SHOP-02 | Phase 10 | Complete |
-| SHOP-03 | Phase 11 | Pending |
-| SHOP-04 | Phase 11 | Pending |
+| SHOP-03 | Phase 11 | Complete |
+| SHOP-04 | Phase 11 | Complete |
 | SHOP-05 | Phase 12 | Pending |
 | RCPE-01 | Phase 13 | Pending |
 | RCPE-02 | Phase 13 | Pending |
