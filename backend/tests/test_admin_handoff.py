@@ -9,7 +9,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from second_brain.processing.admin_handoff import process_admin_capture
+from second_brain.processing.admin_handoff import (
+    process_admin_capture,
+    process_admin_captures_batch,
+)
 
 
 @pytest.fixture
@@ -240,3 +243,90 @@ class TestProcessAdminCaptureTimeout:
         upsert_calls = container.upsert_item.call_args_list
         last_body = upsert_calls[-1].kwargs.get("body") or upsert_calls[-1][1].get("body")
         assert last_body["adminProcessingStatus"] == "failed"
+
+
+# ---------------------------------------------------------------------------
+# Tests: batch processing
+# ---------------------------------------------------------------------------
+
+
+class TestProcessAdminCapturesBatch:
+    """Tests for process_admin_captures_batch."""
+
+    async def test_batch_calls_process_for_each_item(
+        self, mock_admin_client, mock_cosmos_manager, mock_admin_tools
+    ):
+        """Given 2 admin items, admin_client.get_response is called twice."""
+        admin_items = [
+            {"inbox_item_id": "item-1", "raw_text": "need milk"},
+            {"inbox_item_id": "item-2", "raw_text": "buy eggs"},
+        ]
+
+        await process_admin_captures_batch(
+            admin_client=mock_admin_client,
+            admin_tools=mock_admin_tools,
+            cosmos_manager=mock_cosmos_manager,
+            admin_items=admin_items,
+        )
+
+        assert mock_admin_client.get_response.call_count == 2
+
+    async def test_batch_one_failure_does_not_block_second(
+        self, mock_cosmos_manager, mock_admin_tools
+    ):
+        """First item fails, second still processes successfully."""
+        client = AsyncMock()
+        response_ok = MagicMock()
+        response_ok.text = "Processed items"
+
+        call_count = 0
+
+        async def side_effect(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise RuntimeError("Foundry timeout")
+            return response_ok
+
+        client.get_response = AsyncMock(side_effect=side_effect)
+
+        # Need separate docs per item -- set up read_item to return fresh docs
+        container = mock_cosmos_manager.get_container("Inbox")
+        container.read_item.side_effect = lambda **kwargs: _inbox_doc()
+
+        admin_items = [
+            {"inbox_item_id": "item-fail", "raw_text": "fail this"},
+            {"inbox_item_id": "item-ok", "raw_text": "this works"},
+        ]
+
+        await process_admin_captures_batch(
+            admin_client=client,
+            admin_tools=mock_admin_tools,
+            cosmos_manager=mock_cosmos_manager,
+            admin_items=admin_items,
+        )
+
+        # Both items were attempted
+        assert client.get_response.call_count == 2
+
+        # Check that at least one upsert set "processed"
+        upsert_calls = container.upsert_item.call_args_list
+        statuses = [
+            (c.kwargs.get("body") or c[1].get("body"))["adminProcessingStatus"]
+            for c in upsert_calls
+        ]
+        assert "processed" in statuses
+        assert "failed" in statuses
+
+    async def test_batch_empty_list_is_noop(
+        self, mock_admin_client, mock_cosmos_manager, mock_admin_tools
+    ):
+        """Empty admin_items list returns without calling admin_client."""
+        await process_admin_captures_batch(
+            admin_client=mock_admin_client,
+            admin_tools=mock_admin_tools,
+            cosmos_manager=mock_cosmos_manager,
+            admin_items=[],
+        )
+
+        mock_admin_client.get_response.assert_not_called()

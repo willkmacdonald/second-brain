@@ -30,16 +30,29 @@ def step_end_event(step_name: str) -> dict:
     return {"type": "STEP_END", "stepName": step_name}
 
 
-def classified_event(inbox_item_id: str, bucket: str, confidence: float) -> dict:
-    """Construct a CLASSIFIED event payload."""
-    return {
-        "type": "CLASSIFIED",
-        "value": {
-            "inboxItemId": inbox_item_id,
-            "bucket": bucket,
-            "confidence": confidence,
-        },
+def classified_event(
+    inbox_item_id: str,
+    bucket: str,
+    confidence: float,
+    buckets: list[str] | None = None,
+    item_ids: list[str] | None = None,
+) -> dict:
+    """Construct a CLASSIFIED event payload.
+
+    When called with only the first three args, produces the original
+    single-bucket format (backward-compatible). When buckets/item_ids
+    are provided, includes them for multi-split captures.
+    """
+    value: dict = {
+        "inboxItemId": inbox_item_id,
+        "bucket": bucket,
+        "confidence": confidence,
     }
+    if buckets is not None:
+        value["buckets"] = buckets
+    if item_ids is not None:
+        value["itemIds"] = item_ids
+    return {"type": "CLASSIFIED", "value": value}
 
 
 def low_confidence_event(inbox_item_id: str, bucket: str, confidence: float) -> dict:

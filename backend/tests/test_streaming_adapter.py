@@ -77,6 +77,39 @@ class TestEventConstructors:
             },
         }
 
+    def test_classified_event_single_no_extra_fields(self) -> None:
+        """Single-bucket classified_event must NOT include buckets/itemIds keys."""
+        event = classified_event("item-123", "Admin", 0.85)
+        assert "buckets" not in event["value"]
+        assert "itemIds" not in event["value"]
+
+    def test_classified_event_multi_bucket(self) -> None:
+        """Multi-bucket classified_event includes buckets and itemIds arrays."""
+        event = classified_event(
+            "id-1", "Admin", 0.85,
+            buckets=["Admin", "Ideas"],
+            item_ids=["id-1", "id-2"],
+        )
+        assert event == {
+            "type": "CLASSIFIED",
+            "value": {
+                "inboxItemId": "id-1",
+                "bucket": "Admin",
+                "confidence": 0.85,
+                "buckets": ["Admin", "Ideas"],
+                "itemIds": ["id-1", "id-2"],
+            },
+        }
+
+    def test_classified_event_buckets_only(self) -> None:
+        """When only buckets is provided (no item_ids), only buckets appears."""
+        event = classified_event(
+            "id-1", "Admin", 0.85,
+            buckets=["Admin", "Ideas"],
+        )
+        assert event["value"]["buckets"] == ["Admin", "Ideas"]
+        assert "itemIds" not in event["value"]
+
     def test_misunderstood_event(self) -> None:
         event = misunderstood_event("thread-1", "item-456", "Could you clarify?")
         assert event == {

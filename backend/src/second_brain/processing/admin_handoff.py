@@ -109,3 +109,35 @@ async def process_admin_capture(
                     inbox_item_id,
                     update_exc,
                 )
+
+
+async def process_admin_captures_batch(
+    admin_client: AzureAIAgentClient,
+    admin_tools: list,
+    cosmos_manager: CosmosManager,
+    admin_items: list[dict],
+) -> None:
+    """Process multiple Admin-classified items from a multi-split capture.
+
+    Calls process_admin_capture for each item sequentially within a single
+    background task. Each item is independent -- one failure does not block others.
+
+    This function is designed to be called via asyncio.create_task() --
+    it never raises (all exceptions are caught internally by process_admin_capture).
+
+    Args:
+        admin_client: AzureAIAgentClient configured for the Admin Agent.
+        admin_tools: List of tool functions for the Admin Agent.
+        cosmos_manager: CosmosManager for inbox status updates.
+        admin_items: List of dicts with "inbox_item_id" and "raw_text" keys.
+    """
+    with tracer.start_as_current_span("admin_agent_batch_process") as span:
+        span.set_attribute("admin.batch_size", len(admin_items))
+        for item in admin_items:
+            await process_admin_capture(
+                admin_client=admin_client,
+                admin_tools=admin_tools,
+                cosmos_manager=cosmos_manager,
+                inbox_item_id=item["inbox_item_id"],
+                raw_text=item["raw_text"],
+            )
