@@ -20,10 +20,17 @@ async def health_check(request: Request) -> dict:
         else "not_configured"
     )
 
+    admin_status = (
+        "ready"
+        if getattr(request.app.state, "admin_client", None) is not None
+        else "not_initialized"
+    )
+
     overall = "ok" if foundry_status == "connected" else "degraded"
 
     return {
         "status": overall,
         "foundry": foundry_status,
         "cosmos": cosmos_status,
+        "admin_agent": admin_status,
     }
