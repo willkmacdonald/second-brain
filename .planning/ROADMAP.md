@@ -133,10 +133,11 @@ Plans:
 **Goal:** Admin Agent deletes inbox items after successful processing instead of flagging them, keeping the Inbox clean
 **Requirements**: CLEAN-01
 **Depends on:** Phase 12
-**Plans:** 1/1 plans complete
+**Plans:** 2 plans (1 complete + 1 gap closure)
 
 Plans:
-- [ ] 12.1-01-PLAN.md -- Replace processed-upsert with delete in admin_handoff.py, update tests
+- [x] 12.1-01-PLAN.md -- Replace processed-upsert with delete in admin_handoff.py, update tests
+- [ ] 12.1-02-PLAN.md -- (GAP CLOSURE) Fix delete failure leaving 'pending' limbo, add stale pending retry
 
 ### Phase 13: YouTube Recipe Extraction
 **Goal**: Users can paste a YouTube recipe URL and have ingredients automatically extracted and added to their grocery shopping list
