@@ -39,6 +39,7 @@ from second_brain.agents.middleware import (  # noqa: E402
 from second_brain.api.capture import router as capture_router  # noqa: E402
 from second_brain.api.health import router as health_router  # noqa: E402
 from second_brain.api.inbox import router as inbox_router  # noqa: E402
+from second_brain.api.shopping_lists import router as shopping_lists_router  # noqa: E402
 from second_brain.auth import APIKeyMiddleware  # noqa: E402
 from second_brain.config import get_settings  # noqa: E402
 from second_brain.db.blob_storage import BlobStorageManager  # noqa: E402
@@ -282,6 +283,7 @@ app.add_middleware(APIKeyMiddleware)
 app.include_router(health_router)
 app.include_router(inbox_router)
 app.include_router(capture_router)
+app.include_router(shopping_lists_router)
 
 if __name__ == "__main__":
     import uvicorn
