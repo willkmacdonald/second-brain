@@ -289,6 +289,64 @@ async def test_get_shopping_lists_triggers_processing(
 
 
 @pytest.mark.asyncio
+async def test_get_shopping_lists_triggers_for_pending_items(
+    shopping_app: FastAPI,
+    mock_cosmos_manager: MagicMock,
+) -> None:
+    """GET triggers processing for items stuck with adminProcessingStatus='pending'.
+
+    When delete_item fails after successful Admin Agent processing, the inbox
+    item remains with adminProcessingStatus='pending'. The retry query must
+    include these stuck items so they are recovered on next Status screen open.
+    """
+    _setup_store_items(mock_cosmos_manager, {"jewel": JEWEL_ITEMS})
+
+    # Set up Inbox container to return 1 item stuck in 'pending' state
+    inbox_container = mock_cosmos_manager.get_container("Inbox")
+    inbox_container.query_items = MagicMock(
+        side_effect=lambda **kwargs: _make_inbox_async_iterator(
+            [
+                {
+                    "id": "inbox-stuck",
+                    "rawText": "milk and eggs",
+                    "adminProcessingStatus": "pending",
+                }
+            ]
+        )(**kwargs)
+    )
+
+    # Set up admin client on app state
+    shopping_app.state.admin_client = AsyncMock()
+    shopping_app.state.admin_agent_tools = [AsyncMock()]
+    shopping_app.state.background_tasks = set()
+
+    # Patch asyncio.create_task to capture the coroutine
+    with patch(
+        "second_brain.api.shopping_lists.asyncio.create_task"
+    ) as mock_create_task:
+        mock_create_task.return_value = MagicMock()
+        mock_create_task.return_value.add_done_callback = (
+            MagicMock()
+        )
+
+        transport = httpx.ASGITransport(app=shopping_app)
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://test"
+        ) as client:
+            response = await client.get(
+                "/api/shopping-lists",
+                headers={
+                    "Authorization": f"Bearer {TEST_API_KEY}"
+                },
+            )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["processingCount"] == 1
+    mock_create_task.assert_called_once()
+
+
+@pytest.mark.asyncio
 async def test_get_shopping_lists_no_trigger_when_no_admin_client(
     shopping_app: FastAPI,
     mock_cosmos_manager: MagicMock,
