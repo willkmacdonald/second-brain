@@ -121,6 +121,7 @@ async def get_shopping_lists(request: Request) -> ShoppingListResponse:
                 "WHERE c.userId = @userId "
                 "AND c.classificationMeta.bucket = 'Admin' "
                 "AND (NOT IS_DEFINED(c.adminProcessingStatus) "
+                "     OR IS_NULL(c.adminProcessingStatus) "
                 "     OR c.adminProcessingStatus = 'failed' "
                 "     OR c.adminProcessingStatus = 'pending')"
             )
