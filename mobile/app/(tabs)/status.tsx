@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -40,6 +40,8 @@ export default function StatusScreen() {
   );
   const [loading, setLoading] = useState(true);
   const [hasLoaded, setHasLoaded] = useState(false);
+  const [processingCount, setProcessingCount] = useState(0);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchShoppingLists = useCallback(async () => {
     if (!API_KEY) {
@@ -63,6 +65,7 @@ export default function StatusScreen() {
           count: number;
         }[];
         totalCount: number;
+        processingCount?: number;
       } = await res.json();
 
       const mapped: StoreSectionData[] = data.stores.map((s) => ({
@@ -74,6 +77,7 @@ export default function StatusScreen() {
       }));
 
       setSections(mapped);
+      setProcessingCount(data.processingCount ?? 0);
       setHasLoaded(true);
     } catch {
       // On error: keep stale data if available
@@ -83,12 +87,30 @@ export default function StatusScreen() {
     setLoading(false);
   }, [hasLoaded]);
 
-  // Refresh on tab focus only -- no pull-to-refresh, no background polling
+  // Refresh on tab focus
   useFocusEffect(
     useCallback(() => {
       void fetchShoppingLists();
     }, [fetchShoppingLists]),
   );
+
+  // Auto-refresh while processing is active
+  useEffect(() => {
+    if (processingCount > 0) {
+      pollingRef.current = setInterval(() => {
+        void fetchShoppingLists();
+      }, 3000);
+    } else if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+    };
+  }, [processingCount, fetchShoppingLists]);
 
   const toggleSection = useCallback((key: string) => {
     setExpandedSections((prev) => {
@@ -161,6 +183,17 @@ export default function StatusScreen() {
         sections={sections}
         extraData={expandedSections}
         keyExtractor={(item) => item.id}
+        ListHeaderComponent={
+          processingCount > 0 ? (
+            <View style={styles.processingBanner}>
+              <ActivityIndicator size="small" color="#4a90d9" />
+              <Text style={styles.processingText}>
+                Processing {processingCount} new capture
+                {processingCount !== 1 ? "s" : ""}...
+              </Text>
+            </View>
+          ) : null
+        }
         renderSectionHeader={({ section }) => (
           <StatusSectionRenderer
             section={section}
@@ -211,5 +244,23 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     color: "#666",
+  },
+  processingBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#1a1a2e",
+    borderWidth: 1,
+    borderColor: "#4a90d9",
+    borderRadius: 10,
+    padding: 12,
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 4,
+    gap: 10,
+  },
+  processingText: {
+    fontSize: 14,
+    color: "#4a90d9",
+    fontWeight: "500",
   },
 });

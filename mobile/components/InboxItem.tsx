@@ -9,6 +9,7 @@ export interface InboxItemData {
   status: string;
   createdAt: string;
   clarificationText?: string;
+  adminProcessingStatus?: string | null;
   classificationMeta: {
     bucket: string;
     confidence: number;
@@ -127,9 +128,14 @@ export function InboxItem({ item, onPress, onDelete }: InboxItemProps) {
             {preview}
           </Text>
           <View style={styles.meta}>
-            <Text style={[styles.bucket, (isPending || isMisunderstood) && styles.bucketPending, isUnresolved && styles.bucketUnresolved]}>
-              {bucketLabel}
-            </Text>
+            <View style={styles.metaLeft}>
+              <Text style={[styles.bucket, (isPending || isMisunderstood) && styles.bucketPending, isUnresolved && styles.bucketUnresolved]}>
+                {bucketLabel}
+              </Text>
+              {item.adminProcessingStatus === "failed" && (
+                <Text style={styles.processingFailed}>Processing failed</Text>
+              )}
+            </View>
             <Text style={styles.time}>{getRelativeTime(item.createdAt)}</Text>
           </View>
         </View>
@@ -170,6 +176,16 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+  },
+  metaLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  processingFailed: {
+    fontSize: 11,
+    color: "#ef4444",
+    fontWeight: "500",
   },
   bucket: {
     fontSize: 12,
