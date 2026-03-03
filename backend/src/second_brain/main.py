@@ -1,5 +1,6 @@
 """FastAPI app with inbox API, health check, and Cosmos DB persistence."""
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -47,6 +48,7 @@ from second_brain.db.cosmos import CosmosManager  # noqa: E402
 from second_brain.tools.admin import AdminTools  # noqa: E402
 from second_brain.tools.classification import ClassifierTools  # noqa: E402
 from second_brain.tools.transcription import TranscriptionTools  # noqa: E402
+from second_brain.warmup import agent_warmup_loop  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -258,9 +260,30 @@ async def lifespan(app: FastAPI):
 
         app.state.settings = settings
 
+        # --- Agent warm-up background task ---
+        warmup_task = None
+        if settings.agent_warmup_enabled:
+            warmup_clients: list = [("classifier", classifier_client)]
+            if app.state.admin_client is not None:
+                warmup_clients.append(("admin", app.state.admin_client))
+            warmup_task = asyncio.create_task(
+                agent_warmup_loop(
+                    clients=warmup_clients,
+                    interval_seconds=settings.agent_warmup_interval_minutes * 60,
+                )
+            )
+            logger.info(
+                "Agent warmup started: interval=%dm agents=%d",
+                settings.agent_warmup_interval_minutes,
+                len(warmup_clients),
+            )
+
         yield
 
         # Cleanup in reverse order
+        if warmup_task is not None:
+            warmup_task.cancel()
+
         if getattr(app.state, "blob_manager", None) is not None:
             await app.state.blob_manager.close()
 

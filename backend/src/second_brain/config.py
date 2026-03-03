@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     # Azure Blob Storage (voice recordings -- kept for future use)
     blob_storage_url: str = ""
 
+    # Agent warm-up (prevents cold starts)
+    agent_warmup_enabled: bool = True
+    agent_warmup_interval_minutes: int = 5
+
     # Classification
     classification_threshold: float = 0.6
 
