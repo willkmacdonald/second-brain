@@ -159,9 +159,6 @@ async def capture(request: Request, body: TextCaptureBody) -> StreamingResponse:
     client = request.app.state.classifier_client
     tools = request.app.state.classifier_agent_tools
     cosmos_manager = request.app.state.cosmos_manager
-    admin_client = getattr(request.app.state, "admin_client", None)
-    admin_agent_tools = getattr(request.app.state, "admin_agent_tools", [])
-    background_tasks = getattr(request.app.state, "background_tasks", set())
     thread_id = body.thread_id or f"thread-{uuid4()}"
     run_id = body.run_id or f"run-{uuid4()}"
 
@@ -172,9 +169,6 @@ async def capture(request: Request, body: TextCaptureBody) -> StreamingResponse:
         thread_id=thread_id,
         run_id=run_id,
         cosmos_manager=cosmos_manager,
-        admin_client=admin_client,
-        admin_tools=admin_agent_tools,
-        background_tasks=background_tasks,
     )
 
     return StreamingResponse(
@@ -213,9 +207,6 @@ async def capture_voice(
     client = request.app.state.classifier_client
     tools = request.app.state.classifier_agent_tools
     cosmos_manager = request.app.state.cosmos_manager
-    admin_client = getattr(request.app.state, "admin_client", None)
-    admin_agent_tools = getattr(request.app.state, "admin_agent_tools", [])
-    background_tasks = getattr(request.app.state, "background_tasks", set())
     thread_id = f"thread-{uuid4()}"
     run_id = f"run-{uuid4()}"
 
@@ -228,9 +219,6 @@ async def capture_voice(
             thread_id=thread_id,
             run_id=run_id,
             cosmos_manager=cosmos_manager,
-            admin_client=admin_client,
-            admin_tools=admin_agent_tools,
-            background_tasks=background_tasks,
         )
         try:
             async for event in _stream_with_thread_id_persistence(

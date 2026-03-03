@@ -18,10 +18,6 @@ from agent_framework import ChatOptions, Message
 from agent_framework.azure import AzureAIAgentClient
 from opentelemetry import trace
 
-from second_brain.processing.admin_handoff import (
-    process_admin_capture,
-    process_admin_captures_batch,
-)
 from second_brain.streaming.sse import (
     classified_event,
     complete_event,
@@ -153,9 +149,6 @@ async def stream_text_capture(
     thread_id: str,
     run_id: str,
     cosmos_manager=None,
-    admin_client: AzureAIAgentClient | None = None,
-    admin_tools: list | None = None,
-    background_tasks: set | None = None,
 ) -> AsyncGenerator[str, None]:
     """Stream a text capture through the Classifier agent as AG-UI SSE events.
 
@@ -297,49 +290,6 @@ async def stream_text_capture(
                                 )
                             )
 
-                    # Admin Agent batching
-                    admin_results = [
-                        r for r in file_capture_results if r.get("bucket") == "Admin"
-                    ]
-                    if (
-                        admin_results
-                        and admin_client is not None
-                        and background_tasks is not None
-                    ):
-                        if len(admin_results) == 1:
-                            # Single Admin item: use existing single-item function
-                            task = asyncio.create_task(
-                                process_admin_capture(
-                                    admin_client=admin_client,
-                                    admin_tools=admin_tools or [],
-                                    cosmos_manager=cosmos_manager,
-                                    inbox_item_id=admin_results[0].get("item_id", ""),
-                                    raw_text=admin_results[0].get("text", user_text),
-                                )
-                            )
-                        else:
-                            # Multiple Admin items: batch processing
-                            task = asyncio.create_task(
-                                process_admin_captures_batch(
-                                    admin_client=admin_client,
-                                    admin_tools=admin_tools or [],
-                                    cosmos_manager=cosmos_manager,
-                                    admin_items=[
-                                        {
-                                            "inbox_item_id": r.get("item_id", ""),
-                                            "raw_text": r.get("text", ""),
-                                        }
-                                        for r in admin_results
-                                    ],
-                                )
-                            )
-                        background_tasks.add(task)
-                        task.add_done_callback(background_tasks.discard)
-                        logger.info(
-                            "Spawned Admin Agent background task for %d item(s)",
-                            len(admin_results),
-                        )
-
                 elif cosmos_manager:
                     # Safety net: no file_capture calls at all
                     event = await _safety_net_file_as_misunderstood(
@@ -370,9 +320,6 @@ async def stream_voice_capture(
     thread_id: str,
     run_id: str,
     cosmos_manager=None,
-    admin_client: AzureAIAgentClient | None = None,
-    admin_tools: list | None = None,
-    background_tasks: set | None = None,
 ) -> AsyncGenerator[str, None]:
     """Stream a voice capture through the Classifier agent as AG-UI SSE events.
 
@@ -522,50 +469,6 @@ async def stream_voice_capture(
                                     primary.get("confidence", 0.0),
                                 )
                             )
-
-                    # Admin Agent batching
-                    admin_results = [
-                        r for r in file_capture_results if r.get("bucket") == "Admin"
-                    ]
-                    if (
-                        admin_results
-                        and admin_client is not None
-                        and background_tasks is not None
-                    ):
-                        voice_fallback = transcript_text or f"[Voice recording: {blob_url}]"
-                        if len(admin_results) == 1:
-                            # Single Admin item: use existing single-item function
-                            task = asyncio.create_task(
-                                process_admin_capture(
-                                    admin_client=admin_client,
-                                    admin_tools=admin_tools or [],
-                                    cosmos_manager=cosmos_manager,
-                                    inbox_item_id=admin_results[0].get("item_id", ""),
-                                    raw_text=admin_results[0].get("text", voice_fallback),
-                                )
-                            )
-                        else:
-                            # Multiple Admin items: batch processing
-                            task = asyncio.create_task(
-                                process_admin_captures_batch(
-                                    admin_client=admin_client,
-                                    admin_tools=admin_tools or [],
-                                    cosmos_manager=cosmos_manager,
-                                    admin_items=[
-                                        {
-                                            "inbox_item_id": r.get("item_id", ""),
-                                            "raw_text": r.get("text", voice_fallback),
-                                        }
-                                        for r in admin_results
-                                    ],
-                                )
-                            )
-                        background_tasks.add(task)
-                        task.add_done_callback(background_tasks.discard)
-                        logger.info(
-                            "Spawned Admin Agent background task for %d voice item(s)",
-                            len(admin_results),
-                        )
 
                 elif cosmos_manager:
                     # Safety net: no file_capture calls at all.
