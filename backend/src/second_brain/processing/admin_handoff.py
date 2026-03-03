@@ -2,7 +2,7 @@
 
 Provides process_admin_capture() -- a fire-and-forget coroutine that
 calls the Admin Agent non-streaming, routes shopping items to store lists,
-and updates the inbox item's adminProcessingStatus.
+and deletes the inbox item after successful processing.
 """
 
 import asyncio
@@ -10,6 +10,7 @@ import logging
 
 from agent_framework import ChatOptions, Message
 from agent_framework.azure import AzureAIAgentClient
+from azure.cosmos.exceptions import CosmosResourceNotFoundError
 from opentelemetry import trace
 
 from second_brain.db.cosmos import CosmosManager
@@ -28,8 +29,9 @@ async def process_admin_capture(
     """Process an Admin-classified capture in the background.
 
     Calls the Admin Agent (non-streaming) to parse items and route
-    to shopping lists via add_shopping_list_items. Updates the inbox
-    item's adminProcessingStatus to 'processed' or 'failed'.
+    to shopping lists via add_shopping_list_items. On success, deletes
+    the inbox item (it is a transient routing artifact). On failure,
+    sets adminProcessingStatus to 'failed' so the item remains visible.
 
     This function is designed to be called via asyncio.create_task() --
     it never raises (all exceptions are caught and logged).
@@ -72,16 +74,25 @@ async def process_admin_capture(
                     messages=messages, options=options
                 )
 
-            # Update inbox item status to processed
-            doc = await inbox_container.read_item(
-                item=inbox_item_id, partition_key="will"
-            )
-            doc["adminProcessingStatus"] = "processed"
-            await inbox_container.upsert_item(body=doc)
+            # Delete the inbox item -- shopping list items are the durable output
+            try:
+                await inbox_container.delete_item(
+                    item=inbox_item_id, partition_key="will"
+                )
+            except CosmosResourceNotFoundError:
+                # User may have swipe-deleted the item while we were processing
+                pass
+            except Exception as del_exc:
+                # Non-fatal: shopping list items already written successfully
+                logger.warning(
+                    "Failed to delete processed inbox item %s: %s",
+                    inbox_item_id,
+                    del_exc,
+                )
 
             span.set_attribute("admin.outcome", "processed")
             logger.info(
-                "Admin Agent processed inbox item %s: %s",
+                "Admin Agent processed inbox item %s (deleted): %s",
                 inbox_item_id,
                 response.text[:100] if response.text else "(no text)",
             )
