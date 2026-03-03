@@ -109,6 +109,7 @@ None.
 ### Roadmap Evolution
 
 - Phase 11.1 inserted after Phase 11: Classifier Multi-Bucket Splitting (URGENT)
+- Phase 12.1 inserted after Phase 12: Admin agent deletes processed inbox items (URGENT)
 - Phase 14 added: App Insights Operational Audit
 
 ### Blockers/Concerns
