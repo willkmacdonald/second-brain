@@ -22,6 +22,10 @@ Requirements for v3.0 Admin Agent & Shopping Lists. Each maps to roadmap phases.
 - [x] **SHOP-04**: Admin Agent splits multi-item captures across multiple stores from a single capture
 - [x] **SHOP-05**: User can swipe-to-remove items from shopping lists
 
+### Inbox Cleanup
+
+- [ ] **CLEAN-01**: Admin Agent deletes successfully processed inbox items instead of flagging them, keeping the Inbox free of stale processed entries
+
 ### Classifier Multi-Bucket Splitting
 
 - [x] **SPLIT-01**: Mixed-content captures with intents targeting different buckets produce separate inbox items per bucket
@@ -111,10 +115,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SPLIT-03 | Phase 11.1 | Complete |
 | SPLIT-04 | Phase 11.1 | Complete |
 | SPLIT-05 | Phase 11.1 | Complete |
+| CLEAN-01 | Phase 12.1 | Pending |
 
 **Coverage:**
-- v3.0 requirements: 20 total
-- Mapped to phases: 20/20
+- v3.0 requirements: 21 total
+- Mapped to phases: 21/21
 - Unmapped: 0
 
 ---

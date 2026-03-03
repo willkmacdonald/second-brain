@@ -128,6 +128,16 @@ Plans:
 - [ ] 12-01-PLAN.md -- Shopping List API endpoints (GET + DELETE), Pydantic models, unit tests, router registration
 - [ ] 12-02-PLAN.md -- Mobile Status tab, SectionList with expand/collapse, ShoppingListRow with swipe-to-delete, focus-based refresh
 
+### Phase 12.1: Admin agent deletes processed inbox items (INSERTED)
+
+**Goal:** Admin Agent deletes inbox items after successful processing instead of flagging them, keeping the Inbox clean
+**Requirements**: CLEAN-01
+**Depends on:** Phase 12
+**Plans:** 1 plan
+
+Plans:
+- [ ] 12.1-01-PLAN.md -- Replace processed-upsert with delete in admin_handoff.py, update tests
+
 ### Phase 13: YouTube Recipe Extraction
 **Goal**: Users can paste a YouTube recipe URL and have ingredients automatically extracted and added to their grocery shopping list
 **Depends on**: Phase 11 (Admin Agent pipeline)
