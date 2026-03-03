@@ -20,7 +20,7 @@ Requirements for v3.0 Admin Agent & Shopping Lists. Each maps to roadmap phases.
 - [x] **SHOP-02**: Admin Agent routes items to correct store based on agent instructions (Jewel, CVS, pet store, etc.)
 - [x] **SHOP-03**: User can capture ad hoc items ("need cat litter") that flow through Classifier → Admin Agent → correct store list
 - [x] **SHOP-04**: Admin Agent splits multi-item captures across multiple stores from a single capture
-- [ ] **SHOP-05**: User can swipe-to-remove items from shopping lists
+- [x] **SHOP-05**: User can swipe-to-remove items from shopping lists
 
 ### Classifier Multi-Bucket Splitting
 
@@ -99,7 +99,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SHOP-02 | Phase 10 | Complete |
 | SHOP-03 | Phase 11 | Complete |
 | SHOP-04 | Phase 11 | Complete |
-| SHOP-05 | Phase 12 | Pending |
+| SHOP-05 | Phase 12 | Complete |
 | RCPE-01 | Phase 13 | Pending |
 | RCPE-02 | Phase 13 | Pending |
 | RCPE-03 | Phase 13 | Pending |

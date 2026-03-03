@@ -122,11 +122,11 @@ Plans:
   2. User can expand a store section to see individual items and swipe to remove an item (optimistic UI with rollback on failure)
   3. Shopping list data refreshes when the Status screen gains focus, so newly added items from captures appear without manual pull-to-refresh
   4. REST API endpoints exist for fetching shopping lists (`GET /api/shopping-lists`), and deleting items (`DELETE /api/shopping-lists/items/{id}`)
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 12-01: TBD
-- [ ] 12-02: TBD
+- [ ] 12-01-PLAN.md -- Shopping List API endpoints (GET + DELETE), Pydantic models, unit tests, router registration
+- [ ] 12-02-PLAN.md -- Mobile Status tab, SectionList with expand/collapse, ShoppingListRow with swipe-to-delete, focus-based refresh
 
 ### Phase 13: YouTube Recipe Extraction
 **Goal**: Users can paste a YouTube recipe URL and have ingredients automatically extracted and added to their grocery shopping list
@@ -168,7 +168,7 @@ Plans:
 | 10. Data Foundation and Admin Tools | 2/2 | Complete    | 2026-03-02 | - |
 | 11. Admin Agent and Capture Handoff | 2/2 | Complete    | 2026-03-02 | - |
 | 11.1 Classifier Multi-Bucket Splitting | v3.0 | Complete    | 2026-03-03 | 2026-03-02 |
-| 12. Shopping List API and Status Screen | v3.0 | 0/TBD | Not started | - |
+| 12. Shopping List API and Status Screen | 1/2 | In Progress|  | - |
 | 13. YouTube Recipe Extraction | v3.0 | 0/TBD | Not started | - |
 
 ### Phase 14: App Insights Operational Audit
@@ -176,7 +176,7 @@ Plans:
 **Goal:** Review and streamline App Insights logging setup to ensure operational effectiveness and efficiency. Audit log levels, query patterns, alert configuration, and cost. Ensure Python logger output is structured and actionable, not noisy.
 **Requirements**: TBD
 **Depends on:** Phase 13
-**Plans:** 4/4 plans complete
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] TBD (run /gsd:plan-phase 14 to break down)

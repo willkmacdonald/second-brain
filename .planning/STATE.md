@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Admin Agent & Shopping Lists
-status: unknown
-last_updated: "2026-03-03T03:30:18.522Z"
+status: in-progress
+last_updated: "2026-03-03T04:17:00Z"
 progress:
   total_phases: 12
   completed_phases: 9
   total_plans: 36
-  completed_plans: 35
+  completed_plans: 36
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-01)
 
 **Core value:** One-tap capture from a phone instantly routes through an agent that classifies, files, and clarifies -- with zero organizational effort.
-**Current focus:** v3.0 Admin Agent & Shopping Lists -- Phase 11.1 complete, ready for Phase 12
+**Current focus:** v3.0 Admin Agent & Shopping Lists -- Phase 12 in progress (plan 01 complete)
 
 ## Current Position
 
-Phase: 11.1 of 13 (Classifier Multi-Bucket Splitting) -- COMPLETE
-Plan: 4 of 4
-Status: Phase 11.1 complete -- all 4 plans done, gap closure resolved
-Last activity: 2026-03-02 -- Completed 11.1-04 (Classifier Conversational Phrasing Tolerance)
+Phase: 12 of 13 (Shopping List API and Status Screen)
+Plan: 1 of 2
+Status: Plan 01 complete -- Shopping Lists API endpoints implemented and tested
+Last activity: 2026-03-03 -- Completed 12-01 (Shopping Lists API)
 
-Progress: [████████░░] 80% (v3.0)
+Progress: [█████████░] 85% (v3.0)
 
 ## Performance Metrics
 
@@ -42,8 +42,8 @@ Progress: [████████░░] 80% (v3.0)
 - Timeline: 2026-02-26 to 2026-03-01 (4 days)
 
 **Velocity (v3.0):**
-- Total plans completed: 8
-- Average duration: 3.0 min
+- Total plans completed: 9
+- Average duration: 2.9 min
 
 | Phase | Plan | Duration | Tasks | Files |
 |-------|------|----------|-------|-------|
@@ -55,6 +55,7 @@ Progress: [████████░░] 80% (v3.0)
 | 11.1 | 02 | 4 min | 2 | 2 |
 | 11.1 | 03 | 2 min | 2 | 2 |
 | 11.1 | 04 | 3 min | 2 | 0 |
+| 12 | 01 | 2 min | 2 | 3 |
 
 ## Accumulated Context
 
@@ -86,6 +87,8 @@ v2.0 decisions archived to .planning/milestones/v2.0-ROADMAP.md
 - [11.1-04] Instruction rewrite: "After determining the primary bucket" replaces "Before classifying" to prevent over-analysis
 - [11.1-04] Explicit conjunction markers (and also, plus, oh and) as sole trigger for multi-intent splitting
 - [11.1-04] Rule 6 added: conversational phrasing treated identically to imperative phrasing
+- [12-01] Store display name mapping as constant dict with title-case fallback for unknown stores
+- [12-01] Per-partition query loop over KNOWN_STORES (not cross-partition fan-out) for Cosmos best practice
 
 ### Research Findings (Critical for v3.0)
 
@@ -111,6 +114,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-02
-Stopped at: Completed 11.1-04-PLAN.md (Classifier Conversational Phrasing Tolerance) -- Phase 11.1 complete
-Resume action: /gsd:plan-phase 12 (Shopping List API and Status Screen)
+Last session: 2026-03-03
+Stopped at: Completed 12-01-PLAN.md (Shopping Lists API)
+Resume action: /gsd:execute-phase 12 plan 02 (Mobile Status Screen)
