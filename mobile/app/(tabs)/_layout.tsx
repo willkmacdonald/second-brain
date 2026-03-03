@@ -34,6 +34,15 @@ export default function TabLayout() {
           tabBarBadge: undefined,
         }}
       />
+      <Tabs.Screen
+        name="status"
+        options={{
+          title: "Status",
+          tabBarIcon: ({ color }) => (
+            <TabIcon label={"\u26A1"} color={color} />
+          ),
+        }}
+      />
     </Tabs>
   );
 }
