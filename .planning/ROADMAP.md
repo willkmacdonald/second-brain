@@ -133,7 +133,7 @@ Plans:
 **Goal:** Admin Agent deletes inbox items after successful processing instead of flagging them, keeping the Inbox clean
 **Requirements**: CLEAN-01
 **Depends on:** Phase 12
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 
 Plans:
 - [ ] 12.1-01-PLAN.md -- Replace processed-upsert with delete in admin_handoff.py, update tests

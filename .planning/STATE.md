@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Admin Agent & Shopping Lists
 status: in-progress
-last_updated: "2026-03-03T04:21:00Z"
+last_updated: "2026-03-03T05:58:51Z"
 progress:
   total_phases: 12
-  completed_phases: 10
-  total_plans: 36
-  completed_plans: 37
+  completed_phases: 11
+  total_plans: 37
+  completed_plans: 38
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-01)
 
 **Core value:** One-tap capture from a phone instantly routes through an agent that classifies, files, and clarifies -- with zero organizational effort.
-**Current focus:** v3.0 Admin Agent & Shopping Lists -- Phase 12 complete
+**Current focus:** v3.0 Admin Agent & Shopping Lists -- Phase 12.1 complete
 
 ## Current Position
 
-Phase: 12 of 13 (Shopping List API and Status Screen)
-Plan: 2 of 2
-Status: Phase 12 complete -- Shopping Lists API and Mobile Status Screen delivered
-Last activity: 2026-03-03 -- Completed 12-02 (Mobile Status Screen)
+Phase: 12.1 of 13 (Admin Agent Deletes Processed Inbox Items)
+Plan: 1 of 1
+Status: Phase 12.1 complete -- Admin Agent deletes inbox items after processing
+Last activity: 2026-03-03 -- Completed 12.1-01 (Delete processed inbox items)
 
-Progress: [██████████] 90% (v3.0)
+Progress: [██████████] 92% (v3.0)
 
 ## Performance Metrics
 
@@ -42,8 +42,8 @@ Progress: [██████████] 90% (v3.0)
 - Timeline: 2026-02-26 to 2026-03-01 (4 days)
 
 **Velocity (v3.0):**
-- Total plans completed: 10
-- Average duration: 2.8 min
+- Total plans completed: 11
+- Average duration: 2.7 min
 
 | Phase | Plan | Duration | Tasks | Files |
 |-------|------|----------|-------|-------|
@@ -57,6 +57,7 @@ Progress: [██████████] 90% (v3.0)
 | 11.1 | 04 | 3 min | 2 | 0 |
 | 12 | 01 | 2 min | 2 | 3 |
 | 12 | 02 | 2 min | 2 | 4 |
+| 12.1 | 01 | 2 min | 2 | 2 |
 
 ## Accumulated Context
 
@@ -93,6 +94,9 @@ v2.0 decisions archived to .planning/milestones/v2.0-ROADMAP.md
 - [12-02] StatusSectionRenderer renders header only -- SectionList handles item rendering via renderItem prop
 - [12-02] Optimistic delete uses refetch instead of snapshot rollback to avoid stale closure issues with rapid deletes
 - [12-02] Lightning bolt icon for Status tab to convey action/working
+- [12.1-01] Delete inbox item inline in process_admin_capture (not in separate cleanup step)
+- [12.1-01] CosmosResourceNotFoundError silently passes (no log noise for race condition)
+- [12.1-01] Generic delete exceptions logged as warning, never raised (shopping list items already written)
 
 ### Research Findings (Critical for v3.0)
 
@@ -120,5 +124,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-03
-Stopped at: Completed 12-02-PLAN.md (Mobile Status Screen) -- Phase 12 complete
+Stopped at: Completed 12.1-01-PLAN.md (Admin Agent Deletes Processed Inbox Items) -- Phase 12.1 complete
 Resume action: /gsd:execute-phase 13 (next phase)
