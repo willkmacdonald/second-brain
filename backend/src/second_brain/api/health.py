@@ -57,6 +57,18 @@ async def debug_admin_query(request: Request) -> dict:
 
     try:
         inbox_container = cosmos_manager.get_container("Inbox")
+
+        # Query 1: ALL items in partition (no filters)
+        all_items: list[dict] = []
+        async for item in inbox_container.query_items(
+            query="SELECT c.id, c.rawText, c.adminProcessingStatus, c.classificationMeta.bucket AS bucket, c.userId FROM c",
+            partition_key="will",
+        ):
+            all_items.append(item)
+        result["all_items_in_partition"] = len(all_items)
+        result["all_items"] = all_items
+
+        # Query 2: The actual retry query
         query = (
             "SELECT c.id, c.rawText, c.adminProcessingStatus, "
             "c.classificationMeta.bucket AS bucket, c.userId FROM c "
@@ -70,16 +82,16 @@ async def debug_admin_query(request: Request) -> dict:
             {"name": "@userId", "value": "will"},
         ]
 
-        items: list[dict] = []
+        filtered_items: list[dict] = []
         async for item in inbox_container.query_items(
             query=query,
             parameters=parameters,
             partition_key="will",
         ):
-            items.append(item)
+            filtered_items.append(item)
 
-        result["unprocessed_count"] = len(items)
-        result["unprocessed_items"] = items
+        result["filtered_count"] = len(filtered_items)
+        result["filtered_items"] = filtered_items
     except Exception:
         result["error"] = traceback.format_exc()
 
