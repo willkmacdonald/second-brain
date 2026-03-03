@@ -2,7 +2,8 @@
 
 Provides process_admin_capture() -- a fire-and-forget coroutine that
 calls the Admin Agent non-streaming, routes shopping items to store lists,
-and updates the inbox item's adminProcessingStatus.
+and deletes the inbox item on success. Failed items remain with
+adminProcessingStatus = 'failed' for retry on next Status screen open.
 """
 
 import asyncio
@@ -10,6 +11,7 @@ import logging
 
 from agent_framework import ChatOptions, Message
 from agent_framework.azure import AzureAIAgentClient
+from azure.cosmos.exceptions import CosmosResourceNotFoundError
 from opentelemetry import trace
 
 from second_brain.db.cosmos import CosmosManager
@@ -72,12 +74,29 @@ async def process_admin_capture(
                     messages=messages, options=options
                 )
 
-            # Update inbox item status to processed
-            doc = await inbox_container.read_item(
-                item=inbox_item_id, partition_key="will"
-            )
-            doc["adminProcessingStatus"] = "processed"
-            await inbox_container.upsert_item(body=doc)
+            # Delete inbox item after successful processing
+            try:
+                await inbox_container.delete_item(
+                    item=inbox_item_id, partition_key="will"
+                )
+                logger.info(
+                    "Deleted processed inbox item %s",
+                    inbox_item_id,
+                )
+            except CosmosResourceNotFoundError:
+                # User may have swipe-deleted while processing
+                logger.info(
+                    "Inbox item %s already deleted "
+                    "(user may have removed it)",
+                    inbox_item_id,
+                )
+            except Exception as del_exc:
+                # Non-fatal: shopping list items are the durable output
+                logger.warning(
+                    "Failed to delete processed inbox item %s: %s",
+                    inbox_item_id,
+                    del_exc,
+                )
 
             span.set_attribute("admin.outcome", "processed")
             logger.info(

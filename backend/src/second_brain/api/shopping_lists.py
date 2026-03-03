@@ -2,8 +2,12 @@
 
 Queries the Cosmos DB ShoppingLists container which uses /store as partition key.
 Items are grouped by store with display names for the mobile Status screen.
+
+GET /api/shopping-lists also triggers Admin Agent processing as a side effect
+when there are unprocessed Admin inbox items.
 """
 
+import asyncio
 import logging
 
 from azure.cosmos.exceptions import CosmosResourceNotFoundError
@@ -11,6 +15,10 @@ from fastapi import APIRouter, HTTPException, Query, Request, Response
 from pydantic import BaseModel
 
 from second_brain.models.documents import KNOWN_STORES
+from second_brain.processing.admin_handoff import (
+    process_admin_capture,
+    process_admin_captures_batch,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +54,7 @@ class ShoppingListResponse(BaseModel):
 
     stores: list[StoreSection]
     totalCount: int  # noqa: N815
+    processingCount: int = 0  # noqa: N815
 
 
 @router.get("/api/shopping-lists", response_model=ShoppingListResponse)
@@ -99,12 +108,94 @@ async def get_shopping_lists(request: Request) -> ShoppingListResponse:
     # Sort by item count descending (most items first)
     sections.sort(key=lambda s: s.count, reverse=True)
 
+    # Side effect: trigger Admin Agent processing for unprocessed items
+    processing_count = 0
+    try:
+        admin_client = getattr(
+            request.app.state, "admin_client", None
+        )
+        if admin_client is not None:
+            inbox_container = cosmos_manager.get_container("Inbox")
+            query = (
+                "SELECT c.id, c.rawText FROM c "
+                "WHERE c.userId = @userId "
+                "AND c.classificationMeta.bucket = 'Admin' "
+                "AND (NOT IS_DEFINED(c.adminProcessingStatus) "
+                "     OR c.adminProcessingStatus = 'failed')"
+            )
+            parameters: list[dict[str, object]] = [
+                {"name": "@userId", "value": "will"},
+            ]
+
+            unprocessed: list[dict] = []
+            async for item in inbox_container.query_items(
+                query=query,
+                parameters=parameters,
+                partition_key="will",
+            ):
+                unprocessed.append(item)
+
+            if unprocessed:
+                processing_count = len(unprocessed)
+                admin_tools = getattr(
+                    request.app.state, "admin_agent_tools", []
+                )
+                bg_tasks: set = getattr(
+                    request.app.state, "background_tasks", set()
+                )
+
+                if len(unprocessed) == 1:
+                    task = asyncio.create_task(
+                        process_admin_capture(
+                            admin_client=admin_client,
+                            admin_tools=admin_tools,
+                            cosmos_manager=cosmos_manager,
+                            inbox_item_id=unprocessed[0]["id"],
+                            raw_text=unprocessed[0].get(
+                                "rawText", ""
+                            ),
+                        )
+                    )
+                else:
+                    task = asyncio.create_task(
+                        process_admin_captures_batch(
+                            admin_client=admin_client,
+                            admin_tools=admin_tools,
+                            cosmos_manager=cosmos_manager,
+                            admin_items=[
+                                {
+                                    "inbox_item_id": i["id"],
+                                    "raw_text": i.get(
+                                        "rawText", ""
+                                    ),
+                                }
+                                for i in unprocessed
+                            ],
+                        )
+                    )
+                bg_tasks.add(task)
+                task.add_done_callback(bg_tasks.discard)
+                logger.info(
+                    "Triggered Admin Agent processing for "
+                    "%d item(s)",
+                    processing_count,
+                )
+    except Exception:
+        logger.warning(
+            "Failed to trigger Admin Agent processing",
+            exc_info=True,
+        )
+
     logger.info(
         "Shopping lists: %d stores, %d total items",
         len(sections),
         total_count,
     )
-    return ShoppingListResponse(stores=sections, totalCount=total_count)
+    return ShoppingListResponse(
+        stores=sections,
+        totalCount=total_count,
+        processingCount=processing_count,
+    )
 
 
 @router.delete("/api/shopping-lists/items/{item_id}", status_code=204)

@@ -1,10 +1,11 @@
 """Tests for GET /api/shopping-lists and DELETE /api/shopping-lists/items/{id}.
 
 Validates grouped response, empty state, store exclusion, successful delete,
-not-found delete, and invalid store validation.
+not-found delete, invalid store validation, and Admin Agent processing trigger.
 """
 
-from unittest.mock import AsyncMock, MagicMock
+import asyncio
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
@@ -223,3 +224,99 @@ async def test_delete_shopping_item_unknown_store(
 
     assert response.status_code == 400
     assert "Unknown store" in response.json()["detail"]
+
+
+# ---------------------------------------------------------------------------
+# Admin Agent processing trigger
+# ---------------------------------------------------------------------------
+
+
+def _make_inbox_async_iterator(items: list[dict]):
+    """Async iterator for Inbox container query_items mock."""
+
+    async def _iter(*args, **kwargs):
+        for item in items:
+            yield item
+
+    return _iter
+
+
+@pytest.mark.asyncio
+async def test_get_shopping_lists_triggers_processing(
+    shopping_app: FastAPI,
+    mock_cosmos_manager: MagicMock,
+) -> None:
+    """GET triggers background processing for unprocessed Admin items."""
+    _setup_store_items(mock_cosmos_manager, {"jewel": JEWEL_ITEMS})
+
+    # Set up Inbox container to return 1 unprocessed Admin item
+    inbox_container = mock_cosmos_manager.get_container("Inbox")
+    inbox_container.query_items = MagicMock(
+        side_effect=lambda **kwargs: _make_inbox_async_iterator(
+            [{"id": "inbox-1", "rawText": "need milk"}]
+        )(**kwargs)
+    )
+
+    # Set up admin client on app state
+    shopping_app.state.admin_client = AsyncMock()
+    shopping_app.state.admin_agent_tools = [AsyncMock()]
+    shopping_app.state.background_tasks = set()
+
+    # Patch asyncio.create_task to capture the coroutine
+    with patch(
+        "second_brain.api.shopping_lists.asyncio.create_task"
+    ) as mock_create_task:
+        mock_create_task.return_value = MagicMock()
+        mock_create_task.return_value.add_done_callback = (
+            MagicMock()
+        )
+
+        transport = httpx.ASGITransport(app=shopping_app)
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://test"
+        ) as client:
+            response = await client.get(
+                "/api/shopping-lists",
+                headers={
+                    "Authorization": f"Bearer {TEST_API_KEY}"
+                },
+            )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["processingCount"] == 1
+    mock_create_task.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_get_shopping_lists_no_trigger_when_no_admin_client(
+    shopping_app: FastAPI,
+    mock_cosmos_manager: MagicMock,
+) -> None:
+    """GET returns processingCount=0 when admin_client not configured."""
+    _setup_store_items(mock_cosmos_manager, {"jewel": JEWEL_ITEMS})
+
+    # Set up Inbox with unprocessed items but NO admin_client
+    inbox_container = mock_cosmos_manager.get_container("Inbox")
+    inbox_container.query_items = MagicMock(
+        side_effect=lambda **kwargs: _make_inbox_async_iterator(
+            [{"id": "inbox-1", "rawText": "need milk"}]
+        )(**kwargs)
+    )
+
+    # Explicitly ensure admin_client is NOT set
+    if hasattr(shopping_app.state, "admin_client"):
+        delattr(shopping_app.state, "admin_client")
+
+    transport = httpx.ASGITransport(app=shopping_app)
+    async with httpx.AsyncClient(
+        transport=transport, base_url="http://test"
+    ) as client:
+        response = await client.get(
+            "/api/shopping-lists",
+            headers={"Authorization": f"Bearer {TEST_API_KEY}"},
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["processingCount"] == 0

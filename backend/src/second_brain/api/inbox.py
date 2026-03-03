@@ -40,6 +40,7 @@ class InboxItemResponse(BaseModel):  # noqa: N815
     createdAt: str  # noqa: N815
     classificationMeta: dict | None = None  # noqa: N815
     clarificationText: str | None = None  # noqa: N815
+    adminProcessingStatus: str | None = None  # noqa: N815
 
 
 class InboxListResponse(BaseModel):
@@ -93,6 +94,9 @@ async def list_inbox(
                 createdAt=item.get("createdAt", ""),
                 classificationMeta=item.get("classificationMeta"),
                 clarificationText=item.get("clarificationText"),
+                adminProcessingStatus=item.get(
+                    "adminProcessingStatus"
+                ),
             )
         )
 
