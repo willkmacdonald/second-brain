@@ -24,7 +24,7 @@ Requirements for v3.0 Admin Agent & Shopping Lists. Each maps to roadmap phases.
 
 ### Inbox Cleanup
 
-- [ ] **CLEAN-01**: Admin Agent deletes successfully processed inbox items instead of flagging them, keeping the Inbox free of stale processed entries
+- [x] **CLEAN-01**: Admin Agent deletes successfully processed inbox items instead of flagging them, keeping the Inbox free of stale processed entries
 
 ### Classifier Multi-Bucket Splitting
 
@@ -115,7 +115,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SPLIT-03 | Phase 11.1 | Complete |
 | SPLIT-04 | Phase 11.1 | Complete |
 | SPLIT-05 | Phase 11.1 | Complete |
-| CLEAN-01 | Phase 12.1 | Pending |
+| CLEAN-01 | Phase 12.1 | Complete |
 
 **Coverage:**
 - v3.0 requirements: 21 total
