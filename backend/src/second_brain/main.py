@@ -252,6 +252,10 @@ async def lifespan(app: FastAPI):
         # Tasks self-remove via add_done_callback when complete.
         app.state.background_tasks: set = set()
 
+        # --- In-flight processing guard ---
+        # Prevents duplicate Admin Agent processing when polls overlap.
+        app.state.admin_processing_ids: set = set()
+
         app.state.settings = settings
 
         yield

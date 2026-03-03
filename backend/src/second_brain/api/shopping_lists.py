@@ -137,8 +137,16 @@ async def get_shopping_lists(request: Request) -> ShoppingListResponse:
             ):
                 unprocessed.append(item)
 
-            if unprocessed:
-                processing_count = len(unprocessed)
+            # Filter out items already being processed in-flight
+            in_flight: set = getattr(
+                request.app.state, "admin_processing_ids", set()
+            )
+            new_items = [
+                i for i in unprocessed if i["id"] not in in_flight
+            ]
+
+            if new_items:
+                processing_count = len(new_items)
                 admin_tools = getattr(
                     request.app.state, "admin_agent_tools", []
                 )
@@ -146,14 +154,23 @@ async def get_shopping_lists(request: Request) -> ShoppingListResponse:
                     request.app.state, "background_tasks", set()
                 )
 
-                if len(unprocessed) == 1:
+                # Mark items as in-flight before creating tasks
+                new_ids = {i["id"] for i in new_items}
+                in_flight.update(new_ids)
+
+                def _cleanup_in_flight(
+                    _task, ids=new_ids, inflight=in_flight,
+                ):
+                    inflight.difference_update(ids)
+
+                if len(new_items) == 1:
                     task = asyncio.create_task(
                         process_admin_capture(
                             admin_client=admin_client,
                             admin_tools=admin_tools,
                             cosmos_manager=cosmos_manager,
-                            inbox_item_id=unprocessed[0]["id"],
-                            raw_text=unprocessed[0].get(
+                            inbox_item_id=new_items[0]["id"],
+                            raw_text=new_items[0].get(
                                 "rawText", ""
                             ),
                         )
@@ -171,17 +188,21 @@ async def get_shopping_lists(request: Request) -> ShoppingListResponse:
                                         "rawText", ""
                                     ),
                                 }
-                                for i in unprocessed
+                                for i in new_items
                             ],
                         )
                     )
                 bg_tasks.add(task)
                 task.add_done_callback(bg_tasks.discard)
+                task.add_done_callback(_cleanup_in_flight)
                 logger.info(
                     "Triggered Admin Agent processing for "
                     "%d item(s)",
                     processing_count,
                 )
+            elif unprocessed:
+                # Items exist but already in-flight — report as processing
+                processing_count = len(unprocessed)
     except Exception:
         logger.warning(
             "Failed to trigger Admin Agent processing",
