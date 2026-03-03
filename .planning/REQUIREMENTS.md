@@ -38,9 +38,9 @@ Requirements for v3.0 Admin Agent & Shopping Lists. Each maps to roadmap phases.
 
 ### Mobile UI
 
-- [ ] **MOBL-01**: Status & Priorities screen exists as a new tab in the app
-- [ ] **MOBL-02**: Status screen displays shopping lists grouped by store with item counts
-- [ ] **MOBL-03**: User can expand a store to see its items and tap to check off / swipe to remove
+- [x] **MOBL-01**: Status & Priorities screen exists as a new tab in the app
+- [x] **MOBL-02**: Status screen displays shopping lists grouped by store with item counts
+- [x] **MOBL-03**: User can expand a store to see its items and tap to check off / swipe to remove
 
 ## Future Requirements (v3.1+)
 
@@ -103,9 +103,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | RCPE-01 | Phase 13 | Pending |
 | RCPE-02 | Phase 13 | Pending |
 | RCPE-03 | Phase 13 | Pending |
-| MOBL-01 | Phase 12 | Pending |
-| MOBL-02 | Phase 12 | Pending |
-| MOBL-03 | Phase 12 | Pending |
+| MOBL-01 | Phase 12 | Complete |
+| MOBL-02 | Phase 12 | Complete |
+| MOBL-03 | Phase 12 | Complete |
 | SPLIT-01 | Phase 11.1 | Complete |
 | SPLIT-02 | Phase 11.1 | Complete |
 | SPLIT-03 | Phase 11.1 | Complete |

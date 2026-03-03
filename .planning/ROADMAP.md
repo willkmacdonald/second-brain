@@ -45,7 +45,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 10: Data Foundation and Admin Tools** - Pydantic models, Cosmos container, and AdminTools @tool class for shopping list writes (completed 2026-03-02)
 - [x] **Phase 11: Admin Agent and Capture Handoff** - Persistent Admin Agent in Foundry with silent background processing after Classifier files to Inbox (completed 2026-03-02)
-- [ ] **Phase 12: Shopping List API and Status Screen** - REST endpoints and mobile tab for viewing, expanding, and removing shopping list items
+- [x] **Phase 12: Shopping List API and Status Screen** - REST endpoints and mobile tab for viewing, expanding, and removing shopping list items (completed 2026-03-03)
 - [ ] **Phase 13: YouTube Recipe Extraction** - YouTube URL capture to ingredient extraction to shopping list items with source attribution
 
 ## Phase Details
@@ -168,7 +168,7 @@ Plans:
 | 10. Data Foundation and Admin Tools | 2/2 | Complete    | 2026-03-02 | - |
 | 11. Admin Agent and Capture Handoff | 2/2 | Complete    | 2026-03-02 | - |
 | 11.1 Classifier Multi-Bucket Splitting | v3.0 | Complete    | 2026-03-03 | 2026-03-02 |
-| 12. Shopping List API and Status Screen | 1/2 | In Progress|  | - |
+| 12. Shopping List API and Status Screen | 2/2 | Complete   | 2026-03-03 | - |
 | 13. YouTube Recipe Extraction | v3.0 | 0/TBD | Not started | - |
 
 ### Phase 14: App Insights Operational Audit
@@ -176,7 +176,7 @@ Plans:
 **Goal:** Review and streamline App Insights logging setup to ensure operational effectiveness and efficiency. Audit log levels, query patterns, alert configuration, and cost. Ensure Python logger output is structured and actionable, not noisy.
 **Requirements**: TBD
 **Depends on:** Phase 13
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] TBD (run /gsd:plan-phase 14 to break down)
