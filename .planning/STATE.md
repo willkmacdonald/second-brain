@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Admin Agent & Shopping Lists
 status: unknown
-last_updated: "2026-03-03T14:28:19.141Z"
+last_updated: "2026-03-03T15:57:00.000Z"
 progress:
   total_phases: 14
   completed_phases: 11
-  total_plans: 39
-  completed_plans: 38
+  total_plans: 40
+  completed_plans: 39
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-01)
 
 **Core value:** One-tap capture from a phone instantly routes through an agent that classifies, files, and clarifies -- with zero organizational effort.
-**Current focus:** v3.0 Admin Agent & Shopping Lists -- Phase 12.1 complete
+**Current focus:** v3.0 Admin Agent & Shopping Lists -- Phase 12.1 gap closure complete
 
 ## Current Position
 
 Phase: 12.1 of 13 (Admin Agent Deletes Processed Inbox Items)
-Plan: 1 of 1
-Status: Phase 12.1 complete -- User-initiated processing with delete-on-success
-Last activity: 2026-03-03 -- Completed 12.1-01 (Remove auto-trigger, add user-initiated processing)
+Plan: 2 of 2
+Status: Phase 12.1 complete -- Gap closure for pending item retry
+Last activity: 2026-03-03 -- Completed 12.1-02 (Retry query includes pending items)
 
-Progress: [██████████] 95% (v3.0)
+Progress: [██████████] 97% (v3.0)
 
 ## Performance Metrics
 
@@ -42,7 +42,7 @@ Progress: [██████████] 95% (v3.0)
 - Timeline: 2026-02-26 to 2026-03-01 (4 days)
 
 **Velocity (v3.0):**
-- Total plans completed: 11
+- Total plans completed: 12
 - Average duration: 2.9 min
 
 | Phase | Plan | Duration | Tasks | Files |
@@ -58,6 +58,7 @@ Progress: [██████████] 95% (v3.0)
 | 12 | 01 | 2 min | 2 | 3 |
 | 12 | 02 | 2 min | 2 | 4 |
 | 12.1 | 01 | 5 min | 3 | 9 |
+| 12.1 | 02 | 2 min | 2 | 2 |
 
 ## Accumulated Context
 
@@ -99,6 +100,8 @@ v2.0 decisions archived to .planning/milestones/v2.0-ROADMAP.md
 - [12.1-01] CosmosResourceNotFoundError on delete is non-fatal (user may have swipe-deleted)
 - [12.1-01] 3-second polling interval for auto-refresh while processing is active
 - [12.1-01] processingCount field added to ShoppingListResponse for mobile banner control
+- [12.1-02] Include ALL pending items in retry (not just stale ones) -- idempotent agent safer than permanently stuck items
+- [12.1-02] admin_handoff.py NOT modified -- delete failure handler keeps log-only behavior per user decision
 
 ### Research Findings (Critical for v3.0)
 
@@ -126,5 +129,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-03
-Stopped at: Completed 12.1-01-PLAN.md (Admin agent delete-on-success) -- Phase 12.1 complete
+Stopped at: Completed 12.1-02-PLAN.md (Retry query gap closure for pending items)
 Resume action: /gsd:execute-phase 13 (next phase)
