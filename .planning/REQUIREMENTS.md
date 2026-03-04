@@ -36,7 +36,7 @@ Requirements for v3.0 Admin Agent & Shopping Lists. Each maps to roadmap phases.
 
 ### Recipe Extraction
 
-- [ ] **RCPE-01**: User can paste a YouTube URL that gets classified as Admin, and Admin Agent extracts recipe ingredients
+- [ ] **RCPE-01**: User can paste any recipe webpage URL that gets classified as Admin, and Admin Agent extracts recipe ingredients from the page
 - [ ] **RCPE-02**: Extracted ingredients are added to the appropriate grocery store shopping list
 - [ ] **RCPE-03**: Shopping list items from recipes show source attribution (recipe name/URL)
 

@@ -46,7 +46,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 10: Data Foundation and Admin Tools** - Pydantic models, Cosmos container, and AdminTools @tool class for shopping list writes (completed 2026-03-02)
 - [x] **Phase 11: Admin Agent and Capture Handoff** - Persistent Admin Agent in Foundry with silent background processing after Classifier files to Inbox (completed 2026-03-02)
 - [x] **Phase 12: Shopping List API and Status Screen** - REST endpoints and mobile tab for viewing, expanding, and removing shopping list items (completed 2026-03-03)
-- [ ] **Phase 13: YouTube Recipe Extraction** - YouTube URL capture to ingredient extraction to shopping list items with source attribution
+- [ ] **Phase 13: Recipe URL Extraction** - Paste any recipe webpage URL, LLM extracts ingredients and adds them to shopping list with source attribution
 
 ## Phase Details
 
@@ -139,15 +139,15 @@ Plans:
 - [x] 12.1-01-PLAN.md -- Replace processed-upsert with delete in admin_handoff.py, update tests
 - [x] 12.1-02-PLAN.md -- (GAP CLOSURE) Fix delete failure leaving 'pending' limbo, add stale pending retry
 
-### Phase 13: YouTube Recipe Extraction
-**Goal**: Users can paste a YouTube recipe URL and have ingredients automatically extracted and added to their grocery shopping list
+### Phase 13: Recipe URL Extraction
+**Goal**: Users can paste any recipe webpage URL, the Admin Agent fetches the page, the LLM extracts ingredients, and adds them to the shopping list with source attribution
 **Depends on**: Phase 11 (Admin Agent pipeline)
 **Requirements**: RCPE-01, RCPE-02, RCPE-03
 **Success Criteria** (what must be TRUE):
-  1. User pastes a YouTube recipe URL as a text capture, it gets classified as Admin, and the Admin Agent extracts ingredients from the video's captions
-  2. Extracted ingredients appear on the grocery store shopping list (e.g., Jewel) as individual items
-  3. Shopping list items originating from a recipe show source attribution (recipe name and/or YouTube URL) so the user knows where the item came from
-  4. When captions are unavailable for a YouTube video, the system fails gracefully with a clear message rather than silently dropping the capture
+  1. User pastes a recipe webpage URL as a text capture, it gets classified as Admin, and the Admin Agent extracts ingredients from the page content
+  2. Extracted ingredients appear on the appropriate store shopping lists as individual items
+  3. Shopping list items originating from a recipe show source attribution (recipe name and/or URL) so the user knows where the item came from
+  4. When a URL cannot be fetched or contains no recognizable recipe, the system fails gracefully with a clear message rather than silently dropping the capture
 **Plans**: TBD
 
 Plans:
@@ -218,3 +218,8 @@ Items not yet scheduled into a milestone or phase.
 **Context:** Apple's iOS 26 introduces `SpeechAnalyzer`/`SpeechTranscriber` -- a next-gen on-device transcription API with better accuracy for long-form audio, no length limits, and async/await patterns. Replaces `SFSpeechRecognizer`.
 **Blocked on:** iOS 26 GA release + `expo-speech-recognition` (or equivalent) adding `SpeechAnalyzer` support
 **When ready:** Swap Phase 15's `SFSpeechRecognizer` implementation to `SpeechAnalyzer` for improved accuracy (~5-14% WER vs Whisper's <2%, but faster and free)
+
+### YouTube Recipe Extraction
+**Context:** Extract ingredients from YouTube recipe videos via captions/transcript. Originally Phase 13 scope, replaced by general recipe URL extraction which covers more use cases. YouTube support could be added later as an enhancement to Phase 13's URL extraction pipeline (fetch captions instead of page HTML).
+**Blocked on:** Phase 13 (recipe URL extraction foundation)
+**When ready:** Add YouTube URL detection to the Admin Agent's URL handler, fetch captions via YouTube API or yt-dlp, extract ingredients using the same LLM pipeline
