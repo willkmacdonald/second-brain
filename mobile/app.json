@@ -14,6 +14,7 @@
       "backgroundColor": "#0f0f23"
     },
     "ios": {
+      "bundleIdentifier": "com.willkmacdonald.secondbrain",
       "supportsTablet": true
     },
     "android": {
@@ -21,7 +22,11 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0f0f23"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ]
     },
     "platforms": [
       "ios",
@@ -30,10 +35,21 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
-      ["expo-audio", { "microphonePermission": "Allow Second Brain to access your microphone for voice capture." }]
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Allow Second Brain to access your microphone for voice capture."
+        }
+      ]
     ],
     "web": {
       "bundler": "metro"
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "81ec77de-a22f-49c9-aed8-29d81b0ca951"
+      }
     }
   }
 }

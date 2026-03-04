@@ -48,7 +48,7 @@ The mobile work involves adding a third tab to the existing Expo Router tab layo
 |------------|-----------|----------|
 | SectionList | FlatList with manual grouping | SectionList has built-in section headers, sticky headers, and `renderSectionHeader` -- FlatList would require custom logic to render group headers inline with items |
 | Set<string> for expand state | LayoutAnimation | LayoutAnimation adds smooth open/close transitions but is unreliable on Android and adds complexity. Simple show/hide with `extraData` is sufficient for MVP. |
-| Per-store queries | Cross-partition query | Per-store queries are more efficient (4 targeted partition reads vs 1 fan-out). With only 4 known stores, the overhead of 4 queries is negligible and avoids cross-partition RU cost. |
+| Per-store queries | Cross-partition query | Per-store queries are more efficient (~20 targeted partition reads vs 1 fan-out). With `asyncio.gather`, parallel per-partition queries complete fast and avoid cross-partition RU cost. |
 
 **Installation:**
 No new packages needed. All dependencies are already installed.
@@ -82,7 +82,7 @@ mobile/
     "stores": [
         {
             "store": "jewel",
-            "displayName": "Jewel",
+            "displayName": "Jewel-Osco",
             "items": [
                 {"id": "abc-123", "name": "milk", "store": "jewel"},
                 {"id": "def-456", "name": "eggs", "store": "jewel"}
@@ -104,8 +104,8 @@ mobile/
 
 ### Pattern 2: Per-Store Cosmos Queries (NOT Cross-Partition)
 **What:** Query each known store partition individually rather than using a cross-partition query.
-**When to use:** When you have a small, fixed number of known partition key values.
-**Why:** The ShoppingLists container has `/store` as partition key with only 4 known values (`jewel`, `cvs`, `pet_store`, `other`). Querying each partition individually is cheaper in RUs than a cross-partition fan-out, and the async Python SDK makes it easy to do these in parallel with `asyncio.gather`.
+**When to use:** When you have a manageable number of known partition key values.
+**Why:** The ShoppingLists container has `/store` as partition key. Currently ~4 stores but expected to grow to ~20 (including online stores). Querying each partition individually is cheaper in RUs than a cross-partition fan-out, and the async Python SDK makes it easy to do these in parallel with `asyncio.gather`. At ~20 stores, parallel per-partition queries are still efficient and predictable.
 **Example:**
 ```python
 # Source: Azure Cosmos DB Python SDK docs (async client)
@@ -213,7 +213,7 @@ useFocusEffect(
 ```
 
 ### Anti-Patterns to Avoid
-- **Cross-partition query for ShoppingLists:** With only 4 known stores, querying per-partition is cheaper and more predictable. Cross-partition fan-out wastes RUs on empty partitions.
+- **Cross-partition query for ShoppingLists:** With ~20 expected stores, querying per-partition is still cheaper and more predictable. Cross-partition fan-out wastes RUs on empty partitions.
 - **Client-side grouping:** The API should return pre-grouped data. Making the mobile app sort/group a flat list wastes CPU on the device and creates a more complex data transform.
 - **Using `partition_key="will"` for ShoppingLists:** Unlike all other containers (which use `/userId`), ShoppingLists uses `/store`. Using `"will"` as partition key will return zero results.
 - **Adding a new library for accordion/collapsible:** SectionList + state is sufficient. No need for `react-native-collapsible` or `react-native-elements`.
@@ -235,7 +235,7 @@ useFocusEffect(
 ### Pitfall 1: Wrong Partition Key for ShoppingLists
 **What goes wrong:** Using `partition_key="will"` (the pattern everywhere else in the codebase) when querying or deleting from the ShoppingLists container. Queries return empty results; deletes throw 404.
 **Why it happens:** Every other Cosmos operation in the codebase uses `"will"` as the partition key. Muscle memory / pattern-matching leads to copy-pasting the wrong value.
-**How to avoid:** The partition key for ShoppingLists is the store name (e.g., `"jewel"`, `"cvs"`). The `DELETE` endpoint must receive the store name to construct the correct delete call. Pass store as a query parameter: `DELETE /api/shopping-lists/items/{id}?store=jewel`.
+**How to avoid:** The partition key for ShoppingLists is the store name (e.g., `"jewel"`, `"cvs"`). The `DELETE` endpoint must receive the store name to construct the correct delete call. Pass store as a query parameter: `DELETE /api/shopping-lists/items/{id}?store=jewel`. Note: there is no userId concept — this is a single-user system.
 **Warning signs:** API returns empty shopping lists despite items being present in Cosmos. Delete operations return 404 for items that clearly exist.
 
 ### Pitfall 2: SectionList Not Re-Rendering on Expand/Collapse
@@ -281,7 +281,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 STORE_DISPLAY_NAMES: dict[str, str] = {
-    "jewel": "Jewel",
+    "jewel": "Jewel-Osco",
     "cvs": "CVS",
     "pet_store": "Pet Store",
     "other": "Other",
@@ -411,17 +411,27 @@ interface StoreSection {
 **Deprecated/outdated:**
 - `enable_cross_partition_query` parameter: Not needed in the async Cosmos SDK client. The async client automatically does cross-partition queries when no `partition_key` is specified. However, we deliberately use `partition_key=store` for per-partition queries, so this is moot.
 
-## Open Questions
+## Resolved Questions
 
-1. **Store display name mapping**
-   - What we know: Stores are stored as lowercase slugs (`jewel`, `cvs`, `pet_store`, `other`)
-   - What's unclear: Whether the user wants different display names (e.g., "Jewel-Osco" vs "Jewel")
-   - Recommendation: Use a simple `STORE_DISPLAY_NAMES` dict in the API module. Easy to change later.
+1. **Store display name mapping** — RESOLVED
+   - Use friendly display names: `"jewel"` → `"Jewel-Osco"`, etc.
+   - Use a simple `STORE_DISPLAY_NAMES` dict in the API module.
 
-2. **Initial expand state**
-   - What we know: Sections can start expanded or collapsed
-   - What's unclear: Whether all sections should start expanded (showing all items) or collapsed (showing only store name + count)
-   - Recommendation: Start all sections expanded. With a small number of stores and items, showing everything immediately is more useful than requiring taps to see content.
+2. **Initial expand state** — RESOLVED
+   - Start all sections expanded. Show everything immediately.
+
+3. **Store count and growth** — RESOLVED
+   - Currently ~4 stores, expected to grow to ~20 (many online stores).
+   - Per-partition queries still efficient at 20 stores with `asyncio.gather`.
+   - `KNOWN_STORES` list will grow over time as stores are added via Admin.
+
+4. **Delete scope** — RESOLVED
+   - Delete individual items (not entire store sections). Store name must be passed as query param for partition key routing.
+   - No userId concept — single-user system.
+
+## Future Considerations (NOT in scope for Phase 12)
+
+- **Store metadata**: Eventually each store will have a physical location or URL associated with it, managed via Admin. For now, the `STORE_DISPLAY_NAMES` dict is sufficient. When store metadata grows, it may warrant its own Cosmos container or a stores collection within Admin.
 
 ## Sources
 
