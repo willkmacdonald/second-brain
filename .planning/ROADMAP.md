@@ -137,7 +137,7 @@ Plans:
 
 Plans:
 - [x] 12.1-01-PLAN.md -- Replace processed-upsert with delete in admin_handoff.py, update tests
-- [ ] 12.1-02-PLAN.md -- (GAP CLOSURE) Fix delete failure leaving 'pending' limbo, add stale pending retry
+- [x] 12.1-02-PLAN.md -- (GAP CLOSURE) Fix delete failure leaving 'pending' limbo, add stale pending retry
 
 ### Phase 13: YouTube Recipe Extraction
 **Goal**: Users can paste a YouTube recipe URL and have ingredients automatically extracted and added to their grocery shopping list
@@ -159,7 +159,7 @@ Plans:
 **Execution Order:**
 - v1.0: 1 -> 2 -> 3 -> 4 -> 4.1 -> 4.2 -> 4.3 -> 5 (complete)
 - v2.0: 6 -> 7 -> 8 -> 9 -> 9.1 (complete)
-- v3.0: 10 -> 11 -> 11.1 -> 12 -> 13
+- v3.0: 10 -> 11 -> 11.1 -> 12 -> 12.1 -> 13
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -180,14 +180,41 @@ Plans:
 | 11. Admin Agent and Capture Handoff | 2/2 | Complete    | 2026-03-02 | - |
 | 11.1 Classifier Multi-Bucket Splitting | v3.0 | Complete    | 2026-03-03 | 2026-03-02 |
 | 12. Shopping List API and Status Screen | 2/2 | Complete   | 2026-03-03 | - |
+| 12.1 Admin Agent Deletes Processed Items | v3.0 | 2/2 | Complete | 2026-03-03 |
 | 13. YouTube Recipe Extraction | v3.0 | 0/TBD | Not started | - |
+| 14. App Insights Operational Audit | v3.0 | 0/TBD | Not started | - |
+| 15. On-Device Voice Transcription | v3.0 | 0/TBD | Not started | - |
 
 ### Phase 14: App Insights Operational Audit
 
 **Goal:** Review and streamline App Insights logging setup to ensure operational effectiveness and efficiency. Audit log levels, query patterns, alert configuration, and cost. Ensure Python logger output is structured and actionable, not noisy.
 **Requirements**: TBD
 **Depends on:** Phase 13
-**Plans:** 2/2 plans complete
+**Plans:** TBD
 
 Plans:
 - [ ] TBD (run /gsd:plan-phase 14 to break down)
+
+### Phase 15: On-Device Voice Transcription (SFSpeechRecognizer)
+
+**Goal:** Replace cloud-based Azure OpenAI gpt-4o-transcribe with iOS on-device transcription via `expo-speech-recognition` and `SFSpeechRecognizer`, eliminating transcription API costs and reducing voice capture latency
+**Depends on:** Phase 5 (voice capture infrastructure)
+**Requirements**: VOICE-OD-01, VOICE-OD-02, VOICE-OD-03
+**Success Criteria** (what must be TRUE):
+  1. Voice captures use on-device `SFSpeechRecognizer` (iOS 17+) via `expo-speech-recognition` for real-time streaming transcription -- no audio upload to Azure Blob, no gpt-4o-transcribe API call
+  2. Transcription accuracy is acceptable for informal voice captures (shopping items, reminders, quick notes) -- validated through manual UAT
+  3. Backend transcription infrastructure (Azure Blob upload, OpenAI transcription client) remains available as a fallback but is not used in the default flow
+  4. Voice capture UX shows real-time interim transcription results as the user speaks
+**Plans**: TBD
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 15 to break down)
+
+## Backlog
+
+Items not yet scheduled into a milestone or phase.
+
+### iOS 26 SpeechAnalyzer Migration
+**Context:** Apple's iOS 26 introduces `SpeechAnalyzer`/`SpeechTranscriber` -- a next-gen on-device transcription API with better accuracy for long-form audio, no length limits, and async/await patterns. Replaces `SFSpeechRecognizer`.
+**Blocked on:** iOS 26 GA release + `expo-speech-recognition` (or equivalent) adding `SpeechAnalyzer` support
+**When ready:** Swap Phase 15's `SFSpeechRecognizer` implementation to `SpeechAnalyzer` for improved accuracy (~5-14% WER vs Whisper's <2%, but faster and free)
