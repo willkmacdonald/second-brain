@@ -193,7 +193,7 @@ Plans:
 | 11.1 Classifier Multi-Bucket Splitting | v3.0 | Complete    | 2026-03-03 | 2026-03-02 |
 | 12. Shopping List API and Status Screen | 2/2 | Complete   | 2026-03-03 | - |
 | 12.1 Admin Agent Deletes Processed Items | v3.0 | 2/2 | Complete | 2026-03-03 |
-| 12.2 Rename Admin to Errands | 3/3 | Complete   | 2026-03-16 | - |
+| 12.2 Rename Admin to Errands | 3/3 | Complete    | 2026-03-16 | - |
 | 13. YouTube Recipe Extraction | v3.0 | 0/TBD | Not started | - |
 | 14. App Insights Operational Audit | v3.0 | 0/TBD | Not started | - |
 | 15. On-Device Voice Transcription (SpeechAnalyzer) | v3.0 | 0/TBD | Not started | - |
