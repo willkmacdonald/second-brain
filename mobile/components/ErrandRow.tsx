@@ -2,9 +2,9 @@ import { useRef } from "react";
 import { View, Text, StyleSheet, Animated } from "react-native";
 import { Swipeable } from "react-native-gesture-handler";
 
-interface ShoppingListRowProps {
-  item: { id: string; name: string; store: string };
-  onDelete: (itemId: string, store: string) => void;
+interface ErrandRowProps {
+  item: { id: string; name: string; destination: string };
+  onDelete: (itemId: string, destination: string) => void;
 }
 
 /**
@@ -29,16 +29,16 @@ function renderRightActions(
 }
 
 /**
- * Swipeable shopping list item row.
+ * Swipeable errand item row.
  * Displays item name (includes quantity per CONTEXT.md).
  * Swipe left to delete -- no confirmation dialog, no haptic feedback.
  */
-export function ShoppingListRow({ item, onDelete }: ShoppingListRowProps) {
+export function ErrandRow({ item, onDelete }: ErrandRowProps) {
   const swipeableRef = useRef<Swipeable>(null);
 
   const handleSwipeOpen = () => {
     swipeableRef.current?.close();
-    onDelete(item.id, item.store);
+    onDelete(item.id, item.destination);
   };
 
   return (

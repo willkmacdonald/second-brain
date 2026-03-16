@@ -1,7 +1,7 @@
 import { Pressable, View, Text, StyleSheet } from "react-native";
 
 export interface SectionConfig {
-  type: "shopping" | string;
+  type: "errand" | string;
   title: string;
   count: number;
   data: unknown[];
@@ -18,7 +18,7 @@ interface StatusSectionRendererProps {
  * Generic section header renderer for the Status screen.
  *
  * Designed for extensibility -- the `type` field on SectionConfig allows
- * future section types (e.g., "tasks", "reminders") to reuse this component.
+ * future section types (e.g., "errand", "tasks", "reminders") to reuse this component.
  *
  * Renders a tappable header with section title, item count, and
  * expand/collapse chevron indicator.

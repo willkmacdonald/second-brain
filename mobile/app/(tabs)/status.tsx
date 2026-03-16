@@ -10,31 +10,31 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "expo-router";
 import { API_BASE_URL, API_KEY } from "../../constants/config";
 import { StatusSectionRenderer } from "../../components/StatusSectionRenderer";
-import { ShoppingListRow } from "../../components/ShoppingListRow";
+import { ErrandRow } from "../../components/ErrandRow";
 
-interface ShoppingItem {
+interface ErrandItem {
   id: string;
   name: string;
-  store: string;
+  destination: string;
 }
 
-interface StoreSectionData {
-  type: "shopping";
+interface ErrandSectionData {
+  type: "errand";
   title: string;
   count: number;
-  data: ShoppingItem[];
+  data: ErrandItem[];
   key: string;
 }
 
 /**
- * Status screen displaying shopping lists grouped by store.
+ * Status screen displaying errands grouped by destination.
  *
  * Sections start collapsed. Tapping a section header expands/collapses it.
  * Swiping an item left deletes it (optimistic, no confirmation).
  * Data refreshes on tab focus -- no pull-to-refresh, no polling.
  */
 export default function StatusScreen() {
-  const [sections, setSections] = useState<StoreSectionData[]>([]);
+  const [sections, setSections] = useState<ErrandSectionData[]>([]);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
     new Set(),
   );
@@ -43,13 +43,13 @@ export default function StatusScreen() {
   const [processingCount, setProcessingCount] = useState(0);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const fetchShoppingLists = useCallback(async () => {
+  const fetchErrands = useCallback(async () => {
     if (!API_KEY) {
       setLoading(false);
       return;
     }
     try {
-      const res = await fetch(`${API_BASE_URL}/api/shopping-lists`, {
+      const res = await fetch(`${API_BASE_URL}/api/errands`, {
         headers: { Authorization: `Bearer ${API_KEY}` },
       });
       if (!res.ok) {
@@ -58,22 +58,22 @@ export default function StatusScreen() {
         return;
       }
       const data: {
-        stores: {
-          store: string;
+        destinations: {
+          destination: string;
           displayName: string;
-          items: ShoppingItem[];
+          items: ErrandItem[];
           count: number;
         }[];
         totalCount: number;
         processingCount?: number;
       } = await res.json();
 
-      const mapped: StoreSectionData[] = data.stores.map((s) => ({
-        type: "shopping" as const,
+      const mapped: ErrandSectionData[] = data.destinations.map((s) => ({
+        type: "errand" as const,
         title: s.displayName,
         count: s.count,
         data: s.items,
-        key: s.store,
+        key: s.destination,
       }));
 
       setSections(mapped);
@@ -90,15 +90,15 @@ export default function StatusScreen() {
   // Refresh on tab focus
   useFocusEffect(
     useCallback(() => {
-      void fetchShoppingLists();
-    }, [fetchShoppingLists]),
+      void fetchErrands();
+    }, [fetchErrands]),
   );
 
   // Auto-refresh while processing is active
   useEffect(() => {
     if (processingCount > 0) {
       pollingRef.current = setInterval(() => {
-        void fetchShoppingLists();
+        void fetchErrands();
       }, 3000);
     } else if (pollingRef.current) {
       clearInterval(pollingRef.current);
@@ -110,7 +110,7 @@ export default function StatusScreen() {
         pollingRef.current = null;
       }
     };
-  }, [processingCount, fetchShoppingLists]);
+  }, [processingCount, fetchErrands]);
 
   const toggleSection = useCallback((key: string) => {
     setExpandedSections((prev) => {
@@ -125,12 +125,12 @@ export default function StatusScreen() {
   }, []);
 
   const handleDeleteItem = useCallback(
-    (itemId: string, store: string) => {
+    (itemId: string, destination: string) => {
       // Optimistic removal: immediately remove item from UI
       setSections((prev) => {
         const updated = prev
           .map((section) => {
-            if (section.key !== store) return section;
+            if (section.key !== destination) return section;
             const filtered = section.data.filter((item) => item.id !== itemId);
             return {
               ...section,
@@ -147,7 +147,7 @@ export default function StatusScreen() {
       void (async () => {
         try {
           const res = await fetch(
-            `${API_BASE_URL}/api/shopping-lists/items/${itemId}?store=${store}`,
+            `${API_BASE_URL}/api/errands/${itemId}?destination=${destination}`,
             {
               method: "DELETE",
               headers: { Authorization: `Bearer ${API_KEY}` },
@@ -155,15 +155,15 @@ export default function StatusScreen() {
           );
           if (!res.ok && res.status !== 404) {
             // Silently refetch to restore accurate state
-            void fetchShoppingLists();
+            void fetchErrands();
           }
         } catch {
           // Silent rollback via refetch
-          void fetchShoppingLists();
+          void fetchErrands();
         }
       })();
     },
-    [fetchShoppingLists],
+    [fetchErrands],
   );
 
   // Show loading spinner on initial load only
@@ -204,13 +204,13 @@ export default function StatusScreen() {
         renderItem={({ item, section }) => {
           if (!expandedSections.has(section.key)) return null;
           return (
-            <ShoppingListRow item={item} onDelete={handleDeleteItem} />
+            <ErrandRow item={item} onDelete={handleDeleteItem} />
           );
         }}
         ListEmptyComponent={
           !loading ? (
             <View style={styles.empty}>
-              <Text style={styles.emptyText}>No items yet</Text>
+              <Text style={styles.emptyText}>No errands yet</Text>
             </View>
           ) : null
         }
