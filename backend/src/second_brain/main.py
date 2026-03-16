@@ -40,7 +40,7 @@ from second_brain.agents.middleware import (  # noqa: E402
 from second_brain.api.capture import router as capture_router  # noqa: E402
 from second_brain.api.health import router as health_router  # noqa: E402
 from second_brain.api.inbox import router as inbox_router  # noqa: E402
-from second_brain.api.shopping_lists import router as shopping_lists_router  # noqa: E402
+from second_brain.api.errands import router as errands_router  # noqa: E402
 from second_brain.auth import APIKeyMiddleware  # noqa: E402
 from second_brain.config import get_settings  # noqa: E402
 from second_brain.db.blob_storage import BlobStorageManager  # noqa: E402
@@ -219,7 +219,7 @@ async def lifespan(app: FastAPI):
             )
             app.state.admin_agent_id = admin_agent_id
 
-            # --- AdminTools (uses Cosmos for shopping list writes) ---
+            # --- AdminTools (uses Cosmos for errand item writes) ---
             admin_tools = AdminTools(cosmos_manager=cosmos_mgr)
             app.state.admin_tools = admin_tools
 
@@ -232,7 +232,7 @@ async def lifespan(app: FastAPI):
                 middleware=[AuditAgentMiddleware(), ToolTimingMiddleware()],
             )
             app.state.admin_client = admin_client
-            app.state.admin_agent_tools = [admin_tools.add_shopping_list_items]
+            app.state.admin_agent_tools = [admin_tools.add_errand_items]
 
             logger.info(
                 "Admin agent ready: id=%s tools=%d",
@@ -310,7 +310,7 @@ app.add_middleware(APIKeyMiddleware)
 app.include_router(health_router)
 app.include_router(inbox_router)
 app.include_router(capture_router)
-app.include_router(shopping_lists_router)
+app.include_router(errands_router)
 
 if __name__ == "__main__":
     import uvicorn

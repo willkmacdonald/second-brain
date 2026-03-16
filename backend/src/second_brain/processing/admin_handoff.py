@@ -1,7 +1,7 @@
 """Background processing for Admin-classified captures.
 
 Provides process_admin_capture() -- a fire-and-forget coroutine that
-calls the Admin Agent non-streaming, routes shopping items to store lists,
+calls the Admin Agent non-streaming, routes errand items to destination lists,
 and deletes the inbox item on success. Failed items remain with
 adminProcessingStatus = 'failed' for retry on next Status screen open.
 """
@@ -23,7 +23,7 @@ tracer = trace.get_tracer("second_brain.processing")
 def _get_items_written(tools: list) -> int:
     """Check last_items_written on the AdminTools instance backing the tool list.
 
-    The tools list contains bound methods like [admin_tools.add_shopping_list_items].
+    The tools list contains bound methods like [admin_tools.add_errand_items].
     We access __self__ to reach the AdminTools instance and its last_items_written
     counter, which is set each time the tool executes.
 
@@ -80,7 +80,7 @@ async def process_admin_capture(
     """Process an Admin-classified capture in the background.
 
     Calls the Admin Agent (non-streaming) to parse items and route
-    to shopping lists via add_shopping_list_items. Only deletes the
+    to errands via add_errand_items. Only deletes the
     inbox item when the agent actually invoked the tool -- if the agent
     responds without calling the tool, the item is marked as 'failed'
     so it remains visible for retry.
@@ -91,7 +91,7 @@ async def process_admin_capture(
     Args:
         admin_client: AzureAIAgentClient configured for the Admin Agent.
         admin_tools: List of tool functions
-            (e.g., [admin_tools.add_shopping_list_items]).
+            (e.g., [admin_tools.add_errand_items]).
         cosmos_manager: CosmosManager for inbox status updates.
         inbox_item_id: The Cosmos inbox document ID to update after processing.
         raw_text: The user's original capture text to send to the Admin Agent.

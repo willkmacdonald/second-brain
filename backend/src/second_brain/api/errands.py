@@ -1,9 +1,9 @@
-"""Shopping Lists API endpoints for reading and deleting shopping list items.
+"""Errands API endpoints for reading and deleting errand items.
 
-Queries the Cosmos DB ShoppingLists container which uses /store as partition key.
-Items are grouped by store with display names for the mobile Status screen.
+Queries the Cosmos DB Errands container which uses /destination as partition key.
+Items are grouped by destination with display names for the mobile Status screen.
 
-GET /api/shopping-lists also triggers Admin Agent processing as a side effect
+GET /api/errands also triggers Admin Agent processing as a side effect
 when there are unprocessed Admin inbox items.
 """
 
@@ -14,7 +14,7 @@ from azure.cosmos.exceptions import CosmosResourceNotFoundError
 from fastapi import APIRouter, HTTPException, Query, Request, Response
 from pydantic import BaseModel
 
-from second_brain.models.documents import KNOWN_STORES
+from second_brain.models.documents import KNOWN_DESTINATIONS
 from second_brain.processing.admin_handoff import (
     process_admin_capture,
     process_admin_captures_batch,
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-STORE_DISPLAY_NAMES: dict[str, str] = {
+DESTINATION_DISPLAY_NAMES: dict[str, str] = {
     "jewel": "Jewel-Osco",
     "cvs": "CVS",
     "pet_store": "Pet Store",
@@ -32,72 +32,72 @@ STORE_DISPLAY_NAMES: dict[str, str] = {
 }
 
 
-class ShoppingItemResponse(BaseModel):
-    """Single shopping list item."""
+class ErrandItemResponse(BaseModel):
+    """Single errand item."""
 
     id: str
     name: str
-    store: str
+    destination: str
 
 
-class StoreSection(BaseModel):
-    """A group of shopping items for a single store."""
+class DestinationSection(BaseModel):
+    """A group of errand items for a single destination."""
 
-    store: str
+    destination: str
     displayName: str  # noqa: N815
-    items: list[ShoppingItemResponse]
+    items: list[ErrandItemResponse]
     count: int
 
 
-class ShoppingListResponse(BaseModel):
-    """Full shopping list response with items grouped by store."""
+class ErrandsResponse(BaseModel):
+    """Full errands response with items grouped by destination."""
 
-    stores: list[StoreSection]
+    destinations: list[DestinationSection]
     totalCount: int  # noqa: N815
     processingCount: int = 0  # noqa: N815
 
 
-@router.get("/api/shopping-lists", response_model=ShoppingListResponse)
-async def get_shopping_lists(request: Request) -> ShoppingListResponse:
-    """List all shopping list items grouped by store.
+@router.get("/api/errands", response_model=ErrandsResponse)
+async def get_errands(request: Request) -> ErrandsResponse:
+    """List all errand items grouped by destination.
 
-    Queries each known store partition individually and returns sections
-    sorted by item count descending (most items first). Empty stores
+    Queries each known destination partition individually and returns sections
+    sorted by item count descending (most items first). Empty destinations
     are excluded from the response.
     """
     cosmos_manager = getattr(request.app.state, "cosmos_manager", None)
     if cosmos_manager is None:
         raise HTTPException(
             status_code=503,
-            detail="Cosmos DB not configured. Shopping lists unavailable.",
+            detail="Cosmos DB not configured. Errands unavailable.",
         )
 
-    container = cosmos_manager.get_container("ShoppingLists")
+    container = cosmos_manager.get_container("Errands")
 
-    sections: list[StoreSection] = []
+    sections: list[DestinationSection] = []
     total_count = 0
 
-    for store in KNOWN_STORES:
-        items: list[ShoppingItemResponse] = []
+    for destination in KNOWN_DESTINATIONS:
+        items: list[ErrandItemResponse] = []
         async for item in container.query_items(
             query="SELECT * FROM c",
-            partition_key=store,
+            partition_key=destination,
         ):
             items.append(
-                ShoppingItemResponse(
+                ErrandItemResponse(
                     id=item["id"],
                     name=item["name"],
-                    store=item.get("store", store),
+                    destination=item.get("destination", destination),
                 )
             )
 
         if items:
-            display_name = STORE_DISPLAY_NAMES.get(
-                store, store.replace("_", " ").title()
+            display_name = DESTINATION_DISPLAY_NAMES.get(
+                destination, destination.replace("_", " ").title()
             )
             sections.append(
-                StoreSection(
-                    store=store,
+                DestinationSection(
+                    destination=destination,
                     displayName=display_name,
                     items=items,
                     count=len(items),
@@ -210,51 +210,51 @@ async def get_shopping_lists(request: Request) -> ShoppingListResponse:
         )
 
     logger.info(
-        "Shopping lists: %d stores, %d total items",
+        "Errands: %d destinations, %d total items",
         len(sections),
         total_count,
     )
-    return ShoppingListResponse(
-        stores=sections,
+    return ErrandsResponse(
+        destinations=sections,
         totalCount=total_count,
         processingCount=processing_count,
     )
 
 
-@router.delete("/api/shopping-lists/items/{item_id}", status_code=204)
-async def delete_shopping_item(
+@router.delete("/api/errands/{item_id}", status_code=204)
+async def delete_errand_item(
     request: Request,
     item_id: str,
-    store: str = Query(..., description="Store name (partition key)"),
+    destination: str = Query(..., description="Destination name (partition key)"),
 ) -> Response:
-    """Delete a shopping list item by ID and store partition key.
+    """Delete an errand item by ID and destination partition key.
 
-    Returns 204 No Content on success, 400 for unknown store,
+    Returns 204 No Content on success, 400 for unknown destination,
     404 if item not found.
     """
-    if store not in KNOWN_STORES:
-        valid = ", ".join(KNOWN_STORES)
+    if destination not in KNOWN_DESTINATIONS:
+        valid = ", ".join(KNOWN_DESTINATIONS)
         raise HTTPException(
             status_code=400,
-            detail=f"Unknown store '{store}'. Valid stores: {valid}",
+            detail=f"Unknown destination '{destination}'. Valid destinations: {valid}",
         )
 
     cosmos_manager = getattr(request.app.state, "cosmos_manager", None)
     if cosmos_manager is None:
         raise HTTPException(
             status_code=503,
-            detail="Cosmos DB not configured. Shopping lists unavailable.",
+            detail="Cosmos DB not configured. Errands unavailable.",
         )
 
-    container = cosmos_manager.get_container("ShoppingLists")
+    container = cosmos_manager.get_container("Errands")
 
     try:
-        await container.delete_item(item=item_id, partition_key=store)
+        await container.delete_item(item=item_id, partition_key=destination)
     except CosmosResourceNotFoundError as exc:
         raise HTTPException(
             status_code=404,
-            detail=f"Shopping list item {item_id} not found in store '{store}'",
+            detail=f"Errand item {item_id} not found in destination '{destination}'",
         ) from exc
 
-    logger.info("Deleted shopping list item %s from store '%s'", item_id, store)
+    logger.info("Deleted errand item %s from destination '%s'", item_id, destination)
     return Response(status_code=204)
