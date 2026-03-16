@@ -119,6 +119,7 @@ None.
 
 - Phase 11.1 inserted after Phase 11: Classifier Multi-Bucket Splitting (URGENT)
 - Phase 12.1 inserted after Phase 12: Admin agent deletes processed inbox items (URGENT)
+- Phase 12.2 inserted after Phase 12.1: Rename Admin infrastructure from shopping lists to generic errands system (URGENT)
 - Phase 14 added: App Insights Operational Audit
 
 ### Blockers/Concerns
