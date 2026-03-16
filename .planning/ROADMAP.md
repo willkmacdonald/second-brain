@@ -144,7 +144,7 @@ Plans:
 
 **Goal:** Rename the Admin Agent's data model, API, tools, and UI from "shopping list" to a generic "errands/tasks" system. The Admin function handles any errand (appointments, reminders, purchases), not just shopping. Shopping items were the first use case but the naming shouldn't constrain future Admin capabilities.
 **Depends on:** Phase 12.1
-**Plans:** 3 plans
+**Plans:** 1/3 plans executed
 
 Plans:
 - [ ] 12.2-01-PLAN.md -- Backend data layer rename (documents.py, admin.py tool, cosmos.py, tests)
@@ -193,7 +193,7 @@ Plans:
 | 11.1 Classifier Multi-Bucket Splitting | v3.0 | Complete    | 2026-03-03 | 2026-03-02 |
 | 12. Shopping List API and Status Screen | 2/2 | Complete   | 2026-03-03 | - |
 | 12.1 Admin Agent Deletes Processed Items | v3.0 | 2/2 | Complete | 2026-03-03 |
-| 12.2 Rename Admin to Errands | v3.0 | 0/TBD | Not started | - |
+| 12.2 Rename Admin to Errands | 1/3 | In Progress|  | - |
 | 13. YouTube Recipe Extraction | v3.0 | 0/TBD | Not started | - |
 | 14. App Insights Operational Audit | v3.0 | 0/TBD | Not started | - |
 | 15. On-Device Voice Transcription (SpeechAnalyzer) | v3.0 | 0/TBD | Not started | - |

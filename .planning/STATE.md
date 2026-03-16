@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Admin Agent & Shopping Lists
-status: unknown
-last_updated: "2026-03-03T16:02:26.189Z"
+status: in-progress
+last_updated: "2026-03-16T04:54:30.000Z"
 progress:
   total_phases: 14
   completed_phases: 11
-  total_plans: 40
-  completed_plans: 39
+  total_plans: 42
+  completed_plans: 40
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-01)
 
 **Core value:** One-tap capture from a phone instantly routes through an agent that classifies, files, and clarifies -- with zero organizational effort.
-**Current focus:** v3.0 Admin Agent & Shopping Lists -- Phase 12.1 gap closure complete
+**Current focus:** v3.0 Admin Agent & Shopping Lists -- Phase 12.2 rename in progress
 
 ## Current Position
 
-Phase: 12.1 of 13 (Admin Agent Deletes Processed Inbox Items)
-Plan: 2 of 2
-Status: Phase 12.1 complete -- Gap closure for pending item retry
-Last activity: 2026-03-03 -- Completed 12.1-02 (Retry query includes pending items)
+Phase: 12.2 of 13 (Rename Admin to Errands)
+Plan: 1 of 3
+Status: Plan 01 complete -- Data layer rename (model, constants, tool, container)
+Last activity: 2026-03-16 -- Completed 12.2-01 (Data layer rename to errands terminology)
 
-Progress: [██████████] 97% (v3.0)
+Progress: [█████████░] 95% (v3.0)
 
 ## Performance Metrics
 
@@ -59,6 +59,7 @@ Progress: [██████████] 97% (v3.0)
 | 12 | 02 | 2 min | 2 | 4 |
 | 12.1 | 01 | 5 min | 3 | 9 |
 | 12.1 | 02 | 2 min | 2 | 2 |
+| 12.2 | 01 | 2 min | 2 | 6 |
 
 ## Accumulated Context
 
@@ -102,6 +103,7 @@ v2.0 decisions archived to .planning/milestones/v2.0-ROADMAP.md
 - [12.1-01] processingCount field added to ShoppingListResponse for mobile banner control
 - [12.1-02] Include ALL pending items in retry (not just stale ones) -- idempotent agent safer than permanently stuck items
 - [12.1-02] admin_handoff.py NOT modified -- delete failure handler keeps log-only behavior per user decision
+- [12.2-01] Field rename store->destination mirrors the broader errands concept (destinations can be physical or online)
 
 ### Research Findings (Critical for v3.0)
 
@@ -129,6 +131,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-03
-Stopped at: Completed 12.1-02-PLAN.md (Retry query gap closure for pending items)
-Resume action: /gsd:execute-phase 13 (next phase)
+Last session: 2026-03-16
+Stopped at: Completed 12.2-01-PLAN.md (Data layer rename to errands terminology)
+Resume action: /gsd:execute-phase 12.2 (continue phase -- plans 02, 03 remaining)
