@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Admin Agent & Shopping Lists
-status: in-progress
-last_updated: "2026-03-16T04:59:26.000Z"
+status: unknown
+last_updated: "2026-03-16T05:07:12.742Z"
 progress:
-  total_phases: 14
-  completed_phases: 11
-  total_plans: 42
+  total_phases: 17
+  completed_phases: 12
+  total_plans: 43
   completed_plans: 42
 ---
 
@@ -61,6 +61,7 @@ Progress: [██████████] 100% (v3.0)
 | 12.1 | 02 | 2 min | 2 | 2 |
 | 12.2 | 01 | 2 min | 2 | 6 |
 | 12.2 | 03 | 2 min | 2 | 4 |
+| Phase 12.2 P02 | 3 min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -107,6 +108,7 @@ v2.0 decisions archived to .planning/milestones/v2.0-ROADMAP.md
 - [12.2-01] Field rename store->destination mirrors the broader errands concept (destinations can be physical or online)
 - [12.2-03] Migration script uses upsert_item for idempotency -- safe to re-run if interrupted
 - [12.2-03] Verification count check blocks old container deletion on mismatch -- prevents data loss
+- [Phase 12.2]: DELETE endpoint path simplified from /api/errands/items/{id} to /api/errands/{id} per CONTEXT.md
 
 ### Research Findings (Critical for v3.0)
 
@@ -135,5 +137,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-16
-Stopped at: Completed 12.2-03-PLAN.md (Mobile UI rename and Cosmos DB migration script)
+Stopped at: Completed 12.2-02-PLAN.md (API layer rename -- gap fill, all 3 plans now complete)
 Resume action: /gsd:execute-phase 13 (next phase)

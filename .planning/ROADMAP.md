@@ -46,7 +46,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 10: Data Foundation and Admin Tools** - Pydantic models, Cosmos container, and AdminTools @tool class for shopping list writes (completed 2026-03-02)
 - [x] **Phase 11: Admin Agent and Capture Handoff** - Persistent Admin Agent in Foundry with silent background processing after Classifier files to Inbox (completed 2026-03-02)
 - [x] **Phase 12: Shopping List API and Status Screen** - REST endpoints and mobile tab for viewing, expanding, and removing shopping list items (completed 2026-03-03)
-- [ ] **Phase 12.2: Rename Admin infrastructure from shopping lists to errands** (INSERTED) - Rename data model, API, tools, and UI from shopping-specific to generic errands system
+- [x] **Phase 12.2: Rename Admin infrastructure from shopping lists to errands** (INSERTED) - Rename data model, API, tools, and UI from shopping-specific to generic errands system (completed 2026-03-16)
 - [ ] **Phase 13: Recipe URL Extraction** - Paste any recipe webpage URL, LLM extracts ingredients and adds them to shopping list with source attribution
 
 ## Phase Details
@@ -144,12 +144,12 @@ Plans:
 
 **Goal:** Rename the Admin Agent's data model, API, tools, and UI from "shopping list" to a generic "errands/tasks" system. The Admin function handles any errand (appointments, reminders, purchases), not just shopping. Shopping items were the first use case but the naming shouldn't constrain future Admin capabilities.
 **Depends on:** Phase 12.1
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
-- [ ] 12.2-01-PLAN.md -- Backend data layer rename (documents.py, admin.py tool, cosmos.py, tests)
-- [ ] 12.2-02-PLAN.md -- Backend API layer rename (shopping_lists.py -> errands.py, main.py, tests)
-- [ ] 12.2-03-PLAN.md -- Mobile UI rename (ErrandRow, status.tsx, StatusSectionRenderer) + Cosmos migration script
+- [x] 12.2-01-PLAN.md -- Backend data layer rename (documents.py, admin.py tool, cosmos.py, tests)
+- [x] 12.2-02-PLAN.md -- Backend API layer rename (shopping_lists.py -> errands.py, main.py, tests)
+- [x] 12.2-03-PLAN.md -- Mobile UI rename (ErrandRow, status.tsx, StatusSectionRenderer) + Cosmos migration script
 
 ### Phase 13: Recipe URL Extraction
 **Goal**: Users can paste any recipe webpage URL, the Admin Agent fetches the page, the LLM extracts ingredients, and adds them to the shopping list with source attribution
@@ -193,7 +193,7 @@ Plans:
 | 11.1 Classifier Multi-Bucket Splitting | v3.0 | Complete    | 2026-03-03 | 2026-03-02 |
 | 12. Shopping List API and Status Screen | 2/2 | Complete   | 2026-03-03 | - |
 | 12.1 Admin Agent Deletes Processed Items | v3.0 | 2/2 | Complete | 2026-03-03 |
-| 12.2 Rename Admin to Errands | 2/3 | In Progress|  | - |
+| 12.2 Rename Admin to Errands | 3/3 | Complete   | 2026-03-16 | - |
 | 13. YouTube Recipe Extraction | v3.0 | 0/TBD | Not started | - |
 | 14. App Insights Operational Audit | v3.0 | 0/TBD | Not started | - |
 | 15. On-Device Voice Transcription (SpeechAnalyzer) | v3.0 | 0/TBD | Not started | - |
