@@ -46,6 +46,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 10: Data Foundation and Admin Tools** - Pydantic models, Cosmos container, and AdminTools @tool class for shopping list writes (completed 2026-03-02)
 - [x] **Phase 11: Admin Agent and Capture Handoff** - Persistent Admin Agent in Foundry with silent background processing after Classifier files to Inbox (completed 2026-03-02)
 - [x] **Phase 12: Shopping List API and Status Screen** - REST endpoints and mobile tab for viewing, expanding, and removing shopping list items (completed 2026-03-03)
+- [ ] **Phase 12.2: Rename Admin infrastructure from shopping lists to errands** (INSERTED) - Rename data model, API, tools, and UI from shopping-specific to generic errands system
 - [ ] **Phase 13: Recipe URL Extraction** - Paste any recipe webpage URL, LLM extracts ingredients and adds them to shopping list with source attribution
 
 ## Phase Details
@@ -139,6 +140,17 @@ Plans:
 - [x] 12.1-01-PLAN.md -- Replace processed-upsert with delete in admin_handoff.py, update tests
 - [x] 12.1-02-PLAN.md -- (GAP CLOSURE) Fix delete failure leaving 'pending' limbo, add stale pending retry
 
+### Phase 12.2: Rename Admin infrastructure from shopping lists to errands (INSERTED)
+
+**Goal:** Rename the Admin Agent's data model, API, tools, and UI from "shopping list" to a generic "errands/tasks" system. The Admin function handles any errand (appointments, reminders, purchases), not just shopping. Shopping items were the first use case but the naming shouldn't constrain future Admin capabilities.
+**Depends on:** Phase 12.1
+**Plans:** 3 plans
+
+Plans:
+- [ ] 12.2-01-PLAN.md -- Backend data layer rename (documents.py, admin.py tool, cosmos.py, tests)
+- [ ] 12.2-02-PLAN.md -- Backend API layer rename (shopping_lists.py -> errands.py, main.py, tests)
+- [ ] 12.2-03-PLAN.md -- Mobile UI rename (ErrandRow, status.tsx, StatusSectionRenderer) + Cosmos migration script
+
 ### Phase 13: Recipe URL Extraction
 **Goal**: Users can paste any recipe webpage URL, the Admin Agent fetches the page, the LLM extracts ingredients, and adds them to the shopping list with source attribution
 **Depends on**: Phase 11 (Admin Agent pipeline)
@@ -159,7 +171,7 @@ Plans:
 **Execution Order:**
 - v1.0: 1 -> 2 -> 3 -> 4 -> 4.1 -> 4.2 -> 4.3 -> 5 (complete)
 - v2.0: 6 -> 7 -> 8 -> 9 -> 9.1 (complete)
-- v3.0: 10 -> 11 -> 11.1 -> 12 -> 12.1 -> 13
+- v3.0: 10 -> 11 -> 11.1 -> 12 -> 12.1 -> 12.2 -> 13
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -181,6 +193,7 @@ Plans:
 | 11.1 Classifier Multi-Bucket Splitting | v3.0 | Complete    | 2026-03-03 | 2026-03-02 |
 | 12. Shopping List API and Status Screen | 2/2 | Complete   | 2026-03-03 | - |
 | 12.1 Admin Agent Deletes Processed Items | v3.0 | 2/2 | Complete | 2026-03-03 |
+| 12.2 Rename Admin to Errands | v3.0 | 0/TBD | Not started | - |
 | 13. YouTube Recipe Extraction | v3.0 | 0/TBD | Not started | - |
 | 14. App Insights Operational Audit | v3.0 | 0/TBD | Not started | - |
 | 15. On-Device Voice Transcription (SpeechAnalyzer) | v3.0 | 0/TBD | Not started | - |
