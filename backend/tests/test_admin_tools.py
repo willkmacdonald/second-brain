@@ -1,4 +1,4 @@
-"""Unit tests for AdminTools (add_shopping_list_items).
+"""Unit tests for AdminTools (add_errand_items).
 
 Tests use the mock_cosmos_manager fixture from conftest.py. No real Azure calls.
 """
@@ -37,7 +37,7 @@ def _get_all_bodies(mock_cosmos_manager: object, container: str) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
-# Tests: add_shopping_list_items
+# Tests: add_errand_items
 # ---------------------------------------------------------------------------
 
 
@@ -45,13 +45,13 @@ async def test_add_items_happy_path(
     mock_cosmos_manager: object,
 ) -> None:
     """Two items to different stores: both written, confirmation returned."""
-    _setup_echo(mock_cosmos_manager, "ShoppingLists")
+    _setup_echo(mock_cosmos_manager, "Errands")
 
     tools = _make_tools(mock_cosmos_manager)
-    result = await tools.add_shopping_list_items(
+    result = await tools.add_errand_items(
         items=[
-            {"name": "milk", "store": "jewel"},
-            {"name": "bandages", "store": "cvs"},
+            {"name": "milk", "destination": "jewel"},
+            {"name": "bandages", "destination": "cvs"},
         ]
     )
 
@@ -60,33 +60,33 @@ async def test_add_items_happy_path(
     assert "cvs" in result
 
     # Verify create_item called twice
-    container = mock_cosmos_manager.get_container("ShoppingLists")
+    container = mock_cosmos_manager.get_container("Errands")
     assert container.create_item.call_count == 2
 
-    bodies = _get_all_bodies(mock_cosmos_manager, "ShoppingLists")
+    bodies = _get_all_bodies(mock_cosmos_manager, "Errands")
     names = {b["name"] for b in bodies}
-    stores = {b["store"] for b in bodies}
+    destinations = {b["destination"] for b in bodies}
     assert names == {"milk", "bandages"}
-    assert stores == {"jewel", "cvs"}
+    assert destinations == {"jewel", "cvs"}
 
 
 async def test_add_items_unknown_store_falls_back_to_other(
     mock_cosmos_manager: object,
 ) -> None:
     """Unknown store 'walmart' falls back to 'other'."""
-    _setup_echo(mock_cosmos_manager, "ShoppingLists")
+    _setup_echo(mock_cosmos_manager, "Errands")
 
     tools = _make_tools(mock_cosmos_manager)
-    result = await tools.add_shopping_list_items(
-        items=[{"name": "shampoo", "store": "walmart"}]
+    result = await tools.add_errand_items(
+        items=[{"name": "shampoo", "destination": "walmart"}]
     )
 
     assert "Added 1 items" in result
     assert "other" in result
 
-    bodies = _get_all_bodies(mock_cosmos_manager, "ShoppingLists")
+    bodies = _get_all_bodies(mock_cosmos_manager, "Errands")
     assert len(bodies) == 1
-    assert bodies[0]["store"] == "other"
+    assert bodies[0]["destination"] == "other"
     assert bodies[0]["name"] == "shampoo"
 
 
@@ -94,22 +94,22 @@ async def test_add_items_empty_name_skipped(
     mock_cosmos_manager: object,
 ) -> None:
     """Item with empty name is skipped; only valid item is written."""
-    _setup_echo(mock_cosmos_manager, "ShoppingLists")
+    _setup_echo(mock_cosmos_manager, "Errands")
 
     tools = _make_tools(mock_cosmos_manager)
-    result = await tools.add_shopping_list_items(
+    result = await tools.add_errand_items(
         items=[
-            {"name": "", "store": "jewel"},
-            {"name": "eggs", "store": "jewel"},
+            {"name": "", "destination": "jewel"},
+            {"name": "eggs", "destination": "jewel"},
         ]
     )
 
     assert "Added 1 items" in result
 
-    container = mock_cosmos_manager.get_container("ShoppingLists")
+    container = mock_cosmos_manager.get_container("Errands")
     assert container.create_item.call_count == 1
 
-    bodies = _get_all_bodies(mock_cosmos_manager, "ShoppingLists")
+    bodies = _get_all_bodies(mock_cosmos_manager, "Errands")
     assert bodies[0]["name"] == "eggs"
 
 
@@ -117,19 +117,19 @@ async def test_add_items_all_empty_names(
     mock_cosmos_manager: object,
 ) -> None:
     """All items have empty names: none written, appropriate message returned."""
-    _setup_echo(mock_cosmos_manager, "ShoppingLists")
+    _setup_echo(mock_cosmos_manager, "Errands")
 
     tools = _make_tools(mock_cosmos_manager)
-    result = await tools.add_shopping_list_items(
+    result = await tools.add_errand_items(
         items=[
-            {"name": "", "store": "jewel"},
-            {"name": "   ", "store": "cvs"},
+            {"name": "", "destination": "jewel"},
+            {"name": "   ", "destination": "cvs"},
         ]
     )
 
     assert result == "No items added (all items had empty names)"
 
-    container = mock_cosmos_manager.get_container("ShoppingLists")
+    container = mock_cosmos_manager.get_container("Errands")
     container.create_item.assert_not_called()
 
 
@@ -137,37 +137,37 @@ async def test_add_items_normalizes_case(
     mock_cosmos_manager: object,
 ) -> None:
     """Name and store are lowercased in the written document."""
-    _setup_echo(mock_cosmos_manager, "ShoppingLists")
+    _setup_echo(mock_cosmos_manager, "Errands")
 
     tools = _make_tools(mock_cosmos_manager)
-    result = await tools.add_shopping_list_items(
-        items=[{"name": "MILK", "store": "JEWEL"}]
+    result = await tools.add_errand_items(
+        items=[{"name": "MILK", "destination": "JEWEL"}]
     )
 
     assert "Added 1 items" in result
 
-    bodies = _get_all_bodies(mock_cosmos_manager, "ShoppingLists")
+    bodies = _get_all_bodies(mock_cosmos_manager, "Errands")
     assert bodies[0]["name"] == "milk"
-    assert bodies[0]["store"] == "jewel"
+    assert bodies[0]["destination"] == "jewel"
 
 
 async def test_add_items_multiple_to_same_store(
     mock_cosmos_manager: object,
 ) -> None:
     """Three items to the same store: correct count in confirmation."""
-    _setup_echo(mock_cosmos_manager, "ShoppingLists")
+    _setup_echo(mock_cosmos_manager, "Errands")
 
     tools = _make_tools(mock_cosmos_manager)
-    result = await tools.add_shopping_list_items(
+    result = await tools.add_errand_items(
         items=[
-            {"name": "apples", "store": "jewel"},
-            {"name": "bread", "store": "jewel"},
-            {"name": "cheese", "store": "jewel"},
+            {"name": "apples", "destination": "jewel"},
+            {"name": "bread", "destination": "jewel"},
+            {"name": "cheese", "destination": "jewel"},
         ]
     )
 
     assert "Added 3 items" in result
     assert "3 to jewel" in result
 
-    container = mock_cosmos_manager.get_container("ShoppingLists")
+    container = mock_cosmos_manager.get_container("Errands")
     assert container.create_item.call_count == 3

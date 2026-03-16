@@ -45,15 +45,15 @@ async def test_admin_agent_exists_in_foundry():
 
 @pytest.mark.integration
 @pytest.mark.skipif(not _has_cosmos, reason="Requires COSMOS_ENDPOINT")
-async def test_add_shopping_list_items_writes_to_cosmos():
-    """AdminTools.add_shopping_list_items writes items to real Cosmos DB."""
+async def test_add_errand_items_writes_to_cosmos():
+    """AdminTools.add_errand_items writes items to real Cosmos DB."""
     from azure.identity.aio import DefaultAzureCredential
 
     from second_brain.db.cosmos import CosmosManager
     from second_brain.tools.admin import AdminTools
 
     credential = DefaultAzureCredential()
-    created_items: list[tuple[str, str]] = []  # (store, item_id)
+    created_items: list[tuple[str, str]] = []  # (destination, item_id)
 
     manager = CosmosManager(
         endpoint=os.environ["COSMOS_ENDPOINT"],
@@ -64,10 +64,10 @@ async def test_add_shopping_list_items_writes_to_cosmos():
         await manager.initialize()
         admin_tools = AdminTools(cosmos_manager=manager)
 
-        result = await admin_tools.add_shopping_list_items(
+        result = await admin_tools.add_errand_items(
             items=[
-                {"name": "test_integration_milk", "store": "jewel"},
-                {"name": "test_integration_bandages", "store": "cvs"},
+                {"name": "test_integration_milk", "destination": "jewel"},
+                {"name": "test_integration_bandages", "destination": "cvs"},
             ]
         )
 
@@ -75,8 +75,8 @@ async def test_add_shopping_list_items_writes_to_cosmos():
         assert "jewel" in result
         assert "cvs" in result
 
-        # Verify items exist -- use store as partition key (NOT "will")
-        container = manager.get_container("ShoppingLists")
+        # Verify items exist -- use destination as partition key (NOT "will")
+        container = manager.get_container("Errands")
         async for item in container.query_items(
             query="SELECT * FROM c WHERE STARTSWITH(c.name, 'test_integration_')",
             partition_key="jewel",
@@ -94,11 +94,11 @@ async def test_add_shopping_list_items_writes_to_cosmos():
     finally:
         # Cleanup: delete test items
         if manager.containers:
-            container = manager.get_container("ShoppingLists")
-            for store, item_id in created_items:
+            container = manager.get_container("Errands")
+            for destination, item_id in created_items:
                 try:
                     await container.delete_item(
-                        item=item_id, partition_key=store
+                        item=item_id, partition_key=destination
                     )
                 except Exception:
                     pass

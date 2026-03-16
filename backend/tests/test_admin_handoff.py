@@ -282,7 +282,7 @@ class TestProcessAdminCaptureFailure:
 
 
 # ---------------------------------------------------------------------------
-# Tests: no tool call (agent responds without invoking add_shopping_list_items)
+# Tests: no tool call (agent responds without invoking add_errand_items)
 # ---------------------------------------------------------------------------
 
 
