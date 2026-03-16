@@ -17,14 +17,23 @@ from second_brain.processing.admin_handoff import (
 )
 
 
+class _MockAdminToolsInstance:
+    """Simulates the AdminTools instance that backs bound tool methods."""
+
+    def __init__(self) -> None:
+        self.last_items_written: int = 0
+
+
 def _make_mock_tool(invocation_count: int = 0) -> MagicMock:
-    """Create a mock tool with an invocation_count attribute.
+    """Create a mock tool with an invocation_count attribute and __self__.
 
     Simulates FunctionTool's invocation tracking used by
-    _count_tool_invocations in admin_handoff.py.
+    _count_tool_invocations, and the AdminTools instance accessed
+    via __self__ by _get_items_written in admin_handoff.py.
     """
     tool_fn = MagicMock()
     tool_fn.invocation_count = invocation_count
+    tool_fn.__self__ = _MockAdminToolsInstance()
     return tool_fn
 
 
@@ -49,6 +58,7 @@ def mock_admin_client(mock_admin_tools):
         # Simulate framework calling the tool during get_response
         if mock_admin_tools:
             mock_admin_tools[0].invocation_count += 1
+            mock_admin_tools[0].__self__.last_items_written = 2
         return response
 
     client.get_response = AsyncMock(side_effect=_get_response_with_tool_call)
@@ -344,6 +354,44 @@ class TestProcessAdminCaptureNoToolCall:
             raw_text="random text",
         )
 
+    async def test_tool_called_with_empty_list_marks_failed(
+        self, mock_cosmos_manager, mock_admin_tools
+    ):
+        """Tool called but 0 items written (empty list) — inbox NOT deleted."""
+        client = AsyncMock()
+        response = MagicMock()
+        response.text = "No items added (all items had empty names)"
+
+        async def _tool_called_empty(*args, **kwargs):
+            # Tool is called but writes 0 items
+            if mock_admin_tools:
+                mock_admin_tools[0].invocation_count += 1
+                mock_admin_tools[0].__self__.last_items_written = 0
+            return response
+
+        client.get_response = AsyncMock(side_effect=_tool_called_empty)
+
+        await process_admin_capture(
+            admin_client=client,
+            admin_tools=mock_admin_tools,
+            cosmos_manager=mock_cosmos_manager,
+            inbox_item_id="test-inbox-id",
+            raw_text="book an appointment with an orthopedist",
+        )
+
+        container = mock_cosmos_manager.get_container("Inbox")
+
+        # Inbox item should NOT be deleted
+        container.delete_item.assert_not_called()
+
+        # Should have "pending" upsert then "failed" upsert
+        upsert_calls = container.upsert_item.call_args_list
+        assert len(upsert_calls) == 2
+        last_body = upsert_calls[-1].kwargs.get("body") or upsert_calls[-1][1].get(
+            "body"
+        )
+        assert last_body["adminProcessingStatus"] == "failed"
+
     async def test_tool_call_still_deletes(
         self, mock_admin_client, mock_cosmos_manager, mock_admin_tools
     ):
@@ -446,6 +494,7 @@ class TestProcessAdminCapturesBatch:
             # Simulate tool invocation for the successful call
             if mock_admin_tools:
                 mock_admin_tools[0].invocation_count += 1
+                mock_admin_tools[0].__self__.last_items_written = 1
             return response_ok
 
         client.get_response = AsyncMock(side_effect=side_effect)

@@ -28,6 +28,7 @@ class AdminTools:
     def __init__(self, cosmos_manager: CosmosManager) -> None:
         """Store the CosmosManager reference."""
         self._manager = cosmos_manager
+        self.last_items_written: int = 0
 
     @tool(approval_mode="never_require")
     async def add_shopping_list_items(
@@ -75,6 +76,7 @@ class AdminTools:
             store_counts[store] = store_counts.get(store, 0) + 1
 
         total = sum(store_counts.values())
+        self.last_items_written = total
         if total == 0:
             return "No items added (all items had empty names)"
 
