@@ -20,6 +20,40 @@ logger = logging.getLogger(__name__)
 tracer = trace.get_tracer("second_brain.processing")
 
 
+def _count_tool_invocations(tools: list) -> int:
+    """Sum invocation_count across all FunctionTool instances in a tool list.
+
+    Uses duck typing (hasattr) rather than isinstance so that test mocks
+    with an invocation_count attribute also work correctly.
+    """
+    total = 0
+    for t in tools:
+        count = getattr(t, "invocation_count", None)
+        if count is not None:
+            total += count
+    return total
+
+
+async def _mark_inbox_failed(
+    inbox_container,
+    inbox_item_id: str,
+    span,
+) -> None:
+    """Set adminProcessingStatus='failed' on an inbox item (best-effort)."""
+    try:
+        doc = await inbox_container.read_item(item=inbox_item_id, partition_key="will")
+        doc["adminProcessingStatus"] = "failed"
+        await inbox_container.upsert_item(body=doc)
+    except Exception as update_exc:
+        if span:
+            span.record_exception(update_exc)
+        logger.error(
+            "Failed to update inbox status to 'failed' for %s: %s",
+            inbox_item_id,
+            update_exc,
+        )
+
+
 async def process_admin_capture(
     admin_client: AzureAIAgentClient,
     admin_tools: list,
@@ -30,15 +64,18 @@ async def process_admin_capture(
     """Process an Admin-classified capture in the background.
 
     Calls the Admin Agent (non-streaming) to parse items and route
-    to shopping lists via add_shopping_list_items. Updates the inbox
-    item's adminProcessingStatus to 'processed' or 'failed'.
+    to shopping lists via add_shopping_list_items. Only deletes the
+    inbox item when the agent actually invoked the tool -- if the agent
+    responds without calling the tool, the item is marked as 'failed'
+    so it remains visible for retry.
 
     This function is designed to be called via asyncio.create_task() --
     it never raises (all exceptions are caught and logged).
 
     Args:
         admin_client: AzureAIAgentClient configured for the Admin Agent.
-        admin_tools: List of tool functions (e.g., [admin_tools.add_shopping_list_items]).
+        admin_tools: List of tool functions
+            (e.g., [admin_tools.add_shopping_list_items]).
         cosmos_manager: CosmosManager for inbox status updates.
         inbox_item_id: The Cosmos inbox document ID to update after processing.
         raw_text: The user's original capture text to send to the Admin Agent.
@@ -69,12 +106,36 @@ async def process_admin_capture(
             messages = [Message(role="user", text=raw_text)]
             options = ChatOptions(tools=admin_tools)
 
+            # Snapshot tool invocation count before calling the agent
+            pre_count = _count_tool_invocations(admin_tools)
+
             async with asyncio.timeout(60):
                 response = await admin_client.get_response(
                     messages=messages, options=options
                 )
 
-            # Delete inbox item after successful processing
+            # Check whether the agent actually invoked any tools
+            post_count = _count_tool_invocations(admin_tools)
+            tool_was_called = post_count > pre_count
+
+            span.set_attribute("admin.tool_invoked", tool_was_called)
+
+            if not tool_was_called:
+                # Agent responded without calling add_shopping_list_items.
+                # Do NOT delete the inbox item -- mark it as failed so it
+                # stays visible for retry on next Status screen open.
+                logger.warning(
+                    "Admin Agent did NOT call add_shopping_list_items "
+                    "for inbox item %s (text: %.80s). "
+                    "Marking as failed to prevent silent data loss.",
+                    inbox_item_id,
+                    raw_text,
+                )
+                span.set_attribute("admin.outcome", "no_tool_call")
+                await _mark_inbox_failed(inbox_container, inbox_item_id, span)
+                return
+
+            # Tool was called -- safe to delete the inbox item
             try:
                 await inbox_container.delete_item(
                     item=inbox_item_id, partition_key="will"
@@ -86,8 +147,7 @@ async def process_admin_capture(
             except CosmosResourceNotFoundError:
                 # User may have swipe-deleted while processing
                 logger.info(
-                    "Inbox item %s already deleted "
-                    "(user may have removed it)",
+                    "Inbox item %s already deleted (user may have removed it)",
                     inbox_item_id,
                 )
             except Exception as del_exc:
@@ -116,18 +176,7 @@ async def process_admin_capture(
             )
 
             # Update inbox item status to failed
-            try:
-                doc = await inbox_container.read_item(
-                    item=inbox_item_id, partition_key="will"
-                )
-                doc["adminProcessingStatus"] = "failed"
-                await inbox_container.upsert_item(body=doc)
-            except Exception as update_exc:
-                logger.error(
-                    "Failed to update inbox status to 'failed' for %s: %s",
-                    inbox_item_id,
-                    update_exc,
-                )
+            await _mark_inbox_failed(inbox_container, inbox_item_id, span)
 
 
 async def process_admin_captures_batch(

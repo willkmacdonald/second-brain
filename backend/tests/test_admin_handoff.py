@@ -17,21 +17,42 @@ from second_brain.processing.admin_handoff import (
 )
 
 
-@pytest.fixture
-def mock_admin_client():
-    """Mock AzureAIAgentClient for non-streaming calls."""
-    client = AsyncMock()
-    response = MagicMock()
-    response.text = "Added 2 items: 1 to jewel, 1 to pet_store"
-    client.get_response.return_value = response
-    return client
+def _make_mock_tool(invocation_count: int = 0) -> MagicMock:
+    """Create a mock tool with an invocation_count attribute.
+
+    Simulates FunctionTool's invocation tracking used by
+    _count_tool_invocations in admin_handoff.py.
+    """
+    tool_fn = MagicMock()
+    tool_fn.invocation_count = invocation_count
+    return tool_fn
 
 
 @pytest.fixture
 def mock_admin_tools():
-    """Mock tool list for Admin Agent."""
-    tool_fn = AsyncMock()
-    return [tool_fn]
+    """Mock tool list for Admin Agent (starts with 0 invocations)."""
+    return [_make_mock_tool(invocation_count=0)]
+
+
+@pytest.fixture
+def mock_admin_client(mock_admin_tools):
+    """Mock AzureAIAgentClient for non-streaming calls.
+
+    When get_response is called, increments the first tool's
+    invocation_count to simulate the framework auto-executing the tool.
+    """
+    client = AsyncMock()
+    response = MagicMock()
+    response.text = "Added 2 items: 1 to jewel, 1 to pet_store"
+
+    async def _get_response_with_tool_call(*args, **kwargs):
+        # Simulate framework calling the tool during get_response
+        if mock_admin_tools:
+            mock_admin_tools[0].invocation_count += 1
+        return response
+
+    client.get_response = AsyncMock(side_effect=_get_response_with_tool_call)
+    return client
 
 
 def _inbox_doc(status: str | None = None) -> dict:
@@ -76,9 +97,8 @@ class TestProcessAdminCaptureSuccess:
         # Only ONE upsert: the "pending" status
         upsert_calls = container.upsert_item.call_args_list
         assert len(upsert_calls) == 1
-        first_body = (
-            upsert_calls[0].kwargs.get("body")
-            or upsert_calls[0][1].get("body")
+        first_body = upsert_calls[0].kwargs.get("body") or upsert_calls[0][1].get(
+            "body"
         )
         assert first_body["adminProcessingStatus"] == "pending"
 
@@ -112,9 +132,7 @@ class TestProcessAdminCaptureSuccess:
     ):
         """Generic Exception on delete does not raise."""
         container = mock_cosmos_manager.get_container("Inbox")
-        container.delete_item = AsyncMock(
-            side_effect=Exception("Cosmos timeout")
-        )
+        container.delete_item = AsyncMock(side_effect=Exception("Cosmos timeout"))
 
         # Should NOT raise
         await process_admin_capture(
@@ -186,7 +204,9 @@ class TestProcessAdminCaptureFailure:
         upsert_calls = container.upsert_item.call_args_list
         # Should have pending upsert and failed upsert
         assert len(upsert_calls) >= 2
-        last_body = upsert_calls[-1].kwargs.get("body") or upsert_calls[-1][1].get("body")
+        last_body = upsert_calls[-1].kwargs.get("body") or upsert_calls[-1][1].get(
+            "body"
+        )
         assert last_body["adminProcessingStatus"] == "failed"
 
     async def test_agent_error_does_not_raise(
@@ -252,6 +272,97 @@ class TestProcessAdminCaptureFailure:
 
 
 # ---------------------------------------------------------------------------
+# Tests: no tool call (agent responds without invoking add_shopping_list_items)
+# ---------------------------------------------------------------------------
+
+
+class TestProcessAdminCaptureNoToolCall:
+    """Tests for the scenario where the agent responds without calling the tool.
+
+    This is the root cause of the "admin-other-store-vanish" bug: items get
+    deleted from Inbox even though no shopping list items were written.
+    """
+
+    async def test_no_tool_call_marks_failed_not_deleted(
+        self, mock_cosmos_manager, mock_admin_tools
+    ):
+        """When agent responds without calling tool, inbox item is NOT deleted."""
+        client = AsyncMock()
+        response = MagicMock()
+        response.text = "I've noted your request."
+
+        # get_response succeeds but does NOT increment invocation_count
+        async def _no_tool_response(*args, **kwargs):
+            return response
+
+        client.get_response = AsyncMock(side_effect=_no_tool_response)
+
+        await process_admin_capture(
+            admin_client=client,
+            admin_tools=mock_admin_tools,
+            cosmos_manager=mock_cosmos_manager,
+            inbox_item_id="test-inbox-id",
+            raw_text="pick up screws at the hardware store",
+        )
+
+        container = mock_cosmos_manager.get_container("Inbox")
+
+        # Inbox item should NOT be deleted
+        container.delete_item.assert_not_called()
+
+        # Should have "pending" upsert then "failed" upsert
+        upsert_calls = container.upsert_item.call_args_list
+        assert len(upsert_calls) == 2
+        first_body = upsert_calls[0].kwargs.get("body") or upsert_calls[0][1].get(
+            "body"
+        )
+        assert first_body["adminProcessingStatus"] == "pending"
+        last_body = upsert_calls[-1].kwargs.get("body") or upsert_calls[-1][1].get(
+            "body"
+        )
+        assert last_body["adminProcessingStatus"] == "failed"
+
+    async def test_no_tool_call_does_not_raise(
+        self, mock_cosmos_manager, mock_admin_tools
+    ):
+        """No-tool-call path never raises -- safe for fire-and-forget."""
+        client = AsyncMock()
+        response = MagicMock()
+        response.text = "I don't understand this request."
+
+        async def _no_tool_response(*args, **kwargs):
+            return response
+
+        client.get_response = AsyncMock(side_effect=_no_tool_response)
+
+        # Should NOT raise
+        await process_admin_capture(
+            admin_client=client,
+            admin_tools=mock_admin_tools,
+            cosmos_manager=mock_cosmos_manager,
+            inbox_item_id="test-inbox-id",
+            raw_text="random text",
+        )
+
+    async def test_tool_call_still_deletes(
+        self, mock_admin_client, mock_cosmos_manager, mock_admin_tools
+    ):
+        """When agent DOES call the tool, inbox item is deleted (regression check)."""
+        await process_admin_capture(
+            admin_client=mock_admin_client,
+            admin_tools=mock_admin_tools,
+            cosmos_manager=mock_cosmos_manager,
+            inbox_item_id="test-inbox-id",
+            raw_text="need milk and eggs",
+        )
+
+        container = mock_cosmos_manager.get_container("Inbox")
+        container.delete_item.assert_called_once_with(
+            item="test-inbox-id", partition_key="will"
+        )
+
+
+# ---------------------------------------------------------------------------
 # Tests: timeout
 # ---------------------------------------------------------------------------
 
@@ -285,7 +396,9 @@ class TestProcessAdminCaptureTimeout:
 
         container = mock_cosmos_manager.get_container("Inbox")
         upsert_calls = container.upsert_item.call_args_list
-        last_body = upsert_calls[-1].kwargs.get("body") or upsert_calls[-1][1].get("body")
+        last_body = upsert_calls[-1].kwargs.get("body") or upsert_calls[-1][1].get(
+            "body"
+        )
         assert last_body["adminProcessingStatus"] == "failed"
 
 
@@ -330,6 +443,9 @@ class TestProcessAdminCapturesBatch:
             call_count += 1
             if call_count == 1:
                 raise RuntimeError("Foundry timeout")
+            # Simulate tool invocation for the successful call
+            if mock_admin_tools:
+                mock_admin_tools[0].invocation_count += 1
             return response_ok
 
         client.get_response = AsyncMock(side_effect=side_effect)
@@ -356,9 +472,7 @@ class TestProcessAdminCapturesBatch:
         # Failed item gets "failed" upsert; successful item gets delete
         upsert_calls = container.upsert_item.call_args_list
         statuses = [
-            (c.kwargs.get("body") or c[1].get("body"))[
-                "adminProcessingStatus"
-            ]
+            (c.kwargs.get("body") or c[1].get("body"))["adminProcessingStatus"]
             for c in upsert_calls
         ]
         assert "failed" in statuses
