@@ -55,7 +55,10 @@ class AdminTools:
 
         for item_data in items:
             name = item_data.get("name", "").strip().lower()
-            destination = item_data.get("destination", "other").strip().lower()
+            # Accept both "destination" (new) and "store" (legacy Agent instructions)
+            destination = (
+                item_data.get("destination") or item_data.get("store") or "other"
+            ).strip().lower()
 
             # Skip items with empty names
             if not name:
