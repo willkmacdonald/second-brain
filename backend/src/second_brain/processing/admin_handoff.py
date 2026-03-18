@@ -38,26 +38,46 @@ def _count_tool_invocations(tools: list) -> int:
 def _response_needs_delivery(response_text: str | None) -> bool:
     """Check if the Admin Agent response contains information the user needs to see.
 
-    Returns True for rule queries, conflict confirmations, destination
-    management feedback, etc. Returns False for simple errand-add confirmations.
+    Returns True for rule management feedback, conflict confirmations,
+    and query answers. Returns False for simple errand/task-add confirmations
+    and generic chatty responses like "Is there anything else?".
     """
     if not response_text:
         return False
-    indicators = [
-        "?",
+    text_lower = response_text.lower()
+
+    # Skip generic chatty responses that don't contain actionable info
+    skip_patterns = [
+        "anything else",
+        "let me know if",
+        "is there anything",
+        "can i help",
+    ]
+    # If the response is ONLY chatty filler (no real content), skip it
+    lines = [ln.strip() for ln in text_lower.split("\n") if ln.strip()]
+    if all(
+        any(skip in line for skip in skip_patterns)
+        for line in lines
+    ):
+        return False
+
+    # Only deliver responses about rule/destination management or questions
+    # that require user action
+    delivery_indicators = [
         "conflict",
         "currently goes to",
+        "currently routes to",
         "where should",
-        "rule",
-        "created",
-        "updated",
-        "deleted",
-        "destination",
-        "removed",
+        "which destination",
+        "affinity rule",
+        "routing rule",
+        "goes to",
+        "routed to",
         "renamed",
+        "removed destination",
+        "no matching rule",
     ]
-    text_lower = response_text.lower()
-    return any(indicator in text_lower for indicator in indicators)
+    return any(indicator in text_lower for indicator in delivery_indicators)
 
 
 async def _build_routing_context(cosmos_manager: CosmosManager) -> str:
