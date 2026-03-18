@@ -103,6 +103,20 @@ class ErrandItem(BaseModel):
     name: str  # Full natural language: "2 lbs ground beef", "cat litter"
 
 
+class TaskItem(BaseModel):
+    """Individual task item in the Tasks Cosmos container.
+
+    Partition key is /userId (like most containers).
+    Tasks are actionable to-dos routed from Admin captures that aren't errands
+    (e.g., "book eye appointment", "fill out expenses").
+    """
+
+    id: str = Field(default_factory=lambda: str(uuid4()))
+    userId: str = "will"
+    name: str  # Natural language: "book eye appointments", "fill out Peloton expenses"
+    createdAt: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
 CONTAINER_MODELS: dict[str, type[BaseDocument]] = {
     "Inbox": InboxDocument,
     "People": PeopleDocument,

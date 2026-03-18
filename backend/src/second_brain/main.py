@@ -41,6 +41,7 @@ from second_brain.api.capture import router as capture_router  # noqa: E402
 from second_brain.api.health import router as health_router  # noqa: E402
 from second_brain.api.inbox import router as inbox_router  # noqa: E402
 from second_brain.api.errands import router as errands_router  # noqa: E402
+from second_brain.api.tasks import router as tasks_router  # noqa: E402
 from second_brain.auth import APIKeyMiddleware  # noqa: E402
 from second_brain.config import get_settings  # noqa: E402
 from second_brain.db.blob_storage import BlobStorageManager  # noqa: E402
@@ -232,7 +233,10 @@ async def lifespan(app: FastAPI):
                 middleware=[AuditAgentMiddleware(), ToolTimingMiddleware()],
             )
             app.state.admin_client = admin_client
-            app.state.admin_agent_tools = [admin_tools.add_errand_items]
+            app.state.admin_agent_tools = [
+                admin_tools.add_errand_items,
+                admin_tools.add_task_items,
+            ]
 
             logger.info(
                 "Admin agent ready: id=%s tools=%d",
@@ -311,6 +315,7 @@ app.include_router(health_router)
 app.include_router(inbox_router)
 app.include_router(capture_router)
 app.include_router(errands_router)
+app.include_router(tasks_router)
 
 if __name__ == "__main__":
     import uvicorn

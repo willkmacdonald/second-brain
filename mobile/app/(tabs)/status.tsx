@@ -11,6 +11,7 @@ import { useFocusEffect } from "expo-router";
 import { API_BASE_URL, API_KEY } from "../../constants/config";
 import { StatusSectionRenderer } from "../../components/StatusSectionRenderer";
 import { ErrandRow } from "../../components/ErrandRow";
+import { TaskRow } from "../../components/TaskRow";
 
 interface ErrandItem {
   id: string;
@@ -18,11 +19,18 @@ interface ErrandItem {
   destination: string;
 }
 
-interface ErrandSectionData {
-  type: "errand";
+interface TaskItem {
+  id: string;
+  name: string;
+}
+
+type SectionItem = ErrandItem | TaskItem;
+
+interface SectionData {
+  type: "errand" | "task";
   title: string;
   count: number;
-  data: ErrandItem[];
+  data: SectionItem[];
   key: string;
 }
 
@@ -34,7 +42,7 @@ interface ErrandSectionData {
  * Data refreshes on tab focus -- no pull-to-refresh, no polling.
  */
 export default function StatusScreen() {
-  const [sections, setSections] = useState<ErrandSectionData[]>([]);
+  const [sections, setSections] = useState<SectionData[]>([]);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
     new Set(),
   );
@@ -43,44 +51,68 @@ export default function StatusScreen() {
   const [processingCount, setProcessingCount] = useState(0);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const fetchErrands = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     if (!API_KEY) {
       setLoading(false);
       return;
     }
     try {
-      const res = await fetch(`${API_BASE_URL}/api/errands`, {
-        headers: { Authorization: `Bearer ${API_KEY}` },
-      });
-      if (!res.ok) {
-        // On error: keep stale data if available, silently retry next focus
-        if (!hasLoaded) setLoading(false);
-        return;
+      const [errandsRes, tasksRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/errands`, {
+          headers: { Authorization: `Bearer ${API_KEY}` },
+        }),
+        fetch(`${API_BASE_URL}/api/tasks`, {
+          headers: { Authorization: `Bearer ${API_KEY}` },
+        }),
+      ]);
+
+      const allSections: SectionData[] = [];
+
+      if (errandsRes.ok) {
+        const errandsData: {
+          destinations: {
+            destination: string;
+            displayName: string;
+            items: ErrandItem[];
+            count: number;
+          }[];
+          totalCount: number;
+          processingCount?: number;
+        } = await errandsRes.json();
+
+        const errandSections: SectionData[] = errandsData.destinations.map(
+          (s) => ({
+            type: "errand" as const,
+            title: s.displayName,
+            count: s.count,
+            data: s.items,
+            key: s.destination,
+          }),
+        );
+        allSections.push(...errandSections);
+        setProcessingCount(errandsData.processingCount ?? 0);
       }
-      const data: {
-        destinations: {
-          destination: string;
-          displayName: string;
-          items: ErrandItem[];
-          count: number;
-        }[];
-        totalCount: number;
-        processingCount?: number;
-      } = await res.json();
 
-      const mapped: ErrandSectionData[] = data.destinations.map((s) => ({
-        type: "errand" as const,
-        title: s.displayName,
-        count: s.count,
-        data: s.items,
-        key: s.destination,
-      }));
+      if (tasksRes.ok) {
+        const tasksData: {
+          tasks: TaskItem[];
+          totalCount: number;
+        } = await tasksRes.json();
 
-      setSections(mapped);
-      setProcessingCount(data.processingCount ?? 0);
+        if (tasksData.tasks.length > 0) {
+          allSections.push({
+            type: "task",
+            title: "Tasks",
+            count: tasksData.totalCount,
+            data: tasksData.tasks,
+            key: "tasks",
+          });
+        }
+      }
+
+      setSections(allSections);
       setHasLoaded(true);
     } catch {
-      // On error: keep stale data if available
       if (!hasLoaded) setLoading(false);
       return;
     }
@@ -90,15 +122,15 @@ export default function StatusScreen() {
   // Refresh on tab focus
   useFocusEffect(
     useCallback(() => {
-      void fetchErrands();
-    }, [fetchErrands]),
+      void fetchData();
+    }, [fetchData]),
   );
 
   // Auto-refresh while processing is active
   useEffect(() => {
     if (processingCount > 0) {
       pollingRef.current = setInterval(() => {
-        void fetchErrands();
+        void fetchData();
       }, 3000);
     } else if (pollingRef.current) {
       clearInterval(pollingRef.current);
@@ -110,7 +142,7 @@ export default function StatusScreen() {
         pollingRef.current = null;
       }
     };
-  }, [processingCount, fetchErrands]);
+  }, [processingCount, fetchData]);
 
   const toggleSection = useCallback((key: string) => {
     setExpandedSections((prev) => {
@@ -124,26 +156,25 @@ export default function StatusScreen() {
     });
   }, []);
 
-  const handleDeleteItem = useCallback(
-    (itemId: string, destination: string) => {
-      // Optimistic removal: immediately remove item from UI
+  const optimisticRemove = useCallback(
+    (sectionKey: string, itemId: string) => {
       setSections((prev) => {
         const updated = prev
           .map((section) => {
-            if (section.key !== destination) return section;
+            if (section.key !== sectionKey) return section;
             const filtered = section.data.filter((item) => item.id !== itemId);
-            return {
-              ...section,
-              data: filtered,
-              count: filtered.length,
-            };
+            return { ...section, data: filtered, count: filtered.length };
           })
           .filter((section) => section.data.length > 0);
         return updated;
       });
+    },
+    [],
+  );
 
-      // Fire DELETE request -- on failure, refetch instead of snapshot rollback
-      // to avoid stale closure issues with rapid deletes
+  const handleDeleteErrand = useCallback(
+    (itemId: string, destination: string) => {
+      optimisticRemove(destination, itemId);
       void (async () => {
         try {
           const res = await fetch(
@@ -154,16 +185,34 @@ export default function StatusScreen() {
             },
           );
           if (!res.ok && res.status !== 404) {
-            // Silently refetch to restore accurate state
-            void fetchErrands();
+            void fetchData();
           }
         } catch {
-          // Silent rollback via refetch
-          void fetchErrands();
+          void fetchData();
         }
       })();
     },
-    [fetchErrands],
+    [optimisticRemove, fetchData],
+  );
+
+  const handleDeleteTask = useCallback(
+    (itemId: string) => {
+      optimisticRemove("tasks", itemId);
+      void (async () => {
+        try {
+          const res = await fetch(`${API_BASE_URL}/api/tasks/${itemId}`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${API_KEY}` },
+          });
+          if (!res.ok && res.status !== 404) {
+            void fetchData();
+          }
+        } catch {
+          void fetchData();
+        }
+      })();
+    },
+    [optimisticRemove, fetchData],
   );
 
   // Show loading spinner on initial load only
@@ -203,8 +252,16 @@ export default function StatusScreen() {
         )}
         renderItem={({ item, section }) => {
           if (!expandedSections.has(section.key)) return null;
+          if (section.type === "task") {
+            return (
+              <TaskRow item={item as TaskItem} onDelete={handleDeleteTask} />
+            );
+          }
           return (
-            <ErrandRow item={item} onDelete={handleDeleteItem} />
+            <ErrandRow
+              item={item as ErrandItem}
+              onDelete={handleDeleteErrand}
+            />
           );
         }}
         ListEmptyComponent={

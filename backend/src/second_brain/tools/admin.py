@@ -12,7 +12,7 @@ from agent_framework import tool
 from pydantic import Field
 
 from second_brain.db.cosmos import CosmosManager
-from second_brain.models.documents import KNOWN_DESTINATIONS, ErrandItem
+from second_brain.models.documents import KNOWN_DESTINATIONS, ErrandItem, TaskItem
 
 logger = logging.getLogger(__name__)
 
@@ -86,3 +86,43 @@ class AdminTools:
             f"{count} to {destination}" for destination, count in destination_counts.items()
         )
         return f"Added {total} items: {breakdown}"
+
+    @tool(approval_mode="never_require")
+    async def add_task_items(
+        self,
+        tasks: Annotated[
+            list[dict],
+            Field(
+                description=(
+                    "List of task items to add. Each dict must have "
+                    "'name' (str, natural language description of the task, "
+                    "e.g. 'book eye appointments', 'fill out Peloton expenses'). "
+                    "Use this for actionable to-dos that are NOT shopping/errands."
+                )
+            ),
+        ],
+    ) -> str:
+        """Add actionable tasks (non-errand admin items) to the Tasks list.
+
+        Use this for things like appointments, expenses, phone calls,
+        emails, and other to-dos that aren't shopping errands.
+        Each task is written as an individual document to the Tasks container.
+        Returns a confirmation with total count.
+        """
+        container = self._manager.get_container("Tasks")
+        added = 0
+
+        for task_data in tasks:
+            name = task_data.get("name", "").strip()
+            if not name:
+                logger.warning("Skipping task with empty name: %s", task_data)
+                continue
+
+            doc = TaskItem(name=name)
+            await container.create_item(body=doc.model_dump(mode="json"))
+            added += 1
+
+        if added == 0:
+            return "No tasks added (all tasks had empty names)"
+
+        return f"Added {added} task{'s' if added != 1 else ''}"
