@@ -151,6 +151,26 @@ Plans:
 - [ ] 12.3-04-PLAN.md -- Wire all tools in main.py, remove KNOWN_DESTINATIONS
 - [ ] 12.3-05-PLAN.md -- Mobile UI: online indicators, unrouted items with RoutingPicker, HITL routing flow
 
+### Phase 12.3.1: Implement fixes for security issues and from output of dead code analysis (INSERTED)
+
+**Goal:** Fix all security issues (1 critical, 6 important, 5 medium) and remove all dead code (12 findings) identified in CONCERNS-2.md. Harden auth, parameterize queries, sanitize errors, add upload guardrails, lock down production docs, remove unused code, and consolidate duplicates.
+**Requirements**: None (urgent inserted phase driven by CONCERNS-2.md findings)
+**Depends on:** Phase 12.3
+**Success Criteria** (what must be TRUE):
+  1. API key comparison uses hmac.compare_digest (timing-safe)
+  2. All Cosmos DB queries use parameterized @parameters (no f-string interpolation with user/LLM input)
+  3. No raw Python exception text is sent to the mobile client or echoed through tool returns
+  4. Voice upload endpoints validate file size (25 MB max) and audio MIME type
+  5. OpenAPI docs disabled in production (ENVIRONMENT=production)
+  6. No dead code modules, variables, parameters, or fixtures remain
+  7. VALID_BUCKETS and routing context builder each have a single source of truth
+**Plans:** 3 plans
+
+Plans:
+- [ ] 12.3.1-01-PLAN.md -- Security hardening: timing-safe auth (C1), parameterized queries (I1), error sanitization (I2/I3/M5), upload guardrails (I4/I5), production docs lockdown (I6)
+- [ ] 12.3.1-02-PLAN.md -- Input validation (M1/M2) and dead code removal (D1-D8, D11-D12)
+- [ ] 12.3.1-03-PLAN.md -- Duplicate consolidation: VALID_BUCKETS (D9) and routing context builder (D10)
+
 ### Phase 12.1: Admin agent deletes processed inbox items (INSERTED)
 
 **Goal:** Admin Agent deletes inbox items after successful processing instead of flagging them, keeping the Inbox clean

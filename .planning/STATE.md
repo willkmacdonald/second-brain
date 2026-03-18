@@ -149,6 +149,7 @@ None.
 - Phase 12.2 inserted after Phase 12.1: Rename Admin infrastructure from shopping lists to generic errands system (URGENT)
 - Phase 12.3 inserted after Phase 12: Destination affinity and knowledge system for errand routing (URGENT)
 - Phase 14 added: App Insights Operational Audit
+- Phase 12.3.1 inserted after Phase 12.3: Implement fixes for security issues and from output of dead code analysis (URGENT)
 
 ### Blockers/Concerns
 
