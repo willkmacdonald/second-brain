@@ -8,7 +8,7 @@ progress:
   total_phases: 18
   completed_phases: 13
   total_plans: 50
-  completed_plans: 49
+  completed_plans: 50
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-01)
 
 **Core value:** One-tap capture from a phone instantly routes through an agent that classifies, files, and clarifies -- with zero organizational effort.
-**Current focus:** v3.0 Admin Agent & Shopping Lists -- Phase 12.3.1 in progress, security fixes and dead code cleanup
+**Current focus:** v3.0 Admin Agent & Shopping Lists -- Phase 12.3.1 complete, security fixes and dead code cleanup
 
 ## Current Position
 
 Phase: 12.3.1 of 13 (Implement Fixes for Security Issues and Dead Code Analysis)
-Plan: 2 of 3
-Status: Phase 12.3.1 plan 02 complete -- input validation and dead code cleanup
-Last activity: 2026-03-18 -- Completed 12.3.1-02 (Dead code removal)
+Plan: 3 of 3
+Status: Phase 12.3.1 complete -- all security fixes, dead code cleanup, and deduplication done
+Last activity: 2026-03-18 -- Completed 12.3.1-03 (Duplicate code consolidation)
 
-Progress: [██████████] 98% (v3.0)
+Progress: [██████████] 100% (v3.0)
 
 ## Performance Metrics
 
@@ -69,6 +69,7 @@ Progress: [██████████] 98% (v3.0)
 | Phase 12.3 P05 | 3 min | 2 tasks | 3 files |
 | Phase 12.3.1 P01 | 3 min | 2 tasks | 8 files |
 | Phase 12.3.1 P02 | 3 min | 2 tasks | 10 files |
+| Phase 12.3.1 P03 | 3 min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -133,6 +134,8 @@ v2.0 decisions archived to .planning/milestones/v2.0-ROADMAP.md
 - [Phase 12.3]: Route request always sets saveRule: true -- system auto-learns user preferences by default
 - [Phase 12.3.1]: PUBLIC_PATHS reduced to /health only -- /docs and /openapi.json now conditional on environment
 - [Phase 12.3.1]: Upload validation uses dual check: file.size header first, then len(bytes) as fallback
+- [Phase 12.3.1]: VALID_BUCKETS uses frozenset for immutability (prevents accidental mutation of shared constant)
+- [Phase 12.3.1]: Routing context format uses admin.py tool version as canonical (Agent trained on DESTINATIONS: / ROUTING RULES: headers)
 
 ### Research Findings (Critical for v3.0)
 
@@ -163,5 +166,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-18
-Stopped at: Completed 12.3.1-02-PLAN.md
-Resume action: /gsd:execute-phase 12.3.1 (continue plan 03)
+Stopped at: Completed 12.3.1-03-PLAN.md (Phase 12.3.1 complete)
+Resume action: Phase 12.3.1 complete -- all plans executed
