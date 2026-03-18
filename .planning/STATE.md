@@ -23,9 +23,9 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 ## Current Position
 
 Phase: 12.3 of 13 (Destination Affinity and Knowledge System)
-Plan: 2 of 5
-Status: Executing Phase 12.3 -- Admin tools expanded
-Last activity: 2026-03-18 -- Completed 12.3-02 (Admin Agent tools expansion)
+Plan: 3 of 5
+Status: Executing Phase 12.3 -- Dynamic routing active
+Last activity: 2026-03-18 -- Completed 12.3-03 (Dynamic errands routing)
 
 Progress: [██████████] 100% (v3.0)
 
@@ -64,6 +64,7 @@ Progress: [██████████] 100% (v3.0)
 | Phase 12.2 P02 | 3 min | 2 tasks | 4 files |
 | Phase 12.3 P01 | 3 min | 2 tasks | 3 files |
 | Phase 12.3 P02 | 5 min | 2 tasks | 3 files |
+| Phase 12.3 P03 | 6 min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -118,6 +119,10 @@ v2.0 decisions archived to .planning/milestones/v2.0-ROADMAP.md
 - [Phase 12.3]: needsRouting=True set automatically when destination is 'unrouted'
 - [Phase 12.3]: Affinity rule conflict detection is case-insensitive on itemPattern
 - [Phase 12.3]: manage_destination remove checks for existing errand items before deletion
+- [Phase 12.3]: Response delivery heuristic uses keyword indicators (?, conflict, rule, created, deleted, destination) to classify agent responses
+- [Phase 12.3]: Routing context injection wrapped in try/except with graceful fallback to raw text
+- [Phase 12.3]: DELETE /api/errands/{id} accepts any destination string (no hardcoded validation)
+- [Phase 12.3]: Notification dismiss deletes inbox item (response has been delivered)
 
 ### Research Findings (Critical for v3.0)
 
@@ -147,5 +152,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-18
-Stopped at: Completed 12.3-02-PLAN.md (Admin Agent tools expansion)
-Resume action: /gsd:execute-phase 12.3 (continue phase, plan 03 next)
+Stopped at: Completed 12.3-03-PLAN.md (Dynamic errands routing)
+Resume action: /gsd:execute-phase 12.3 (continue phase, plan 04 next)
