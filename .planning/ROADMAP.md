@@ -129,6 +129,28 @@ Plans:
 - [ ] 12-01-PLAN.md -- Shopping List API endpoints (GET + DELETE), Pydantic models, unit tests, router registration
 - [ ] 12-02-PLAN.md -- Mobile Status tab, SectionList with expand/collapse, ShoppingListRow with swipe-to-delete, focus-based refresh
 
+### Phase 12.3: Destination affinity and knowledge system for errand routing (INSERTED)
+
+**Goal:** Replace hardcoded destination routing with a dynamic, voice-managed knowledge system. Users create destinations and affinity rules via voice captures, the Admin Agent routes items using LLM semantic matching against stored rules, and unmatched items trigger async HITL clarification on the Status screen that auto-saves routing preferences.
+**Requirements**: DEST-01, DEST-02, DEST-03, DEST-04, DEST-05, DEST-06, DEST-07
+**Depends on:** Phase 12.2
+**Success Criteria** (what must be TRUE):
+  1. Destinations are stored in Cosmos DB and managed via voice captures ("add Costco as a destination") -- no hardcoded destination list
+  2. Affinity rules are stored in Cosmos DB and managed via voice captures ("chicken always goes to Agora") with conflict detection
+  3. GET /api/errands returns dynamically-sourced destinations with online/physical type indicators
+  4. Unmatched items (no affinity rule) appear as "Needs Routing" on Status screen with an inline destination picker
+  5. HITL routing answers auto-save as permanent affinity rules for future captures
+  6. Admin Agent receives routing context (destinations + rules) in every capture processing call
+  7. Rules are queryable via voice: "where does chicken go?" gets a response
+**Plans:** 5 plans
+
+Plans:
+- [ ] 12.3-01-PLAN.md -- Data models (DestinationDocument, AffinityRuleDocument), Cosmos containers, seed migration script
+- [ ] 12.3-02-PLAN.md -- Admin Agent tool expansion (manage_destination, manage_affinity_rule, query_rules, get_routing_context)
+- [ ] 12.3-03-PLAN.md -- Dynamic routing in errands API, HITL route endpoint, admin_handoff rules context injection
+- [ ] 12.3-04-PLAN.md -- Wire all tools in main.py, remove KNOWN_DESTINATIONS
+- [ ] 12.3-05-PLAN.md -- Mobile UI: online indicators, unrouted items with RoutingPicker, HITL routing flow
+
 ### Phase 12.1: Admin agent deletes processed inbox items (INSERTED)
 
 **Goal:** Admin Agent deletes inbox items after successful processing instead of flagging them, keeping the Inbox clean
@@ -171,7 +193,7 @@ Plans:
 **Execution Order:**
 - v1.0: 1 -> 2 -> 3 -> 4 -> 4.1 -> 4.2 -> 4.3 -> 5 (complete)
 - v2.0: 6 -> 7 -> 8 -> 9 -> 9.1 (complete)
-- v3.0: 10 -> 11 -> 11.1 -> 12 -> 12.1 -> 12.2 -> 13
+- v3.0: 10 -> 11 -> 11.1 -> 12 -> 12.1 -> 12.2 -> 12.3 -> 13
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
