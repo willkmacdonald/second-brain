@@ -25,7 +25,6 @@ CONTAINER_NAMES: list[str] = [
     "Destinations",
     "AffinityRules",
 ]
-PARTITION_KEY = "/userId"
 
 
 class CosmosManager:

@@ -16,7 +16,7 @@ from uuid import uuid4
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from second_brain.streaming.adapter import (
     stream_follow_up_capture,
@@ -61,7 +61,7 @@ SSE_HEADERS = {
 class TextCaptureBody(BaseModel):
     """Request body for text capture."""
 
-    text: str
+    text: str = Field(..., max_length=10000)
     thread_id: str | None = None
     run_id: str | None = None
 
@@ -221,10 +221,7 @@ async def capture_voice(
 
     # Validate and read audio upload
     audio_bytes = await _validate_and_read_audio(file)
-    blob_url = await blob_manager.upload_audio(
-        audio_bytes=audio_bytes,
-        filename=file.filename or "voice-capture.m4a",
-    )
+    blob_url = await blob_manager.upload_audio(audio_bytes=audio_bytes)
 
     client = request.app.state.classifier_client
     tools = request.app.state.classifier_agent_tools
@@ -334,10 +331,7 @@ async def follow_up_voice(
 
     # Validate and read audio upload, then upload to blob for audit trail
     audio_bytes = await _validate_and_read_audio(file)
-    blob_url = await blob_manager.upload_audio(
-        audio_bytes=audio_bytes,
-        filename=file.filename or "follow-up.m4a",
-    )
+    blob_url = await blob_manager.upload_audio(audio_bytes=audio_bytes)
 
     # Transcribe from in-memory bytes (no blob re-download)
     openai_client = request.app.state.openai_client

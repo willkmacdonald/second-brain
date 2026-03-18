@@ -14,8 +14,6 @@ from azure.storage.blob.aio import BlobClient
 from openai import AsyncAzureOpenAI
 from pydantic import Field
 
-from second_brain.db.blob_storage import BlobStorageManager
-
 logger = logging.getLogger(__name__)
 
 
@@ -27,7 +25,7 @@ class TranscriptionTools:
 
     Usage:
         tools = TranscriptionTools(
-            openai_client, blob_manager, credential, "gpt-4o-transcribe"
+            openai_client, credential, "gpt-4o-transcribe"
         )
         agent = client.create_agent(
             tools=[tools.transcribe_audio],
@@ -37,13 +35,11 @@ class TranscriptionTools:
     def __init__(
         self,
         openai_client: AsyncAzureOpenAI,
-        blob_manager: BlobStorageManager,
         credential: DefaultAzureCredential,
         deployment_name: str,
     ) -> None:
-        """Store the OpenAI client, blob manager, credential, and deployment name."""
+        """Store the OpenAI client, credential, and deployment name."""
         self._openai = openai_client
-        self._blob_manager = blob_manager
         self._credential = credential
         self._deployment_name = deployment_name
 

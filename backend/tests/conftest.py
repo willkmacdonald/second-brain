@@ -8,22 +8,9 @@ from fastapi import FastAPI
 
 from second_brain.api.health import router as health_router
 from second_brain.auth import APIKeyMiddleware
-from second_brain.config import Settings
 from second_brain.db.cosmos import CONTAINER_NAMES, CosmosManager
 
 TEST_API_KEY = "test-api-key-12345"
-
-
-@pytest.fixture
-def settings() -> Settings:
-    """Provide test-safe settings with placeholder values."""
-    return Settings(
-        azure_ai_project_endpoint="https://test.services.ai.azure.com/api/projects/test",
-        azure_ai_classifier_agent_id="test-classifier-id",
-        applicationinsights_connection_string="",
-        cosmos_endpoint="https://test.documents.azure.com:443/",
-        key_vault_url="https://test-vault.vault.azure.net/",
-    )
 
 
 @pytest.fixture

@@ -121,7 +121,6 @@ async def lifespan(app: FastAPI):
             async for _ in foundry_client.agents_client.list_agents(limit=1):
                 break
             app.state.foundry_client = foundry_client
-            app.state.foundry_credential = credential
             logger.info(
                 "Foundry client initialized and connectivity validated: %s",
                 settings.azure_ai_project_endpoint,
@@ -175,7 +174,6 @@ async def lifespan(app: FastAPI):
 
             transcription_tools = TranscriptionTools(
                 openai_client=openai_client,
-                blob_manager=blob_manager,
                 credential=credential,
                 deployment_name=settings.azure_openai_transcription_deployment,
             )

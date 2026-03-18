@@ -50,14 +50,12 @@ class BlobStorageManager:
     async def upload_audio(
         self,
         audio_bytes: bytes,
-        filename: str,
         user_id: str = "will",
     ) -> str:
         """Upload audio bytes to Blob Storage and return the blob URL.
 
         Args:
             audio_bytes: Raw audio file bytes.
-            filename: Original filename (used for extension fallback).
             user_id: User ID for blob path prefix.
 
         Returns:

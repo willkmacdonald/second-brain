@@ -172,7 +172,7 @@ async def stream_text_capture(
         # Multi-result tracking (Phase 11.1)
         file_capture_results: list[dict] = []
         pending_calls: dict[str, dict] = {}  # call_id -> {name, args}
-        reasoning_buffer: str = ""
+
         chunk_idx: int = 0
         foundry_conversation_id: str | None = None
 
@@ -191,7 +191,6 @@ async def stream_text_capture(
 
                     for content in update.contents or []:
                         if content.type == "text" and getattr(content, "text", None):
-                            reasoning_buffer += content.text
                             reasoning_logger.info(
                                 "Reasoning chunk",
                                 extra={
@@ -306,7 +305,7 @@ async def stream_text_capture(
 
                 yield encode_sse(complete_event(thread_id, run_id))
 
-        except (TimeoutError, Exception) as exc:
+        except Exception as exc:
             span.record_exception(exc)
             logger.error("Text capture stream error: %s", exc, exc_info=True)
             yield encode_sse(error_event("An internal error occurred. Please try again."))
@@ -348,7 +347,7 @@ async def stream_voice_capture(
         file_capture_results: list[dict] = []
         pending_calls: dict[str, dict] = {}  # call_id -> {name, args}
         transcript_text: str | None = None
-        reasoning_buffer: str = ""
+
         chunk_idx: int = 0
         foundry_conversation_id: str | None = None
 
@@ -367,7 +366,6 @@ async def stream_voice_capture(
 
                     for content in update.contents or []:
                         if content.type == "text" and getattr(content, "text", None):
-                            reasoning_buffer += content.text
                             reasoning_logger.info(
                                 "Reasoning chunk",
                                 extra={
@@ -488,7 +486,7 @@ async def stream_voice_capture(
 
                 yield encode_sse(complete_event(thread_id, run_id))
 
-        except (TimeoutError, Exception) as exc:
+        except Exception as exc:
             span.record_exception(exc)
             logger.error("Voice capture stream error: %s", exc, exc_info=True)
             yield encode_sse(error_event("An internal error occurred. Please try again."))
@@ -535,7 +533,7 @@ async def stream_follow_up_capture(
         detected_tool: str | None = None
         detected_tool_args: dict = {}
         tool_result: dict | None = None
-        reasoning_buffer: str = ""
+
         chunk_idx: int = 0
         foundry_conversation_id: str | None = None
 
@@ -554,7 +552,6 @@ async def stream_follow_up_capture(
 
                     for content in update.contents or []:
                         if content.type == "text" and getattr(content, "text", None):
-                            reasoning_buffer += content.text
                             reasoning_logger.info(
                                 "Follow-up reasoning chunk",
                                 extra={
@@ -621,7 +618,7 @@ async def stream_follow_up_capture(
 
                 yield encode_sse(complete_event(thread_id, run_id))
 
-        except (TimeoutError, Exception) as exc:
+        except Exception as exc:
             span.record_exception(exc)
             logger.error(
                 "Follow-up capture stream error: %s",

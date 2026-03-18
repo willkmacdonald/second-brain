@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 from azure.cosmos.exceptions import CosmosResourceNotFoundError
-from fastapi import APIRouter, HTTPException, Request, Response
+from fastapi import APIRouter, HTTPException, Query, Request, Response
 from opentelemetry import trace
 from pydantic import BaseModel
 
@@ -52,7 +52,9 @@ class InboxListResponse(BaseModel):
 
 @router.get("/api/inbox", response_model=InboxListResponse)
 async def list_inbox(
-    request: Request, limit: int = 20, offset: int = 0
+    request: Request,
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
 ) -> InboxListResponse:
     """List recent Inbox captures ordered by creation time (newest first).
 
