@@ -18,13 +18,12 @@ from pydantic import Field
 from second_brain.db.cosmos import CosmosManager
 from second_brain.models.documents import (
     CONTAINER_MODELS,
+    VALID_BUCKETS,
     ClassificationMeta,
     InboxDocument,
 )
 
 logger = logging.getLogger(__name__)
-
-VALID_BUCKETS = {"People", "Projects", "Ideas", "Admin"}
 
 # Context var for follow-up mode: when set, file_capture updates the existing
 # inbox doc in-place instead of creating a new one.

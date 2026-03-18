@@ -13,14 +13,12 @@ from fastapi import APIRouter, HTTPException, Query, Request, Response
 from opentelemetry import trace
 from pydantic import BaseModel
 
-from second_brain.models.documents import CONTAINER_MODELS, ClassificationMeta
+from second_brain.models.documents import CONTAINER_MODELS, VALID_BUCKETS, ClassificationMeta
 
 logger = logging.getLogger(__name__)
 tracer = trace.get_tracer("second_brain.api")
 
 router = APIRouter()
-
-VALID_BUCKETS = {"People", "Projects", "Ideas", "Admin"}
 
 
 class RecategorizeRequest(BaseModel):

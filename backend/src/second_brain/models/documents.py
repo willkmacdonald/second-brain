@@ -9,6 +9,8 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
+VALID_BUCKETS: frozenset[str] = frozenset({"People", "Projects", "Ideas", "Admin"})
+
 
 class ClassificationMeta(BaseModel):
     """Structured classification metadata attached to every filed document.
