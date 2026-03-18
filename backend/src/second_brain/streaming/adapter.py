@@ -165,7 +165,10 @@ async def stream_text_capture(
         span.set_attribute("capture.run_id", run_id)
 
         messages = [Message(role="user", text=user_text)]
-        options: ChatOptions = {"tools": tools}
+        options: ChatOptions = {
+            "tools": tools,
+            "tool_choice": {"mode": "required", "required_function_name": "file_capture"},
+        }
 
         yield encode_sse(step_start_event("Classifying"))
 
@@ -524,6 +527,7 @@ async def stream_follow_up_capture(
         messages = [Message(role="user", text=follow_up_text)]
         options: ChatOptions = {
             "tools": tools,
+            "tool_choice": {"mode": "required", "required_function_name": "file_capture"},
             "conversation_id": foundry_thread_id,
         }
 
