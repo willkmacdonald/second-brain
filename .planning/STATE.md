@@ -8,7 +8,7 @@ progress:
   total_phases: 18
   completed_phases: 12
   total_plans: 48
-  completed_plans: 43
+  completed_plans: 44
 ---
 
 # Project State
@@ -23,9 +23,9 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 ## Current Position
 
 Phase: 12.3 of 13 (Destination Affinity and Knowledge System)
-Plan: 1 of 5
-Status: Executing Phase 12.3 -- Data foundation complete
-Last activity: 2026-03-18 -- Completed 12.3-01 (Data foundation models and seed script)
+Plan: 2 of 5
+Status: Executing Phase 12.3 -- Admin tools expanded
+Last activity: 2026-03-18 -- Completed 12.3-02 (Admin Agent tools expansion)
 
 Progress: [██████████] 100% (v3.0)
 
@@ -63,6 +63,7 @@ Progress: [██████████] 100% (v3.0)
 | 12.2 | 03 | 2 min | 2 | 4 |
 | Phase 12.2 P02 | 3 min | 2 tasks | 4 files |
 | Phase 12.3 P01 | 3 min | 2 tasks | 3 files |
+| Phase 12.3 P02 | 5 min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -113,6 +114,10 @@ v2.0 decisions archived to .planning/milestones/v2.0-ROADMAP.md
 - [Phase 12.3]: Azure CLI management plane for Cosmos container creation (data plane gets 403 with AAD)
 - [Phase 12.3]: Destination slug used as document id for idempotent upserts in seed script
 - [Phase 12.3]: KNOWN_DESTINATIONS kept for backward compatibility until Plan 03 replaces with dynamic routing
+- [Phase 12.3]: Admin tools accept any destination slug dynamically, default fallback is 'unrouted' not 'other'
+- [Phase 12.3]: needsRouting=True set automatically when destination is 'unrouted'
+- [Phase 12.3]: Affinity rule conflict detection is case-insensitive on itemPattern
+- [Phase 12.3]: manage_destination remove checks for existing errand items before deletion
 
 ### Research Findings (Critical for v3.0)
 
@@ -142,5 +147,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-18
-Stopped at: Completed 12.3-01-PLAN.md (Data foundation models and seed script)
-Resume action: /gsd:execute-phase 12.3 (continue phase, plan 02 next)
+Stopped at: Completed 12.3-02-PLAN.md (Admin Agent tools expansion)
+Resume action: /gsd:execute-phase 12.3 (continue phase, plan 03 next)
