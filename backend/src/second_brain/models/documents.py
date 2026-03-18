@@ -88,9 +88,6 @@ class AdminDocument(BaseDocument):
     inboxRecordId: str | None = None
 
 
-KNOWN_DESTINATIONS: list[str] = ["jewel", "cvs", "pet_store", "other"]
-
-
 class ErrandItem(BaseModel):
     """Individual errand item in the Errands Cosmos container.
 
