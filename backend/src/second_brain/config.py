@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     # Database
     database_name: str = "second-brain"
 
+    # Environment (controls docs visibility)
+    environment: str = "development"
+
     model_config = {
         "env_file": ".env",
         "case_sensitive": False,

@@ -17,13 +17,13 @@ from starlette.responses import Response
 logger = logging.getLogger("second_brain.auth")
 
 # Paths that bypass authentication
-PUBLIC_PATHS: frozenset[str] = frozenset({"/health", "/docs", "/openapi.json"})
+PUBLIC_PATHS: frozenset[str] = frozenset({"/health"})
 
 
 class APIKeyMiddleware(BaseHTTPMiddleware):
     """Middleware that validates API key from Authorization: Bearer <key> header.
 
-    Public paths (/health, /docs, /openapi.json) bypass authentication.
+    Public paths (/health) bypass authentication.
     Failed attempts are logged with client IP, timestamp, and AUTH_FAILED marker.
 
     The API key is read lazily from app.state.api_key at request time,

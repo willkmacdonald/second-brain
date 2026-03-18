@@ -29,6 +29,28 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Capture"])
 
+MAX_AUDIO_SIZE = 25 * 1024 * 1024  # 25 MB
+ALLOWED_AUDIO_TYPES = frozenset({
+    "audio/m4a", "audio/mp4", "audio/mpeg", "audio/wav",
+    "audio/x-m4a", "audio/aac", "audio/ogg",
+})
+
+
+async def _validate_and_read_audio(file: UploadFile) -> bytes:
+    """Validate audio upload size and content type, then return bytes."""
+    content_type = file.content_type or ""
+    if content_type not in ALLOWED_AUDIO_TYPES:
+        raise HTTPException(
+            status_code=415,
+            detail=f"Unsupported audio format: {content_type}",
+        )
+    if file.size and file.size > MAX_AUDIO_SIZE:
+        raise HTTPException(status_code=413, detail="Audio file too large (max 25 MB)")
+    audio_bytes = await file.read()
+    if len(audio_bytes) > MAX_AUDIO_SIZE:
+        raise HTTPException(status_code=413, detail="Audio file too large (max 25 MB)")
+    return audio_bytes
+
 SSE_HEADERS = {
     "Cache-Control": "no-cache",
     "Connection": "keep-alive",
@@ -197,8 +219,8 @@ async def capture_voice(
             detail="Blob storage not configured. Voice capture is unavailable.",
         )
 
-    # Upload audio to blob storage
-    audio_bytes = await file.read()
+    # Validate and read audio upload
+    audio_bytes = await _validate_and_read_audio(file)
     blob_url = await blob_manager.upload_audio(
         audio_bytes=audio_bytes,
         filename=file.filename or "voice-capture.m4a",
@@ -310,8 +332,8 @@ async def follow_up_voice(
     if blob_manager is None:
         raise HTTPException(status_code=503, detail="Blob storage not configured.")
 
-    # Read audio bytes and upload to blob for audit trail
-    audio_bytes = await file.read()
+    # Validate and read audio upload, then upload to blob for audit trail
+    audio_bytes = await _validate_and_read_audio(file)
     blob_url = await blob_manager.upload_audio(
         audio_bytes=audio_bytes,
         filename=file.filename or "follow-up.m4a",

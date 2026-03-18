@@ -309,7 +309,15 @@ async def lifespan(app: FastAPI):
 # App
 # ---------------------------------------------------------------------------
 
-app = FastAPI(title="Second Brain API", lifespan=lifespan)
+_settings = get_settings()
+_docs_url = "/docs" if _settings.environment == "development" else None
+_openapi_url = "/openapi.json" if _settings.environment == "development" else None
+app = FastAPI(
+    title="Second Brain API",
+    lifespan=lifespan,
+    docs_url=_docs_url,
+    openapi_url=_openapi_url,
+)
 
 # API key auth middleware -- reads app.state.api_key lazily (set by lifespan)
 app.add_middleware(APIKeyMiddleware)
