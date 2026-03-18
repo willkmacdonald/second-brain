@@ -25,7 +25,7 @@ import {
   sendFollowUp,
   sendFollowUpVoice,
 } from "../../lib/ag-ui-client";
-import { API_BASE_URL, API_KEY } from "../../constants/config";
+import { API_BASE_URL, API_KEY, MAX_FOLLOW_UPS } from "../../constants/config";
 
 const BUCKETS = ["People", "Projects", "Ideas", "Admin"];
 const AUTO_RESET_MS = 2500;
@@ -394,6 +394,15 @@ export default function CaptureScreen() {
           questionText: string,
           _inboxItemId: string,
         ) => {
+          if (followUpRound >= MAX_FOLLOW_UPS) {
+            setIsReclassifying(false);
+            setToast({
+              message: "Couldn\u2019t classify. Check inbox later.",
+              type: "error",
+            });
+            setTimeout(resetState, AUTO_RESET_MS);
+            return;
+          }
           setAgentQuestion(questionText);
           setFollowUpRound((prev) => prev + 1);
           setFollowUpText("");
@@ -483,6 +492,15 @@ export default function CaptureScreen() {
           questionText: string,
           _inboxItemId: string,
         ) => {
+          if (followUpRound >= MAX_FOLLOW_UPS) {
+            setIsReclassifying(false);
+            setToast({
+              message: "Couldn\u2019t classify. Check inbox later.",
+              type: "error",
+            });
+            setTimeout(resetState, AUTO_RESET_MS);
+            return;
+          }
           setAgentQuestion(questionText);
           setFollowUpRound((prev) => prev + 1);
           setIsReclassifying(false);
@@ -625,7 +643,7 @@ export default function CaptureScreen() {
           <View style={styles.agentQuestionBubble}>
             <Text style={styles.agentQuestionText}>{agentQuestion}</Text>
             <Text style={styles.followUpHint}>
-              Reply below (follow-up {followUpRound} of 2)
+              Reply below (follow-up {followUpRound} of {MAX_FOLLOW_UPS})
             </Text>
           </View>
         )}
