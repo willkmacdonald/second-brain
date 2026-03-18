@@ -20,21 +20,6 @@ logger = logging.getLogger(__name__)
 tracer = trace.get_tracer("second_brain.processing")
 
 
-def _get_items_written(tools: list) -> int:
-    """Check last_items_written on the AdminTools instance backing the tool list.
-
-    The tools list contains bound methods like [admin_tools.add_errand_items].
-    We access __self__ to reach the AdminTools instance and its last_items_written
-    counter, which is set each time the tool executes.
-
-    Returns 0 if the attribute isn't found (graceful degradation for tests/mocks).
-    """
-    for t in tools:
-        obj = getattr(t, "__self__", None)
-        if obj is not None:
-            return getattr(obj, "last_items_written", 0)
-    return 0
-
 
 def _count_tool_invocations(tools: list) -> int:
     """Sum invocation_count across all FunctionTool instances in a tool list.
@@ -134,30 +119,20 @@ async def process_admin_capture(
             post_count = _count_tool_invocations(admin_tools)
             tool_was_called = post_count > pre_count
 
-            # Check whether items were actually written to Cosmos
-            items_written = _get_items_written(admin_tools)
-
             span.set_attribute("admin.tool_invoked", tool_was_called)
-            span.set_attribute("admin.items_written", items_written)
 
-            if not tool_was_called or items_written == 0:
-                # Agent either didn't call the tool, or called it with
-                # an empty/invalid list (no items written to Cosmos).
+            if not tool_was_called:
+                # Agent responded without calling add_errand_items.
                 # Do NOT delete the inbox item -- mark it as failed so it
-                # stays visible for retry on next Status screen open.
-                reason = (
-                    "did not call tool"
-                    if not tool_was_called
-                    else "called tool but wrote 0 items"
-                )
+                # stays visible for retry.
                 logger.warning(
-                    "Admin Agent %s for inbox item %s (text: %.80s). "
-                    "Marking as failed to prevent silent data loss.",
-                    reason,
+                    "Admin Agent did not call tool for inbox item %s "
+                    "(text: %.80s). Marking as failed to prevent "
+                    "silent data loss.",
                     inbox_item_id,
                     raw_text,
                 )
-                span.set_attribute("admin.outcome", "no_items_written")
+                span.set_attribute("admin.outcome", "no_tool_call")
                 await _mark_inbox_failed(inbox_container, inbox_item_id, span)
                 return
 

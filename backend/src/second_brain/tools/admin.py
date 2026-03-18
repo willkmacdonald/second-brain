@@ -28,7 +28,6 @@ class AdminTools:
     def __init__(self, cosmos_manager: CosmosManager) -> None:
         """Store the CosmosManager reference."""
         self._manager = cosmos_manager
-        self.last_items_written: int = 0
 
     @tool(approval_mode="never_require")
     async def add_errand_items(
@@ -80,7 +79,6 @@ class AdminTools:
             destination_counts[destination] = destination_counts.get(destination, 0) + 1
 
         total = sum(destination_counts.values())
-        self.last_items_written = total
         if total == 0:
             return "No items added (all items had empty names)"
 
