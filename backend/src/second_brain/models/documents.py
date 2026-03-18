@@ -117,6 +117,42 @@ class TaskItem(BaseModel):
     createdAt: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
+class DestinationDocument(BaseModel):
+    """User-defined errand destination (physical or online store/service).
+
+    Stored in the Destinations Cosmos container with /userId partition key.
+    The 'slug' field is the machine-readable identifier used as the
+    partition key value in the Errands container.
+    """
+
+    id: str = Field(default_factory=lambda: str(uuid4()))
+    userId: str = "will"
+    slug: str  # Lowercase, URL-safe: "agora", "nicks_fishmarket"
+    displayName: str  # User-facing: "Agora", "Nick's Fishmarket"
+    type: str = "physical"  # "physical" or "online"
+    createdAt: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class AffinityRuleDocument(BaseModel):
+    """User-defined routing rule mapping items/categories to destinations.
+
+    Stored in the AffinityRules Cosmos container with /userId partition key.
+    Rules are natural language with structured metadata extracted by the LLM.
+    Compound rules (with exceptions) stored as single document with exceptions list.
+    """
+
+    id: str = Field(default_factory=lambda: str(uuid4()))
+    userId: str = "will"
+    naturalLanguage: str  # "meat goes to Agora, except fish goes to Nick's"
+    itemPattern: str  # "meat" -- primary match pattern
+    destinationSlug: str  # "agora" -- primary destination
+    ruleType: str  # "item", "category", "entity"
+    exceptions: list[dict] = Field(default_factory=list)
+    autoSaved: bool = False  # True if created from HITL answer
+    createdAt: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updatedAt: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
 CONTAINER_MODELS: dict[str, type[BaseDocument]] = {
     "Inbox": InboxDocument,
     "People": PeopleDocument,

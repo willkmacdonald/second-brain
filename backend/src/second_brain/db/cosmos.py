@@ -14,7 +14,17 @@ from azure.identity.aio import DefaultAzureCredential
 
 logger = logging.getLogger(__name__)
 
-CONTAINER_NAMES: list[str] = ["Inbox", "People", "Projects", "Ideas", "Admin", "Errands", "Tasks"]
+CONTAINER_NAMES: list[str] = [
+    "Inbox",
+    "People",
+    "Projects",
+    "Ideas",
+    "Admin",
+    "Errands",
+    "Tasks",
+    "Destinations",
+    "AffinityRules",
+]
 PARTITION_KEY = "/userId"
 
 
