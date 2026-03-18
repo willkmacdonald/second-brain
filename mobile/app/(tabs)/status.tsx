@@ -153,20 +153,46 @@ export default function StatusScreen() {
     setLoading(false);
   }, [hasLoaded]);
 
-  // Refresh on tab focus
+  // Refresh on tab focus + brief catch-up polling.
+  // The first GET /api/errands triggers Admin Agent processing as a side
+  // effect but returns before processing finishes. Poll a few extra times
+  // so newly-processed items appear without requiring a manual refresh.
+  const focusPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const focusPollCountRef = useRef(0);
+  const FOCUS_POLLS = 4; // extra polls after each focus
+  const POLL_INTERVAL = 3000;
+
   useFocusEffect(
     useCallback(() => {
       void fetchData();
+      focusPollCountRef.current = 0;
+      focusPollRef.current = setInterval(() => {
+        focusPollCountRef.current += 1;
+        if (focusPollCountRef.current >= FOCUS_POLLS) {
+          if (focusPollRef.current) {
+            clearInterval(focusPollRef.current);
+            focusPollRef.current = null;
+          }
+          return;
+        }
+        void fetchData();
+      }, POLL_INTERVAL);
+      return () => {
+        if (focusPollRef.current) {
+          clearInterval(focusPollRef.current);
+          focusPollRef.current = null;
+        }
+      };
     }, [fetchData]),
   );
 
-  // Auto-refresh while processing is active
+  // Continue polling while processing is still active (beyond focus polls)
   useEffect(() => {
-    if (processingCount > 0) {
+    if (processingCount > 0 && !focusPollRef.current) {
       pollingRef.current = setInterval(() => {
         void fetchData();
-      }, 3000);
-    } else if (pollingRef.current) {
+      }, POLL_INTERVAL);
+    } else if (processingCount === 0 && pollingRef.current) {
       clearInterval(pollingRef.current);
       pollingRef.current = null;
     }
