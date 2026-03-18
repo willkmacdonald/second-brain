@@ -164,7 +164,7 @@ Plans:
   5. OpenAPI docs disabled in production (ENVIRONMENT=production)
   6. No dead code modules, variables, parameters, or fixtures remain
   7. VALID_BUCKETS and routing context builder each have a single source of truth
-**Plans:** 3 plans
+**Plans:** 1/3 plans executed
 
 Plans:
 - [ ] 12.3.1-01-PLAN.md -- Security hardening: timing-safe auth (C1), parameterized queries (I1), error sanitization (I2/I3/M5), upload guardrails (I4/I5), production docs lockdown (I6)
