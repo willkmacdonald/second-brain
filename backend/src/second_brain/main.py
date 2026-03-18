@@ -236,6 +236,10 @@ async def lifespan(app: FastAPI):
             app.state.admin_agent_tools = [
                 admin_tools.add_errand_items,
                 admin_tools.add_task_items,
+                admin_tools.get_routing_context,
+                admin_tools.manage_destination,
+                admin_tools.manage_affinity_rule,
+                admin_tools.query_rules,
             ]
 
             logger.info(
