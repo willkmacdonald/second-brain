@@ -289,29 +289,23 @@ async def test_get_errands_triggers_processing(
 
 
 @pytest.mark.asyncio
-async def test_get_errands_triggers_for_pending_items(
+async def test_get_errands_skips_pending_items(
     errands_app: FastAPI,
     mock_cosmos_manager: MagicMock,
 ) -> None:
-    """GET triggers processing for items stuck with adminProcessingStatus='pending'.
+    """GET does NOT re-process items with adminProcessingStatus='pending'.
 
-    When delete_item fails after successful Admin Agent processing, the inbox
-    item remains with adminProcessingStatus='pending'. The retry query must
-    include these stuck items so they are recovered on next Status screen open.
+    Items already in 'pending' or 'failed' state should not be re-triggered
+    automatically — this prevents infinite processing loops when the Agent
+    writes items but fails to delete the inbox document.
     """
     _setup_destination_items(mock_cosmos_manager, {"jewel": JEWEL_ITEMS})
 
-    # Set up Inbox container to return 1 item stuck in 'pending' state
+    # Set up Inbox container to return 0 items (pending items excluded by query)
     inbox_container = mock_cosmos_manager.get_container("Inbox")
     inbox_container.query_items = MagicMock(
         side_effect=lambda **kwargs: _make_inbox_async_iterator(
-            [
-                {
-                    "id": "inbox-stuck",
-                    "rawText": "milk and eggs",
-                    "adminProcessingStatus": "pending",
-                }
-            ]
+            []
         )(**kwargs)
     )
 
@@ -320,7 +314,7 @@ async def test_get_errands_triggers_for_pending_items(
     errands_app.state.admin_agent_tools = [AsyncMock()]
     errands_app.state.background_tasks = set()
 
-    # Patch asyncio.create_task to capture the coroutine
+    # Patch asyncio.create_task to verify it is NOT called
     with patch(
         "second_brain.api.errands.asyncio.create_task"
     ) as mock_create_task:
@@ -342,8 +336,8 @@ async def test_get_errands_triggers_for_pending_items(
 
     assert response.status_code == 200
     data = response.json()
-    assert data["processingCount"] == 1
-    mock_create_task.assert_called_once()
+    assert data["processingCount"] == 0
+    mock_create_task.assert_not_called()
 
 
 @pytest.mark.asyncio

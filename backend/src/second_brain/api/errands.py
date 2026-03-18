@@ -121,9 +121,7 @@ async def get_errands(request: Request) -> ErrandsResponse:
                 "WHERE c.userId = @userId "
                 "AND c.classificationMeta.bucket = 'Admin' "
                 "AND (NOT IS_DEFINED(c.adminProcessingStatus) "
-                "     OR IS_NULL(c.adminProcessingStatus) "
-                "     OR c.adminProcessingStatus = 'failed' "
-                "     OR c.adminProcessingStatus = 'pending')"
+                "     OR IS_NULL(c.adminProcessingStatus))"
             )
             parameters: list[dict[str, object]] = [
                 {"name": "@userId", "value": "will"},
