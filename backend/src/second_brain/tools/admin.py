@@ -39,7 +39,8 @@ class AdminTools:
                 description=(
                     "List of errand items to add. Each dict must have "
                     "'name' (str, lowercase, natural language like '2 lbs ground beef') "
-                    "and 'destination' (str: jewel, cvs, pet_store, or other)"
+                    "and 'destination' (str: jewel=Jewel-Osco grocery, "
+                    "cvs=CVS pharmacy, pet_store=pet supplies, or other)"
                 )
             ),
         ],
