@@ -309,7 +309,7 @@ async def stream_text_capture(
         except (TimeoutError, Exception) as exc:
             span.record_exception(exc)
             logger.error("Text capture stream error: %s", exc, exc_info=True)
-            yield encode_sse(error_event(str(exc)))
+            yield encode_sse(error_event("An internal error occurred. Please try again."))
             yield encode_sse(complete_event(thread_id, run_id))
 
 
@@ -491,7 +491,7 @@ async def stream_voice_capture(
         except (TimeoutError, Exception) as exc:
             span.record_exception(exc)
             logger.error("Voice capture stream error: %s", exc, exc_info=True)
-            yield encode_sse(error_event(str(exc)))
+            yield encode_sse(error_event("An internal error occurred. Please try again."))
             yield encode_sse(complete_event(thread_id, run_id))
 
 
@@ -628,5 +628,5 @@ async def stream_follow_up_capture(
                 exc,
                 exc_info=True,
             )
-            yield encode_sse(error_event(str(exc)))
+            yield encode_sse(error_event("An internal error occurred. Please try again."))
             yield encode_sse(complete_event(thread_id, run_id))

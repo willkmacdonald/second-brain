@@ -44,15 +44,19 @@ class AdminTools:
     # ------------------------------------------------------------------
 
     async def _collect_query(
-        self, container_name: str, query: str, partition_key: str = "will"
+        self,
+        container_name: str,
+        query: str,
+        partition_key: str = "will",
+        parameters: list[dict] | None = None,
     ) -> list[dict]:
         """Run a Cosmos query and collect all results into a list."""
         container = self._manager.get_container(container_name)
         results: list[dict] = []
-        async for item in container.query_items(
-            query=query,
-            partition_key=partition_key,
-        ):
+        kwargs: dict = {"query": query, "partition_key": partition_key}
+        if parameters is not None:
+            kwargs["parameters"] = parameters
+        async for item in container.query_items(**kwargs):
             results.append(item)
         return results
 
@@ -249,9 +253,10 @@ class AdminTools:
         self, name: str, slug: str, destination_type: str | None
     ) -> str:
         """Create a new destination if slug does not already exist."""
+        query = "SELECT * FROM c WHERE c.slug = @slug AND c.userId = 'will'"
+        parameters = [{"name": "@slug", "value": slug}]
         existing = await self._collect_query(
-            "Destinations",
-            f"SELECT * FROM c WHERE c.slug = '{slug}' AND c.userId = 'will'",
+            "Destinations", query, parameters=parameters
         )
         if existing:
             return f"Destination '{name}' already exists."
@@ -268,9 +273,10 @@ class AdminTools:
         self, slug: str, new_name: str | None, new_slug: str | None
     ) -> str:
         """Rename a destination's display name and/or slug."""
+        query = "SELECT * FROM c WHERE c.slug = @slug AND c.userId = 'will'"
+        parameters = [{"name": "@slug", "value": slug}]
         existing = await self._collect_query(
-            "Destinations",
-            f"SELECT * FROM c WHERE c.slug = '{slug}' AND c.userId = 'will'",
+            "Destinations", query, parameters=parameters
         )
         if not existing:
             return f"Destination with slug '{slug}' not found."
@@ -315,9 +321,10 @@ class AdminTools:
             )
 
         # Find and delete the destination document
+        query = "SELECT * FROM c WHERE c.slug = @slug AND c.userId = 'will'"
+        parameters = [{"name": "@slug", "value": slug}]
         existing = await self._collect_query(
-            "Destinations",
-            f"SELECT * FROM c WHERE c.slug = '{slug}' AND c.userId = 'will'",
+            "Destinations", query, parameters=parameters
         )
         if not existing:
             return f"Destination with slug '{slug}' not found."

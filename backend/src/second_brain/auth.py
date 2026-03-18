@@ -5,6 +5,7 @@ Key passed via Authorization: Bearer <key> header (per locked CONTEXT.md decisio
 Failed auth attempts logged with IP/timestamp for security auditing.
 """
 
+import hmac
 import logging
 from datetime import UTC, datetime
 
@@ -58,7 +59,7 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
 
         provided_key = auth_header[7:]  # Strip "Bearer " prefix
 
-        if api_key is None or provided_key != api_key:
+        if api_key is None or not hmac.compare_digest(provided_key, api_key):
             self._log_auth_failure(request, "invalid API key")
             return JSONResponse(
                 status_code=401,

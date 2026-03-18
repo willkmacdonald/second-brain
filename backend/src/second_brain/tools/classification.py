@@ -123,7 +123,7 @@ class ClassifierTools:
             return await self._write_to_cosmos(text, bucket, confidence, status, title)
         except Exception as exc:
             logger.warning("file_capture Cosmos write failed: %s", exc)
-            return {"error": "cosmos_write_failed", "detail": str(exc)}
+            return {"error": "cosmos_write_failed", "detail": "Failed to save classification"}
 
     async def _write_to_cosmos(
         self,

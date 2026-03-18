@@ -88,4 +88,4 @@ class TranscriptionTools:
             return result.text
         except Exception as exc:
             logger.warning("transcribe_audio failed: %s", exc)
-            return f"Transcription error: {exc}"
+            return "Transcription failed. Please try again."
