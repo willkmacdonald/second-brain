@@ -99,8 +99,9 @@ class ErrandItem(BaseModel):
     """
 
     id: str = Field(default_factory=lambda: str(uuid4()))
-    destination: str  # Partition key: "jewel", "cvs", "pet_store", "other"
+    destination: str  # Partition key: dynamic slug from Destinations container
     name: str  # Full natural language: "2 lbs ground beef", "cat litter"
+    needsRouting: bool = False  # True when destination is "unrouted" (no affinity rule matched)
 
 
 class TaskItem(BaseModel):
