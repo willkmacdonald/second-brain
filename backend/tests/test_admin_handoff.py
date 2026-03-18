@@ -143,10 +143,10 @@ class TestProcessAdminCaptureSuccess:
             raw_text="need cat litter and milk",
         )
 
-    async def test_calls_admin_agent_with_raw_text(
+    async def test_calls_admin_agent_with_enriched_text(
         self, mock_admin_client, mock_cosmos_manager, mock_admin_tools
     ):
-        """Admin Agent receives the user's capture text."""
+        """Admin Agent receives routing context + user's capture text."""
         await process_admin_capture(
             admin_client=mock_admin_client,
             admin_tools=mock_admin_tools,
@@ -159,7 +159,10 @@ class TestProcessAdminCaptureSuccess:
         call_kwargs = mock_admin_client.get_response.call_args
         messages = call_kwargs.kwargs.get("messages") or call_kwargs[1].get("messages")
         assert len(messages) == 1
-        assert messages[0].text == "need cat litter and milk"
+        text = messages[0].text
+        # Enriched text includes routing context header and the raw text
+        assert "AVAILABLE DESTINATIONS:" in text
+        assert "need cat litter and milk" in text
 
     async def test_passes_tools_to_agent(
         self, mock_admin_client, mock_cosmos_manager, mock_admin_tools

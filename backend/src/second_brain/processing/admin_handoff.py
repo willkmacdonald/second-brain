@@ -2,8 +2,9 @@
 
 Provides process_admin_capture() -- a fire-and-forget coroutine that
 calls the Admin Agent non-streaming, routes errand items to destination lists,
-and deletes the inbox item on success. Failed items remain with
-adminProcessingStatus = 'failed' for retry on next Status screen open.
+and handles the inbox item after processing. Responses that need user attention
+are kept on the inbox item for delivery; simple confirmations trigger deletion.
+Failed items remain with adminProcessingStatus = 'failed' for retry.
 """
 
 import asyncio
@@ -20,7 +21,6 @@ logger = logging.getLogger(__name__)
 tracer = trace.get_tracer("second_brain.processing")
 
 
-
 def _count_tool_invocations(tools: list) -> int:
     """Sum invocation_count across all FunctionTool instances in a tool list.
 
@@ -33,6 +33,88 @@ def _count_tool_invocations(tools: list) -> int:
         if count is not None:
             total += count
     return total
+
+
+def _response_needs_delivery(response_text: str | None) -> bool:
+    """Check if the Admin Agent response contains information the user needs to see.
+
+    Returns True for rule queries, conflict confirmations, destination
+    management feedback, etc. Returns False for simple errand-add confirmations.
+    """
+    if not response_text:
+        return False
+    indicators = [
+        "?",
+        "conflict",
+        "currently goes to",
+        "where should",
+        "rule",
+        "created",
+        "updated",
+        "deleted",
+        "destination",
+        "removed",
+        "renamed",
+    ]
+    text_lower = response_text.lower()
+    return any(indicator in text_lower for indicator in indicators)
+
+
+async def _build_routing_context(cosmos_manager: CosmosManager) -> str:
+    """Load destinations and affinity rules for Admin Agent context.
+
+    Returns a formatted string to prepend to the user's capture text,
+    giving the Admin Agent knowledge of available destinations and rules.
+    """
+    dest_container = cosmos_manager.get_container("Destinations")
+    rules_container = cosmos_manager.get_container("AffinityRules")
+
+    destinations: list[dict] = []
+    async for doc in dest_container.query_items(
+        query="SELECT * FROM c", partition_key="will"
+    ):
+        destinations.append(doc)
+
+    rules: list[dict] = []
+    async for doc in rules_container.query_items(
+        query="SELECT * FROM c", partition_key="will"
+    ):
+        rules.append(doc)
+
+    # Format context
+    lines = ["AVAILABLE DESTINATIONS:"]
+    for d in destinations:
+        lines.append(
+            f"- {d['slug']} ({d['displayName']}, "
+            f"{d.get('type', 'physical')})"
+        )
+
+    if rules:
+        lines.append("\nROUTING RULES:")
+        for r in rules:
+            lines.append(
+                f"- {r['naturalLanguage']} "
+                f"({r['ruleType']}: {r['itemPattern']} -> "
+                f"{r['destinationSlug']})"
+            )
+            if r.get("exceptions"):
+                for exc in r["exceptions"]:
+                    lines.append(
+                        f"  EXCEPT: {exc['pattern']} -> "
+                        f"{exc['destinationSlug']}"
+                    )
+    else:
+        lines.append(
+            "\nNo routing rules defined yet. Route items using your "
+            "best judgment of the available destinations."
+        )
+
+    lines.append(
+        "\nFor items with no clear destination match, "
+        "set destination to 'unrouted'."
+    )
+
+    return "\n".join(lines)
 
 
 async def _mark_inbox_failed(
@@ -64,11 +146,14 @@ async def process_admin_capture(
 ) -> None:
     """Process an Admin-classified capture in the background.
 
-    Calls the Admin Agent (non-streaming) to parse items and route
-    to errands via add_errand_items. Only deletes the
-    inbox item when the agent actually invoked the tool -- if the agent
-    responds without calling the tool, the item is marked as 'failed'
-    so it remains visible for retry.
+    Calls the Admin Agent (non-streaming) with routing context (destinations
+    and affinity rules) prepended to the user's capture text. Routes errand
+    items to destinations via tools. After processing:
+
+    - If the response needs user attention (rule queries, conflicts, etc.),
+      the inbox item is kept with status "completed" and the response stored.
+    - If the response is a simple confirmation, the inbox item is deleted.
+    - If the agent didn't call any tools, the item is marked as "failed".
 
     This function is designed to be called via asyncio.create_task() --
     it never raises (all exceptions are caught and logged).
@@ -104,7 +189,22 @@ async def process_admin_capture(
             return  # Cannot proceed without the inbox item
 
         try:
-            messages = [Message(role="user", text=raw_text)]
+            # Build routing context (destinations + rules)
+            try:
+                routing_context = await _build_routing_context(cosmos_manager)
+                enriched_text = (
+                    f"{routing_context}\n\n---\nUser capture: {raw_text}"
+                )
+            except Exception as ctx_exc:
+                logger.warning(
+                    "Failed to build routing context for %s: %s. "
+                    "Falling back to raw text.",
+                    inbox_item_id,
+                    ctx_exc,
+                )
+                enriched_text = raw_text
+
+            messages = [Message(role="user", text=enriched_text)]
             options = ChatOptions(tools=admin_tools)
 
             # Snapshot tool invocation count before calling the agent
@@ -136,30 +236,57 @@ async def process_admin_capture(
                 await _mark_inbox_failed(inbox_container, inbox_item_id, span)
                 return
 
-            # Tool was called -- safe to delete the inbox item
-            try:
-                await inbox_container.delete_item(
-                    item=inbox_item_id, partition_key="will"
-                )
-                logger.info(
-                    "Deleted processed inbox item %s",
-                    inbox_item_id,
-                )
-            except CosmosResourceNotFoundError:
-                # User may have swipe-deleted while processing
-                logger.info(
-                    "Inbox item %s already deleted (user may have removed it)",
-                    inbox_item_id,
-                )
-            except Exception as del_exc:
-                # Non-fatal: shopping list items are the durable output
-                logger.warning(
-                    "Failed to delete processed inbox item %s: %s",
-                    inbox_item_id,
-                    del_exc,
-                )
+            # Tool was called -- decide whether to keep or delete inbox item
+            response_text = response.text if response.text else None
 
-            span.set_attribute("admin.outcome", "processed")
+            if _response_needs_delivery(response_text):
+                # Response contains info the user needs to see --
+                # keep the inbox item with response attached
+                try:
+                    doc = await inbox_container.read_item(
+                        item=inbox_item_id, partition_key="will"
+                    )
+                    doc["adminProcessingStatus"] = "completed"
+                    doc["adminAgentResponse"] = response_text
+                    await inbox_container.upsert_item(body=doc)
+                    logger.info(
+                        "Stored admin response for delivery on inbox "
+                        "item %s",
+                        inbox_item_id,
+                    )
+                except Exception as store_exc:
+                    logger.warning(
+                        "Failed to store admin response for %s: %s",
+                        inbox_item_id,
+                        store_exc,
+                    )
+                span.set_attribute("admin.outcome", "response_stored")
+            else:
+                # Simple confirmation -- delete the inbox item
+                try:
+                    await inbox_container.delete_item(
+                        item=inbox_item_id, partition_key="will"
+                    )
+                    logger.info(
+                        "Deleted processed inbox item %s",
+                        inbox_item_id,
+                    )
+                except CosmosResourceNotFoundError:
+                    # User may have swipe-deleted while processing
+                    logger.info(
+                        "Inbox item %s already deleted "
+                        "(user may have removed it)",
+                        inbox_item_id,
+                    )
+                except Exception as del_exc:
+                    # Non-fatal: errand items are the durable output
+                    logger.warning(
+                        "Failed to delete processed inbox item %s: %s",
+                        inbox_item_id,
+                        del_exc,
+                    )
+                span.set_attribute("admin.outcome", "processed")
+
             logger.info(
                 "Admin Agent processed inbox item %s: %s",
                 inbox_item_id,
