@@ -16,6 +16,7 @@ from azure.cosmos.exceptions import CosmosResourceNotFoundError
 from opentelemetry import trace
 
 from second_brain.db.cosmos import CosmosManager
+from second_brain.tools.admin import build_routing_context
 
 logger = logging.getLogger(__name__)
 tracer = trace.get_tracer("second_brain.processing")
@@ -78,63 +79,6 @@ def _response_needs_delivery(response_text: str | None) -> bool:
         "no matching rule",
     ]
     return any(indicator in text_lower for indicator in delivery_indicators)
-
-
-async def _build_routing_context(cosmos_manager: CosmosManager) -> str:
-    """Load destinations and affinity rules for Admin Agent context.
-
-    Returns a formatted string to prepend to the user's capture text,
-    giving the Admin Agent knowledge of available destinations and rules.
-    """
-    dest_container = cosmos_manager.get_container("Destinations")
-    rules_container = cosmos_manager.get_container("AffinityRules")
-
-    destinations: list[dict] = []
-    async for doc in dest_container.query_items(
-        query="SELECT * FROM c", partition_key="will"
-    ):
-        destinations.append(doc)
-
-    rules: list[dict] = []
-    async for doc in rules_container.query_items(
-        query="SELECT * FROM c", partition_key="will"
-    ):
-        rules.append(doc)
-
-    # Format context
-    lines = ["AVAILABLE DESTINATIONS:"]
-    for d in destinations:
-        lines.append(
-            f"- {d['slug']} ({d['displayName']}, "
-            f"{d.get('type', 'physical')})"
-        )
-
-    if rules:
-        lines.append("\nROUTING RULES:")
-        for r in rules:
-            lines.append(
-                f"- {r['naturalLanguage']} "
-                f"({r['ruleType']}: {r['itemPattern']} -> "
-                f"{r['destinationSlug']})"
-            )
-            if r.get("exceptions"):
-                for exc in r["exceptions"]:
-                    lines.append(
-                        f"  EXCEPT: {exc['pattern']} -> "
-                        f"{exc['destinationSlug']}"
-                    )
-    else:
-        lines.append(
-            "\nNo routing rules defined yet. Route items using your "
-            "best judgment of the available destinations."
-        )
-
-    lines.append(
-        "\nFor items with no clear destination match, "
-        "set destination to 'unrouted'."
-    )
-
-    return "\n".join(lines)
 
 
 async def _mark_inbox_failed(
@@ -211,7 +155,7 @@ async def process_admin_capture(
         try:
             # Build routing context (destinations + rules)
             try:
-                routing_context = await _build_routing_context(cosmos_manager)
+                routing_context = await build_routing_context(cosmos_manager)
                 enriched_text = (
                     f"{routing_context}\n\n---\nUser capture: {raw_text}"
                 )

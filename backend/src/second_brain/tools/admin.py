@@ -23,6 +23,60 @@ from second_brain.models.documents import (
 logger = logging.getLogger(__name__)
 
 
+async def build_routing_context(cosmos_manager: CosmosManager) -> str:
+    """Build formatted routing context from destinations and affinity rules.
+
+    Shared by the AdminTools.get_routing_context tool and admin_handoff.py.
+    Returns a formatted string for the Admin Agent's routing decisions.
+    """
+    # Query destinations
+    dest_container = cosmos_manager.get_container("Destinations")
+    destinations: list[dict] = []
+    async for item in dest_container.query_items(
+        query="SELECT * FROM c WHERE c.userId = 'will'",
+        partition_key="will",
+    ):
+        destinations.append(item)
+
+    # Query affinity rules
+    rules_container = cosmos_manager.get_container("AffinityRules")
+    rules: list[dict] = []
+    async for item in rules_container.query_items(
+        query="SELECT * FROM c WHERE c.userId = 'will'",
+        partition_key="will",
+    ):
+        rules.append(item)
+
+    # Format context
+    lines: list[str] = ["DESTINATIONS:"]
+    if destinations:
+        for dest in destinations:
+            slug = dest.get("slug", "unknown")
+            display = dest.get("displayName", slug)
+            dtype = dest.get("type", "physical")
+            lines.append(f"- {slug} ({display}, {dtype})")
+    else:
+        lines.append("- No destinations defined yet.")
+
+    lines.append("")
+    lines.append("ROUTING RULES:")
+    if rules:
+        for rule in rules:
+            nl = rule.get("naturalLanguage", "")
+            rtype = rule.get("ruleType", "item")
+            pattern = rule.get("itemPattern", "")
+            dest_slug = rule.get("destinationSlug", "")
+            lines.append(f'- "{nl}" ({rtype}: {pattern} -> {dest_slug})')
+        lines.append("")
+        lines.append("If no rule matches an item, set destination to 'unrouted'.")
+    else:
+        lines.append(
+            "No routing rules defined. Set all errand items to destination='unrouted'."
+        )
+
+    return "\n".join(lines)
+
+
 class AdminTools:
     """Admin agent tools bound to a CosmosManager instance.
 
@@ -173,40 +227,7 @@ class AdminTools:
         formatted list of available destinations and routing rules so the
         agent can make informed routing decisions.
         """
-        destinations = await self._collect_query(
-            "Destinations", "SELECT * FROM c WHERE c.userId = 'will'"
-        )
-        rules = await self._collect_query(
-            "AffinityRules", "SELECT * FROM c WHERE c.userId = 'will'"
-        )
-
-        lines: list[str] = ["DESTINATIONS:"]
-        if destinations:
-            for dest in destinations:
-                slug = dest.get("slug", "unknown")
-                display = dest.get("displayName", slug)
-                dtype = dest.get("type", "physical")
-                lines.append(f"- {slug} ({display}, {dtype})")
-        else:
-            lines.append("- No destinations defined yet.")
-
-        lines.append("")
-        lines.append("ROUTING RULES:")
-        if rules:
-            for rule in rules:
-                nl = rule.get("naturalLanguage", "")
-                rtype = rule.get("ruleType", "item")
-                pattern = rule.get("itemPattern", "")
-                dest_slug = rule.get("destinationSlug", "")
-                lines.append(f'- "{nl}" ({rtype}: {pattern} -> {dest_slug})')
-            lines.append("")
-            lines.append("If no rule matches an item, set destination to 'unrouted'.")
-        else:
-            lines.append(
-                "No routing rules defined. Set all errand items to destination='unrouted'."
-            )
-
-        return "\n".join(lines)
+        return await build_routing_context(self._manager)
 
     # ------------------------------------------------------------------
     # Tool 4: manage_destination
