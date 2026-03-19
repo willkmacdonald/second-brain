@@ -47,6 +47,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 11: Admin Agent and Capture Handoff** - Persistent Admin Agent in Foundry with silent background processing after Classifier files to Inbox (completed 2026-03-02)
 - [x] **Phase 12: Shopping List API and Status Screen** - REST endpoints and mobile tab for viewing, expanding, and removing shopping list items (completed 2026-03-03)
 - [x] **Phase 12.2: Rename Admin infrastructure from shopping lists to errands** (INSERTED) - Rename data model, API, tools, and UI from shopping-specific to generic errands system (completed 2026-03-16)
+- [ ] **Phase 12.5: On-Device Voice Transcription (SpeechAnalyzer)** (INSERTED) - Replace cloud transcription with iOS on-device SpeechAnalyzer, eliminating API costs and reducing latency
 - [ ] **Phase 13: Recipe URL Extraction** - Paste any recipe webpage URL, LLM extracts ingredients and adds them to shopping list with source attribution
 
 ## Phase Details
@@ -193,6 +194,23 @@ Plans:
 - [x] 12.2-02-PLAN.md -- Backend API layer rename (shopping_lists.py -> errands.py, main.py, tests)
 - [x] 12.2-03-PLAN.md -- Mobile UI rename (ErrandRow, status.tsx, StatusSectionRenderer) + Cosmos migration script
 
+### Phase 12.5: On-Device Voice Transcription (INSERTED)
+
+**Goal:** Replace cloud-based Azure OpenAI gpt-4o-transcribe with iOS on-device transcription via `expo-speech-recognition` and `SFSpeechRecognizer` (with `requiresOnDeviceRecognition`), eliminating transcription API costs and reducing voice capture latency
+**Depends on:** Phase 5 (voice capture infrastructure), Phase 12.3.1
+**Requirements**: VOICE-OD-01, VOICE-OD-02, VOICE-OD-03
+**Success Criteria** (what must be TRUE):
+  1. Voice captures use on-device `SFSpeechRecognizer` via `expo-speech-recognition` for real-time streaming transcription -- no audio upload to Azure Blob, no gpt-4o-transcribe API call
+  2. Transcription accuracy is acceptable for informal voice captures (shopping items, reminders, quick notes) -- validated through manual UAT
+  3. Backend transcription infrastructure (Azure Blob upload, OpenAI transcription client) remains available as a fallback but is not used in the default flow
+  4. Voice capture UX shows real-time interim transcription results as the user speaks
+**Plans**: 3 plans
+
+Plans:
+- [ ] 12.5-01-PLAN.md -- Install expo-speech-recognition, create speech helper module, extend sendCapture with X-Capture-Source header
+- [ ] 12.5-02-PLAN.md -- Rewrite voice recording flow with on-device transcription, real-time display, fallback logic, backend header logging
+- [ ] 12.5-03-PLAN.md -- EAS development build + manual UAT validation on real device
+
 ### Phase 13: Recipe URL Extraction
 **Goal**: Users can paste any recipe webpage URL, the Admin Agent fetches the page, the LLM extracts ingredients, and adds them to the shopping list with source attribution
 **Depends on**: Phase 11 (Admin Agent pipeline)
@@ -213,7 +231,7 @@ Plans:
 **Execution Order:**
 - v1.0: 1 -> 2 -> 3 -> 4 -> 4.1 -> 4.2 -> 4.3 -> 5 (complete)
 - v2.0: 6 -> 7 -> 8 -> 9 -> 9.1 (complete)
-- v3.0: 10 -> 11 -> 11.1 -> 12 -> 12.1 -> 12.2 -> 12.3 -> 13
+- v3.0: 10 -> 11 -> 11.1 -> 12 -> 12.1 -> 12.2 -> 12.3 -> 12.3.1 -> 12.5 -> 13
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -236,9 +254,9 @@ Plans:
 | 12. Shopping List API and Status Screen | 2/2 | Complete   | 2026-03-03 | - |
 | 12.1 Admin Agent Deletes Processed Items | v3.0 | 2/2 | Complete | 2026-03-03 |
 | 12.2 Rename Admin to Errands | 3/3 | Complete    | 2026-03-16 | - |
-| 13. YouTube Recipe Extraction | v3.0 | 0/TBD | Not started | - |
+| 12.5 On-Device Voice Transcription | v3.0 | 0/TBD | Not started | - |
+| 13. Recipe URL Extraction | v3.0 | 0/TBD | Not started | - |
 | 14. App Insights Operational Audit | v3.0 | 0/TBD | Not started | - |
-| 15. On-Device Voice Transcription (SpeechAnalyzer) | v3.0 | 0/TBD | Not started | - |
 
 ### Phase 14: App Insights Operational Audit
 
@@ -250,20 +268,6 @@ Plans:
 Plans:
 - [ ] TBD (run /gsd:plan-phase 14 to break down)
 
-### Phase 15: On-Device Voice Transcription (SpeechAnalyzer)
-
-**Goal:** Replace cloud-based Azure OpenAI gpt-4o-transcribe with iOS on-device transcription via `expo-speech-transcriber` and Apple's `SpeechAnalyzer` (iOS 26), eliminating transcription API costs and reducing voice capture latency
-**Depends on:** Phase 5 (voice capture infrastructure)
-**Requirements**: VOICE-OD-01, VOICE-OD-02, VOICE-OD-03
-**Success Criteria** (what must be TRUE):
-  1. Voice captures use on-device `SpeechAnalyzer` (iOS 26) via `expo-speech-transcriber` for real-time streaming transcription -- no audio upload to Azure Blob, no gpt-4o-transcribe API call
-  2. Transcription accuracy is acceptable for informal voice captures (shopping items, reminders, quick notes) -- validated through manual UAT
-  3. Backend transcription infrastructure (Azure Blob upload, OpenAI transcription client) remains available as a fallback but is not used in the default flow
-  4. Voice capture UX shows real-time interim transcription results as the user speaks
-**Plans**: TBD
-
-Plans:
-- [ ] TBD (run /gsd:plan-phase 15 to break down)
 
 ## Backlog
 
