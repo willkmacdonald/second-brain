@@ -74,6 +74,7 @@ export default function CaptureScreen() {
 
   // On-device speech recognition state
   const [transcriptText, setTranscriptText] = useState("");
+  const transcriptRef = useRef("");
   const [audioFileUri, setAudioFileUri] = useState<string | null>(null);
   const [useOnDevice, setUseOnDevice] = useState(false);
   const [speechPermissionGranted, setSpeechPermissionGranted] = useState(false);
@@ -109,7 +110,9 @@ export default function CaptureScreen() {
 
   // Real-time transcription results
   useSpeechRecognitionEvent("result", (event) => {
-    setTranscriptText(event.results[0]?.transcript ?? "");
+    const transcript = event.results[0]?.transcript ?? "";
+    transcriptRef.current = transcript;
+    setTranscriptText(transcript);
   });
 
   // Audio file URI for fallback (persisted audio from expo-speech-recognition)
@@ -211,7 +214,9 @@ export default function CaptureScreen() {
     if (!wasRecordingRef.current) return;
     wasRecordingRef.current = false;
 
-    const text = transcriptText.trim();
+    // Read from ref, not state -- avoids stale closure where "end" fires
+    // before React re-renders with the latest "result" event's transcript.
+    const text = transcriptRef.current.trim();
 
     // Check if this was a follow-up recording
     if (isFollowUpRecordingRef.current) {
@@ -461,6 +466,7 @@ export default function CaptureScreen() {
     setProcessingStage(null);
     setThought("");
     setTranscriptText("");
+    transcriptRef.current = "";
     setAudioFileUri(null);
     setHitlQuestion(null);
     setHitlThreadId(null);
@@ -600,6 +606,7 @@ export default function CaptureScreen() {
       if (useOnDevice) {
         // On-device path: start speech recognition (handles audio internally)
         setTranscriptText("");
+        transcriptRef.current = "";
         setAudioFileUri(null);
         startOnDeviceRecognition();
         setIsRecording(true);
@@ -895,6 +902,7 @@ export default function CaptureScreen() {
       if (useOnDevice) {
         // On-device path: start speech recognition for follow-up
         setTranscriptText("");
+        transcriptRef.current = "";
         setAudioFileUri(null);
         startOnDeviceRecognition();
         setIsRecording(true);
