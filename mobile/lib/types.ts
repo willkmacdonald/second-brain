@@ -38,6 +38,7 @@ export interface SendCaptureOptions {
   message: string;
   apiKey: string;
   callbacks: StreamingCallbacks;
+  captureSource?: "voice"; // For X-Capture-Source header on on-device voice captures
 }
 
 export interface SendFollowUpOptions {

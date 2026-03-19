@@ -195,14 +195,20 @@ export function sendCapture({
   message,
   apiKey,
   callbacks,
+  captureSource,
 }: SendCaptureOptions): { cleanup: () => void; threadId: string } {
   const threadId = `thread-${Date.now()}`;
 
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${apiKey}`,
+    "Content-Type": "application/json",
+  };
+  if (captureSource) {
+    headers["X-Capture-Source"] = captureSource;
+  }
+
   const es = new EventSource<AGUIEventType>(`${API_BASE_URL}/api/capture`, {
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
+    headers,
     method: "POST",
     body: JSON.stringify({
       text: message,
