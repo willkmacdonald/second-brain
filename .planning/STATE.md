@@ -8,7 +8,7 @@ progress:
   total_phases: 19
   completed_phases: 14
   total_plans: 54
-  completed_plans: 51
+  completed_plans: 52
 ---
 
 # Project State
@@ -23,11 +23,11 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 ## Current Position
 
 Phase: 12.5 of 13 (On-Device Voice Transcription)
-Plan: 1 of 3
-Status: Plan 01 complete -- expo-speech-recognition installed, speech helper created, sendCapture extended
-Last activity: 2026-03-19 -- Completed 12.5-01 (Install & configure on-device speech recognition)
+Plan: 2 of 3
+Status: Plan 02 complete -- capture screen rewritten with on-device voice transcription, cloud fallback, and backend observability header
+Last activity: 2026-03-19 -- Completed 12.5-02 (Capture screen on-device voice transcription)
 
-Progress: [█████████░] 94% (v3.0)
+Progress: [█████████░] 96% (v3.0)
 
 ## Performance Metrics
 
@@ -71,6 +71,7 @@ Progress: [█████████░] 94% (v3.0)
 | Phase 12.3.1 P02 | 3 min | 2 tasks | 10 files |
 | Phase 12.3.1 P03 | 3 min | 2 tasks | 5 files |
 | Phase 12.5 P01 | 2 min | 2 tasks | 5 files |
+| Phase 12.5 P02 | 4 min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -140,6 +141,10 @@ v2.0 decisions archived to .planning/milestones/v2.0-ROADMAP.md
 - [Phase 12.5]: expo-speech-recognition ^3.1.1 wraps Apple SpeechAnalyzer for Expo compatibility
 - [Phase 12.5]: speech.ts is stateless functions only -- component uses useSpeechRecognitionEvent hooks directly
 - [Phase 12.5]: X-Capture-Source header is observability-only, does not affect classification
+- [Phase 12.5]: wasRecordingRef coordinates stop action with async end event for submission control
+- [Phase 12.5]: isFollowUpRecordingRef distinguishes primary capture vs follow-up in shared end event handler
+- [Phase 12.5]: On-device path skips Uploading stage -- goes straight to Classifying
+- [Phase 12.5]: Empty transcription still submitted to classifier (may trigger HITL per CONTEXT.md)
 
 ### Research Findings (Critical for v3.0)
 
@@ -171,5 +176,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-19
-Stopped at: Completed 12.5-01-PLAN.md
-Resume action: Continue with 12.5-02-PLAN.md (index.tsx rewrite for on-device voice capture)
+Stopped at: Completed 12.5-02-PLAN.md
+Resume action: Continue with 12.5-03-PLAN.md (Orchestrator instruction updates and UAT)
