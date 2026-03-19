@@ -184,6 +184,10 @@ async def capture(request: Request, body: TextCaptureBody) -> StreamingResponse:
     thread_id = body.thread_id or f"thread-{uuid4()}"
     run_id = body.run_id or f"run-{uuid4()}"
 
+    capture_source = request.headers.get("X-Capture-Source")
+    if capture_source:
+        logger.info("Capture source: %s, thread_id=%s", capture_source, thread_id)
+
     generator = stream_text_capture(
         client=client,
         user_text=body.text,
