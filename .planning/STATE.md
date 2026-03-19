@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Admin Agent & Shopping Lists
-status: unknown
-last_updated: "2026-03-18T22:40:17.569Z"
+status: in-progress
+last_updated: "2026-03-19T04:48:23Z"
 progress:
   total_phases: 19
   completed_phases: 14
-  total_plans: 51
-  completed_plans: 50
+  total_plans: 54
+  completed_plans: 51
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-01)
 
 **Core value:** One-tap capture from a phone instantly routes through an agent that classifies, files, and clarifies -- with zero organizational effort.
-**Current focus:** v3.0 Admin Agent & Shopping Lists -- Phase 12.3.1 complete, security fixes and dead code cleanup
+**Current focus:** v3.0 -- Phase 12.5 On-Device Voice Transcription in progress
 
 ## Current Position
 
-Phase: 12.3.1 of 13 (Implement Fixes for Security Issues and Dead Code Analysis)
-Plan: 3 of 3
-Status: Phase 12.3.1 complete -- all security fixes, dead code cleanup, and deduplication done
-Last activity: 2026-03-18 -- Completed 12.3.1-03 (Duplicate code consolidation)
+Phase: 12.5 of 13 (On-Device Voice Transcription)
+Plan: 1 of 3
+Status: Plan 01 complete -- expo-speech-recognition installed, speech helper created, sendCapture extended
+Last activity: 2026-03-19 -- Completed 12.5-01 (Install & configure on-device speech recognition)
 
-Progress: [██████████] 100% (v3.0)
+Progress: [█████████░] 94% (v3.0)
 
 ## Performance Metrics
 
@@ -70,6 +70,7 @@ Progress: [██████████] 100% (v3.0)
 | Phase 12.3.1 P01 | 3 min | 2 tasks | 8 files |
 | Phase 12.3.1 P02 | 3 min | 2 tasks | 10 files |
 | Phase 12.3.1 P03 | 3 min | 2 tasks | 5 files |
+| Phase 12.5 P01 | 2 min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -136,6 +137,9 @@ v2.0 decisions archived to .planning/milestones/v2.0-ROADMAP.md
 - [Phase 12.3.1]: Upload validation uses dual check: file.size header first, then len(bytes) as fallback
 - [Phase 12.3.1]: VALID_BUCKETS uses frozenset for immutability (prevents accidental mutation of shared constant)
 - [Phase 12.3.1]: Routing context format uses admin.py tool version as canonical (Agent trained on DESTINATIONS: / ROUTING RULES: headers)
+- [Phase 12.5]: expo-speech-recognition ^3.1.1 wraps Apple SpeechAnalyzer for Expo compatibility
+- [Phase 12.5]: speech.ts is stateless functions only -- component uses useSpeechRecognitionEvent hooks directly
+- [Phase 12.5]: X-Capture-Source header is observability-only, does not affect classification
 
 ### Research Findings (Critical for v3.0)
 
@@ -157,6 +161,7 @@ None.
 - Phase 12.3 inserted after Phase 12: Destination affinity and knowledge system for errand routing (URGENT)
 - Phase 14 added: App Insights Operational Audit
 - Phase 12.3.1 inserted after Phase 12.3: Implement fixes for security issues and from output of dead code analysis (URGENT)
+- Phase 12.5 added: On-Device Voice Transcription (replace cloud Whisper with iOS SpeechAnalyzer)
 
 ### Blockers/Concerns
 
@@ -165,6 +170,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-18
-Stopped at: Completed 12.3.1-03-PLAN.md (Phase 12.3.1 complete)
-Resume action: Phase 12.3.1 complete -- all plans executed
+Last session: 2026-03-19
+Stopped at: Completed 12.5-01-PLAN.md
+Resume action: Continue with 12.5-02-PLAN.md (index.tsx rewrite for on-device voice capture)
