@@ -47,7 +47,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 11: Admin Agent and Capture Handoff** - Persistent Admin Agent in Foundry with silent background processing after Classifier files to Inbox (completed 2026-03-02)
 - [x] **Phase 12: Shopping List API and Status Screen** - REST endpoints and mobile tab for viewing, expanding, and removing shopping list items (completed 2026-03-03)
 - [x] **Phase 12.2: Rename Admin infrastructure from shopping lists to errands** (INSERTED) - Rename data model, API, tools, and UI from shopping-specific to generic errands system (completed 2026-03-16)
-- [ ] **Phase 12.5: On-Device Voice Transcription (SpeechAnalyzer)** (INSERTED) - Replace cloud transcription with iOS on-device SpeechAnalyzer, eliminating API costs and reducing latency
+- [x] **Phase 12.5: On-Device Voice Transcription (SpeechAnalyzer)** (INSERTED) - Replace cloud transcription with iOS on-device SpeechAnalyzer, eliminating API costs and reducing latency (completed 2026-03-19)
 - [ ] **Phase 13: Recipe URL Extraction** - Paste any recipe webpage URL, LLM extracts ingredients and adds them to shopping list with source attribution
 
 ## Phase Details
@@ -207,9 +207,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 12.5-01-PLAN.md -- Install expo-speech-recognition, create speech helper module, extend sendCapture with X-Capture-Source header
-- [ ] 12.5-02-PLAN.md -- Rewrite voice recording flow with on-device transcription, real-time display, fallback logic, backend header logging
-- [ ] 12.5-03-PLAN.md -- EAS development build + manual UAT validation on real device
+- [x] 12.5-01-PLAN.md -- Install expo-speech-recognition, create speech helper module, extend sendCapture with X-Capture-Source header
+- [x] 12.5-02-PLAN.md -- Rewrite voice recording flow with on-device transcription, real-time display, fallback logic, backend header logging
+- [x] 12.5-03-PLAN.md -- EAS development build + manual UAT validation on real device
 
 ### Phase 13: Recipe URL Extraction
 **Goal**: Users can paste any recipe webpage URL, the Admin Agent fetches the page, the LLM extracts ingredients, and adds them to the shopping list with source attribution
@@ -254,7 +254,7 @@ Plans:
 | 12. Shopping List API and Status Screen | 2/2 | Complete   | 2026-03-03 | - |
 | 12.1 Admin Agent Deletes Processed Items | v3.0 | 2/2 | Complete | 2026-03-03 |
 | 12.2 Rename Admin to Errands | 3/3 | Complete    | 2026-03-16 | - |
-| 12.5 On-Device Voice Transcription | 2/3 | In Progress|  | - |
+| 12.5 On-Device Voice Transcription | 3/3 | Complete   | 2026-03-19 | - |
 | 13. Recipe URL Extraction | v3.0 | 0/TBD | Not started | - |
 | 14. App Insights Operational Audit | v3.0 | 0/TBD | Not started | - |
 
@@ -263,7 +263,7 @@ Plans:
 **Goal:** Review and streamline App Insights logging setup to ensure operational effectiveness and efficiency. Audit log levels, query patterns, alert configuration, and cost. Ensure Python logger output is structured and actionable, not noisy.
 **Requirements**: TBD
 **Depends on:** Phase 13
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [ ] TBD (run /gsd:plan-phase 14 to break down)

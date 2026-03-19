@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Admin Agent & Shopping Lists
 status: in-progress
-last_updated: "2026-03-19T04:48:23Z"
+last_updated: "2026-03-19T05:21:00Z"
 progress:
   total_phases: 19
-  completed_phases: 14
+  completed_phases: 15
   total_plans: 54
-  completed_plans: 52
+  completed_plans: 53
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-01)
 
 **Core value:** One-tap capture from a phone instantly routes through an agent that classifies, files, and clarifies -- with zero organizational effort.
-**Current focus:** v3.0 -- Phase 12.5 On-Device Voice Transcription in progress
+**Current focus:** v3.0 -- Phase 12.5 On-Device Voice Transcription complete
 
 ## Current Position
 
 Phase: 12.5 of 13 (On-Device Voice Transcription)
-Plan: 2 of 3
-Status: Plan 02 complete -- capture screen rewritten with on-device voice transcription, cloud fallback, and backend observability header
-Last activity: 2026-03-19 -- Completed 12.5-02 (Capture screen on-device voice transcription)
+Plan: 3 of 3 (PHASE COMPLETE)
+Status: Phase 12.5 complete -- on-device voice transcription UAT passed, EAS build validated
+Last activity: 2026-03-19 -- Completed 12.5-03 (EAS build and UAT)
 
-Progress: [█████████░] 96% (v3.0)
+Progress: [██████████] 98% (v3.0)
 
 ## Performance Metrics
 
@@ -42,7 +42,7 @@ Progress: [█████████░] 96% (v3.0)
 - Timeline: 2026-02-26 to 2026-03-01 (4 days)
 
 **Velocity (v3.0):**
-- Total plans completed: 13
+- Total plans completed: 14
 - Average duration: 2.9 min
 
 | Phase | Plan | Duration | Tasks | Files |
@@ -72,6 +72,7 @@ Progress: [█████████░] 96% (v3.0)
 | Phase 12.3.1 P03 | 3 min | 2 tasks | 5 files |
 | Phase 12.5 P01 | 2 min | 2 tasks | 5 files |
 | Phase 12.5 P02 | 4 min | 2 tasks | 2 files |
+| Phase 12.5 P03 | 2 min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -145,6 +146,9 @@ v2.0 decisions archived to .planning/milestones/v2.0-ROADMAP.md
 - [Phase 12.5]: isFollowUpRecordingRef distinguishes primary capture vs follow-up in shared end event handler
 - [Phase 12.5]: On-device path skips Uploading stage -- goes straight to Classifying
 - [Phase 12.5]: Empty transcription still submitted to classifier (may trigger HITL per CONTEXT.md)
+- [Phase 12.5]: EAS development build required for expo-speech-recognition native module (Expo Go insufficient)
+- [Phase 12.5]: Stale closure bug fixed with ref-based transcript tracking for async submission
+- [Phase 12.5]: Cloud fallback not tested (requires older iOS device) -- accepted as-is per CONTEXT.md
 
 ### Research Findings (Critical for v3.0)
 
@@ -176,5 +180,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-19
-Stopped at: Completed 12.5-02-PLAN.md
-Resume action: Continue with 12.5-03-PLAN.md (Orchestrator instruction updates and UAT)
+Stopped at: Completed 12.5-03-PLAN.md (Phase 12.5 complete)
+Resume action: Phase 12.5 complete. Next phase or milestone wrap-up.
