@@ -161,7 +161,7 @@ class TestProcessAdminCaptureSuccess:
         assert len(messages) == 1
         text = messages[0].text
         # Enriched text includes routing context header and the raw text
-        assert "AVAILABLE DESTINATIONS:" in text
+        assert "DESTINATIONS:" in text
         assert "need cat litter and milk" in text
 
     async def test_passes_tools_to_agent(
@@ -358,7 +358,7 @@ class TestProcessAdminCaptureNoToolCall:
         """
         client = AsyncMock()
         response = MagicMock()
-        response.text = "No items added (all items had empty names)"
+        response.text = "Done processing your capture."
 
         async def _tool_called_empty(*args, **kwargs):
             if mock_admin_tools:

@@ -116,14 +116,13 @@ async def _safety_net_file_as_misunderstood(
         status="misunderstood",
     )
 
-    inbox_container = cosmos_manager.get_container("Inbox")
-    await inbox_container.create_item(body=inbox_doc.model_dump(mode="json"))
-
-    # Persist foundryThreadId immediately so follow-up can find it
+    # Include foundryThreadId in the initial write to avoid extra round-trip
+    doc_body = inbox_doc.model_dump(mode="json")
     if foundry_conversation_id:
-        doc = await inbox_container.read_item(item=inbox_doc_id, partition_key="will")
-        doc["foundryThreadId"] = foundry_conversation_id
-        await inbox_container.upsert_item(body=doc)
+        doc_body["foundryThreadId"] = foundry_conversation_id
+
+    inbox_container = cosmos_manager.get_container("Inbox")
+    await inbox_container.create_item(body=doc_body)
 
     span.set_attribute("capture.outcome", "misunderstood")
     span.set_attribute("capture.safety_net", True)

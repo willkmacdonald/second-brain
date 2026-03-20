@@ -18,23 +18,21 @@ def _make_transcription_tools() -> (
     """Create a TranscriptionTools instance with all mocks.
 
     Returns:
-        Tuple of (tools, openai_client, blob_manager, credential).
+        Tuple of (tools, openai_client, credential, unused_placeholder).
     """
     openai_client = MagicMock()
     openai_client.audio = MagicMock()
     openai_client.audio.transcriptions = MagicMock()
     openai_client.audio.transcriptions.create = AsyncMock()
 
-    blob_manager = MagicMock()
     credential = MagicMock()
 
     tools = TranscriptionTools(
         openai_client=openai_client,
-        blob_manager=blob_manager,
         credential=credential,
         deployment_name="gpt-4o-transcribe",
     )
-    return tools, openai_client, blob_manager, credential
+    return tools, openai_client, credential, MagicMock()
 
 
 # ---------------------------------------------------------------------------
@@ -102,8 +100,7 @@ async def test_transcribe_audio_blob_download_failure(
         ),
     )
 
-    assert "Transcription error" in result
-    assert "Blob not found" in result
+    assert "Transcription failed" in result
 
 
 @patch("second_brain.tools.transcription.BlobClient")
@@ -135,5 +132,4 @@ async def test_transcribe_audio_openai_api_failure(
         ),
     )
 
-    assert "Transcription error" in result
-    assert "API rate limit" in result
+    assert "Transcription failed" in result

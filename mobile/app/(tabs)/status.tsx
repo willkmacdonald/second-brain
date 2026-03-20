@@ -240,7 +240,7 @@ export default function StatusScreen() {
       void (async () => {
         try {
           const res = await fetch(
-            `${API_BASE_URL}/api/errands/${itemId}?destination=${destination}`,
+            `${API_BASE_URL}/api/errands/${itemId}?destination=${encodeURIComponent(destination)}`,
             {
               method: "DELETE",
               headers: { Authorization: `Bearer ${API_KEY}` },
@@ -308,14 +308,23 @@ export default function StatusScreen() {
       prev.filter((n) => n.inboxItemId !== inboxItemId),
     );
 
-    void fetch(
-      `${API_BASE_URL}/api/errands/notifications/${inboxItemId}/dismiss`,
-      {
-        method: "POST",
-        headers: { Authorization: `Bearer ${API_KEY}` },
-      },
-    );
-  }, []);
+    void (async () => {
+      try {
+        const res = await fetch(
+          `${API_BASE_URL}/api/errands/notifications/${inboxItemId}/dismiss`,
+          {
+            method: "POST",
+            headers: { Authorization: `Bearer ${API_KEY}` },
+          },
+        );
+        if (!res.ok && res.status !== 404) {
+          void fetchData(); // Re-fetch to restore notification if dismiss failed
+        }
+      } catch {
+        void fetchData();
+      }
+    })();
+  }, [fetchData]);
 
   // Show loading spinner on initial load only
   if (loading && !hasLoaded) {
