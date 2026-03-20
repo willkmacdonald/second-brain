@@ -61,46 +61,25 @@ class RecipeTools:
         If the page cannot be loaded or contains no useful content,
         returns an error message.
         """
-        logger.warning("fetch_recipe_url called for: %s", url)
-
         # Normalize known problematic URL patterns
         url = _normalize_url(url)
-        logger.warning("fetch_recipe_url normalized to: %s", url)
 
         # Tier 1: Jina Reader (bypasses Cloudflare/bot protection)
         text = await self._fetch_jina(url)
 
         # Tier 2: Simple HTTP if Jina failed
         html = ""
-        source = "jina"
         if not text or len(text) < MIN_CONTENT_LENGTH:
-            logger.warning(
-                "fetch_recipe_url: Jina insufficient (text_length=%d), "
-                "trying httpx",
-                len(text) if text else 0,
-            )
-            http_text, html, source = await self._fetch_simple(url)
+            http_text, html, _ = await self._fetch_simple(url)
             if http_text and len(http_text) > len(text or ""):
                 text = http_text
 
         # Tier 3: Playwright if still insufficient
         if not text or len(text) < MIN_CONTENT_LENGTH:
-            logger.warning(
-                "fetch_recipe_url: httpx insufficient (text_length=%d), "
-                "trying Playwright",
-                len(text) if text else 0,
-            )
-            pw_text, pw_html, source = await self._fetch_playwright(url)
+            pw_text, pw_html, _ = await self._fetch_playwright(url)
             if pw_text and len(pw_text) > len(text or ""):
                 text = pw_text
                 html = pw_html
-
-        logger.warning(
-            "fetch_recipe_url: final text_length=%d source=%s first_200=%s",
-            len(text) if text else 0,
-            source,
-            (text[:200] if text else "(empty)"),
-        )
 
         # Extract JSON-LD structured data if we have HTML
         json_ld = _extract_json_ld_recipe(html) if html else None
@@ -117,19 +96,11 @@ class RecipeTools:
             parts.append(f"PAGE TEXT:\n{truncated_text}")
 
         if not parts:
-            logger.warning(
-                "fetch_recipe_url: no extractable content for %s", url
-            )
             return (
                 f"Error: Page at {url} loaded but contained no "
                 f"extractable content."
             )
 
-        logger.warning(
-            "fetch_recipe_url success: %d parts, total_chars=%d",
-            len(parts),
-            sum(len(p) for p in parts),
-        )
         return "\n\n---\n\n".join(parts)
 
     async def _fetch_jina(self, url: str) -> str:
@@ -142,11 +113,7 @@ class RecipeTools:
             ) as client:
                 resp = await client.get(jina_url)
                 resp.raise_for_status()
-                text = resp.text
-                logger.warning(
-                    "Jina Reader succeeded for %s: %d chars", url, len(text)
-                )
-                return text
+                return resp.text
         except Exception as exc:
             logger.warning("Jina Reader failed for %s: %s", url, exc)
             return ""
