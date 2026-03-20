@@ -128,7 +128,9 @@ class AdminTools:
                     "List of errand items to add. Each dict must have "
                     "'name' (str, lowercase, natural language like '2 lbs ground beef') "
                     "and 'destination' (str, the destination slug from routing context). "
-                    "Set destination to 'unrouted' if no affinity rule matches the item."
+                    "Set destination to 'unrouted' if no affinity rule matches the item. "
+                    "Optionally include 'sourceName' (str, recipe title) and "
+                    "'sourceUrl' (str, recipe page URL) for items extracted from recipes."
                 )
             ),
         ],
@@ -156,8 +158,14 @@ class AdminTools:
                 continue
 
             needs_routing = destination == "unrouted"
+            source_name = item_data.get("sourceName")
+            source_url = item_data.get("sourceUrl")
             doc = ErrandItem(
-                destination=destination, name=name, needsRouting=needs_routing
+                destination=destination,
+                name=name,
+                needsRouting=needs_routing,
+                sourceName=source_name,
+                sourceUrl=source_url,
             )
             await container.create_item(body=doc.model_dump())
             destination_counts[destination] = destination_counts.get(destination, 0) + 1

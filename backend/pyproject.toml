@@ -26,6 +26,10 @@ dependencies = [
     # Configuration
     "pydantic-settings",
     "python-dotenv",
+    # Recipe URL fetching (Playwright headless browser + HTML parsing)
+    "playwright",
+    "beautifulsoup4",
+    "lxml",
 ]
 
 [project.optional-dependencies]

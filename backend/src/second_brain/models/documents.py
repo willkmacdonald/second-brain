@@ -101,6 +101,8 @@ class ErrandItem(BaseModel):
     destination: str  # Partition key: dynamic slug from Destinations container
     name: str  # Full natural language: "2 lbs ground beef", "cat litter"
     needsRouting: bool = False  # True when destination is "unrouted" (no affinity rule matched)
+    sourceName: str | None = None  # Recipe name for source attribution
+    sourceUrl: str | None = None  # Recipe URL for source attribution
 
 
 class TaskItem(BaseModel):
