@@ -66,8 +66,19 @@ class RecipeTools:
 
             await page.route("**/*", block_resources)
 
-            # Navigate with 30-second timeout
-            await page.goto(url, timeout=30000, wait_until="domcontentloaded")
+            # Navigate with 30-second timeout, wait for network to settle
+            # so JS-rendered content (Substack, SPAs) has time to load
+            await page.goto(url, timeout=30000, wait_until="networkidle")
+
+            # Additional wait for JS-heavy sites: wait for body to have
+            # meaningful text content (up to 10s)
+            try:
+                await page.wait_for_function(
+                    "(document.body.innerText || '').length > 500",
+                    timeout=10000,
+                )
+            except Exception:
+                pass  # Continue with whatever we have
 
             # Extract visible text
             visible_text = await page.evaluate("document.body.innerText")
