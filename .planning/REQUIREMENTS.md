@@ -36,9 +36,9 @@ Requirements for v3.0 Admin Agent & Shopping Lists. Each maps to roadmap phases.
 
 ### Recipe Extraction
 
-- [ ] **RCPE-01**: User can paste any recipe webpage URL that gets classified as Admin, and Admin Agent extracts recipe ingredients from the page
-- [ ] **RCPE-02**: Extracted ingredients are added to the appropriate grocery store shopping list
-- [ ] **RCPE-03**: Shopping list items from recipes show source attribution (recipe name/URL)
+- [x] **RCPE-01**: User can paste any recipe webpage URL that gets classified as Admin, and Admin Agent extracts recipe ingredients from the page
+- [x] **RCPE-02**: Extracted ingredients are added to the appropriate grocery store shopping list
+- [x] **RCPE-03**: Shopping list items from recipes show source attribution (recipe name/URL)
 
 ### Mobile UI
 
@@ -104,9 +104,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SHOP-03 | Phase 11 | Complete |
 | SHOP-04 | Phase 11 | Complete |
 | SHOP-05 | Phase 12 | Complete |
-| RCPE-01 | Phase 13 | Pending |
-| RCPE-02 | Phase 13 | Pending |
-| RCPE-03 | Phase 13 | Pending |
+| RCPE-01 | Phase 13 | Complete |
+| RCPE-02 | Phase 13 | Complete |
+| RCPE-03 | Phase 13 | Complete |
 | MOBL-01 | Phase 12 | Complete |
 | MOBL-02 | Phase 12 | Complete |
 | MOBL-03 | Phase 12 | Complete |

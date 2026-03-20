@@ -22,10 +22,10 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 
 ## Current Position
 
-Phase: 12.5 of 13 (On-Device Voice Transcription)
-Plan: 3 of 3 (PHASE COMPLETE)
-Status: Phase 12.5 complete -- on-device voice transcription UAT passed, EAS build validated
-Last activity: 2026-03-19 -- Completed 12.5-03 (EAS build and UAT)
+Phase: 13 of 13 (Recipe URL Extraction)
+Plan: 1 of 3
+Status: Plan 13-01 complete -- Playwright infrastructure, RecipeTools, ErrandItem source attribution
+Last activity: 2026-03-20 -- Completed 13-01 (Recipe URL extraction infrastructure)
 
 Progress: [██████████] 98% (v3.0)
 
@@ -73,6 +73,7 @@ Progress: [██████████] 98% (v3.0)
 | Phase 12.5 P01 | 2 min | 2 tasks | 5 files |
 | Phase 12.5 P02 | 4 min | 2 tasks | 2 files |
 | Phase 12.5 P03 | 2 min | 2 tasks | 3 files |
+| Phase 13 P01 | 6 min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -149,6 +150,11 @@ v2.0 decisions archived to .planning/milestones/v2.0-ROADMAP.md
 - [Phase 12.5]: EAS development build required for expo-speech-recognition native module (Expo Go insufficient)
 - [Phase 12.5]: Stale closure bug fixed with ref-based transcript tracking for async submission
 - [Phase 12.5]: Cloud fallback not tested (requires older iOS device) -- accepted as-is per CONTEXT.md
+- [Phase 13]: Playwright browser launched once in lifespan, new context per fetch (cheap isolation)
+- [Phase 13]: JSON-LD Recipe data extracted as supplementary context alongside truncated visible text
+- [Phase 13]: Visible text truncated to 12000 chars (~3000 tokens) for LLM context limits
+- [Phase 13]: Playwright startup nested inside admin try block -- recipe tools only useful with admin agent
+- [Phase 13]: Resource blocking targets image/media/font/stylesheet only (XHR/fetch preserved for SPAs)
 
 ### Research Findings (Critical for v3.0)
 
@@ -179,6 +185,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-19
-Stopped at: Completed 12.5-03-PLAN.md (Phase 12.5 complete)
-Resume action: Phase 12.5 complete. Next phase or milestone wrap-up.
+Last session: 2026-03-20
+Stopped at: Completed 13-01-PLAN.md
+Resume action: Continue with 13-02-PLAN.md (API response model + admin handoff updates)
