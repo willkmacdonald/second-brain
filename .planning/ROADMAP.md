@@ -256,7 +256,7 @@ Plans:
 | 12.1 Admin Agent Deletes Processed Items | v3.0 | 2/2 | Complete | 2026-03-03 |
 | 12.2 Rename Admin to Errands | 3/3 | Complete    | 2026-03-16 | - |
 | 12.5 On-Device Voice Transcription | 3/3 | Complete    | 2026-03-19 | - |
-| 13. Recipe URL Extraction | 1/3 | In Progress|  | - |
+| 13. Recipe URL Extraction | 2/3 | In Progress|  | - |
 | 14. App Insights Operational Audit | v3.0 | 0/TBD | Not started | - |
 
 ### Phase 14: App Insights Operational Audit
@@ -264,7 +264,7 @@ Plans:
 **Goal:** Review and streamline App Insights logging setup to ensure operational effectiveness and efficiency. Audit log levels, query patterns, alert configuration, and cost. Ensure Python logger output is structured and actionable, not noisy.
 **Requirements**: TBD
 **Depends on:** Phase 13
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 
 Plans:
 - [ ] TBD (run /gsd:plan-phase 14 to break down)

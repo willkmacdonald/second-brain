@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Admin Agent & Shopping Lists
 status: unknown
-last_updated: "2026-03-19T22:26:28.561Z"
+last_updated: "2026-03-20T14:48:58Z"
 progress:
   total_phases: 18
   completed_phases: 16
   total_plans: 54
-  completed_plans: 54
+  completed_plans: 55
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-01)
 
 **Core value:** One-tap capture from a phone instantly routes through an agent that classifies, files, and clarifies -- with zero organizational effort.
-**Current focus:** v3.0 -- Phase 12.5 On-Device Voice Transcription complete
+**Current focus:** v3.0 -- Phase 13 Recipe URL Extraction in progress
 
 ## Current Position
 
 Phase: 13 of 13 (Recipe URL Extraction)
-Plan: 1 of 3
-Status: Plan 13-01 complete -- Playwright infrastructure, RecipeTools, ErrandItem source attribution
-Last activity: 2026-03-20 -- Completed 13-01 (Recipe URL extraction infrastructure)
+Plan: 2 of 3
+Status: Plan 13-02 complete -- API source attribution, delivery heuristic, mobile ErrandRow subtitle
+Last activity: 2026-03-20 -- Completed 13-02 (API response model + mobile source attribution)
 
-Progress: [██████████] 98% (v3.0)
+Progress: [██████████] 99% (v3.0)
 
 ## Performance Metrics
 
@@ -74,6 +74,7 @@ Progress: [██████████] 98% (v3.0)
 | Phase 12.5 P02 | 4 min | 2 tasks | 2 files |
 | Phase 12.5 P03 | 2 min | 2 tasks | 3 files |
 | Phase 13 P01 | 6 min | 2 tasks | 7 files |
+| Phase 13 P02 | 2 min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -155,6 +156,9 @@ v2.0 decisions archived to .planning/milestones/v2.0-ROADMAP.md
 - [Phase 13]: Visible text truncated to 12000 chars (~3000 tokens) for LLM context limits
 - [Phase 13]: Playwright startup nested inside admin try block -- recipe tools only useful with admin agent
 - [Phase 13]: Resource blocking targets image/media/font/stylesheet only (XHR/fetch preserved for SPAs)
+- [Phase 13]: Recipe delivery indicators use specific phrases (items added, no recipe found, error fetching) -- bare "from" too broad
+- [Phase 13]: Source attribution subtitle uses Pressable+Linking.openURL for browser navigation on tap
+- [Phase 13]: Source fields are optional (None default) -- regular errand items unaffected
 
 ### Research Findings (Critical for v3.0)
 
@@ -186,5 +190,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-20
-Stopped at: Completed 13-01-PLAN.md
-Resume action: Continue with 13-02-PLAN.md (API response model + admin handoff updates)
+Stopped at: Completed 13-02-PLAN.md
+Resume action: Continue with 13-03-PLAN.md (Admin Agent instructions and end-to-end testing)
