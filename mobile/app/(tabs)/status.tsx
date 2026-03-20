@@ -20,6 +20,8 @@ interface ErrandItem {
   name: string;
   destination: string;
   needsRouting?: boolean;
+  sourceName?: string;
+  sourceUrl?: string;
 }
 
 interface TaskItem {

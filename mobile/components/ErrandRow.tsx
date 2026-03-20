@@ -1,9 +1,15 @@
 import { useRef } from "react";
-import { View, Text, StyleSheet, Animated } from "react-native";
+import { View, Text, StyleSheet, Animated, Linking, Pressable } from "react-native";
 import { Swipeable } from "react-native-gesture-handler";
 
 interface ErrandRowProps {
-  item: { id: string; name: string; destination: string };
+  item: {
+    id: string;
+    name: string;
+    destination: string;
+    sourceName?: string;
+    sourceUrl?: string;
+  };
   onDelete: (itemId: string, destination: string) => void;
 }
 
@@ -51,6 +57,13 @@ export function ErrandRow({ item, onDelete }: ErrandRowProps) {
     >
       <View style={styles.row}>
         <Text style={styles.itemName}>{item.name}</Text>
+        {item.sourceName && (
+          <Pressable
+            onPress={() => item.sourceUrl && Linking.openURL(item.sourceUrl)}
+          >
+            <Text style={styles.sourceText}>from: {item.sourceName}</Text>
+          </Pressable>
+        )}
       </View>
     </Swipeable>
   );
@@ -68,6 +81,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: "#ffffff",
     lineHeight: 20,
+  },
+  sourceText: {
+    fontSize: 12,
+    color: "#888888",
+    marginTop: 2,
   },
   deleteAction: {
     backgroundColor: "#dc2626",
