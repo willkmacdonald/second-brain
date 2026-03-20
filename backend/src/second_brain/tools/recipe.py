@@ -52,6 +52,7 @@ class RecipeTools:
         If the page cannot be loaded or contains no useful content,
         returns an error message.
         """
+        logger.warning("fetch_recipe_url called for: %s", url)
         context = await self._browser.new_context(user_agent=USER_AGENT)
         try:
             page = await context.new_page()
@@ -70,10 +71,20 @@ class RecipeTools:
 
             # Extract visible text
             visible_text = await page.evaluate("document.body.innerText")
+            logger.warning(
+                "fetch_recipe_url text length=%d first_200=%s",
+                len(visible_text) if visible_text else 0,
+                (visible_text[:200] if visible_text else "(empty)"),
+            )
 
             # Extract JSON-LD structured data if present
             html = await page.content()
             json_ld = _extract_json_ld_recipe(html)
+            logger.warning(
+                "fetch_recipe_url json_ld=%s html_length=%d",
+                "found" if json_ld else "none",
+                len(html),
+            )
 
             # Build response for the agent
             parts: list[str] = []
@@ -89,10 +100,16 @@ class RecipeTools:
                 parts.append(f"PAGE TEXT:\n{truncated_text}")
 
             if not parts:
+                logger.warning("fetch_recipe_url: no extractable content for %s", url)
                 return (
                     f"Error: Page at {url} loaded but contained no extractable content."
                 )
 
+            logger.warning(
+                "fetch_recipe_url success: %d parts, total_chars=%d",
+                len(parts),
+                sum(len(p) for p in parts),
+            )
             return "\n\n---\n\n".join(parts)
 
         except Exception as exc:
