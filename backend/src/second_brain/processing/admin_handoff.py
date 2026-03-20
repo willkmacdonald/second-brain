@@ -77,6 +77,9 @@ def _response_needs_delivery(response_text: str | None) -> bool:
         "renamed",
         "removed destination",
         "no matching rule",
+        "items added",
+        "no recipe found",
+        "error fetching",
     ]
     return any(indicator in text_lower for indicator in delivery_indicators)
 

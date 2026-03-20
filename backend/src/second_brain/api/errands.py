@@ -34,6 +34,8 @@ class ErrandItemResponse(BaseModel):
     name: str
     destination: str
     needsRouting: bool = False  # noqa: N815
+    sourceName: str | None = None  # noqa: N815
+    sourceUrl: str | None = None  # noqa: N815
 
 
 class DestinationSection(BaseModel):
@@ -112,6 +114,8 @@ async def get_errands(request: Request) -> ErrandsResponse:
                     name=item["name"],
                     destination=item.get("destination", slug),
                     needsRouting=item.get("needsRouting", False),
+                    sourceName=item.get("sourceName"),
+                    sourceUrl=item.get("sourceUrl"),
                 )
             )
 
@@ -139,6 +143,8 @@ async def get_errands(request: Request) -> ErrandsResponse:
                 name=item["name"],
                 destination="unrouted",
                 needsRouting=True,
+                sourceName=item.get("sourceName"),
+                sourceUrl=item.get("sourceUrl"),
             )
         )
 
