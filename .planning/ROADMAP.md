@@ -220,11 +220,12 @@ Plans:
   2. Extracted ingredients appear on the appropriate store shopping lists as individual items
   3. Shopping list items originating from a recipe show source attribution (recipe name and/or URL) so the user knows where the item came from
   4. When a URL cannot be fetched or contains no recognizable recipe, the system fails gracefully with a clear message rather than silently dropping the capture
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 13-01: TBD
-- [ ] 13-02: TBD
+- [ ] 13-01-PLAN.md -- Playwright infrastructure, RecipeTools fetch_recipe_url tool, ErrandItem source fields, Dockerfile + lifespan wiring
+- [ ] 13-02-PLAN.md -- API response source fields, delivery heuristic for recipe summaries, mobile ErrandRow source attribution subtitle
+- [ ] 13-03-PLAN.md -- Admin Agent Foundry instructions update + end-to-end UAT
 
 ## Progress
 
