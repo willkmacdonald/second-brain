@@ -111,7 +111,12 @@ export default function CaptureScreen() {
   // Real-time transcription results
   useSpeechRecognitionEvent("result", (event) => {
     const transcript = event.results[0]?.transcript ?? "";
-    transcriptRef.current = transcript;
+    // Only update the submission ref if we got actual text -- stop() can
+    // fire a final "result" with an empty transcript that would wipe out
+    // the real transcription before the "end" event reads it.
+    if (transcript) {
+      transcriptRef.current = transcript;
+    }
     setTranscriptText(transcript);
   });
 
