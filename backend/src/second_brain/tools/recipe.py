@@ -1,11 +1,11 @@
-"""Recipe URL fetching tools for the Admin Agent.
+"""URL fetching tools for page content extraction.
 
-Two-tier fetch strategy:
-1. Simple HTTP (httpx) — fast, avoids bot detection, works for most sites
-2. Playwright headless browser — fallback for JS-rendered pages
+Three-tier fetch strategy:
+1. Jina Reader (r.jina.ai) — returns clean markdown, bypasses bot protection
+2. Simple HTTP (httpx) — fast, direct fetch for sites that allow it
+3. Playwright headless browser — fallback for JS-rendered pages
 
-Extracts visible text and JSON-LD structured data for LLM-based ingredient
-extraction.
+Returns extracted text for LLM-based classification and ingredient extraction.
 """
 
 import json
@@ -30,12 +30,14 @@ USER_AGENT = (
     "Chrome/131.0.0.0 Safari/537.36"
 )
 
+JINA_READER_PREFIX = "https://r.jina.ai/"
+
 # Minimum text length to consider a fetch successful
 MIN_CONTENT_LENGTH = 500
 
 
 class RecipeTools:
-    """Recipe URL fetching tools bound to a Playwright Browser instance."""
+    """URL fetching tools bound to a Playwright Browser instance."""
 
     def __init__(self, browser: Browser) -> None:
         self._browser = browser
@@ -52,8 +54,8 @@ class RecipeTools:
     ) -> str:
         """Fetch a webpage and extract its content.
 
-        Tries a simple HTTP fetch first (fast, avoids bot detection).
-        Falls back to headless browser for JS-rendered pages.
+        Tries Jina Reader first (clean markdown, bypasses bot protection),
+        then simple HTTP, then headless browser as fallback.
         Returns the extracted content for the agent to parse.
 
         If the page cannot be loaded or contains no useful content,
@@ -65,19 +67,26 @@ class RecipeTools:
         url = _normalize_url(url)
         logger.warning("fetch_recipe_url normalized to: %s", url)
 
-        # Tier 1: Simple HTTP fetch
-        text, html, source = await self._fetch_simple(url)
+        # Tier 1: Jina Reader (bypasses Cloudflare/bot protection)
+        text = await self._fetch_jina(url)
 
-        # If simple fetch got enough content, use it
-        if text and len(text) >= MIN_CONTENT_LENGTH:
+        # Tier 2: Simple HTTP if Jina failed
+        html = ""
+        source = "jina"
+        if not text or len(text) < MIN_CONTENT_LENGTH:
             logger.warning(
-                "fetch_recipe_url: simple HTTP succeeded, text_length=%d",
-                len(text),
+                "fetch_recipe_url: Jina insufficient (text_length=%d), "
+                "trying httpx",
+                len(text) if text else 0,
             )
-        else:
-            # Tier 2: Playwright fallback
+            http_text, html, source = await self._fetch_simple(url)
+            if http_text and len(http_text) > len(text or ""):
+                text = http_text
+
+        # Tier 3: Playwright if still insufficient
+        if not text or len(text) < MIN_CONTENT_LENGTH:
             logger.warning(
-                "fetch_recipe_url: simple HTTP insufficient (text_length=%d), "
+                "fetch_recipe_url: httpx insufficient (text_length=%d), "
                 "trying Playwright",
                 len(text) if text else 0,
             )
@@ -93,13 +102,8 @@ class RecipeTools:
             (text[:200] if text else "(empty)"),
         )
 
-        # Extract JSON-LD structured data if present
+        # Extract JSON-LD structured data if we have HTML
         json_ld = _extract_json_ld_recipe(html) if html else None
-        logger.warning(
-            "fetch_recipe_url json_ld=%s html_length=%d",
-            "found" if json_ld else "none",
-            len(html) if html else 0,
-        )
 
         # Build response for the agent
         parts: list[str] = []
@@ -107,7 +111,7 @@ class RecipeTools:
             json_str = json.dumps(json_ld, indent=2)
             parts.append(f"STRUCTURED RECIPE DATA (JSON-LD):\n{json_str}")
 
-        # Truncate visible text to fit LLM context (~12k chars = ~3k tokens)
+        # Truncate text to fit LLM context (~12k chars = ~3k tokens)
         truncated_text = text[:12000] if text else ""
         if truncated_text:
             parts.append(f"PAGE TEXT:\n{truncated_text}")
@@ -127,6 +131,25 @@ class RecipeTools:
             sum(len(p) for p in parts),
         )
         return "\n\n---\n\n".join(parts)
+
+    async def _fetch_jina(self, url: str) -> str:
+        """Fetch via Jina Reader. Returns clean markdown text."""
+        try:
+            jina_url = f"{JINA_READER_PREFIX}{url}"
+            async with httpx.AsyncClient(
+                timeout=30.0,
+                headers={"Accept": "text/plain"},
+            ) as client:
+                resp = await client.get(jina_url)
+                resp.raise_for_status()
+                text = resp.text
+                logger.warning(
+                    "Jina Reader succeeded for %s: %d chars", url, len(text)
+                )
+                return text
+        except Exception as exc:
+            logger.warning("Jina Reader failed for %s: %s", url, exc)
+            return ""
 
     async def _fetch_simple(self, url: str) -> tuple[str, str, str]:
         """Fetch via httpx. Returns (visible_text, html, source_label)."""
@@ -228,12 +251,10 @@ def _normalize_url(url: str) -> str:
 
     - open.substack.com/pub/{name}/p/{slug} → {name}.substack.com/p/{slug}
       Substack's share URLs use open.substack.com which serves a JS-only
-      redirect page that httpx/Playwright can't follow. The canonical
-      subdomain URL returns full HTML.
+      redirect page. The canonical subdomain URL works with Jina Reader.
     """
     parsed = urlparse(url)
 
-    # open.substack.com/pub/{publication}/p/{slug} → {publication}.substack.com/p/{slug}
     if parsed.hostname == "open.substack.com":
         match = re.match(r"/pub/([^/]+)/p/(.+)", parsed.path)
         if match:
