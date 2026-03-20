@@ -15,7 +15,12 @@
     },
     "ios": {
       "bundleIdentifier": "com.willkmacdonald.secondbrain",
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSSpeechRecognitionUsageDescription": "Allow Second Brain to use speech recognition for voice-to-text capture.",
+        "NSMicrophoneUsageDescription": "Allow Second Brain to access your microphone for voice capture.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
