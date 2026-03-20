@@ -10,7 +10,9 @@ extraction.
 
 import json
 import logging
+import re
 from typing import Annotated
+from urllib.parse import urlparse, urlunparse
 
 import httpx
 from agent_framework import tool
@@ -58,6 +60,10 @@ class RecipeTools:
         returns an error message.
         """
         logger.warning("fetch_recipe_url called for: %s", url)
+
+        # Normalize known problematic URL patterns
+        url = _normalize_url(url)
+        logger.warning("fetch_recipe_url normalized to: %s", url)
 
         # Tier 1: Simple HTTP fetch
         text, html, source = await self._fetch_simple(url)
@@ -215,3 +221,27 @@ def _extract_json_ld_recipe(html: str) -> dict | None:
     except Exception:
         pass
     return None
+
+
+def _normalize_url(url: str) -> str:
+    """Rewrite known problematic URL patterns to their canonical form.
+
+    - open.substack.com/pub/{name}/p/{slug} → {name}.substack.com/p/{slug}
+      Substack's share URLs use open.substack.com which serves a JS-only
+      redirect page that httpx/Playwright can't follow. The canonical
+      subdomain URL returns full HTML.
+    """
+    parsed = urlparse(url)
+
+    # open.substack.com/pub/{publication}/p/{slug} → {publication}.substack.com/p/{slug}
+    if parsed.hostname == "open.substack.com":
+        match = re.match(r"/pub/([^/]+)/p/(.+)", parsed.path)
+        if match:
+            publication, slug = match.group(1), match.group(2)
+            canonical = parsed._replace(
+                netloc=f"{publication}.substack.com",
+                path=f"/p/{slug}",
+            )
+            return urlunparse(canonical)
+
+    return url
