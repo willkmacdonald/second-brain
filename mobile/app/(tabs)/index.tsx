@@ -301,7 +301,15 @@ export default function CaptureScreen() {
       return;
     }
 
-    // Submit even if empty -- let classifier handle it (may trigger HITL)
+    // If no transcript was captured, don't submit -- the "end" event
+    // sometimes fires without a final "result" (e.g., very short recordings
+    // or recognition failing silently). Submitting empty text causes an
+    // Azure API error.
+    if (!text) {
+      setToast({ message: "Nothing captured. Try again.", type: "error" });
+      return;
+    }
+
     setProcessing(true);
     setProcessingStage("classifying");
 
