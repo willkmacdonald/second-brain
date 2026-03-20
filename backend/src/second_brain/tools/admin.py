@@ -126,11 +126,14 @@ class AdminTools:
             Field(
                 description=(
                     "List of errand items to add. Each dict must have "
-                    "'name' (str, lowercase, natural language like '2 lbs ground beef') "
-                    "and 'destination' (str, the destination slug from routing context). "
-                    "Set destination to 'unrouted' if no affinity rule matches the item. "
-                    "Optionally include 'sourceName' (str, recipe title) and "
-                    "'sourceUrl' (str, recipe page URL) for items extracted from recipes."
+                    "'name' (str, lowercase, natural language "
+                    "like '2 lbs ground beef') and 'destination' "
+                    "(str, the destination slug from routing context). "
+                    "Set destination to 'unrouted' if no affinity "
+                    "rule matches the item. Optionally include "
+                    "'sourceName' (str, recipe title) and "
+                    "'sourceUrl' (str, recipe page URL) "
+                    "for items extracted from recipes."
                 )
             ),
         ],
@@ -149,8 +152,10 @@ class AdminTools:
             name = item_data.get("name", "").strip().lower()
             # Accept both "destination" (new) and "store" (legacy Agent instructions)
             destination = (
-                item_data.get("destination") or item_data.get("store") or "unrouted"
-            ).strip().lower()
+                (item_data.get("destination") or item_data.get("store") or "unrouted")
+                .strip()
+                .lower()
+            )
 
             # Skip items with empty names
             if not name:
@@ -247,9 +252,7 @@ class AdminTools:
         action: Annotated[
             str, Field(description="Action: 'create', 'rename', 'remove'")
         ],
-        name: Annotated[
-            str, Field(description="Destination name (e.g., 'Costco')")
-        ],
+        name: Annotated[str, Field(description="Destination name (e.g., 'Costco')")],
         slug: Annotated[
             str, Field(description="URL-safe lowercase slug (e.g., 'costco')")
         ],
@@ -291,9 +294,7 @@ class AdminTools:
             return f"Destination '{name}' already exists."
 
         dtype = destination_type or "physical"
-        doc = DestinationDocument(
-            id=slug, slug=slug, displayName=name, type=dtype
-        )
+        doc = DestinationDocument(id=slug, slug=slug, displayName=name, type=dtype)
         container = self._manager.get_container("Destinations")
         await container.create_item(body=doc.model_dump(mode="json"))
         return f"Created destination '{name}' (slug: {slug}, type: {dtype})."
@@ -376,8 +377,7 @@ class AdminTools:
             str,
             Field(
                 description=(
-                    "Rule in natural language "
-                    "(e.g., 'chicken always goes to Agora')"
+                    "Rule in natural language (e.g., 'chicken always goes to Agora')"
                 )
             ),
         ],
@@ -418,13 +418,21 @@ class AdminTools:
 
         if action == "create":
             return await self._rule_create(
-                natural_language, item_pattern, destination_slug,
-                rule_type, exceptions, auto_saved,
+                natural_language,
+                item_pattern,
+                destination_slug,
+                rule_type,
+                exceptions,
+                auto_saved,
             )
         elif action == "update":
             return await self._rule_update(
-                natural_language, item_pattern, destination_slug,
-                rule_type, exceptions, auto_saved,
+                natural_language,
+                item_pattern,
+                destination_slug,
+                rule_type,
+                exceptions,
+                auto_saved,
             )
         elif action == "delete":
             return await self._rule_delete(item_pattern)

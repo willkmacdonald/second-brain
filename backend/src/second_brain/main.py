@@ -46,8 +46,11 @@ from second_brain.auth import APIKeyMiddleware  # noqa: E402
 from second_brain.config import get_settings  # noqa: E402
 from second_brain.db.blob_storage import BlobStorageManager  # noqa: E402
 from second_brain.db.cosmos import CosmosManager  # noqa: E402
+from playwright.async_api import async_playwright  # noqa: E402
+
 from second_brain.tools.admin import AdminTools  # noqa: E402
 from second_brain.tools.classification import ClassifierTools  # noqa: E402
+from second_brain.tools.recipe import RecipeTools  # noqa: E402
 from second_brain.tools.transcription import TranscriptionTools  # noqa: E402
 from second_brain.warmup import agent_warmup_loop  # noqa: E402
 
@@ -245,6 +248,39 @@ async def lifespan(app: FastAPI):
                 admin_agent_id,
                 len(app.state.admin_agent_tools),
             )
+
+            # --- Playwright browser for recipe URL fetching ---
+            try:
+                pw = await async_playwright().start()
+                browser = await pw.chromium.launch(
+                    headless=True,
+                    args=[
+                        "--disable-dev-shm-usage",
+                        "--disable-gpu",
+                        "--no-sandbox",
+                        "--disable-software-rasterizer",
+                    ],
+                )
+                app.state.playwright = pw
+                app.state.browser = browser
+
+                recipe_tools = RecipeTools(browser=browser)
+                app.state.recipe_tools = recipe_tools
+                app.state.admin_agent_tools.append(recipe_tools.fetch_recipe_url)
+
+                logger.info(
+                    "Playwright browser started, fetch_recipe_url tool registered"
+                )
+            except Exception:
+                logger.warning(
+                    "Playwright browser launch failed "
+                    "-- recipe URL fetching unavailable",
+                    exc_info=True,
+                )
+                app.state.playwright = None
+                app.state.browser = None
+                app.state.recipe_tools = None
+
         except Exception:
             logger.warning(
                 "Admin agent registration failed -- admin features unavailable",
@@ -254,6 +290,9 @@ async def lifespan(app: FastAPI):
             app.state.admin_client = None
             app.state.admin_tools = None
             app.state.admin_agent_tools = []
+            app.state.playwright = None
+            app.state.browser = None
+            app.state.recipe_tools = None
 
         # --- Background task tracking ---
         # Strong references prevent GC of fire-and-forget tasks.
@@ -289,6 +328,11 @@ async def lifespan(app: FastAPI):
         # Cleanup in reverse order
         if warmup_task is not None:
             warmup_task.cancel()
+
+        if getattr(app.state, "browser", None) is not None:
+            await app.state.browser.close()
+        if getattr(app.state, "playwright", None) is not None:
+            await app.state.playwright.stop()
 
         if getattr(app.state, "blob_manager", None) is not None:
             await app.state.blob_manager.close()
