@@ -267,9 +267,13 @@ async def lifespan(app: FastAPI):
                 recipe_tools = RecipeTools(browser=browser)
                 app.state.recipe_tools = recipe_tools
                 app.state.admin_agent_tools.append(recipe_tools.fetch_recipe_url)
+                app.state.classifier_agent_tools.append(
+                    recipe_tools.fetch_recipe_url
+                )
 
                 logger.info(
-                    "Playwright browser started, fetch_recipe_url tool registered"
+                    "Playwright browser started, fetch_recipe_url tool registered "
+                    "(admin + classifier)"
                 )
             except Exception:
                 logger.warning(
