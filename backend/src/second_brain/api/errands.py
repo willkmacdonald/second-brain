@@ -14,7 +14,7 @@ import logging
 
 from azure.cosmos.exceptions import CosmosResourceNotFoundError
 from fastapi import APIRouter, HTTPException, Query, Request, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from second_brain.models.documents import AffinityRuleDocument
 from second_brain.processing.admin_handoff import (
@@ -67,7 +67,7 @@ class ErrandsResponse(BaseModel):
 class RouteItemBody(BaseModel):
     """Request body for routing an unrouted errand item."""
 
-    destinationSlug: str  # noqa: N815
+    destinationSlug: str = Field(..., max_length=100)  # noqa: N815
     saveRule: bool = True  # noqa: N815
 
 

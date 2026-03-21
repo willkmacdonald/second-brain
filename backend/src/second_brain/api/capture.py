@@ -70,7 +70,7 @@ class FollowUpBody(BaseModel):
     """Request body for follow-up capture (misunderstood re-classification)."""
 
     inbox_item_id: str
-    follow_up_text: str
+    follow_up_text: str = Field(..., max_length=10000)
     follow_up_round: int = 1
 
 

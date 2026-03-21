@@ -40,8 +40,9 @@ class Settings(BaseSettings):
     # Database
     database_name: str = "second-brain"
 
-    # Environment (controls docs visibility)
-    environment: str = "development"
+    # Environment (controls docs visibility -- defaults to production
+    # so Swagger is not accidentally exposed if env var is unset)
+    environment: str = "production"
 
     model_config = {
         "env_file": ".env",

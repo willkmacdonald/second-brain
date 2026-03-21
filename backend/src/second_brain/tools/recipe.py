@@ -8,9 +8,11 @@ Three-tier fetch strategy:
 Returns extracted text for LLM-based classification and ingredient extraction.
 """
 
+import ipaddress
 import json
 import logging
 import re
+import socket
 from typing import Annotated
 from urllib.parse import urlparse, urlunparse
 
@@ -34,6 +36,48 @@ JINA_READER_PREFIX = "https://r.jina.ai/"
 
 # Minimum text length to consider a fetch successful
 MIN_CONTENT_LENGTH = 500
+
+
+def _is_safe_url(url: str) -> bool:
+    """Reject URLs targeting internal/private networks (SSRF protection).
+
+    Blocks private IPs, loopback, link-local, cloud metadata endpoints,
+    and non-HTTP(S) schemes. Resolves the hostname to catch DNS rebinding
+    of public hostnames to private IPs.
+    """
+    parsed = urlparse(url)
+
+    # Only allow http/https
+    if parsed.scheme not in ("http", "https"):
+        return False
+
+    hostname = parsed.hostname
+    if not hostname:
+        return False
+
+    # Block obvious private/meta hostnames
+    blocked_hostnames = {
+        "localhost",
+        "metadata.google.internal",
+        "metadata.azure.internal",
+    }
+    if hostname in blocked_hostnames:
+        return False
+
+    # Resolve hostname and check all IPs
+    try:
+        addr_infos = socket.getaddrinfo(
+            hostname, None, proto=socket.IPPROTO_TCP
+        )
+    except socket.gaierror:
+        return False
+
+    for info in addr_infos:
+        ip = ipaddress.ip_address(info[4][0])
+        if ip.is_private or ip.is_loopback or ip.is_link_local:
+            return False
+
+    return True
 
 
 class RecipeTools:
@@ -63,6 +107,11 @@ class RecipeTools:
         """
         # Normalize known problematic URL patterns
         url = _normalize_url(url)
+
+        # SSRF protection: block private/internal URLs
+        if not _is_safe_url(url):
+            logger.warning("Blocked SSRF attempt: %s", url)
+            return f"Error: URL '{url}' is not allowed (internal/private)."
 
         # Tier 1: Jina Reader (bypasses Cloudflare/bot protection)
         text = await self._fetch_jina(url)
