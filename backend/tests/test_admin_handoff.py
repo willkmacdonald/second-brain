@@ -386,14 +386,14 @@ class TestProcessAdminCaptureNoToolCall:
         # Inbox item SHOULD be deleted since output tool was called
         container.delete_item.assert_called_once()
 
-    async def test_intermediate_tool_only_marks_failed(
+    async def test_intermediate_tool_only_retries_then_marks_failed(
         self, mock_cosmos_manager
     ):
-        """Agent calls fetch_recipe_url but not add_errand_items — marks failed.
+        """Agent calls fetch_recipe_url but not add_errand_items — retries once.
 
         This is the recipe URL bug: agent fetches the page but doesn't
-        follow through with add_errand_items, so no shopping items are
-        created. The inbox item must stay visible for retry.
+        follow through with add_errand_items. The code retries with a
+        nudge prompt. If retry also fails, marks as failed.
         """
         # Two tools: fetch_recipe_url (intermediate) and add_errand_items (output)
         fetch_tool = _make_mock_tool(name="fetch_recipe_url", invocation_count=0)
@@ -421,7 +421,15 @@ class TestProcessAdminCaptureNoToolCall:
 
         container = mock_cosmos_manager.get_container("Inbox")
 
-        # Inbox item should NOT be deleted — no output was produced
+        # Agent called twice (initial + retry)
+        assert client.get_response.call_count == 2
+
+        # Retry prompt should contain the nudge
+        retry_call = client.get_response.call_args_list[1]
+        retry_msgs = retry_call.kwargs.get("messages") or retry_call[1].get("messages")
+        assert "MUST call add_errand_items" in retry_msgs[0].text
+
+        # Inbox item should NOT be deleted — retry also failed
         container.delete_item.assert_not_called()
 
         # Should be marked as failed
@@ -430,6 +438,50 @@ class TestProcessAdminCaptureNoToolCall:
             "body"
         )
         assert last_body["adminProcessingStatus"] == "failed"
+
+    async def test_intermediate_tool_retry_succeeds(
+        self, mock_cosmos_manager
+    ):
+        """Agent calls fetch_recipe_url, retry succeeds with add_errand_items.
+
+        First call: only fetch_recipe_url. Retry: add_errand_items called.
+        Inbox item should be deleted (success).
+        """
+        fetch_tool = _make_mock_tool(name="fetch_recipe_url", invocation_count=0)
+        errand_tool = _make_mock_tool(name="add_errand_items", invocation_count=0)
+        tools = [fetch_tool, errand_tool]
+
+        client = AsyncMock()
+        response = MagicMock()
+        response.text = "Added 12 items: 8 to jewel, 4 to agora"
+
+        call_count = 0
+
+        async def _fetch_then_add(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                # First call: only intermediate tool
+                fetch_tool.invocation_count += 1
+            else:
+                # Retry: output tool called
+                errand_tool.invocation_count += 1
+            return response
+
+        client.get_response = AsyncMock(side_effect=_fetch_then_add)
+
+        await process_admin_capture(
+            admin_client=client,
+            admin_tools=tools,
+            cosmos_manager=mock_cosmos_manager,
+            inbox_item_id="test-inbox-id",
+            raw_text="https://www.allrecipes.com/recipe/chicken-tikka-masala/",
+        )
+
+        container = mock_cosmos_manager.get_container("Inbox")
+
+        # Inbox item SHOULD be deleted — retry succeeded
+        container.delete_item.assert_called_once()
 
     async def test_tool_call_still_deletes(
         self, mock_admin_client, mock_cosmos_manager, mock_admin_tools

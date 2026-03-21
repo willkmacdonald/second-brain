@@ -235,18 +235,54 @@ async def process_admin_capture(
             if not output_tool_called:
                 # Agent called intermediate tools (e.g. fetch_recipe_url)
                 # but never followed up with add_errand_items/add_task_items.
-                # Keep the inbox item visible for retry.
+                # Retry once with the agent's text response as context.
+                response_text = response.text if response.text else ""
                 logger.warning(
-                    "Admin Agent called tools but not add_errand_items/"
-                    "add_task_items for inbox item %s (text: %.80s). "
-                    "Marking as failed -- intermediate tool ran without "
-                    "producing output.",
+                    "Admin Agent called intermediate tools but not "
+                    "add_errand_items/add_task_items for inbox item %s. "
+                    "Retrying with nudge.",
                     inbox_item_id,
-                    raw_text,
                 )
-                span.set_attribute("admin.outcome", "no_output_tool")
-                await _mark_inbox_failed(inbox_container, inbox_item_id, span)
-                return
+                span.set_attribute("admin.retry", True)
+
+                retry_prompt = (
+                    f"{enriched_text}\n\n"
+                    f"---\n"
+                    f"IMPORTANT: You already fetched the URL content "
+                    f"above. Now you MUST call add_errand_items with "
+                    f"the extracted ingredients. Do NOT respond with "
+                    f"text -- call the tool.\n\n"
+                    f"Your previous response was:\n{response_text}"
+                )
+                retry_messages = [Message(role="user", text=retry_prompt)]
+
+                pre_output_count_2 = _count_output_tool_invocations(
+                    admin_tools
+                )
+
+                async with asyncio.timeout(60):
+                    response = await admin_client.get_response(
+                        messages=retry_messages, options=options
+                    )
+
+                post_output_count_2 = _count_output_tool_invocations(
+                    admin_tools
+                )
+                output_tool_called = post_output_count_2 > pre_output_count_2
+
+                if not output_tool_called:
+                    logger.warning(
+                        "Admin Agent retry also failed to call output "
+                        "tools for inbox item %s. Marking as failed.",
+                        inbox_item_id,
+                    )
+                    span.set_attribute("admin.outcome", "no_output_tool")
+                    await _mark_inbox_failed(
+                        inbox_container, inbox_item_id, span
+                    )
+                    return
+
+                span.set_attribute("admin.outcome", "retry_succeeded")
 
             # Tool was called -- decide whether to keep or delete inbox item
             response_text = response.text if response.text else None
