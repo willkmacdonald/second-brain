@@ -36,6 +36,34 @@ def _count_tool_invocations(tools: list) -> int:
     return total
 
 
+# Tools that produce user-visible output. Intermediate tools like
+# fetch_recipe_url and get_routing_context gather data but don't complete
+# the agent's job — calling them alone means the agent stalled.
+_OUTPUT_TOOL_NAMES = {
+    "add_errand_items",
+    "add_task_items",
+    "manage_destination",
+    "manage_affinity_rule",
+    "query_rules",
+}
+
+
+def _count_output_tool_invocations(tools: list) -> int:
+    """Count invocations of output-producing tools only.
+
+    fetch_recipe_url and get_routing_context are intermediate tools — calling
+    them without following up with add_errand_items or add_task_items means
+    the agent didn't complete its work.
+    """
+    total = 0
+    for t in tools:
+        name = getattr(t, "name", None)
+        count = getattr(t, "invocation_count", None)
+        if name in _OUTPUT_TOOL_NAMES and count is not None:
+            total += count
+    return total
+
+
 def _response_needs_delivery(response_text: str | None) -> bool:
     """Check if the Admin Agent response contains information the user needs to see.
 
@@ -174,32 +202,49 @@ async def process_admin_capture(
             messages = [Message(role="user", text=enriched_text)]
             options = ChatOptions(tools=admin_tools)
 
-            # Snapshot tool invocation count before calling the agent
+            # Snapshot tool invocation counts before calling the agent
             pre_count = _count_tool_invocations(admin_tools)
+            pre_output_count = _count_output_tool_invocations(admin_tools)
 
             async with asyncio.timeout(60):
                 response = await admin_client.get_response(
                     messages=messages, options=options
                 )
 
-            # Check whether the agent actually invoked any tools
+            # Check whether the agent produced output (errands or tasks)
             post_count = _count_tool_invocations(admin_tools)
-            tool_was_called = post_count > pre_count
+            post_output_count = _count_output_tool_invocations(admin_tools)
+            any_tool_called = post_count > pre_count
+            output_tool_called = post_output_count > pre_output_count
 
-            span.set_attribute("admin.tool_invoked", tool_was_called)
+            span.set_attribute("admin.tool_invoked", any_tool_called)
+            span.set_attribute("admin.output_tool_invoked", output_tool_called)
 
-            if not tool_was_called:
-                # Agent responded without calling add_errand_items.
-                # Do NOT delete the inbox item -- mark it as failed so it
-                # stays visible for retry.
+            if not any_tool_called:
+                # Agent responded without calling any tools at all.
                 logger.warning(
-                    "Admin Agent did not call tool for inbox item %s "
-                    "(text: %.80s). Marking as failed to prevent "
-                    "silent data loss.",
+                    "Admin Agent did not call any tool for inbox item %s "
+                    "(text: %.80s). Marking as failed.",
                     inbox_item_id,
                     raw_text,
                 )
                 span.set_attribute("admin.outcome", "no_tool_call")
+                await _mark_inbox_failed(inbox_container, inbox_item_id, span)
+                return
+
+            if not output_tool_called:
+                # Agent called intermediate tools (e.g. fetch_recipe_url)
+                # but never followed up with add_errand_items/add_task_items.
+                # Keep the inbox item visible for retry.
+                logger.warning(
+                    "Admin Agent called tools but not add_errand_items/"
+                    "add_task_items for inbox item %s (text: %.80s). "
+                    "Marking as failed -- intermediate tool ran without "
+                    "producing output.",
+                    inbox_item_id,
+                    raw_text,
+                )
+                span.set_attribute("admin.outcome", "no_output_tool")
                 await _mark_inbox_failed(inbox_container, inbox_item_id, span)
                 return
 

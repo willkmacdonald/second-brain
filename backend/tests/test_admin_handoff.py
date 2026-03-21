@@ -17,21 +17,28 @@ from second_brain.processing.admin_handoff import (
 )
 
 
-def _make_mock_tool(invocation_count: int = 0) -> MagicMock:
-    """Create a mock tool with an invocation_count attribute.
+def _make_mock_tool(
+    name: str = "add_errand_items", invocation_count: int = 0
+) -> MagicMock:
+    """Create a mock tool with name and invocation_count attributes.
 
     Simulates FunctionTool's invocation tracking used by
-    _count_tool_invocations in admin_handoff.py.
+    _count_tool_invocations and _count_output_tool_invocations.
     """
     tool_fn = MagicMock()
+    tool_fn.name = name
     tool_fn.invocation_count = invocation_count
     return tool_fn
 
 
 @pytest.fixture
 def mock_admin_tools():
-    """Mock tool list for Admin Agent (starts with 0 invocations)."""
-    return [_make_mock_tool(invocation_count=0)]
+    """Mock tool list for Admin Agent (starts with 0 invocations).
+
+    Uses add_errand_items as the default tool name so it counts as an
+    output tool in _count_output_tool_invocations.
+    """
+    return [_make_mock_tool(name="add_errand_items", invocation_count=0)]
 
 
 @pytest.fixture
@@ -347,14 +354,13 @@ class TestProcessAdminCaptureNoToolCall:
             raw_text="random text",
         )
 
-    async def test_tool_called_deletes_inbox_item(
+    async def test_output_tool_called_deletes_inbox_item(
         self, mock_cosmos_manager, mock_admin_tools
     ):
-        """Tool called — inbox item is deleted regardless of items written.
+        """Output tool called — inbox item is deleted.
 
-        We trust that if the agent invoked the tool, it did its job.
-        The FunctionTool wrapper doesn't expose __self__, so we can't
-        check last_items_written — and don't need to.
+        We trust that if the agent invoked an output tool (add_errand_items,
+        add_task_items, etc.), it completed its job.
         """
         client = AsyncMock()
         response = MagicMock()
@@ -377,8 +383,53 @@ class TestProcessAdminCaptureNoToolCall:
 
         container = mock_cosmos_manager.get_container("Inbox")
 
-        # Inbox item SHOULD be deleted since tool was called
+        # Inbox item SHOULD be deleted since output tool was called
         container.delete_item.assert_called_once()
+
+    async def test_intermediate_tool_only_marks_failed(
+        self, mock_cosmos_manager
+    ):
+        """Agent calls fetch_recipe_url but not add_errand_items — marks failed.
+
+        This is the recipe URL bug: agent fetches the page but doesn't
+        follow through with add_errand_items, so no shopping items are
+        created. The inbox item must stay visible for retry.
+        """
+        # Two tools: fetch_recipe_url (intermediate) and add_errand_items (output)
+        fetch_tool = _make_mock_tool(name="fetch_recipe_url", invocation_count=0)
+        errand_tool = _make_mock_tool(name="add_errand_items", invocation_count=0)
+        tools = [fetch_tool, errand_tool]
+
+        client = AsyncMock()
+        response = MagicMock()
+        response.text = "Here's the recipe for Chicken Tikka Masala..."
+
+        async def _only_fetch(*args, **kwargs):
+            # Only fetch_recipe_url is called, not add_errand_items
+            fetch_tool.invocation_count += 1
+            return response
+
+        client.get_response = AsyncMock(side_effect=_only_fetch)
+
+        await process_admin_capture(
+            admin_client=client,
+            admin_tools=tools,
+            cosmos_manager=mock_cosmos_manager,
+            inbox_item_id="test-inbox-id",
+            raw_text="https://www.allrecipes.com/recipe/chicken-tikka-masala/",
+        )
+
+        container = mock_cosmos_manager.get_container("Inbox")
+
+        # Inbox item should NOT be deleted — no output was produced
+        container.delete_item.assert_not_called()
+
+        # Should be marked as failed
+        upsert_calls = container.upsert_item.call_args_list
+        last_body = upsert_calls[-1].kwargs.get("body") or upsert_calls[-1][1].get(
+            "body"
+        )
+        assert last_body["adminProcessingStatus"] == "failed"
 
     async def test_tool_call_still_deletes(
         self, mock_admin_client, mock_cosmos_manager, mock_admin_tools
