@@ -427,7 +427,7 @@ class TestProcessAdminCaptureNoToolCall:
         # Retry prompt should contain the nudge
         retry_call = client.get_response.call_args_list[1]
         retry_msgs = retry_call.kwargs.get("messages") or retry_call[1].get("messages")
-        assert "MUST call add_errand_items" in retry_msgs[0].text
+        assert "MUST call the appropriate tool" in retry_msgs[0].text
 
         # Inbox item should NOT be deleted — retry also failed
         container.delete_item.assert_not_called()

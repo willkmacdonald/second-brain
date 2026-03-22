@@ -248,10 +248,12 @@ async def process_admin_capture(
                 retry_prompt = (
                     f"{enriched_text}\n\n"
                     f"---\n"
-                    f"IMPORTANT: You already fetched the URL content "
-                    f"above. Now you MUST call add_errand_items with "
-                    f"the extracted ingredients. Do NOT respond with "
-                    f"text -- call the tool.\n\n"
+                    f"IMPORTANT: You already gathered data above but "
+                    f"did not complete the user's request. You MUST "
+                    f"call the appropriate tool (add_errand_items, "
+                    f"add_task_items, manage_destination, etc.) to "
+                    f"finish. Do NOT respond with text -- call the "
+                    f"tool.\n\n"
                     f"Your previous response was:\n{response_text}"
                 )
                 retry_messages = [Message(role="user", text=retry_prompt)]
