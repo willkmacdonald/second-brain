@@ -1052,8 +1052,8 @@ export default function CaptureScreen() {
           </View>
         )}
 
-        {/* Voice mode content (record button, timer/transcription) -- hidden during processing and HITL question */}
-        {mode === "voice" && !processingStage && !agentQuestion && (
+        {/* Voice mode content (record button, timer/transcription) -- hidden during processing, HITL, and bucket picker */}
+        {mode === "voice" && !processingStage && !agentQuestion && !hitlQuestion && (
           <View style={styles.voiceArea}>
             {/* On-device: show real-time transcription text during recording */}
             {isRecording && useOnDevice && (
@@ -1110,8 +1110,8 @@ export default function CaptureScreen() {
           </View>
         )}
 
-        {/* Text mode content (text input + send button) -- hidden during processing */}
-        {mode === "text" && !processingStage && !agentQuestion && (
+        {/* Text mode content (text input + send button) -- hidden during processing and bucket picker */}
+        {mode === "text" && !processingStage && !agentQuestion && !hitlQuestion && (
           <View style={styles.textInputContainer}>
             <TextInput
               style={styles.textInput}
