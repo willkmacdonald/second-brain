@@ -4,7 +4,7 @@
 
 - [x] **v1.0 Text & Voice Capture Loop** - Phases 1-5 plus 4.1, 4.2, 4.3 (shipped 2026-02-25, partial)
 - [x] **v2.0 Foundry Migration & HITL Parity** - Phases 6-9 plus 9.1 (shipped 2026-03-01)
-- [ ] **v3.0 Admin Agent & Shopping Lists** - Phases 10-13 (in progress)
+- [x] **v3.0 Admin Agent & Shopping Lists** - Phases 10-13 (shipped 2026-03-22)
 
 ## Phases
 
@@ -48,7 +48,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 12: Shopping List API and Status Screen** - REST endpoints and mobile tab for viewing, expanding, and removing shopping list items (completed 2026-03-03)
 - [x] **Phase 12.2: Rename Admin infrastructure from shopping lists to errands** (INSERTED) - Rename data model, API, tools, and UI from shopping-specific to generic errands system (completed 2026-03-16)
 - [x] **Phase 12.5: On-Device Voice Transcription (SpeechAnalyzer)** (INSERTED) - Replace cloud transcription with iOS on-device SpeechAnalyzer, eliminating API costs and reducing latency (completed 2026-03-19)
-- [ ] **Phase 13: Recipe URL Extraction** - Paste any recipe webpage URL, LLM extracts ingredients and adds them to shopping list with source attribution
+- [x] **Phase 13: Recipe URL Extraction** - Paste any recipe webpage URL, LLM extracts ingredients and adds them to shopping list with source attribution (completed 2026-03-22)
 
 ## Phase Details
 
@@ -223,9 +223,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 13-01-PLAN.md -- Playwright infrastructure, RecipeTools fetch_recipe_url tool, ErrandItem source fields, Dockerfile + lifespan wiring
-- [ ] 13-02-PLAN.md -- API response source fields, delivery heuristic for recipe summaries, mobile ErrandRow source attribution subtitle
-- [ ] 13-03-PLAN.md -- Admin Agent Foundry instructions update + end-to-end UAT
+- [x] 13-01-PLAN.md -- Playwright infrastructure, RecipeTools fetch_recipe_url tool, ErrandItem source fields, Dockerfile + lifespan wiring
+- [x] 13-02-PLAN.md -- API response source fields, delivery heuristic for recipe summaries, mobile ErrandRow source attribution subtitle
+- [x] 13-03-PLAN.md -- Admin Agent Foundry instructions update + end-to-end UAT
 
 ## Progress
 
@@ -256,7 +256,7 @@ Plans:
 | 12.1 Admin Agent Deletes Processed Items | v3.0 | 2/2 | Complete | 2026-03-03 |
 | 12.2 Rename Admin to Errands | 3/3 | Complete    | 2026-03-16 | - |
 | 12.5 On-Device Voice Transcription | 3/3 | Complete    | 2026-03-19 | - |
-| 13. Recipe URL Extraction | 2/3 | In Progress|  | - |
+| 13. Recipe URL Extraction | 3/3 | Complete   | 2026-03-22 | - |
 | 14. App Insights Operational Audit | v3.0 | 0/TBD | Not started | - |
 
 ### Phase 14: App Insights Operational Audit
@@ -264,7 +264,7 @@ Plans:
 **Goal:** Review and streamline App Insights logging setup to ensure operational effectiveness and efficiency. Audit log levels, query patterns, alert configuration, and cost. Ensure Python logger output is structured and actionable, not noisy.
 **Requirements**: TBD
 **Depends on:** Phase 13
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [ ] TBD (run /gsd:plan-phase 14 to break down)
