@@ -256,7 +256,7 @@ Plans:
 | 12.1 Admin Agent Deletes Processed Items | v3.0 | 2/2 | Complete | 2026-03-03 |
 | 12.2 Rename Admin to Errands | 3/3 | Complete    | 2026-03-16 | - |
 | 12.5 On-Device Voice Transcription | 3/3 | Complete    | 2026-03-19 | - |
-| 13. Recipe URL Extraction | 3/3 | Complete   | 2026-03-22 | - |
+| 13. Recipe URL Extraction | 3/3 | Complete    | 2026-03-22 | - |
 | 14. App Insights Operational Audit | v3.0 | 0/TBD | Not started | - |
 
 ### Phase 14: App Insights Operational Audit
