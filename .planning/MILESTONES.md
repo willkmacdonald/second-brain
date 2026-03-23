@@ -1,5 +1,47 @@
 # Milestones: The Active Second Brain
 
+## v3.0 — Admin Agent & Shopping Lists (Shipped: 2026-03-23)
+
+**Goal:** Add the first specialist agent (Admin Agent) that enriches Admin-classified captures with store-based errand management, dynamic destination routing, recipe URL ingredient extraction, and on-device voice transcription.
+
+**Shipped:** 2026-03-23
+
+**Phases:** 10–15 (plus inserted 11.1, 12.1, 12.2, 12.3, 12.3.1, 12.5)
+
+| Phase | Name | Status |
+|-------|------|--------|
+| 10 | Data Foundation and Admin Tools | Complete |
+| 11 | Admin Agent and Capture Handoff | Complete |
+| 11.1 | Classifier Multi-Bucket Splitting | Complete |
+| 12 | Shopping List API and Status Screen | Complete |
+| 12.1 | Admin Agent Deletes Processed Items | Complete |
+| 12.2 | Rename Admin to Errands | Complete |
+| 12.3 | Destination Affinity System | Complete |
+| 12.3.1 | Security & Dead Code Cleanup | Complete |
+| 12.5 | On-Device Voice Transcription | Complete |
+| 13 | Recipe URL Extraction | Complete |
+| 14 | App Insights Operational Audit | Complete |
+| 15 | v3.0 Tech Debt Cleanup | Complete |
+
+**Last phase number:** 15
+
+**Key accomplishments:**
+- Admin Agent as persistent Foundry agent with silent background processing, delete-after-success, and retry for stuck items
+- Dynamic destination affinity system — voice-managed rules in Cosmos DB, HITL routing with auto-learning, replaced all hardcoded destinations
+- Multi-bucket splitting — batched tool call pairing for mixed-content captures across different buckets
+- Recipe URL extraction — three-tier fetch (Jina Reader, httpx, Playwright), ingredient extraction, source attribution on errand items
+- On-device voice transcription — iOS SFSpeechRecognizer via expo-speech-recognition, eliminating cloud transcription API costs
+- End-to-end observability — per-capture trace IDs from mobile through backend, structured logging, KQL queries, Azure Monitor alerts
+- Security hardening — timing-safe auth, parameterized Cosmos queries, error sanitization, upload validation, production docs lockdown
+
+**Architecture:** Admin Agent as second persistent Foundry agent alongside Classifier. Processing triggered by Status screen GET (not auto-fire). 6 Admin Agent tools for errands, destinations, affinity rules, and recipe fetch. Dynamic routing context injection. Playwright browser lifecycle for recipe scraping.
+
+**33 plans completed** across 12 phases. 40/40 requirements satisfied. 137 commits. 22 days.
+
+**Known gaps:** None critical. Stale `__pycache__` bytecode from rename (harmless). MOBL-03 "tap to check off" scoped to swipe-only by design.
+
+---
+
 ## v2.0 — Foundry Migration & HITL Parity (Shipped: 2026-03-01)
 
 **Goal:** Migrate the capture pipeline from local HandoffBuilder orchestration to Azure AI Foundry Agent Service with persistent agents, and achieve full HITL parity on the new foundation.

@@ -2,97 +2,90 @@
 
 ## What This Is
 
-A personal capture-and-intelligence system that turns fleeting thoughts — voice notes and text — into organized, actionable records across four buckets (People, Projects, Ideas, Admin). Built on Azure AI Foundry Agent Service with a persistent Classifier agent and an Expo mobile app as the capture surface. Will's only job is to capture the thought; the agent handles classification, filing, and HITL clarification automatically.
+A personal capture-and-intelligence system that turns fleeting thoughts — voice notes and text — into organized, actionable records across four buckets (People, Projects, Ideas, Admin). Built on Azure AI Foundry Agent Service with persistent Classifier and Admin agents, an Expo mobile app as the capture surface, and a dynamic errands system with voice-managed destination routing. Will's only job is to capture the thought; the agents handle classification, filing, errand routing, recipe extraction, and HITL clarification automatically.
 
 ## Core Value
 
 One-tap capture from a phone instantly routes through an agent that classifies, files, and clarifies — with zero organizational effort from the user.
 
-## Current State (after v2.0)
+## Current State (after v3.0)
 
-**Shipped:** v2.0 Foundry Migration & HITL Parity (2026-03-01)
-**Architecture:** Azure AI Foundry Agent Service with persistent Classifier agent, FastAPI code-based routing, SSE streaming to Expo mobile app
-**Codebase:** ~2,800 LOC Python (backend), ~19,800 LOC TypeScript (mobile)
+**Shipped:** v3.0 Admin Agent & Shopping Lists (2026-03-23)
+**Architecture:** Azure AI Foundry Agent Service with persistent Classifier and Admin agents, FastAPI code-based routing, SSE streaming to Expo mobile app, Playwright for recipe scraping
+**Codebase:** ~5,100 LOC Python (backend), ~110,800 LOC TypeScript (mobile)
 **Deployed:** Azure Container Apps with CI/CD via GitHub Actions
 
 **What works today:**
 - Text capture → Classifier agent → filed to Cosmos DB with confidence scoring
-- Voice capture → `gpt-4o-transcribe` → Classifier agent → filed
+- Voice capture → on-device SFSpeechRecognizer (iOS) with cloud fallback → Classifier → filed
+- Multi-bucket splitting for mixed-content captures ("buy milk and call the vet")
+- Admin-classified captures → Admin Agent processes silently when user opens Status screen
+- Dynamic destination routing with voice-managed affinity rules and HITL routing for unknowns
+- Recipe URL pasting → three-tier fetch → ingredient extraction → errand items with source attribution
+- Status & Priorities screen with errands grouped by destination, swipe-to-remove, processing banner
+- Admin notifications as dismissible banners (rule confirmations, query responses)
+- Per-capture trace ID propagation from mobile through backend to App Insights
+- Azure Monitor alerts for API errors, capture failures, and health checks
 - Low-confidence captures show bucket buttons for manual selection
 - Misunderstood captures trigger conversational follow-up (text + voice)
-- Unified capture screen with Voice/Text toggle (voice default)
-- Granular processing feedback (Uploading → Classifying)
 - Inbox with detail cards, recategorize, swipe-to-delete
-- Application Insights observability with OTel spans and token usage
-
-## Current Milestone: v3.0 Admin Agent & Shopping Lists
-
-**Goal:** Add the first specialist agent (Admin Agent) that enriches captures with store-based shopping list management, including YouTube recipe ingredient extraction.
-
-**Target features:**
-- Admin Agent as persistent Foundry agent with Classifier → Admin Agent inline handoff
-- Store-based shopping lists (Jewel, CVS, pet store, etc.) with agent-driven store routing
-- YouTube recipe URL → ingredient extraction → shopping list items
-- Ad hoc item capture ("need cat litter") → Admin Agent → assigned to correct store list
-- New "Status & Priorities" screen showing agent-processed output (v3.0: shopping lists only)
-- Swipe-to-remove on shopping list items
-- No push notifications this milestone — pull-based UI
+- Security hardened: timing-safe auth, parameterized queries, error sanitization, upload validation
 
 ## Requirements
 
 ### Validated
 
-- [x] Text capture from Expo app routes through Classifier → filed to Cosmos DB — v1.0
-- [x] Voice capture transcribed by gpt-4o-transcribe, then classified and filed — v1.0, v2.0
-- [x] Classifier Agent classifies into People/Projects/Ideas/Admin with confidence scoring — v1.0
-- [x] Low-confidence captures trigger bucket selection buttons (HITL) — v1.0, v2.0
-- [x] Misunderstood captures trigger conversational follow-up (text + voice) — v1.0, v2.0
-- [x] AG-UI SSE streams real-time agent feedback to the app — v1.0, v2.0
-- [x] Inbox view with detail cards and recategorize capability — v1.0
-- [x] Foundry Agent Service migration: persistent Classifier, AzureAIAgentClient, local @tool — v2.0
-- [x] FoundrySSEAdapter replaces AGUIWorkflowAdapter — v2.0
-- [x] Application Insights with OTel spans and token usage tracking — v2.0
-- [x] All three HITL flows working on Foundry (low-confidence, misunderstood, recategorize) — v2.0
-- [x] Unified capture screen with Voice/Text toggle, inline text, processing stages — v2.0
+- ✓ Text capture from Expo app routes through Classifier → filed to Cosmos DB — v1.0
+- ✓ Voice capture transcribed and classified — v1.0, v2.0, v3.0 (on-device SFSpeechRecognizer)
+- ✓ Classifier Agent classifies into People/Projects/Ideas/Admin with confidence scoring — v1.0
+- ✓ Low-confidence captures trigger bucket selection buttons (HITL) — v1.0, v2.0
+- ✓ Misunderstood captures trigger conversational follow-up (text + voice) — v1.0, v2.0
+- ✓ AG-UI SSE streams real-time agent feedback to the app — v1.0, v2.0
+- ✓ Inbox view with detail cards and recategorize capability — v1.0
+- ✓ Foundry Agent Service migration: persistent Classifier, AzureAIAgentClient, local @tool — v2.0
+- ✓ FoundrySSEAdapter replaces AGUIWorkflowAdapter — v2.0
+- ✓ Application Insights with OTel spans and token usage tracking — v2.0
+- ✓ All three HITL flows working on Foundry (low-confidence, misunderstood, recategorize) — v2.0
+- ✓ Unified capture screen with Voice/Text toggle, inline text, processing stages — v2.0
+- ✓ Admin Agent as persistent Foundry agent with silent background processing — v3.0
+- ✓ Multi-bucket splitting for mixed-content captures — v3.0
+- ✓ Dynamic destination routing with voice-managed affinity rules — v3.0
+- ✓ HITL routing for unrouted items with auto-learning — v3.0
+- ✓ Recipe URL extraction with ingredient parsing and source attribution — v3.0
+- ✓ Status & Priorities screen with errands grouped by destination — v3.0
+- ✓ On-device voice transcription via SFSpeechRecognizer (cloud fallback preserved) — v3.0
+- ✓ Per-capture trace ID propagation and structured logging — v3.0
+- ✓ Azure Monitor alerts and KQL operational queries — v3.0
+- ✓ Security hardening (timing-safe auth, parameterized queries, upload validation) — v3.0
 
-### Active (v3.0)
+### Active (v3.1+)
 
-- [ ] Admin Agent as persistent Foundry agent (like Classifier)
-- [ ] Classifier → Admin Agent inline handoff at capture time
-- [ ] Store-based shopping lists in Cosmos DB
-- [ ] Agent instructions route items to correct store
-- [ ] YouTube recipe URL → ingredient extraction → shopping list items
-- [ ] Ad hoc item capture → Admin Agent → correct store list
-- [ ] "Status & Priorities" screen with shopping lists per store
-- [ ] Swipe-to-remove on shopping list items
+- [ ] Push notifications for agent-processed output
+- [ ] Location-aware reminders (notify near store with items on list)
+- [ ] Projects Agent — action item tracking, progress follow-ups
+- [ ] Ideas Agent — weekly idea check-ins, keeps captured ideas alive
+- [ ] People Agent — relationship tracking, interaction nudges
+- [ ] Daily digest delivered at 6:30 AM CT
+- [ ] Full-text search across all buckets
 
-### Future (v3.1+)
+### Future
 
-- Push notifications for agent-processed output
-- Location-aware reminders (notify near store with items on list)
 - Recurring item auto-ordering (computer use for Chewy.com, etc.)
 - "I've got free hours" → Admin Agent surfaces fitting tasks
 - Weekend meal prep planning pipeline
-- Projects Agent — action item tracking, progress follow-ups
-- Ideas Agent — weekly idea check-ins, keeps captured ideas alive
-- People Agent — relationship tracking, interaction nudges
 - Photo/video capture processed by vision model
 - Cross-references extracted (people mentioned in projects, projects mentioned with people)
-- Daily digest delivered at 6:30 AM CT with top actions, blockers, and wins (<150 words)
 - Weekly review digest on Sunday 9 AM CT
-- Full-text search across all buckets
 - Entity Resolution Agent for duplicate People records
+- YouTube recipe extraction via captions (supplement URL extraction)
 
 ### Out of Scope
 
 - Multi-user / multi-tenancy — single-user system for Will only
 - Offline capture — requires connectivity
 - Real-time chat — not core to the capture loop
-- Background geofencing — Expo managed workflow limitations; time-window heuristic covers 80% of value
+- Background geofencing — Expo managed workflow limitations
 - Connected Agents pattern — requires moving @tool functions to Azure Functions
-- Push notifications — deferred to v3.1+ (pull-based UI sufficient for v3.0)
-- Location-aware reminders — Expo managed workflow limitations; deferred to v3.1+
-- Other specialist agents (Projects, Ideas, People) — prove pattern with Admin first
 - Calendar integration — OAuth scope complexity out of bounds
 
 ## Context
@@ -103,23 +96,22 @@ One-tap capture from a phone instantly routes through an agent that classifies, 
 
 **Learning goal:** This is explicitly a learning project for multi-agent orchestration patterns using Microsoft Agent Framework. The architecture is chosen to deeply learn these patterns.
 
-**Agent team (current):**
-1. **Classifier** — persistent Foundry agent that classifies captures into People/Projects/Ideas/Admin with confidence scoring, executes `file_capture` and `transcribe_audio` @tools locally
+**Agent team:**
+1. **Classifier** — persistent Foundry agent that classifies captures into People/Projects/Ideas/Admin with confidence scoring, multi-bucket splitting for mixed content, executes `file_capture` and `transcribe_audio` @tools locally
+2. **Admin Agent** — household operations manager with 6 tools: `add_errand_items`, `get_routing_context`, `manage_destination`, `manage_affinity_rule`, `query_rules`, `fetch_recipe_url`. Routes items to dynamic destinations using affinity rules stored in Cosmos DB.
 
-**Agent team (v3.0 target):**
-2. **Admin Agent** — household operations manager: store-based shopping lists, YouTube recipe ingredient extraction, ad hoc item routing to correct store via agent instructions
-
-**Data model:** Cosmos DB with 5 containers (Inbox, People, Projects, Ideas, Admin), all partitioned by `/userId`.
+**Data model:** Cosmos DB with 9 containers (Inbox, People, Projects, Ideas, Admin, Errands, Destinations, AffinityRules + legacy Admin), partitioned by `/userId` or `/destination`/`/slug`/`/itemPattern`.
 
 ## Constraints
 
-- **Tech stack**: Microsoft Agent Framework (Python), Azure AI Foundry Agent Service, Expo/React Native, Azure Container Apps, Cosmos DB, Blob Storage
+- **Tech stack**: Microsoft Agent Framework (Python), Azure AI Foundry Agent Service, Expo/React Native, Azure Container Apps, Cosmos DB, Blob Storage, Playwright (recipe scraping)
 - **Agent client**: `AzureAIAgentClient` from `agent-framework-azure-ai` (Foundry Agent Service)
 - **Protocol**: AG-UI (SSE event stream) for agent-to-frontend communication
-- **LLM**: Azure OpenAI GPT-4o (with `gpt-4o-transcribe` for voice)
-- **Platform**: iOS and Android via Expo
+- **LLM**: Azure OpenAI GPT-4o
+- **Voice**: On-device SFSpeechRecognizer via expo-speech-recognition (cloud gpt-4o-transcribe as fallback)
+- **Platform**: iOS via Expo (EAS development builds for native modules)
 - **Single user**: No multi-tenancy — hardcode `userId: "will"`
-- **Observability**: Application Insights + Foundry portal
+- **Observability**: Application Insights with per-capture trace IDs, structured logging, KQL queries, Azure Monitor alerts
 - **Infrastructure**: AI Foundry project (project endpoint, Azure AI User RBAC)
 
 ## Key Decisions
@@ -138,6 +130,14 @@ One-tap capture from a phone instantly routes through an agent that classifies, 
 | ContextVar for follow-up state | file_capture is @tool, can't add params agent doesn't know | ✓ Good — eliminated orphan reconciliation |
 | Unified capture screen (v2.0) | Two screens were redundant | ✓ Good — simpler UX, voice-first design |
 | v2.0 scope = Foundry migration only | Original scope (specialist agents + push) too large. Ship migration, defer proactive features | ✓ Good — clean cut point |
+| Admin Agent as second persistent Foundry agent | Mirrors Classifier pattern, separate client/tools | ✓ Good — clean separation, no tool leakage |
+| Processing triggered by Status screen GET (not auto-fire) | User reviews inbox first, then triggers processing | ✓ Good — matches Will's intended workflow |
+| Dynamic destinations replace hardcoded store list | Voice-managed rules in Cosmos, HITL routing for unknowns | ✓ Good — extensible, auto-learning |
+| pending_calls dict for batched tool calls | SDK delivers function_call/result in batches, single-variable tracking drops second result | ✓ Good — fixed multi-bucket splitting |
+| Three-tier recipe fetch (Jina, httpx, Playwright) | Each tier catches different site types; Playwright is heavyweight fallback | ✓ Good — works for most recipe sites |
+| On-device SFSpeechRecognizer via expo-speech-recognition | Eliminates cloud transcription cost, real-time streaming | ✓ Good — faster, free, works well for informal captures |
+| Per-capture trace ID via ContextVar + Cosmos doc | ContextVar for sync flow, stored on inbox doc for async admin processing | ✓ Good — full E2E traceability |
+| hmac.compare_digest for API key auth | Timing-safe comparison prevents timing attacks | ✓ Good — security baseline |
 
 ---
-*Last updated: 2026-03-01 after v3.0 milestone started*
+*Last updated: 2026-03-23 after v3.0 milestone completed*
