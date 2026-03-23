@@ -273,7 +273,7 @@ async def process_admin_capture(
                 output_tool_called = post_output_count_2 > pre_output_count_2
 
                 if not output_tool_called:
-                    logger.warning(
+                    logger.error(
                         "Admin Agent retry also failed to call output "
                         "tools for inbox item %s. Marking as failed.",
                         inbox_item_id,

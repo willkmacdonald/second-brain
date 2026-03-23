@@ -62,7 +62,7 @@ async def get_tasks(request: Request) -> TasksResponse:
             )
         )
 
-    logger.info("Tasks: %d items", len(items))
+    logger.debug("Tasks: %d items", len(items))
     return TasksResponse(tasks=items, totalCount=len(items))
 
 

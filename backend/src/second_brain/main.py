@@ -11,9 +11,10 @@ load_dotenv()
 
 from azure.monitor.opentelemetry import configure_azure_monitor  # noqa: E402
 
-# Configure Application Insights immediately after load_dotenv --
-# must run before Azure SDK imports to capture all traces
-configure_azure_monitor()
+# Scope log collection to application loggers only -- prevents azure-core,
+# azure-cosmos, and azure-identity internal noise from flooding App Insights.
+logging.getLogger("second_brain").setLevel(logging.INFO)
+configure_azure_monitor(logger_name="second_brain")
 
 from agent_framework.observability import enable_instrumentation  # noqa: E402
 

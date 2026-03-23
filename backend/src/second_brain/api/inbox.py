@@ -100,7 +100,7 @@ async def list_inbox(
             )
         )
 
-    logger.info(
+    logger.debug(
         "Inbox list: returned %d items (offset=%d, limit=%d)",
         len(items),
         offset,

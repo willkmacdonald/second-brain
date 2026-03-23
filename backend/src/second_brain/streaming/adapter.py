@@ -383,7 +383,7 @@ async def stream_voice_capture(
                             name = getattr(content, "name", None)
                             if call_id and name:
                                 if name == "transcribe_audio":
-                                    logger.info("Voice capture: transcribe_audio called")
+                                    logger.debug("Voice capture: transcribe_audio called")
                                 pending_calls[call_id] = {
                                     "name": name,
                                     "args": _parse_args(getattr(content, "arguments", {})) if name == "file_capture" else {},

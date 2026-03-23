@@ -293,7 +293,7 @@ async def get_errands(request: Request) -> ErrandsResponse:
             exc_info=True,
         )
 
-    logger.info(
+    logger.debug(
         "Errands: %d destinations, %d total items, %d notifications",
         len(sections),
         total_count,
