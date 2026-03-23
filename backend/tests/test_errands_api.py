@@ -721,15 +721,15 @@ async def test_get_errands_triggers_processing(
 
 
 @pytest.mark.asyncio
-async def test_get_errands_skips_pending_items(
+async def test_get_errands_no_processing_when_query_returns_empty(
     errands_app: FastAPI,
     mock_cosmos_manager: MagicMock,
 ) -> None:
-    """GET does NOT re-process items with adminProcessingStatus='pending'.
+    """GET does not trigger processing when no unprocessed items are found.
 
-    Items already in 'pending' or 'failed' state should not be re-triggered
-    automatically -- this prevents infinite processing loops when the Agent
-    writes items but fails to delete the inbox document.
+    When the inbox query returns an empty list, no background tasks should
+    be created. The query now includes pending and failed items for retry,
+    so this test verifies the "nothing to process" baseline.
     """
     _setup_trigger_mocks(errands_app, mock_cosmos_manager, [])
 

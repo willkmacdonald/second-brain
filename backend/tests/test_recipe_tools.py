@@ -3,7 +3,7 @@
 Tests use mocked Playwright browser -- no real browser or network calls.
 """
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from second_brain.tools.recipe import RecipeTools, _extract_json_ld_recipe
 
@@ -148,7 +148,11 @@ class TestFetchRecipeUrl:
         browser = _build_mock_browser(visible_text="Chicken Tikka Recipe")
         tools = RecipeTools(browser=browser)
 
-        result = await tools.fetch_recipe_url(url="https://example.com/recipe")
+        with (
+            patch.object(tools, "_fetch_jina", return_value=""),
+            patch.object(tools, "_fetch_simple", return_value=("", "", "mock")),
+        ):
+            result = await tools.fetch_recipe_url(url="https://example.com/recipe")
 
         assert "PAGE TEXT:" in result
         assert "Chicken Tikka Recipe" in result
@@ -168,30 +172,42 @@ class TestFetchRecipeUrl:
         )
         tools = RecipeTools(browser=browser)
 
-        result = await tools.fetch_recipe_url(url="https://example.com/recipe")
+        with (
+            patch.object(tools, "_fetch_jina", return_value=""),
+            patch.object(tools, "_fetch_simple", return_value=("", "", "mock")),
+        ):
+            result = await tools.fetch_recipe_url(url="https://example.com/recipe")
 
         assert "STRUCTURED RECIPE DATA (JSON-LD):" in result
         assert "Test Recipe" in result
         assert "PAGE TEXT:" in result
 
     async def test_fetch_failure_returns_error_string(self) -> None:
-        """Navigation failure returns error message string."""
+        """All tiers fail: returns 'no extractable content' error."""
         browser = _build_mock_browser(
             goto_side_effect=TimeoutError("Page load timed out"),
         )
         tools = RecipeTools(browser=browser)
 
-        result = await tools.fetch_recipe_url(url="https://example.com/slow")
+        with (
+            patch.object(tools, "_fetch_jina", return_value=""),
+            patch.object(tools, "_fetch_simple", return_value=("", "", "mock")),
+        ):
+            result = await tools.fetch_recipe_url(url="https://example.com/slow")
 
-        assert "Error fetching" in result
-        assert "TimeoutError" in result
+        assert "Error: Page at" in result
+        assert "no extractable content" in result
 
     async def test_context_closed_on_success(self) -> None:
         """Browser context is closed after successful fetch."""
         browser = _build_mock_browser()
         tools = RecipeTools(browser=browser)
 
-        await tools.fetch_recipe_url(url="https://example.com/recipe")
+        with (
+            patch.object(tools, "_fetch_jina", return_value=""),
+            patch.object(tools, "_fetch_simple", return_value=("", "", "mock")),
+        ):
+            await tools.fetch_recipe_url(url="https://example.com/recipe")
 
         context = browser.new_context.return_value
         context.close.assert_awaited_once()
@@ -203,7 +219,11 @@ class TestFetchRecipeUrl:
         )
         tools = RecipeTools(browser=browser)
 
-        await tools.fetch_recipe_url(url="https://example.com/slow")
+        with (
+            patch.object(tools, "_fetch_jina", return_value=""),
+            patch.object(tools, "_fetch_simple", return_value=("", "", "mock")),
+        ):
+            await tools.fetch_recipe_url(url="https://example.com/slow")
 
         context = browser.new_context.return_value
         context.close.assert_awaited_once()
@@ -216,7 +236,11 @@ class TestFetchRecipeUrl:
         )
         tools = RecipeTools(browser=browser)
 
-        result = await tools.fetch_recipe_url(url="https://example.com/empty")
+        with (
+            patch.object(tools, "_fetch_jina", return_value=""),
+            patch.object(tools, "_fetch_simple", return_value=("", "", "mock")),
+        ):
+            result = await tools.fetch_recipe_url(url="https://example.com/empty")
 
         assert "Error: Page at" in result
         assert "no extractable content" in result
@@ -227,7 +251,11 @@ class TestFetchRecipeUrl:
         browser = _build_mock_browser(visible_text=long_text)
         tools = RecipeTools(browser=browser)
 
-        result = await tools.fetch_recipe_url(url="https://example.com/long")
+        with (
+            patch.object(tools, "_fetch_jina", return_value=""),
+            patch.object(tools, "_fetch_simple", return_value=("", "", "mock")),
+        ):
+            result = await tools.fetch_recipe_url(url="https://example.com/long")
 
         # The full text should be truncated; result should not have 20k chars
         # 12000 chars of text + "PAGE TEXT:\n" prefix
