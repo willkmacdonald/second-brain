@@ -20,6 +20,7 @@ import {
   RecordingPresets,
 } from "expo-audio";
 import { useSpeechRecognitionEvent } from "expo-speech-recognition";
+import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
 import {
   sendCapture,
@@ -27,6 +28,7 @@ import {
   sendFollowUp,
   sendFollowUpVoice,
 } from "../../lib/ag-ui-client";
+import { reportError } from "../../lib/telemetry";
 import {
   checkOnDeviceSupport,
   requestSpeechPermissions,
@@ -98,6 +100,10 @@ export default function CaptureScreen() {
   const [isReclassifying, setIsReclassifying] = useState(false);
   const [followUpText, setFollowUpText] = useState("");
 
+  // Trace ID state (for debugging -- displayed after capture)
+  const [lastTraceId, setLastTraceId] = useState<string | null>(null);
+  const [traceIdCopied, setTraceIdCopied] = useState(false);
+
   // Pulsing animation for recording indicator
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const cleanupRef = useRef<(() => void) | null>(null);
@@ -132,7 +138,7 @@ export default function CaptureScreen() {
       // Fall back to cloud upload with the persisted audio file
       setProcessing(true);
       setProcessingStage("uploading");
-      const cleanup = sendVoiceCapture({
+      const voiceFallback = sendVoiceCapture({
         audioUri: audioFileUri,
         apiKey: API_KEY,
         callbacks: {
@@ -209,7 +215,8 @@ export default function CaptureScreen() {
           },
         },
       });
-      cleanupRef.current = cleanup;
+      setLastTraceId(voiceFallback.traceId);
+      cleanupRef.current = voiceFallback.cleanup;
     }
     setIsRecording(false);
   });
@@ -230,11 +237,12 @@ export default function CaptureScreen() {
 
       // Submit transcribed text as a text follow-up
       setIsReclassifying(true);
-      const cleanup = sendFollowUp({
+      const followUpResult = sendFollowUp({
         inboxItemId: misunderstoodInboxItemId,
         followUpText: text || "",
         followUpRound: followUpRound,
         apiKey: API_KEY,
+        traceId: lastTraceId ?? undefined,
         callbacks: {
           onStepStart: () => {},
           onStepFinish: () => {},
@@ -296,7 +304,7 @@ export default function CaptureScreen() {
           },
         },
       });
-      cleanupRef.current = cleanup;
+      cleanupRef.current = followUpResult.cleanup;
       return;
     }
 
@@ -375,6 +383,7 @@ export default function CaptureScreen() {
       },
       captureSource: "voice",
     });
+    setLastTraceId(captureResult.traceId);
     cleanupRef.current = captureResult.cleanup;
   });
 
@@ -490,6 +499,8 @@ export default function CaptureScreen() {
     setMisunderstoodInboxItemId(null);
     setIsReclassifying(false);
     setFollowUpText("");
+    setLastTraceId(null);
+    setTraceIdCopied(false);
     setMode("voice");
   }, []);
 
@@ -533,7 +544,7 @@ export default function CaptureScreen() {
         setProcessing(true);
         setProcessingStage("uploading");
 
-        const cleanup = sendVoiceCapture({
+        const voiceResult = sendVoiceCapture({
           audioUri: uri,
           apiKey: API_KEY,
           callbacks: {
@@ -612,7 +623,8 @@ export default function CaptureScreen() {
             },
           },
         });
-        cleanupRef.current = cleanup;
+        setLastTraceId(voiceResult.traceId);
+        cleanupRef.current = voiceResult.cleanup;
       }
     } else {
       // Start recording
@@ -709,6 +721,7 @@ export default function CaptureScreen() {
         },
       },
     });
+    setLastTraceId(captureResult.traceId);
     cleanupRef.current = captureResult.cleanup;
   }, [thought, processing, resetState]);
 
@@ -719,11 +732,12 @@ export default function CaptureScreen() {
     setIsReclassifying(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    const cleanup = sendFollowUp({
+    const followUpResult = sendFollowUp({
       inboxItemId: misunderstoodInboxItemId,
       followUpText: followUpText.trim(),
       followUpRound: followUpRound,
       apiKey: API_KEY,
+      traceId: lastTraceId ?? undefined,
       callbacks: {
         onStepStart: () => {},
         onStepFinish: () => {},
@@ -786,12 +800,13 @@ export default function CaptureScreen() {
         },
       },
     });
-    cleanupRef.current = cleanup;
+    cleanupRef.current = followUpResult.cleanup;
   }, [
     followUpText,
     isReclassifying,
     misunderstoodInboxItemId,
     followUpRound,
+    lastTraceId,
     resetState,
   ]);
 
@@ -824,11 +839,12 @@ export default function CaptureScreen() {
 
       setIsReclassifying(true);
 
-      const cleanup = sendFollowUpVoice({
+      const voiceFollowUpResult = sendFollowUpVoice({
         audioUri: uri,
         inboxItemId: misunderstoodInboxItemId,
         followUpRound: followUpRound,
         apiKey: API_KEY,
+        traceId: lastTraceId ?? undefined,
         callbacks: {
           onStepStart: () => {},
           onStepFinish: () => {},
@@ -890,7 +906,7 @@ export default function CaptureScreen() {
           },
         },
       });
-      cleanupRef.current = cleanup;
+      cleanupRef.current = voiceFollowUpResult.cleanup;
     }
   }, [
     misunderstoodInboxItemId,
@@ -899,6 +915,7 @@ export default function CaptureScreen() {
     audioRecorder,
     recorderState.durationMillis,
     followUpRound,
+    lastTraceId,
     resetState,
   ]);
 
@@ -988,6 +1005,24 @@ export default function CaptureScreen() {
           ]}
         >
           <Text style={styles.toastText}>{toast.message}</Text>
+          {/* Trace ID for debugging -- tap to copy full ID */}
+          {lastTraceId && (
+            <Pressable
+              onPress={async () => {
+                await Clipboard.setStringAsync(lastTraceId);
+                setTraceIdCopied(true);
+                setTimeout(() => setTraceIdCopied(false), 1500);
+              }}
+              style={styles.traceIdRow}
+            >
+              <Text style={styles.traceIdText}>
+                trace: {lastTraceId.slice(0, 8)}...
+              </Text>
+              <Text style={styles.traceIdHint}>
+                {traceIdCopied ? "Copied!" : "tap to copy"}
+              </Text>
+            </Pressable>
+          )}
         </View>
       )}
 
@@ -1314,6 +1349,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "500",
     color: "#ffffff",
+  },
+  traceIdRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 6,
+    gap: 8,
+  },
+  traceIdText: {
+    fontSize: 11,
+    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
+    color: "#999",
+  },
+  traceIdHint: {
+    fontSize: 10,
+    color: "#666",
   },
   voiceArea: {
     flex: 1,

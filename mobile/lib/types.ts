@@ -47,6 +47,7 @@ export interface SendFollowUpOptions {
   followUpRound: number;
   apiKey: string;
   callbacks: StreamingCallbacks;
+  traceId?: string;
 }
 
 export interface SendVoiceCaptureOptions {
@@ -61,4 +62,5 @@ export interface SendFollowUpVoiceOptions {
   followUpRound: number;
   apiKey: string;
   callbacks: StreamingCallbacks;
+  traceId?: string;
 }

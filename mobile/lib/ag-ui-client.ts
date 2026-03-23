@@ -1,5 +1,6 @@
 import EventSource from "react-native-sse";
 import { API_BASE_URL } from "../constants/config";
+import { generateTraceId, reportError } from "./telemetry";
 import type {
   AGUIEventType,
   SendCaptureOptions,
@@ -196,12 +197,14 @@ export function sendCapture({
   apiKey,
   callbacks,
   captureSource,
-}: SendCaptureOptions): { cleanup: () => void; threadId: string } {
+}: SendCaptureOptions): { cleanup: () => void; threadId: string; traceId: string } {
   const threadId = `thread-${Date.now()}`;
+  const traceId = generateTraceId();
 
   const headers: Record<string, string> = {
     Authorization: `Bearer ${apiKey}`,
     "Content-Type": "application/json",
+    "X-Trace-Id": traceId,
   };
   if (captureSource) {
     headers["X-Capture-Source"] = captureSource;
@@ -218,9 +221,23 @@ export function sendCapture({
     pollingInterval: 0, // CRITICAL: prevents auto-reconnection and duplicate captures
   });
 
-  const cleanup = attachCallbacks(es, callbacks);
+  // Wrap error callback with telemetry reporting
+  const wrappedCallbacks: StreamingCallbacks = {
+    ...callbacks,
+    onError: (error: string) => {
+      reportError({
+        eventType: "error",
+        message: error,
+        captureTraceId: traceId,
+        metadata: { source: "sendCapture" },
+      });
+      callbacks.onError(error);
+    },
+  };
 
-  return { cleanup, threadId };
+  const cleanup = attachCallbacks(es, wrappedCallbacks);
+
+  return { cleanup, threadId, traceId };
 }
 
 /**
@@ -238,13 +255,17 @@ export function sendFollowUp({
   followUpRound,
   apiKey,
   callbacks,
-}: SendFollowUpOptions): () => void {
+  traceId: providedTraceId,
+}: SendFollowUpOptions): { cleanup: () => void; traceId: string } {
+  const traceId = providedTraceId ?? generateTraceId();
+
   const es = new EventSource<AGUIEventType>(
     `${API_BASE_URL}/api/capture/follow-up`,
     {
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
+        "X-Trace-Id": traceId,
       },
       method: "POST",
       body: JSON.stringify({
@@ -256,7 +277,22 @@ export function sendFollowUp({
     },
   );
 
-  return attachCallbacks(es, callbacks);
+  // Wrap error callback with telemetry reporting
+  const wrappedCallbacks: StreamingCallbacks = {
+    ...callbacks,
+    onError: (error: string) => {
+      reportError({
+        eventType: "error",
+        message: error,
+        captureTraceId: traceId,
+        metadata: { source: "sendFollowUp" },
+      });
+      callbacks.onError(error);
+    },
+  };
+
+  const cleanup = attachCallbacks(es, wrappedCallbacks);
+  return { cleanup, traceId };
 }
 
 /**
@@ -273,7 +309,9 @@ export function sendVoiceCapture({
   audioUri,
   apiKey,
   callbacks,
-}: SendVoiceCaptureOptions): () => void {
+}: SendVoiceCaptureOptions): { cleanup: () => void; traceId: string } {
+  const traceId = generateTraceId();
+
   const formData = new FormData();
   formData.append("file", {
     uri: audioUri,
@@ -287,13 +325,29 @@ export function sendVoiceCapture({
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
+        "X-Trace-Id": traceId,
       },
       body: formData,
       pollingInterval: 0, // Disable auto-reconnect
     },
   );
 
-  return attachCallbacks(es, callbacks);
+  // Wrap error callback with telemetry reporting
+  const wrappedCallbacks: StreamingCallbacks = {
+    ...callbacks,
+    onError: (error: string) => {
+      reportError({
+        eventType: "error",
+        message: error,
+        captureTraceId: traceId,
+        metadata: { source: "sendVoiceCapture" },
+      });
+      callbacks.onError(error);
+    },
+  };
+
+  const cleanup = attachCallbacks(es, wrappedCallbacks);
+  return { cleanup, traceId };
 }
 
 /**
@@ -308,7 +362,10 @@ export function sendFollowUpVoice({
   followUpRound,
   apiKey,
   callbacks,
-}: SendFollowUpVoiceOptions): () => void {
+  traceId: providedTraceId,
+}: SendFollowUpVoiceOptions): { cleanup: () => void; traceId: string } {
+  const traceId = providedTraceId ?? generateTraceId();
+
   const formData = new FormData();
   formData.append("file", {
     uri: audioUri,
@@ -324,11 +381,27 @@ export function sendFollowUpVoice({
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
+        "X-Trace-Id": traceId,
       },
       body: formData,
       pollingInterval: 0,
     },
   );
 
-  return attachCallbacks(es, callbacks);
+  // Wrap error callback with telemetry reporting
+  const wrappedCallbacks: StreamingCallbacks = {
+    ...callbacks,
+    onError: (error: string) => {
+      reportError({
+        eventType: "error",
+        message: error,
+        captureTraceId: traceId,
+        metadata: { source: "sendFollowUpVoice" },
+      });
+      callbacks.onError(error);
+    },
+  };
+
+  const cleanup = attachCallbacks(es, wrappedCallbacks);
+  return { cleanup, traceId };
 }
