@@ -258,7 +258,7 @@ Plans:
 | 12.5 On-Device Voice Transcription | 3/3 | Complete    | 2026-03-19 | - |
 | 13. Recipe URL Extraction | 3/3 | Complete    | 2026-03-22 | - |
 | 14. App Insights Operational Audit | 3/3 | Complete    | 2026-03-23 | - |
-| 15. v3.0 Tech Debt Cleanup | 0/1 | Not started | - | - |
+| 15. v3.0 Tech Debt Cleanup | 1/1 | Complete   | 2026-03-23 | - |
 
 ### Phase 14: App Insights Operational Audit
 
