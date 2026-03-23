@@ -27,6 +27,10 @@ from second_brain.tools.classification import follow_up_context
 
 logger = logging.getLogger(__name__)
 
+# Shared log extra factory for capture endpoints
+def _capture_extra(trace_id: str) -> dict:
+    return {"capture_trace_id": trace_id, "component": "capture"}
+
 router = APIRouter(tags=["Capture"])
 
 MAX_AUDIO_SIZE = 25 * 1024 * 1024  # 25 MB
@@ -77,6 +81,7 @@ class FollowUpBody(BaseModel):
 async def _stream_with_thread_id_persistence(
     inner_generator,
     cosmos_manager,
+    capture_trace_id: str = "",
 ):
     """Wrap a capture stream generator to persist foundryThreadId on MISUNDERSTOOD.
 
@@ -85,6 +90,7 @@ async def _stream_with_thread_id_persistence(
     yielding any further events -- this prevents a race condition where the
     client disconnects after COMPLETE and the Cosmos write never happens.
     """
+    log_extra = _capture_extra(capture_trace_id)
     async for event in inner_generator:
         # Intercept MISUNDERSTOOD events to persist foundryThreadId immediately
         if event.startswith("data: "):
@@ -106,11 +112,13 @@ async def _stream_with_thread_id_persistence(
                                 "Persisted foundryThreadId=%s for inbox item %s",
                                 conversation_id,
                                 item_id,
+                                extra=log_extra,
                             )
                         except Exception:
                             logger.warning(
                                 "Failed to persist foundryThreadId for %s",
                                 item_id,
+                                extra=log_extra,
                             )
             except (json.JSONDecodeError, AttributeError):
                 pass
@@ -122,6 +130,7 @@ async def _stream_with_follow_up_context(
     inner_generator,
     inbox_item_id: str,
     cosmos_manager,
+    capture_trace_id: str = "",
 ):
     """Set follow-up context so file_capture updates existing doc in-place.
 
@@ -133,6 +142,7 @@ async def _stream_with_follow_up_context(
     Also handles foundryThreadId persistence when the follow-up results in
     MISUNDERSTOOD again (needed for further follow-up rounds).
     """
+    log_extra = _capture_extra(capture_trace_id)
     with follow_up_context(inbox_item_id):
         foundry_conversation_id = None
         async for event in inner_generator:
@@ -159,11 +169,13 @@ async def _stream_with_follow_up_context(
                     "Updated foundryThreadId=%s for ongoing follow-up on %s",
                     foundry_conversation_id,
                     inbox_item_id,
+                    extra=log_extra,
                 )
             except Exception:
                 logger.warning(
                     "Failed to update foundryThreadId on follow-up for %s",
                     inbox_item_id,
+                    extra=log_extra,
                 )
 
 
@@ -183,10 +195,17 @@ async def capture(request: Request, body: TextCaptureBody) -> StreamingResponse:
     cosmos_manager = request.app.state.cosmos_manager
     thread_id = body.thread_id or f"thread-{uuid4()}"
     run_id = body.run_id or f"run-{uuid4()}"
+    capture_trace_id = request.headers.get("X-Trace-Id", str(uuid4()))
+    log_extra = _capture_extra(capture_trace_id)
 
     capture_source = request.headers.get("X-Capture-Source")
     if capture_source:
-        logger.info("Capture source: %s, thread_id=%s", capture_source, thread_id)
+        logger.info(
+            "Capture source: %s, thread_id=%s",
+            capture_source,
+            thread_id,
+            extra=log_extra,
+        )
 
     generator = stream_text_capture(
         client=client,
@@ -195,10 +214,13 @@ async def capture(request: Request, body: TextCaptureBody) -> StreamingResponse:
         thread_id=thread_id,
         run_id=run_id,
         cosmos_manager=cosmos_manager,
+        capture_trace_id=capture_trace_id,
     )
 
     return StreamingResponse(
-        _stream_with_thread_id_persistence(generator, cosmos_manager),
+        _stream_with_thread_id_persistence(
+            generator, cosmos_manager, capture_trace_id
+        ),
         media_type="text/event-stream",
         headers=SSE_HEADERS,
     )
@@ -232,6 +254,8 @@ async def capture_voice(
     cosmos_manager = request.app.state.cosmos_manager
     thread_id = f"thread-{uuid4()}"
     run_id = f"run-{uuid4()}"
+    capture_trace_id = request.headers.get("X-Trace-Id", str(uuid4()))
+    log_extra = _capture_extra(capture_trace_id)
 
     async def stream_with_cleanup_and_persistence():
         """Wrap voice capture with blob cleanup and foundryThreadId persistence."""
@@ -242,17 +266,22 @@ async def capture_voice(
             thread_id=thread_id,
             run_id=run_id,
             cosmos_manager=cosmos_manager,
+            capture_trace_id=capture_trace_id,
         )
         try:
             async for event in _stream_with_thread_id_persistence(
-                inner, cosmos_manager
+                inner, cosmos_manager, capture_trace_id
             ):
                 yield event
         finally:
             try:
                 await blob_manager.delete_audio(blob_url)
             except Exception:
-                logger.warning("Failed to delete voice blob: %s", blob_url)
+                logger.warning(
+                    "Failed to delete voice blob: %s",
+                    blob_url,
+                    extra=log_extra,
+                )
 
     return StreamingResponse(
         stream_with_cleanup_and_persistence(),
@@ -272,6 +301,7 @@ async def follow_up(request: Request, body: FollowUpBody) -> StreamingResponse:
     """
     cosmos_manager = request.app.state.cosmos_manager
     inbox_container = cosmos_manager.get_container("Inbox")
+    capture_trace_id = request.headers.get("X-Trace-Id", str(uuid4()))
 
     # Look up the original inbox item to get the Foundry thread ID
     try:
@@ -304,10 +334,13 @@ async def follow_up(request: Request, body: FollowUpBody) -> StreamingResponse:
         thread_id=foundry_thread_id,
         run_id=run_id,
         cosmos_manager=cosmos_manager,
+        capture_trace_id=capture_trace_id,
     )
 
     return StreamingResponse(
-        _stream_with_follow_up_context(generator, body.inbox_item_id, cosmos_manager),
+        _stream_with_follow_up_context(
+            generator, body.inbox_item_id, cosmos_manager, capture_trace_id
+        ),
         media_type="text/event-stream",
         headers=SSE_HEADERS,
     )
@@ -336,6 +369,8 @@ async def follow_up_voice(
     # Validate and read audio upload, then upload to blob for audit trail
     audio_bytes = await _validate_and_read_audio(file)
     blob_url = await blob_manager.upload_audio(audio_bytes=audio_bytes)
+    capture_trace_id = request.headers.get("X-Trace-Id", str(uuid4()))
+    log_extra = _capture_extra(capture_trace_id)
 
     # Transcribe from in-memory bytes (no blob re-download)
     openai_client = request.app.state.openai_client
@@ -353,6 +388,7 @@ async def follow_up_voice(
         follow_up_round,
         inbox_item_id,
         follow_up_text[:80],
+        extra=log_extra,
     )
 
     # Look up original inbox item for Foundry thread ID
@@ -387,20 +423,25 @@ async def follow_up_voice(
         thread_id=foundry_thread_id,
         run_id=run_id,
         cosmos_manager=cosmos_manager,
+        capture_trace_id=capture_trace_id,
     )
 
     async def stream_with_cleanup():
         """Wrap follow-up stream with blob cleanup and follow-up context."""
         try:
             async for event in _stream_with_follow_up_context(
-                generator, inbox_item_id, cosmos_manager
+                generator, inbox_item_id, cosmos_manager, capture_trace_id
             ):
                 yield event
         finally:
             try:
                 await blob_manager.delete_audio(blob_url)
             except Exception:
-                logger.warning("Failed to delete voice follow-up blob: %s", blob_url)
+                logger.warning(
+                    "Failed to delete voice follow-up blob: %s",
+                    blob_url,
+                    extra=log_extra,
+                )
 
     return StreamingResponse(
         stream_with_cleanup(),

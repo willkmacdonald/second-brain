@@ -29,6 +29,7 @@ from second_brain.streaming.sse import (
     step_start_event,
     unresolved_event,
 )
+from second_brain.tools.classification import capture_trace_id_var
 
 logger = logging.getLogger(__name__)
 reasoning_logger = logging.getLogger("second_brain.streaming.reasoning")
@@ -93,10 +94,11 @@ async def _safety_net_file_as_misunderstood(
     thread_id: str,
     foundry_conversation_id: str | None,
     span,
+    capture_trace_id: str = "",
 ) -> dict:
     """File a capture as misunderstood when the agent fails to call file_capture.
 
-    This is a safety net — the agent is an LLM and sometimes skips tool calls.
+    This is a safety net -- the agent is an LLM and sometimes skips tool calls.
     Every capture MUST produce a filed item. When the agent doesn't cooperate,
     the adapter writes the misunderstood doc directly and emits a MISUNDERSTOOD
     event so the user gets a follow-up prompt instead of a dead end.
@@ -104,6 +106,8 @@ async def _safety_net_file_as_misunderstood(
     Returns the MISUNDERSTOOD event dict ready for encode_sse().
     """
     from second_brain.models.documents import InboxDocument
+
+    log_extra: dict = {"capture_trace_id": capture_trace_id, "component": "classifier"}
 
     inbox_doc_id = str(uuid4())
     inbox_doc = InboxDocument(
@@ -116,10 +120,12 @@ async def _safety_net_file_as_misunderstood(
         status="misunderstood",
     )
 
-    # Include foundryThreadId in the initial write to avoid extra round-trip
+    # Include foundryThreadId and captureTraceId in the initial write
     doc_body = inbox_doc.model_dump(mode="json")
     if foundry_conversation_id:
         doc_body["foundryThreadId"] = foundry_conversation_id
+    if capture_trace_id:
+        doc_body["captureTraceId"] = capture_trace_id
 
     inbox_container = cosmos_manager.get_container("Inbox")
     await inbox_container.create_item(body=doc_body)
@@ -131,6 +137,7 @@ async def _safety_net_file_as_misunderstood(
         "(inbox_id=%s, text=%s)",
         inbox_doc_id,
         raw_text[:80],
+        extra=log_extra,
     )
 
     return misunderstood_event(
@@ -148,6 +155,7 @@ async def stream_text_capture(
     thread_id: str,
     run_id: str,
     cosmos_manager=None,
+    capture_trace_id: str = "",
 ) -> AsyncGenerator[str, None]:
     """Stream a text capture through the Classifier agent as AG-UI SSE events.
 
@@ -158,10 +166,14 @@ async def stream_text_capture(
     The OTel span is created INSIDE the async generator (not the endpoint
     handler) so span context is preserved across async generator boundaries.
     """
+    log_extra: dict = {"capture_trace_id": capture_trace_id, "component": "classifier"}
+    # Set ContextVar so file_capture can read the trace ID during agent execution
+    trace_token = capture_trace_id_var.set(capture_trace_id)
     with tracer.start_as_current_span("capture_text") as span:
         span.set_attribute("capture.type", "text")
         span.set_attribute("capture.thread_id", thread_id)
         span.set_attribute("capture.run_id", run_id)
+        span.set_attribute("capture.trace_id", capture_trace_id)
 
         messages = [Message(role="user", text=user_text)]
         options: ChatOptions = {
@@ -199,6 +211,7 @@ async def stream_text_capture(
                                     "reasoning_text": content.text,
                                     "agent_run_id": run_id,
                                     "chunk_index": chunk_idx,
+                                    "capture_trace_id": capture_trace_id,
                                 },
                             )
                             chunk_idx += 1
@@ -299,6 +312,7 @@ async def stream_text_capture(
                         thread_id,
                         foundry_conversation_id,
                         span,
+                        capture_trace_id,
                     )
                     yield encode_sse(event)
                 else:
@@ -309,9 +323,12 @@ async def stream_text_capture(
 
         except Exception as exc:
             span.record_exception(exc)
-            logger.error("Text capture stream error: %s", exc, exc_info=True)
+            logger.error(
+                "Text capture stream error: %s", exc, exc_info=True, extra=log_extra
+            )
             yield encode_sse(error_event("An internal error occurred. Please try again."))
             yield encode_sse(complete_event(thread_id, run_id))
+    capture_trace_id_var.reset(trace_token)
 
 
 async def stream_voice_capture(
@@ -321,6 +338,7 @@ async def stream_voice_capture(
     thread_id: str,
     run_id: str,
     cosmos_manager=None,
+    capture_trace_id: str = "",
 ) -> AsyncGenerator[str, None]:
     """Stream a voice capture through the Classifier agent as AG-UI SSE events.
 
@@ -330,10 +348,13 @@ async def stream_voice_capture(
 
     OTel span created inside the async generator to preserve context.
     """
+    log_extra: dict = {"capture_trace_id": capture_trace_id, "component": "classifier"}
+    trace_token = capture_trace_id_var.set(capture_trace_id)
     with tracer.start_as_current_span("capture_voice") as span:
         span.set_attribute("capture.type", "voice")
         span.set_attribute("capture.thread_id", thread_id)
         span.set_attribute("capture.run_id", run_id)
+        span.set_attribute("capture.trace_id", capture_trace_id)
 
         messages = [
             Message(
@@ -374,6 +395,7 @@ async def stream_voice_capture(
                                     "reasoning_text": content.text,
                                     "agent_run_id": run_id,
                                     "chunk_index": chunk_idx,
+                                    "capture_trace_id": capture_trace_id,
                                 },
                             )
                             chunk_idx += 1
@@ -383,7 +405,10 @@ async def stream_voice_capture(
                             name = getattr(content, "name", None)
                             if call_id and name:
                                 if name == "transcribe_audio":
-                                    logger.debug("Voice capture: transcribe_audio called")
+                                    logger.debug(
+                                        "Voice capture: transcribe_audio called",
+                                        extra=log_extra,
+                                    )
                                 pending_calls[call_id] = {
                                     "name": name,
                                     "args": _parse_args(getattr(content, "arguments", {})) if name == "file_capture" else {},
@@ -480,6 +505,7 @@ async def stream_voice_capture(
                         thread_id,
                         foundry_conversation_id,
                         span,
+                        capture_trace_id,
                     )
                     yield encode_sse(event)
                 else:
@@ -490,9 +516,12 @@ async def stream_voice_capture(
 
         except Exception as exc:
             span.record_exception(exc)
-            logger.error("Voice capture stream error: %s", exc, exc_info=True)
+            logger.error(
+                "Voice capture stream error: %s", exc, exc_info=True, extra=log_extra
+            )
             yield encode_sse(error_event("An internal error occurred. Please try again."))
             yield encode_sse(complete_event(thread_id, run_id))
+    capture_trace_id_var.reset(trace_token)
 
 
 async def stream_follow_up_capture(
@@ -504,6 +533,7 @@ async def stream_follow_up_capture(
     thread_id: str,
     run_id: str,
     cosmos_manager=None,
+    capture_trace_id: str = "",
 ) -> AsyncGenerator[str, None]:
     """Stream a follow-up classification attempt on the same Foundry thread.
 
@@ -517,11 +547,14 @@ async def stream_follow_up_capture(
 
     OTel span created inside the async generator to preserve context.
     """
+    log_extra: dict = {"capture_trace_id": capture_trace_id, "component": "classifier"}
+    trace_token = capture_trace_id_var.set(capture_trace_id)
     with tracer.start_as_current_span("capture_follow_up") as span:
         span.set_attribute("capture.type", "follow_up")
         span.set_attribute("capture.thread_id", thread_id)
         span.set_attribute("capture.run_id", run_id)
         span.set_attribute("capture.original_inbox_item_id", original_inbox_item_id)
+        span.set_attribute("capture.trace_id", capture_trace_id)
 
         messages = [Message(role="user", text=follow_up_text)]
         options: ChatOptions = {
@@ -561,6 +594,7 @@ async def stream_follow_up_capture(
                                     "reasoning_text": content.text,
                                     "agent_run_id": run_id,
                                     "chunk_index": chunk_idx,
+                                    "capture_trace_id": capture_trace_id,
                                 },
                             )
                             chunk_idx += 1
@@ -613,6 +647,7 @@ async def stream_follow_up_capture(
                         thread_id,
                         foundry_conversation_id,
                         span,
+                        capture_trace_id,
                     )
                     yield encode_sse(event)
                 else:
@@ -627,6 +662,8 @@ async def stream_follow_up_capture(
                 "Follow-up capture stream error: %s",
                 exc,
                 exc_info=True,
+                extra=log_extra,
             )
             yield encode_sse(error_event("An internal error occurred. Please try again."))
             yield encode_sse(complete_event(thread_id, run_id))
+    capture_trace_id_var.reset(trace_token)

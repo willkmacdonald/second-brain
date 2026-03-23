@@ -138,6 +138,7 @@ async def process_admin_capture(
     cosmos_manager: CosmosManager,
     inbox_item_id: str,
     raw_text: str,
+    capture_trace_id: str = "",
 ) -> None:
     """Process an Admin-classified capture in the background.
 
@@ -160,6 +161,7 @@ async def process_admin_capture(
         cosmos_manager: CosmosManager for inbox status updates.
         inbox_item_id: The Cosmos inbox document ID to update after processing.
         raw_text: The user's original capture text to send to the Admin Agent.
+        capture_trace_id: Trace ID from the originating capture for end-to-end filtering.
     """
     with tracer.start_as_current_span("admin_agent_process") as span:
         span.set_attribute("admin.inbox_item_id", inbox_item_id)
@@ -171,6 +173,13 @@ async def process_admin_capture(
             doc = await inbox_container.read_item(
                 item=inbox_item_id, partition_key="will"
             )
+            # Resolve trace ID: prefer inbox doc field, fall back to parameter
+            trace_id = doc.get("captureTraceId", capture_trace_id or "unknown")
+            span.set_attribute("capture.trace_id", trace_id)
+            log_extra: dict = {
+                "capture_trace_id": trace_id,
+                "component": "admin_agent",
+            }
             doc["adminProcessingStatus"] = "pending"
             await inbox_container.upsert_item(body=doc)
         except Exception as exc:
@@ -196,6 +205,7 @@ async def process_admin_capture(
                     "Falling back to raw text.",
                     inbox_item_id,
                     ctx_exc,
+                    extra=log_extra,
                 )
                 enriched_text = raw_text
 
@@ -227,6 +237,7 @@ async def process_admin_capture(
                     "(text: %.80s). Marking as failed.",
                     inbox_item_id,
                     raw_text,
+                    extra=log_extra,
                 )
                 span.set_attribute("admin.outcome", "no_tool_call")
                 await _mark_inbox_failed(inbox_container, inbox_item_id, span)
@@ -242,6 +253,7 @@ async def process_admin_capture(
                     "add_errand_items/add_task_items for inbox item %s. "
                     "Retrying with nudge.",
                     inbox_item_id,
+                    extra=log_extra,
                 )
                 span.set_attribute("admin.retry", True)
 
@@ -277,6 +289,7 @@ async def process_admin_capture(
                         "Admin Agent retry also failed to call output "
                         "tools for inbox item %s. Marking as failed.",
                         inbox_item_id,
+                        extra=log_extra,
                     )
                     span.set_attribute("admin.outcome", "no_output_tool")
                     await _mark_inbox_failed(
@@ -303,12 +316,14 @@ async def process_admin_capture(
                         "Stored admin response for delivery on inbox "
                         "item %s",
                         inbox_item_id,
+                        extra=log_extra,
                     )
                 except Exception as store_exc:
                     logger.warning(
                         "Failed to store admin response for %s: %s",
                         inbox_item_id,
                         store_exc,
+                        extra=log_extra,
                     )
                 span.set_attribute("admin.outcome", "response_stored")
             else:
@@ -320,6 +335,7 @@ async def process_admin_capture(
                     logger.info(
                         "Deleted processed inbox item %s",
                         inbox_item_id,
+                        extra=log_extra,
                     )
                 except CosmosResourceNotFoundError:
                     # User may have swipe-deleted while processing
@@ -327,6 +343,7 @@ async def process_admin_capture(
                         "Inbox item %s already deleted "
                         "(user may have removed it)",
                         inbox_item_id,
+                        extra=log_extra,
                     )
                 except Exception as del_exc:
                     # Non-fatal: errand items are the durable output
@@ -334,6 +351,7 @@ async def process_admin_capture(
                         "Failed to delete processed inbox item %s: %s",
                         inbox_item_id,
                         del_exc,
+                        extra=log_extra,
                     )
                 span.set_attribute("admin.outcome", "processed")
 
@@ -341,6 +359,7 @@ async def process_admin_capture(
                 "Admin Agent processed inbox item %s: %s",
                 inbox_item_id,
                 response.text[:100] if response.text else "(no text)",
+                extra=log_extra,
             )
 
         except Exception as exc:
@@ -351,6 +370,7 @@ async def process_admin_capture(
                 inbox_item_id,
                 exc,
                 exc_info=True,
+                extra=log_extra,
             )
 
             # Update inbox item status to failed
@@ -362,6 +382,7 @@ async def process_admin_captures_batch(
     admin_tools: list,
     cosmos_manager: CosmosManager,
     admin_items: list[dict],
+    capture_trace_id: str = "",
 ) -> None:
     """Process multiple Admin-classified items from a multi-split capture.
 
@@ -376,9 +397,11 @@ async def process_admin_captures_batch(
         admin_tools: List of tool functions for the Admin Agent.
         cosmos_manager: CosmosManager for inbox status updates.
         admin_items: List of dicts with "inbox_item_id" and "raw_text" keys.
+        capture_trace_id: Trace ID from the originating capture.
     """
     with tracer.start_as_current_span("admin_agent_batch_process") as span:
         span.set_attribute("admin.batch_size", len(admin_items))
+        span.set_attribute("capture.trace_id", capture_trace_id)
         for item in admin_items:
             await process_admin_capture(
                 admin_client=admin_client,
@@ -386,4 +409,5 @@ async def process_admin_captures_batch(
                 cosmos_manager=cosmos_manager,
                 inbox_item_id=item["inbox_item_id"],
                 raw_text=item["raw_text"],
+                capture_trace_id=capture_trace_id,
             )

@@ -31,6 +31,13 @@ _follow_up_inbox_item_id: contextvars.ContextVar[str | None] = contextvars.Conte
     "_follow_up_inbox_item_id", default=None
 )
 
+# Context var for per-capture trace ID propagation.  The adapter sets this
+# before invoking the Foundry agent so file_capture can persist the trace ID
+# on the inbox document for end-to-end filtering in App Insights.
+capture_trace_id_var: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "capture_trace_id_var", default=""
+)
+
 
 @contextmanager
 def follow_up_context(inbox_item_id: str):
@@ -111,17 +118,20 @@ class ClassifierTools:
         confidence = max(0.0, min(1.0, confidence))
 
         # If confidence is 0.0 but a valid bucket was chosen, apply a default
+        trace_id = capture_trace_id_var.get()
+        log_extra: dict = {"capture_trace_id": trace_id, "component": "classifier"}
         if confidence == 0.0 and bucket in VALID_BUCKETS:
             confidence = 0.75
             logger.warning(
                 "confidence was 0.0 with valid bucket '%s' -- defaulting to 0.75",
                 bucket,
+                extra=log_extra,
             )
 
         try:
             return await self._write_to_cosmos(text, bucket, confidence, status, title)
         except Exception as exc:
-            logger.warning("file_capture Cosmos write failed: %s", exc)
+            logger.warning("file_capture Cosmos write failed: %s", exc, extra=log_extra)
             return {"error": "cosmos_write_failed", "detail": "Failed to save classification"}
 
     async def _write_to_cosmos(
@@ -141,7 +151,9 @@ class ClassifierTools:
         updates the existing inbox doc in-place instead of creating a new one.
         """
         existing_inbox_id = _follow_up_inbox_item_id.get()
+        trace_id = capture_trace_id_var.get()
         inbox_container = self._manager.get_container("Inbox")
+        log_extra: dict = {"capture_trace_id": trace_id, "component": "classifier"}
 
         # --- Follow-up mode: update existing inbox doc in-place ---
         if existing_inbox_id is not None:
@@ -170,11 +182,15 @@ class ClassifierTools:
                 status="misunderstood",
             )
 
-            await inbox_container.create_item(body=inbox_doc.model_dump(mode="json"))
+            doc_body = inbox_doc.model_dump(mode="json")
+            if trace_id:
+                doc_body["captureTraceId"] = trace_id
+            await inbox_container.create_item(body=doc_body)
 
             logger.info(
                 "Filed as misunderstood: %s",
                 text[:80],
+                extra=log_extra,
             )
             return {"bucket": bucket, "confidence": confidence, "item_id": inbox_doc_id}
 
@@ -200,7 +216,10 @@ class ClassifierTools:
             status=status,
         )
 
-        await inbox_container.create_item(body=inbox_doc.model_dump(mode="json"))
+        doc_body = inbox_doc.model_dump(mode="json")
+        if trace_id:
+            doc_body["captureTraceId"] = trace_id
+        await inbox_container.create_item(body=doc_body)
 
         # Create bucket document
         model_class = CONTAINER_MODELS[bucket]
@@ -226,6 +245,7 @@ class ClassifierTools:
             confidence,
             status,
             text[:80],
+            extra=log_extra,
         )
         return {"bucket": bucket, "confidence": confidence, "item_id": inbox_doc_id}
 
@@ -247,6 +267,8 @@ class ClassifierTools:
         creates a new bucket doc pointing to the original inbox ID.
         """
         now = datetime.now(UTC).isoformat()
+        trace_id = capture_trace_id_var.get()
+        log_extra: dict = {"capture_trace_id": trace_id, "component": "classifier"}
 
         if status == "misunderstood":
             # Still misunderstood after follow-up: update existing doc in-place
@@ -261,6 +283,7 @@ class ClassifierTools:
             logger.info(
                 "Follow-up still misunderstood, updated in-place: %s",
                 existing_inbox_id,
+                extra=log_extra,
             )
             return {
                 "bucket": bucket,
@@ -320,6 +343,7 @@ class ClassifierTools:
             status,
             existing_inbox_id,
             text[:80],
+            extra=log_extra,
         )
         return {
             "bucket": bucket,
