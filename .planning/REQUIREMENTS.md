@@ -54,8 +54,8 @@ Requirements for v3.0 Admin Agent & Shopping Lists. Each maps to roadmap phases.
 - [x] **OBS-04**: Per-capture trace ID (capture_trace_id) propagated end-to-end from mobile through classification, admin processing, and errand writes
 - [x] **OBS-05**: Mobile app generates trace ID per capture, sends as X-Trace-Id header, and displays it for copy-paste debugging
 - [x] **OBS-06**: Mobile client-side errors reported to backend telemetry proxy endpoint and logged to App Insights
-- [ ] **OBS-07**: Four version-controlled KQL query files: capture trace, recent failures, system health, admin agent audit
-- [ ] **OBS-08**: Azure Monitor alert rules configured for API errors, capture failures, and health check with push notification delivery
+- [x] **OBS-07**: Four version-controlled KQL query files: capture trace, recent failures, system health, admin agent audit
+- [x] **OBS-08**: Azure Monitor alert rules configured for API errors, capture failures, and health check with push notification delivery
 
 ## Future Requirements (v3.1+)
 

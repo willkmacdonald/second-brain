@@ -23,11 +23,11 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 ## Current Position
 
 Phase: 14 of 14 (App Insights Operational Audit)
-Plan: 2 of 3
-Status: Plan 02 complete -- mobile trace ID generation, telemetry proxy endpoint
-Last activity: 2026-03-23 -- Completed 14-02 (Mobile Observability)
+Plan: 3 of 3
+Status: Phase 14 complete -- all observability plans executed
+Last activity: 2026-03-23 -- Completed 14-03 (KQL Queries and Azure Monitor Alerts)
 
-Progress: [██████----] 67% (Phase 14)
+Progress: [██████████] 100% (Phase 14)
 
 ## Performance Metrics
 
@@ -78,6 +78,7 @@ Progress: [██████----] 67% (Phase 14)
 | Phase 13 P03 | 2 min | 2 tasks | 1 files |
 | Phase 14 P01 | 12 min | 2 tasks | 8 files |
 | Phase 14 P02 | 6 min | 2 tasks | 6 files |
+| Phase 14 P03 | 2 min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -174,6 +175,9 @@ v2.0 decisions archived to .planning/milestones/v2.0-ROADMAP.md
 - [Phase 14]: reportError is fire-and-forget -- errors during reporting silently swallowed
 - [Phase 14]: All 4 capture functions return traceId for UI access; follow-ups accept optional traceId for continuity
 - [Phase 14]: Backend telemetry endpoint uses WARNING level for guaranteed App Insights visibility
+- [Phase 14]: KQL queries use AppTraces table name (portal) while alert rules use 'traces' table (workspace-based scheduled queries)
+- [Phase 14]: API-Health-Check alert severity 1 (5xx = service-level), error spike and capture failures severity 2 (warning)
+- [Phase 14]: Push notifications via Azure mobile app (azureapppush) for mobile-first workflow
 
 ### Research Findings (Critical for v3.0)
 
@@ -205,5 +209,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-23
-Stopped at: Completed 14-02-PLAN.md -- Mobile trace ID generation, telemetry proxy endpoint
-Resume action: Execute 14-03-PLAN.md (KQL dashboards and alerting)
+Stopped at: Completed 14-03-PLAN.md -- KQL queries and Azure Monitor alerts
+Resume action: Phase 14 complete. All v3.0 milestones shipped.
