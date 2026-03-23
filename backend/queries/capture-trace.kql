@@ -1,0 +1,30 @@
+// =============================================================================
+// What happened to capture X?
+// =============================================================================
+// Traces a specific capture through its full lifecycle: classification,
+// Admin Agent processing, errand creation, and any errors along the way.
+//
+// Usage: Replace PASTE_TRACE_ID_HERE with the capture trace ID from the
+// mobile app (visible on the capture detail screen).
+// =============================================================================
+
+let trace_id = "PASTE_TRACE_ID_HERE";
+
+// Union all telemetry tables to get the complete picture
+union AppTraces, AppDependencies, AppRequests, AppExceptions
+| where customDimensions.capture_trace_id == trace_id
+    or customDimensions["capture_trace_id"] == trace_id
+| project
+    TimeGenerated,
+    ItemType = case(
+        itemType == "trace", "Log",
+        itemType == "dependency", "Dependency",
+        itemType == "request", "Request",
+        itemType == "exception", "Exception",
+        itemType
+    ),
+    SeverityLevel,
+    Message = coalesce(message, name, type),
+    Component = tostring(customDimensions.component),
+    Details = customDimensions
+| order by TimeGenerated asc

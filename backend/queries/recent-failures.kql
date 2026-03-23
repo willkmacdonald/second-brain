@@ -1,0 +1,29 @@
+// =============================================================================
+// What failed recently?
+// =============================================================================
+// Shows ERROR-level logs and unhandled exceptions from the last 24 hours.
+// Includes the capture_trace_id (when available) so you can drill into a
+// specific capture using capture-trace.kql.
+//
+// SeverityLevel reference:
+//   0 = Verbose, 1 = Information, 2 = Warning, 3 = Error, 4 = Critical
+// =============================================================================
+
+union AppTraces, AppExceptions
+| where TimeGenerated > ago(24h)
+| where SeverityLevel >= 3          // Error and Critical only
+    or itemType == "exception"       // All unhandled exceptions regardless of level
+| project
+    TimeGenerated,
+    Type = case(
+        itemType == "trace", "Log",
+        itemType == "exception", "Exception",
+        itemType
+    ),
+    SeverityLevel,
+    Message = coalesce(message, type),
+    Component = tostring(customDimensions.component),
+    CaptureTraceId = tostring(customDimensions.capture_trace_id),
+    Details = customDimensions
+| order by TimeGenerated desc
+| take 50

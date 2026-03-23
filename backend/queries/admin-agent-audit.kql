@@ -1,0 +1,71 @@
+// =============================================================================
+// What did the Admin Agent do?
+// =============================================================================
+// Shows Admin Agent processing activity from the last 24 hours:
+// items processed, errand items created, failures, and processing duration.
+//
+// Results are grouped by capture_trace_id so you can see per-capture outcomes.
+// =============================================================================
+
+// --- All Admin Agent activity (last 24h) ---
+// Shows every log entry from the admin_agent component, ordered by time.
+AppTraces
+| where TimeGenerated > ago(24h)
+| where customDimensions.component == "admin_agent"
+    or customDimensions.component == "admin_handoff"
+| project
+    TimeGenerated,
+    SeverityLevel,
+    Message = message,
+    CaptureTraceId = tostring(customDimensions.capture_trace_id),
+    Component = tostring(customDimensions.component),
+    Details = customDimensions
+| order by TimeGenerated desc
+
+// --- Per-capture processing summary ---
+// Groups admin activity by capture to show outcomes.
+// Uncomment and run separately.
+//
+// AppTraces
+// | where TimeGenerated > ago(24h)
+// | where customDimensions.component in ("admin_agent", "admin_handoff")
+// | where isnotempty(customDimensions.capture_trace_id)
+// | summarize
+//     StartTime = min(TimeGenerated),
+//     EndTime = max(TimeGenerated),
+//     LogCount = count(),
+//     Errors = countif(SeverityLevel >= 3),
+//     HasErrandCreation = countif(message has "add_errand_items" or message has "errand" or message has "shopping")
+//     by CaptureTraceId = tostring(customDimensions.capture_trace_id)
+// | extend DurationSeconds = datetime_diff('second', EndTime, StartTime)
+// | order by StartTime desc
+
+// --- Errand items created ---
+// Looks for logs related to errand/shopping list item creation.
+// Uncomment and run separately.
+//
+// AppTraces
+// | where TimeGenerated > ago(24h)
+// | where message has "add_errand_items" or message has "errand items"
+// | project
+//     TimeGenerated,
+//     Message = message,
+//     CaptureTraceId = tostring(customDimensions.capture_trace_id),
+//     Details = customDimensions
+// | order by TimeGenerated desc
+
+// --- Admin Agent failures only ---
+// Shows only ERROR+ entries from admin processing.
+// Uncomment and run separately.
+//
+// AppTraces
+// | where TimeGenerated > ago(24h)
+// | where customDimensions.component in ("admin_agent", "admin_handoff")
+// | where SeverityLevel >= 3
+// | project
+//     TimeGenerated,
+//     SeverityLevel,
+//     Message = message,
+//     CaptureTraceId = tostring(customDimensions.capture_trace_id),
+//     Details = customDimensions
+// | order by TimeGenerated desc

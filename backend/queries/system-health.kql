@@ -1,0 +1,70 @@
+// =============================================================================
+// How is the system doing overall?
+// =============================================================================
+// Multi-section health overview for the last 24 hours. Run the full query
+// to get a tabular summary, or uncomment individual sections to render
+// time-series charts.
+//
+// Tip: To visualize a section as a chart in App Insights, select just that
+// section's query text and click "Run". Then switch to the "Chart" tab and
+// choose "Time chart" or "Bar chart".
+// =============================================================================
+
+// --- Section 1: Capture volume by hour ---
+// Shows how many capture API requests arrived each hour.
+// Uncomment `| render timechart` for a visual trend line.
+AppRequests
+| where TimeGenerated > ago(24h)
+| where name has "/api/capture"
+| summarize CaptureCount = count() by bin(TimeGenerated, 1h)
+| order by TimeGenerated asc
+// | render timechart with (title="Capture Volume by Hour")
+
+// --- Section 2: Success rate for capture endpoints ---
+// Compares 2xx responses to 4xx/5xx responses.
+// Run this section separately for a single-row summary.
+//
+// AppRequests
+// | where TimeGenerated > ago(24h)
+// | where name has "/api/capture"
+// | summarize
+//     TotalRequests = count(),
+//     Successful = countif(toint(resultCode) >= 200 and toint(resultCode) < 400),
+//     ClientErrors = countif(toint(resultCode) >= 400 and toint(resultCode) < 500),
+//     ServerErrors = countif(toint(resultCode) >= 500)
+// | extend SuccessRate = round(100.0 * Successful / TotalRequests, 1)
+
+// --- Section 3: Error rate trend by hour ---
+// Shows the count of ERROR+ log entries per hour.
+// Uncomment `| render timechart` for a visual trend line.
+//
+// AppTraces
+// | where TimeGenerated > ago(24h)
+// | where SeverityLevel >= 3
+// | summarize ErrorCount = count() by bin(TimeGenerated, 1h)
+// | order by TimeGenerated asc
+// | render timechart with (title="Error Rate by Hour")
+
+// --- Section 4: Average response time for capture endpoints ---
+// Shows p50, p90, and p99 latency per hour.
+//
+// AppRequests
+// | where TimeGenerated > ago(24h)
+// | where name has "/api/capture"
+// | summarize
+//     AvgDurationMs = round(avg(duration), 0),
+//     P50 = round(percentile(duration, 50), 0),
+//     P90 = round(percentile(duration, 90), 0),
+//     P99 = round(percentile(duration, 99), 0)
+//     by bin(TimeGenerated, 1h)
+// | order by TimeGenerated asc
+
+// --- Section 5: Admin Agent processing count ---
+// Shows how many items the Admin Agent processed per hour.
+//
+// AppTraces
+// | where TimeGenerated > ago(24h)
+// | where customDimensions.component == "admin_agent"
+// | summarize ProcessingCount = count() by bin(TimeGenerated, 1h)
+// | order by TimeGenerated asc
+// | render timechart with (title="Admin Agent Activity by Hour")
