@@ -290,7 +290,7 @@ class TestProcessAdminCaptureNoToolCall:
     """Tests for the scenario where the agent responds without calling the tool.
 
     This is the root cause of the "admin-other-store-vanish" bug: items get
-    deleted from Inbox even though no shopping list items were written.
+    deleted from Inbox even though no errand items were written.
     """
 
     async def test_no_tool_call_marks_failed_not_deleted(

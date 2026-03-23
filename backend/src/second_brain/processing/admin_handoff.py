@@ -167,6 +167,11 @@ async def process_admin_capture(
         span.set_attribute("admin.inbox_item_id", inbox_item_id)
         span.set_attribute("admin.raw_text_length", len(raw_text))
 
+        # Defensive initialization: ensure variables are bound even if the
+        # first try block raises before assignment.
+        inbox_container = None
+        log_extra: dict = {"component": "admin_agent"}
+
         # Set status to pending immediately
         try:
             inbox_container = cosmos_manager.get_container("Inbox")
@@ -373,8 +378,9 @@ async def process_admin_capture(
                 extra=log_extra,
             )
 
-            # Update inbox item status to failed
-            await _mark_inbox_failed(inbox_container, inbox_item_id, span)
+            # Update inbox item status to failed (only if container was resolved)
+            if inbox_container is not None:
+                await _mark_inbox_failed(inbox_container, inbox_item_id, span)
 
 
 async def process_admin_captures_batch(
