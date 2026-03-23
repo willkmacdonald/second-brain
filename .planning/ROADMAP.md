@@ -257,7 +257,7 @@ Plans:
 | 12.2 Rename Admin to Errands | 3/3 | Complete    | 2026-03-16 | - |
 | 12.5 On-Device Voice Transcription | 3/3 | Complete    | 2026-03-19 | - |
 | 13. Recipe URL Extraction | 3/3 | Complete    | 2026-03-22 | - |
-| 14. App Insights Operational Audit | 3/3 | Complete   | 2026-03-23 | - |
+| 14. App Insights Operational Audit | 3/3 | Complete    | 2026-03-23 | - |
 
 ### Phase 14: App Insights Operational Audit
 
