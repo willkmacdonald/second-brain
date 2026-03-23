@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-01)
 
 **Core value:** One-tap capture from a phone instantly routes through an agent that classifies, files, and clarifies -- with zero organizational effort.
-**Current focus:** v3.0 -- Phase 13 Recipe URL Extraction complete. v3.0 milestone feature-complete.
+**Current focus:** Phase 14 -- App Insights Operational Audit (observability improvements)
 
 ## Current Position
 
-Phase: 13 of 13 (Recipe URL Extraction)
-Plan: 3 of 3
-Status: Phase 13 complete -- all 3 plans executed, UAT validated end-to-end
-Last activity: 2026-03-22 -- Completed 13-03 (Admin Agent instructions + UAT)
+Phase: 14 of 14 (App Insights Operational Audit)
+Plan: 1 of 3
+Status: Plan 01 complete -- logging scoped, levels audited, trace ID threaded end-to-end
+Last activity: 2026-03-22 -- Completed 14-01 (Logging & Trace ID)
 
-Progress: [██████████] 100% (v3.0)
+Progress: [███-------] 33% (Phase 14)
 
 ## Performance Metrics
 
@@ -76,6 +76,7 @@ Progress: [██████████] 100% (v3.0)
 | Phase 13 P01 | 6 min | 2 tasks | 7 files |
 | Phase 13 P02 | 2 min | 2 tasks | 4 files |
 | Phase 13 P03 | 2 min | 2 tasks | 1 files |
+| Phase 14 P01 | 12 min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -164,6 +165,10 @@ v2.0 decisions archived to .planning/milestones/v2.0-ROADMAP.md
 - [Phase 13]: Output tool counting (_count_output_tool_invocations) prevents silent data loss -- inbox item only deleted after output tool invocation
 - [Phase 13]: Non-recipe URLs handled by classifier confidence gating -- no Admin-side error path needed
 - [Phase 13]: fetch_recipe_url removed from Classifier agent tools (only Admin Agent needs it)
+- [Phase 14]: ContextVar (capture_trace_id_var) reuses follow_up_context pattern for trace ID propagation
+- [Phase 14]: captureTraceId stored directly on inbox document body (not in classificationMeta)
+- [Phase 14]: Log level policy: ERROR=unrecoverable, WARNING=degraded, INFO=lifecycle, DEBUG=routine
+- [Phase 14]: configure_azure_monitor scoped with logger_name="second_brain" to filter SDK noise
 
 ### Research Findings (Critical for v3.0)
 
@@ -195,5 +200,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-22
-Stopped at: Completed 13-03-PLAN.md -- Phase 13 and v3.0 milestone complete
-Resume action: Phase 14 (App Insights Operational Audit) when ready, or start v3.1 planning
+Stopped at: Completed 14-01-PLAN.md -- Logging scoping, level audit, trace ID propagation
+Resume action: Execute 14-02-PLAN.md (health endpoint and metrics)
