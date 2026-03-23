@@ -46,6 +46,17 @@ Requirements for v3.0 Admin Agent & Shopping Lists. Each maps to roadmap phases.
 - [x] **MOBL-02**: Status screen displays shopping lists grouped by store with item counts
 - [x] **MOBL-03**: User can expand a store to see its items and tap to check off / swipe to remove
 
+### Observability
+
+- [ ] **OBS-01**: configure_azure_monitor scoped to application loggers (logger_name="second_brain") to prevent SDK noise
+- [ ] **OBS-02**: Logger.info traces visible in App Insights AppTraces table (not just WARNING+)
+- [ ] **OBS-03**: Consistent log level policy enforced across all backend source files (ERROR/WARNING/INFO/DEBUG)
+- [ ] **OBS-04**: Per-capture trace ID (capture_trace_id) propagated end-to-end from mobile through classification, admin processing, and errand writes
+- [ ] **OBS-05**: Mobile app generates trace ID per capture, sends as X-Trace-Id header, and displays it for copy-paste debugging
+- [ ] **OBS-06**: Mobile client-side errors reported to backend telemetry proxy endpoint and logged to App Insights
+- [ ] **OBS-07**: Four version-controlled KQL query files: capture trace, recent failures, system health, admin agent audit
+- [ ] **OBS-08**: Azure Monitor alert rules configured for API errors, capture failures, and health check with push notification delivery
+
 ## Future Requirements (v3.1+)
 
 ### Push Notifications
@@ -116,12 +127,20 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SPLIT-04 | Phase 11.1 | Complete |
 | SPLIT-05 | Phase 11.1 | Complete |
 | CLEAN-01 | Phase 12.1 | Complete |
+| OBS-01 | Phase 14 | Not started |
+| OBS-02 | Phase 14 | Not started |
+| OBS-03 | Phase 14 | Not started |
+| OBS-04 | Phase 14 | Not started |
+| OBS-05 | Phase 14 | Not started |
+| OBS-06 | Phase 14 | Not started |
+| OBS-07 | Phase 14 | Not started |
+| OBS-08 | Phase 14 | Not started |
 
 **Coverage:**
-- v3.0 requirements: 21 total
-- Mapped to phases: 21/21
+- v3.0 requirements: 29 total
+- Mapped to phases: 29/29
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-01*
-*Last updated: 2026-03-01 after roadmap creation (Phases 10-13)*
+*Last updated: 2026-03-22 after Phase 14 planning*

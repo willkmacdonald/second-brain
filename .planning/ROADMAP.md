@@ -257,17 +257,19 @@ Plans:
 | 12.2 Rename Admin to Errands | 3/3 | Complete    | 2026-03-16 | - |
 | 12.5 On-Device Voice Transcription | 3/3 | Complete    | 2026-03-19 | - |
 | 13. Recipe URL Extraction | 3/3 | Complete    | 2026-03-22 | - |
-| 14. App Insights Operational Audit | v3.0 | 0/TBD | Not started | - |
+| 14. App Insights Operational Audit | v3.0 | 0/3 | Not started | - |
 
 ### Phase 14: App Insights Operational Audit
 
-**Goal:** Review and streamline App Insights logging setup to ensure operational effectiveness and efficiency. Audit log levels, query patterns, alert configuration, and cost. Ensure Python logger output is structured and actionable, not noisy.
-**Requirements**: TBD
+**Goal:** End-to-end observability from mobile app through backend to Azure AI Foundry. Per-capture trace ID propagation, consistent log levels, structured logging with custom dimensions, version-controlled KQL queries, Azure Monitor alerts, and mobile telemetry via backend proxy.
+**Requirements**: OBS-01, OBS-02, OBS-03, OBS-04, OBS-05, OBS-06, OBS-07, OBS-08
 **Depends on:** Phase 13
-**Plans:** 3/3 plans complete
+**Plans:** 3 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 14 to break down)
+- [ ] 14-01-PLAN.md -- Backend logging audit, Azure Monitor scoping, log level fixes, per-capture trace ID propagation
+- [ ] 14-02-PLAN.md -- Mobile trace ID generation, X-Trace-Id header injection, telemetry proxy endpoint
+- [ ] 14-03-PLAN.md -- KQL operational queries, Azure Monitor alert rules
 
 
 ## Backlog
