@@ -258,6 +258,7 @@ Plans:
 | 12.5 On-Device Voice Transcription | 3/3 | Complete    | 2026-03-19 | - |
 | 13. Recipe URL Extraction | 3/3 | Complete    | 2026-03-22 | - |
 | 14. App Insights Operational Audit | 3/3 | Complete    | 2026-03-23 | - |
+| 15. v3.0 Tech Debt Cleanup | 0/1 | Not started | - | - |
 
 ### Phase 14: App Insights Operational Audit
 
@@ -271,6 +272,22 @@ Plans:
 - [ ] 14-02-PLAN.md -- Mobile trace ID generation, X-Trace-Id header injection, telemetry proxy endpoint
 - [ ] 14-03-PLAN.md -- KQL operational queries, Azure Monitor alert rules
 
+
+### Phase 15: v3.0 Tech Debt Cleanup
+**Goal:** Close all tech debt from the v3.0 milestone audit — restore the failed/pending retry query regression, fix potential UnboundLocalError, repair 3 broken tests, clean stale comments, and update REQUIREMENTS.md traceability table.
+**Requirements**: CLEAN-01 (retry regression fix)
+**Gap Closure:** Closes gaps from v3.0-MILESTONE-AUDIT.md
+**Depends on:** Phase 14
+**Success Criteria** (what must be TRUE):
+  1. errands.py retry query includes `adminProcessingStatus = 'failed'` and `adminProcessingStatus = 'pending'` conditions alongside the existing undefined/null checks
+  2. admin_handoff.py has no potential UnboundLocalError (inbox_container referenced in except block before assignment)
+  3. All backend tests pass (`uv run pytest` — 0 failures)
+  4. No stale "shopping list" comments remain in admin_handoff.py or test_admin_handoff.py
+  5. REQUIREMENTS.md traceability table shows OBS-01–08 as Complete, and DEST/VOICE-OD requirement IDs are registered
+**Plans**: 1 plan
+
+Plans:
+- [ ] 15-01-PLAN.md -- Retry query fix, UnboundLocalError fix, test repairs, stale comments, REQUIREMENTS.md update
 
 ## Backlog
 

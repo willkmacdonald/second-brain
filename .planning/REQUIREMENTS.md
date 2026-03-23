@@ -46,6 +46,22 @@ Requirements for v3.0 Admin Agent & Shopping Lists. Each maps to roadmap phases.
 - [x] **MOBL-02**: Status screen displays shopping lists grouped by store with item counts
 - [x] **MOBL-03**: User can expand a store to see its items and tap to check off / swipe to remove
 
+### Destination Affinity & Knowledge System
+
+- [x] **DEST-01**: Destinations stored in Cosmos DB, managed via voice captures — no hardcoded destination list
+- [x] **DEST-02**: Affinity rules stored in Cosmos DB, managed via voice captures with conflict detection
+- [x] **DEST-03**: GET /api/errands returns dynamically-sourced destinations with online/physical type indicators
+- [x] **DEST-04**: Unmatched items appear as "Needs Routing" on Status screen with inline destination picker
+- [x] **DEST-05**: HITL routing answers auto-save as permanent affinity rules for future captures
+- [x] **DEST-06**: Admin Agent receives routing context (destinations + rules) in every capture processing call
+- [x] **DEST-07**: Rules are queryable via voice: "where does chicken go?" gets a response
+
+### On-Device Voice Transcription
+
+- [x] **VOICE-OD-01**: Voice captures use on-device SFSpeechRecognizer via expo-speech-recognition for real-time streaming transcription
+- [x] **VOICE-OD-02**: Transcription accuracy acceptable for informal captures, validated through manual UAT
+- [x] **VOICE-OD-03**: Backend transcription infrastructure remains available as fallback but not used in default flow
+
 ### Observability
 
 - [x] **OBS-01**: configure_azure_monitor scoped to application loggers (logger_name="second_brain") to prevent SDK noise
@@ -127,20 +143,30 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SPLIT-04 | Phase 11.1 | Complete |
 | SPLIT-05 | Phase 11.1 | Complete |
 | CLEAN-01 | Phase 12.1 | Complete |
-| OBS-01 | Phase 14 | Not started |
-| OBS-02 | Phase 14 | Not started |
-| OBS-03 | Phase 14 | Not started |
-| OBS-04 | Phase 14 | Not started |
-| OBS-05 | Phase 14 | Not started |
-| OBS-06 | Phase 14 | Not started |
-| OBS-07 | Phase 14 | Not started |
-| OBS-08 | Phase 14 | Not started |
+| OBS-01 | Phase 14 | Complete |
+| OBS-02 | Phase 14 | Complete |
+| OBS-03 | Phase 14 | Complete |
+| OBS-04 | Phase 14 | Complete |
+| OBS-05 | Phase 14 | Complete |
+| OBS-06 | Phase 14 | Complete |
+| OBS-07 | Phase 14 | Complete |
+| OBS-08 | Phase 14 | Complete |
+| DEST-01 | Phase 12.3 | Complete |
+| DEST-02 | Phase 12.3 | Complete |
+| DEST-03 | Phase 12.3 | Complete |
+| DEST-04 | Phase 12.3 | Complete |
+| DEST-05 | Phase 12.3 | Complete |
+| DEST-06 | Phase 12.3 | Complete |
+| DEST-07 | Phase 12.3 | Complete |
+| VOICE-OD-01 | Phase 12.5 | Complete |
+| VOICE-OD-02 | Phase 12.5 | Complete |
+| VOICE-OD-03 | Phase 12.5 | Complete |
 
 **Coverage:**
-- v3.0 requirements: 29 total
-- Mapped to phases: 29/29
+- v3.0 requirements: 40 total
+- Mapped to phases: 40/40
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-01*
-*Last updated: 2026-03-22 after Phase 14 planning*
+*Last updated: 2026-03-23 after v3.0 milestone audit gap closure*
