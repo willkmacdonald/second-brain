@@ -24,6 +24,9 @@ CONTAINER_NAMES: list[str] = [
     "Tasks",
     "Destinations",
     "AffinityRules",
+    "Feedback",
+    "EvalResults",
+    "GoldenDataset",
 ]
 
 
