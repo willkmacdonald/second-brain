@@ -9,11 +9,11 @@ Requirements for v3.1 Observability & Evals milestone. Each maps to roadmap phas
 
 ### Investigation Agent
 
-- [ ] **INV-01**: User can ask natural language questions about captures and get human-readable answers (e.g., "what happened to my last capture?")
-- [ ] **INV-02**: User can trace a specific capture's full lifecycle by providing a trace ID
-- [ ] **INV-03**: User can view recent failures and errors with trace IDs and component attribution
-- [ ] **INV-04**: User can query system health (error rates, capture volume, latency trends)
-- [ ] **INV-05**: User can query usage insights (capture counts by period, destination usage, bucket distribution)
+- [x] **INV-01**: User can ask natural language questions about captures and get human-readable answers (e.g., "what happened to my last capture?")
+- [x] **INV-02**: User can trace a specific capture's full lifecycle by providing a trace ID
+- [x] **INV-03**: User can view recent failures and errors with trace IDs and component attribution
+- [x] **INV-04**: User can query system health (error rates, capture volume, latency trends)
+- [x] **INV-05**: User can query usage insights (capture counts by period, destination usage, bucket distribution)
 
 ### Mobile Experience
 
@@ -26,7 +26,7 @@ Requirements for v3.1 Observability & Evals milestone. Each maps to roadmap phas
 
 ### Claude Code Integration
 
-- [ ] **MCP-01**: User can query App Insights from Claude Code via MCP tool (trace lookups, failures, health)
+- [x] **MCP-01**: User can query App Insights from Claude Code via MCP tool (trace lookups, failures, health)
 
 ### Eval Framework
 
@@ -85,18 +85,18 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INV-01 | Phase 17 | Pending |
-| INV-02 | Phase 17 | Pending |
-| INV-03 | Phase 17 | Pending |
-| INV-04 | Phase 17 | Pending |
-| INV-05 | Phase 17 | Pending |
+| INV-01 | Phase 17 | Complete |
+| INV-02 | Phase 17 | Complete |
+| INV-03 | Phase 17 | Complete |
+| INV-04 | Phase 17 | Complete |
+| INV-05 | Phase 17 | Complete |
 | MOBL-01 | Phase 18 | Pending |
 | MOBL-02 | Phase 18 | Pending |
 | MOBL-03 | Phase 18 | Pending |
 | MOBL-04 | Phase 18 | Pending |
 | MOBL-05 | Phase 18 | Pending |
 | MOBL-06 | Phase 18 | Pending |
-| MCP-01 | Phase 19 | Pending |
+| MCP-01 | Phase 19 | Complete |
 | FEED-01 | Phase 20 | Pending |
 | FEED-02 | Phase 20 | Pending |
 | FEED-03 | Phase 20 | Pending |

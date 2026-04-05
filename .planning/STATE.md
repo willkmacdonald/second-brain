@@ -7,8 +7,8 @@ last_updated: "2026-04-05T00:00:00.000Z"
 progress:
   total_phases: 7
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 3
+  completed_plans: 1
 ---
 
 # Project State
@@ -23,9 +23,9 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 ## Current Position
 
 Phase: 16 of 22 (Query Foundation)
-Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-04-05 -- Roadmap created for v3.1
+Plan: 1 of 3 in current phase
+Status: Active (3 plans, 2 waves)
+Last activity: 2026-04-05 -- Plan 16-01 completed
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -41,6 +41,11 @@ Progress: [░░░░░░░░░░] 0%
 - Average duration: 3.3 min
 - Timeline: 2026-02-26 to 2026-03-01 (4 days)
 
+**Velocity (v3.1):**
+- Plans completed: 1
+- Last plan duration: 4 min
+- Timeline: 2026-04-05 to present
+
 *Updated after each plan completion*
 
 ## Accumulated Context
@@ -50,13 +55,15 @@ Progress: [░░░░░░░░░░] 0%
 Decisions are logged in PROJECT.md Key Decisions table.
 v3.0 decisions archived to .planning/milestones/v3.0-ROADMAP.md
 
-**v3.1 decisions (from research):**
+**v3.1 decisions:**
 - KQL programmatic queries use workspace schema (traces/requests), NOT portal schema (AppTraces/AppRequests)
 - Investigation agent uses parameterized @tool functions, NOT free-form LLM-generated KQL
 - Classifier evals use deterministic metrics (exact match, confusion matrix), NOT LLM-as-judge
 - MCP server is standalone process with stdio transport, NOT inside Docker image
 - Eval pipeline runs as CLI + GitHub Actions, NOT inside FastAPI request-response cycle
 - Evaluate Azure MCP Server first before building custom MCP tool
+- LogsQueryClient init non-fatal (warning + None) matching optional services pattern
+- SYSTEM_HEALTH consolidated from 5 portal sections to 1 programmatic query
 
 ### Pending Todos
 
@@ -70,5 +77,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-05
-Stopped at: Phase 16 context gathered
-Resume action: Plan Phase 16 with /gsd:plan-phase 16
+Stopped at: Completed 16-01-PLAN.md
+Resume action: Continue Phase 16 with /gsd:execute-phase 16

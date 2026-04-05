@@ -81,7 +81,7 @@ See: .planning/milestones/v3.0-ROADMAP.md
   2. All existing portal KQL templates (.kql files from Phase 14) have workspace-compatible equivalents using `traces`/`requests` tables (not `AppTraces`/`AppRequests`)
   3. Partial query results are detected and flagged (not silently treated as complete)
   4. Feedback, EvalResults, and GoldenDataset Cosmos containers exist with Pydantic document models
-**Plans**: TBD
+**Plans**: 3 (Wave 1: observability module + Cosmos containers in parallel, Wave 2: infrastructure setup + deploy)
 
 ### Phase 17: Investigation Agent
 **Goal**: User can ask natural language questions about their captures and system health and get human-readable answers
@@ -167,7 +167,7 @@ Items not yet scheduled into a milestone or phase.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 16. Query Foundation | v3.1 | 0/TBD | Not started | - |
+| 16. Query Foundation | 1/3 | In Progress|  | - |
 | 17. Investigation Agent | v3.1 | 0/TBD | Not started | - |
 | 18. Mobile Investigation Chat | v3.1 | 0/TBD | Not started | - |
 | 19. Claude Code MCP Tool | v3.1 | 0/TBD | Not started | - |
