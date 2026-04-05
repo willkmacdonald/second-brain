@@ -12,6 +12,7 @@ dependencies = [
     "azure-cosmos",
     "azure-identity",
     "azure-keyvault-secrets",
+    "azure-monitor-query>=2.0.0",
     "azure-storage-blob",
     # Observability -- Application Insights via OTel distro
     "azure-monitor-opentelemetry>=1.8.6",

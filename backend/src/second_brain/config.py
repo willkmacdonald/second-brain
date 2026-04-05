@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     # Application Insights
     applicationinsights_connection_string: str = ""
 
+    # Log Analytics (workspace queries via LogsQueryClient)
+    log_analytics_workspace_id: str = ""
+
     # Cosmos DB
     cosmos_endpoint: str = ""
 
