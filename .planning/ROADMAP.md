@@ -167,7 +167,7 @@ Items not yet scheduled into a milestone or phase.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 16. Query Foundation | 1/3 | In Progress|  | - |
+| 16. Query Foundation | 2/3 | In Progress|  | - |
 | 17. Investigation Agent | v3.1 | 0/TBD | Not started | - |
 | 18. Mobile Investigation Chat | v3.1 | 0/TBD | Not started | - |
 | 19. Claude Code MCP Tool | v3.1 | 0/TBD | Not started | - |

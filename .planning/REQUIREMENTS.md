@@ -30,17 +30,17 @@ Requirements for v3.1 Observability & Evals milestone. Each maps to roadmap phas
 
 ### Eval Framework
 
-- [ ] **EVAL-01**: Golden dataset of 50+ test captures with known-correct bucket labels evaluates Classifier accuracy
+- [x] **EVAL-01**: Golden dataset of 50+ test captures with known-correct bucket labels evaluates Classifier accuracy
 - [ ] **EVAL-02**: Classifier eval reports per-bucket precision/recall, overall accuracy, and confidence calibration
 - [ ] **EVAL-03**: Admin Agent eval measures routing accuracy by destination and tool usage correctness
-- [ ] **EVAL-04**: Eval results are stored with timestamps for trend tracking (Cosmos + App Insights)
+- [x] **EVAL-04**: Eval results are stored with timestamps for trend tracking (Cosmos + App Insights)
 - [ ] **EVAL-05**: User can trigger an eval run on-demand from mobile or Claude Code
 
 ### Feedback & Signals
 
-- [ ] **FEED-01**: Implicit quality signals are captured automatically (recategorize = misclassification, HITL bucket pick, errand re-routing)
-- [ ] **FEED-02**: User can provide explicit feedback on classifications (thumbs up/down)
-- [ ] **FEED-03**: Quality signals can be promoted to golden dataset entries after user confirmation
+- [x] **FEED-01**: Implicit quality signals are captured automatically (recategorize = misclassification, HITL bucket pick, errand re-routing)
+- [x] **FEED-02**: User can provide explicit feedback on classifications (thumbs up/down)
+- [x] **FEED-03**: Quality signals can be promoted to golden dataset entries after user confirmation
 - [ ] **FEED-04**: Investigation agent can answer "what are the most common misclassifications?" from signal data
 
 ### Self-Monitoring
@@ -97,14 +97,14 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MOBL-05 | Phase 18 | Pending |
 | MOBL-06 | Phase 18 | Pending |
 | MCP-01 | Phase 19 | Complete |
-| FEED-01 | Phase 20 | Pending |
-| FEED-02 | Phase 20 | Pending |
-| FEED-03 | Phase 20 | Pending |
+| FEED-01 | Phase 20 | Complete |
+| FEED-02 | Phase 20 | Complete |
+| FEED-03 | Phase 20 | Complete |
 | FEED-04 | Phase 20 | Pending |
-| EVAL-01 | Phase 21 | Pending |
+| EVAL-01 | Phase 21 | Complete |
 | EVAL-02 | Phase 21 | Pending |
 | EVAL-03 | Phase 21 | Pending |
-| EVAL-04 | Phase 21 | Pending |
+| EVAL-04 | Phase 21 | Complete |
 | EVAL-05 | Phase 21 | Pending |
 | MON-01 | Phase 22 | Pending |
 | MON-02 | Phase 22 | Pending |

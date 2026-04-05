@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Observability & Evals
-status: active
-last_updated: "2026-04-05T00:00:00.000Z"
+status: unknown
+last_updated: "2026-04-05T06:12:12.885Z"
 progress:
-  total_phases: 7
-  completed_phases: 0
-  total_plans: 3
-  completed_plans: 1
+  total_phases: 8
+  completed_phases: 7
+  total_plans: 31
+  completed_plans: 30
 ---
 
 # Project State
@@ -23,9 +23,9 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 ## Current Position
 
 Phase: 16 of 22 (Query Foundation)
-Plan: 1 of 3 in current phase
+Plan: 2 of 3 in current phase
 Status: Active (3 plans, 2 waves)
-Last activity: 2026-04-05 -- Plan 16-01 completed
+Last activity: 2026-04-05 -- Plan 16-02 completed
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -42,8 +42,8 @@ Progress: [░░░░░░░░░░] 0%
 - Timeline: 2026-02-26 to 2026-03-01 (4 days)
 
 **Velocity (v3.1):**
-- Plans completed: 1
-- Last plan duration: 4 min
+- Plans completed: 2
+- Last plan duration: 2 min
 - Timeline: 2026-04-05 to present
 
 *Updated after each plan completion*
@@ -64,6 +64,7 @@ v3.0 decisions archived to .planning/milestones/v3.0-ROADMAP.md
 - Evaluate Azure MCP Server first before building custom MCP tool
 - LogsQueryClient init non-fatal (warning + None) matching optional services pattern
 - SYSTEM_HEALTH consolidated from 5 portal sections to 1 programmatic query
+- [Phase 16]: Eval document models use standalone BaseModel (not BaseDocument) for non-bucket containers
 
 ### Pending Todos
 
@@ -77,5 +78,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-05
-Stopped at: Completed 16-01-PLAN.md
+Stopped at: Completed 16-02-PLAN.md
 Resume action: Continue Phase 16 with /gsd:execute-phase 16
