@@ -178,7 +178,10 @@ async def stream_text_capture(
         messages = [Message(role="user", text=user_text)]
         options: ChatOptions = {
             "tools": tools,
-            "tool_choice": {"mode": "required", "required_function_name": "file_capture"},
+            "tool_choice": {
+                "mode": "required",
+                "required_function_name": "file_capture",
+            },
         }
 
         yield encode_sse(step_start_event("Classifying"))
@@ -212,6 +215,7 @@ async def stream_text_capture(
                                     "agent_run_id": run_id,
                                     "chunk_index": chunk_idx,
                                     "capture_trace_id": capture_trace_id,
+                                    "component": "classifier",
                                 },
                             )
                             chunk_idx += 1
@@ -222,7 +226,11 @@ async def stream_text_capture(
                             if call_id and name:
                                 pending_calls[call_id] = {
                                     "name": name,
-                                    "args": _parse_args(getattr(content, "arguments", {})) if name == "file_capture" else {},
+                                    "args": _parse_args(
+                                        getattr(content, "arguments", {})
+                                    )
+                                    if name == "file_capture"
+                                    else {},
                                 }
 
                         elif content.type == "function_result":
@@ -230,7 +238,9 @@ async def stream_text_capture(
                             if call_id and call_id in pending_calls:
                                 call_info = pending_calls.pop(call_id)
                                 if call_info["name"] == "file_capture":
-                                    parsed = _parse_result(getattr(content, "result", None))
+                                    parsed = _parse_result(
+                                        getattr(content, "result", None)
+                                    )
                                     if parsed is not None:
                                         merged = {**call_info["args"], **parsed}
                                         file_capture_results.append(merged)
@@ -245,7 +255,9 @@ async def stream_text_capture(
                     all_item_ids = [r.get("item_id", "") for r in file_capture_results]
 
                     # Check statuses for edge cases
-                    statuses = [r.get("status", "classified") for r in file_capture_results]
+                    statuses = [
+                        r.get("status", "classified") for r in file_capture_results
+                    ]
 
                     # OTel attributes
                     span.set_attribute("capture.outcome", "classified")
@@ -273,7 +285,9 @@ async def stream_text_capture(
                     elif "pending" in statuses:
                         # Any low-confidence: show low-confidence for first pending item
                         pending_item = next(
-                            r for r in file_capture_results if r.get("status") == "pending"
+                            r
+                            for r in file_capture_results
+                            if r.get("status") == "pending"
                         )
                         yield encode_sse(
                             low_confidence_event(
@@ -326,7 +340,9 @@ async def stream_text_capture(
             logger.error(
                 "Text capture stream error: %s", exc, exc_info=True, extra=log_extra
             )
-            yield encode_sse(error_event("An internal error occurred. Please try again."))
+            yield encode_sse(
+                error_event("An internal error occurred. Please try again.")
+            )
             yield encode_sse(complete_event(thread_id, run_id))
     capture_trace_id_var.reset(trace_token)
 
@@ -396,6 +412,7 @@ async def stream_voice_capture(
                                     "agent_run_id": run_id,
                                     "chunk_index": chunk_idx,
                                     "capture_trace_id": capture_trace_id,
+                                    "component": "classifier",
                                 },
                             )
                             chunk_idx += 1
@@ -411,7 +428,11 @@ async def stream_voice_capture(
                                     )
                                 pending_calls[call_id] = {
                                     "name": name,
-                                    "args": _parse_args(getattr(content, "arguments", {})) if name == "file_capture" else {},
+                                    "args": _parse_args(
+                                        getattr(content, "arguments", {})
+                                    )
+                                    if name == "file_capture"
+                                    else {},
                                 }
 
                         elif content.type == "function_result":
@@ -436,7 +457,9 @@ async def stream_voice_capture(
                     all_item_ids = [r.get("item_id", "") for r in file_capture_results]
 
                     # Check statuses for edge cases
-                    statuses = [r.get("status", "classified") for r in file_capture_results]
+                    statuses = [
+                        r.get("status", "classified") for r in file_capture_results
+                    ]
 
                     # OTel attributes
                     span.set_attribute("capture.outcome", "classified")
@@ -464,7 +487,9 @@ async def stream_voice_capture(
                     elif "pending" in statuses:
                         # Any low-confidence: show low-confidence for first pending item
                         pending_item = next(
-                            r for r in file_capture_results if r.get("status") == "pending"
+                            r
+                            for r in file_capture_results
+                            if r.get("status") == "pending"
                         )
                         yield encode_sse(
                             low_confidence_event(
@@ -519,7 +544,9 @@ async def stream_voice_capture(
             logger.error(
                 "Voice capture stream error: %s", exc, exc_info=True, extra=log_extra
             )
-            yield encode_sse(error_event("An internal error occurred. Please try again."))
+            yield encode_sse(
+                error_event("An internal error occurred. Please try again.")
+            )
             yield encode_sse(complete_event(thread_id, run_id))
     capture_trace_id_var.reset(trace_token)
 
@@ -559,7 +586,10 @@ async def stream_follow_up_capture(
         messages = [Message(role="user", text=follow_up_text)]
         options: ChatOptions = {
             "tools": tools,
-            "tool_choice": {"mode": "required", "required_function_name": "file_capture"},
+            "tool_choice": {
+                "mode": "required",
+                "required_function_name": "file_capture",
+            },
             "conversation_id": foundry_thread_id,
         }
 
@@ -595,6 +625,7 @@ async def stream_follow_up_capture(
                                     "agent_run_id": run_id,
                                     "chunk_index": chunk_idx,
                                     "capture_trace_id": capture_trace_id,
+                                    "component": "classifier",
                                 },
                             )
                             chunk_idx += 1
@@ -664,6 +695,8 @@ async def stream_follow_up_capture(
                 exc_info=True,
                 extra=log_extra,
             )
-            yield encode_sse(error_event("An internal error occurred. Please try again."))
+            yield encode_sse(
+                error_event("An internal error occurred. Please try again.")
+            )
             yield encode_sse(complete_event(thread_id, run_id))
     capture_trace_id_var.reset(trace_token)
