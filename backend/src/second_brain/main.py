@@ -48,6 +48,7 @@ from second_brain.auth import APIKeyMiddleware  # noqa: E402
 from second_brain.config import get_settings  # noqa: E402
 from second_brain.db.blob_storage import BlobStorageManager  # noqa: E402
 from second_brain.db.cosmos import CosmosManager  # noqa: E402
+from second_brain.observability.client import close_logs_client, create_logs_client  # noqa: E402
 from playwright.async_api import async_playwright  # noqa: E402
 
 from second_brain.tools.admin import AdminTools  # noqa: E402
@@ -109,6 +110,21 @@ async def lifespan(app: FastAPI):
             )
             app.state.cosmos_manager = None
             cosmos_mgr = None
+
+        # --- LogsQueryClient (non-fatal) ---
+        try:
+            logs_client = create_logs_client(credential)
+            app.state.logs_client = logs_client
+            app.state.log_analytics_workspace_id = settings.log_analytics_workspace_id
+            logger.info("LogsQueryClient initialized")
+        except Exception:
+            logger.warning(
+                "Could not initialize LogsQueryClient "
+                "-- observability queries unavailable",
+                exc_info=True,
+            )
+            app.state.logs_client = None
+            app.state.log_analytics_workspace_id = ""
 
         # --- Foundry Agent Service (fail fast) ---
         try:
@@ -342,6 +358,9 @@ async def lifespan(app: FastAPI):
 
         if getattr(app.state, "openai_client", None) is not None:
             await app.state.openai_client.close()
+
+        if getattr(app.state, "logs_client", None) is not None:
+            await close_logs_client(app.state.logs_client)
 
         if getattr(app.state, "cosmos_manager", None) is not None:
             await app.state.cosmos_manager.close()
