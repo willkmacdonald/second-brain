@@ -100,7 +100,9 @@ class ErrandItem(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
     destination: str  # Partition key: dynamic slug from Destinations container
     name: str  # Full natural language: "2 lbs ground beef", "cat litter"
-    needsRouting: bool = False  # True when destination is "unrouted" (no affinity rule matched)
+    needsRouting: bool = (
+        False  # True when destination is "unrouted" (no affinity rule matched)
+    )
     sourceName: str | None = None  # Recipe name for source attribution
     sourceUrl: str | None = None  # Recipe URL for source attribution
 
@@ -153,6 +155,62 @@ class AffinityRuleDocument(BaseModel):
     autoSaved: bool = False  # True if created from HITL answer
     createdAt: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updatedAt: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class FeedbackDocument(BaseModel):
+    """Quality signal document -- self-contained capture snapshot.
+
+    Stores classification correction data.
+    Partition key: /userId
+    """
+
+    id: str = Field(default_factory=lambda: str(uuid4()))
+    userId: str = "will"
+    signalType: str  # "recategorize", "hitl_bucket",
+    # "errand_reroute", "thumbs_up", "thumbs_down"
+    captureText: str  # Original raw text of the capture (self-contained snapshot)
+    originalBucket: str  # What classifier assigned
+    correctedBucket: str | None = None  # What user changed it to (None for thumbs_up)
+    captureTraceId: str | None = None  # Links back to App Insights telemetry
+    createdAt: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class GoldenDatasetDocument(BaseModel):
+    """Individual test case for classifier evaluation.
+
+    One document per test case. Partition key: /userId
+    """
+
+    id: str = Field(default_factory=lambda: str(uuid4()))
+    userId: str = "will"
+    inputText: str  # The capture text to classify
+    expectedBucket: str  # Known-correct bucket label
+    source: str  # "manual", "promoted_feedback", "synthetic"
+    tags: list[str] = Field(default_factory=list)  # "edge_case", "voice", "recipe"
+    createdAt: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updatedAt: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class EvalResultsDocument(BaseModel):
+    """Single eval run with aggregate scores and individual case results.
+
+    Partition key: /userId
+    """
+
+    id: str = Field(default_factory=lambda: str(uuid4()))
+    userId: str = "will"
+    evalType: str  # "classifier" or "admin_agent"
+    runTimestamp: datetime  # When the eval started
+    datasetSize: int  # How many test cases were evaluated
+    aggregateScores: (
+        dict  # e.g., {"accuracy": 0.92, "precision": {...}, "recall": {...}}
+    )
+    individualResults: list[
+        dict
+    ]  # e.g., [{"input": "...", "expected": "...", "actual": "...", "correct": True}]
+    modelDeployment: str  # "gpt-4o" or similar
+    notes: str | None = None  # Optional annotation
+    createdAt: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 CONTAINER_MODELS: dict[str, type[BaseDocument]] = {
