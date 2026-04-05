@@ -6,9 +6,9 @@ status: unknown
 last_updated: "2026-04-05T06:12:12.885Z"
 progress:
   total_phases: 8
-  completed_phases: 7
+  completed_phases: 8
   total_plans: 31
-  completed_plans: 30
+  completed_plans: 31
 ---
 
 # Project State
@@ -22,12 +22,12 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 
 ## Current Position
 
-Phase: 16 of 22 (Query Foundation)
-Plan: 2 of 3 in current phase
-Status: Active (3 plans, 2 waves)
-Last activity: 2026-04-05 -- Plan 16-02 completed
+Phase: 16 of 22 (Query Foundation) -- COMPLETE
+Plan: 3 of 3 in current phase
+Status: Phase 16 complete. Ready for Phase 17 planning.
+Last activity: 2026-04-05 -- Plan 16-03 completed (infrastructure deploy + verification)
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [████████████████████] 100% (Phase 16: 3/3 plans)
 
 ## Performance Metrics
 
@@ -42,8 +42,8 @@ Progress: [░░░░░░░░░░] 0%
 - Timeline: 2026-02-26 to 2026-03-01 (4 days)
 
 **Velocity (v3.1):**
-- Plans completed: 2
-- Last plan duration: 2 min
+- Plans completed: 3
+- Last plan duration: infrastructure (multi-step)
 - Timeline: 2026-04-05 to present
 
 *Updated after each plan completion*
@@ -65,6 +65,8 @@ v3.0 decisions archived to .planning/milestones/v3.0-ROADMAP.md
 - LogsQueryClient init non-fatal (warning + None) matching optional services pattern
 - SYSTEM_HEALTH consolidated from 5 portal sections to 1 programmatic query
 - [Phase 16]: Eval document models use standalone BaseModel (not BaseDocument) for non-bucket containers
+- [Phase 16]: Cosmos container creation must use management plane (az CLI), not data plane RBAC (403 on DDL)
+- [Phase 16]: Always regenerate uv.lock after pyproject.toml dependency changes before deploying
 
 ### Pending Todos
 
@@ -72,11 +74,11 @@ None.
 
 ### Blockers/Concerns
 
-- [Open]: Log Analytics Reader RBAC needed for Container App managed identity and local dev credential
+- [Resolved]: Log Analytics Reader RBAC assigned to Container App managed identity (Phase 16-03)
 - [Open]: azure-ai-evaluation SDK migration status (toward azure-ai-projects v2) -- check when Phase 21 starts
 
 ## Session Continuity
 
 Last session: 2026-04-05
-Stopped at: Completed 16-02-PLAN.md
-Resume action: Continue Phase 16 with /gsd:execute-phase 16
+Stopped at: Completed 16-03-PLAN.md -- Phase 16 complete
+Resume action: Start Phase 17 planning with /gsd:plan-phase 17
