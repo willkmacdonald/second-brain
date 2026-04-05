@@ -5,6 +5,10 @@ on:
     branches: [main]
     paths: ['backend/**']
 
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: true
+
 permissions:
   id-token: write   # Required for OIDC (Workload Identity Federation)
   contents: read
