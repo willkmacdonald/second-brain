@@ -5,6 +5,7 @@
 - [x] **v1.0 Text & Voice Capture Loop** — Phases 1-5 plus 4.1, 4.2, 4.3 (shipped 2026-02-25, partial)
 - [x] **v2.0 Foundry Migration & HITL Parity** — Phases 6-9 plus 9.1 (shipped 2026-03-01)
 - [x] **v3.0 Admin Agent & Shopping Lists** — Phases 10-15 plus 11.1, 12.1, 12.2, 12.3, 12.3.1, 12.5 (shipped 2026-03-23)
+- [ ] **v3.1 Observability & Evals** — Phases 16-22 (in progress)
 
 ## Phases
 
@@ -57,6 +58,98 @@ See: .planning/milestones/v3.0-ROADMAP.md
 
 </details>
 
+### v3.1 Observability & Evals (In Progress)
+
+**Milestone Goal:** The system watches itself -- an investigation agent answers questions about captures and system health, an eval pipeline measures agent quality, and alerts fire when things degrade.
+
+- [ ] **Phase 16: Query Foundation** - LogsQueryClient, workspace-compatible KQL templates, Cosmos containers for eval data
+- [ ] **Phase 17: Investigation Agent** - Third Foundry agent with parameterized KQL tools and SSE streaming endpoint
+- [ ] **Phase 18: Mobile Investigation Chat** - Chat screen, dashboard cards, quick action chips, and error deep-linking
+- [ ] **Phase 19: Claude Code MCP Tool** - Standalone MCP server for App Insights queries from Claude Code
+- [ ] **Phase 20: Feedback Collection** - Implicit quality signals, explicit thumbs up/down, golden dataset promotion
+- [ ] **Phase 21: Eval Framework** - Golden datasets, deterministic evaluators, score storage, on-demand trigger
+- [ ] **Phase 22: Self-Monitoring Loop** - Automated weekly evals, threshold alerts, push notifications on degradation
+
+## Phase Details
+
+### Phase 16: Query Foundation
+**Goal**: App Insights telemetry is queryable programmatically and eval data has a home in Cosmos
+**Depends on**: Nothing (first phase of v3.1)
+**Requirements**: (infrastructure -- no direct requirements; enables Phases 17-22)
+**Success Criteria** (what must be TRUE):
+  1. LogsQueryClient can execute a KQL query against the Log Analytics workspace and return structured results
+  2. All existing portal KQL templates (.kql files from Phase 14) have workspace-compatible equivalents using `traces`/`requests` tables (not `AppTraces`/`AppRequests`)
+  3. Partial query results are detected and flagged (not silently treated as complete)
+  4. Feedback, EvalResults, and GoldenDataset Cosmos containers exist with Pydantic document models
+**Plans**: TBD
+
+### Phase 17: Investigation Agent
+**Goal**: User can ask natural language questions about their captures and system health and get human-readable answers
+**Depends on**: Phase 16
+**Requirements**: INV-01, INV-02, INV-03, INV-04, INV-05
+**Success Criteria** (what must be TRUE):
+  1. User can ask "what happened to my last capture?" and get a plain-English answer derived from App Insights telemetry
+  2. User can provide a trace ID and see the full capture lifecycle (classification, filing, admin processing) with timing
+  3. User can ask about recent errors and get a list with trace IDs, timestamps, and which component failed
+  4. User can ask about system health and see error rates, capture volume, and latency trends for a given time window
+  5. User can ask about usage patterns (captures per day, bucket distribution, destination usage) and get summarized results
+**Plans**: TBD
+
+### Phase 18: Mobile Investigation Chat
+**Goal**: Investigation agent is accessible from the phone with a conversational chat interface and at-a-glance health dashboard
+**Depends on**: Phase 17
+**Requirements**: MOBL-01, MOBL-02, MOBL-03, MOBL-04, MOBL-05, MOBL-06
+**Success Criteria** (what must be TRUE):
+  1. User can open a chat screen from the Status screen and type a question to the investigation agent
+  2. Agent responses stream in real-time via SSE with a visible "Thinking..." indicator while the agent works
+  3. User can ask follow-up questions in the same conversation thread without losing context
+  4. Quick action chips (recent errors, today's captures, system health, last eval results) send pre-filled queries with one tap
+  5. Dashboard cards on the Status screen show capture count, success rate, eval scores, and last error at a glance
+**Plans**: TBD
+
+### Phase 19: Claude Code MCP Tool
+**Goal**: App Insights telemetry is queryable directly from Claude Code during development sessions
+**Depends on**: Phase 16
+**Requirements**: MCP-01
+**Success Criteria** (what must be TRUE):
+  1. User can query App Insights from Claude Code via MCP tool (trace lookups, recent failures, system health) and get structured results
+  2. MCP server runs as a standalone process with stdio transport (not inside the Docker image)
+**Plans**: TBD
+
+### Phase 20: Feedback Collection
+**Goal**: Quality signals flow into the system automatically from user behavior and explicitly from user feedback
+**Depends on**: Phase 17 (FEED-04 needs investigation agent), Phase 16 (Cosmos containers)
+**Requirements**: FEED-01, FEED-02, FEED-03, FEED-04
+**Success Criteria** (what must be TRUE):
+  1. Recategorizing an inbox item, picking a HITL bucket, or re-routing an errand automatically records a quality signal in Cosmos (zero extra effort from user)
+  2. User can tap thumbs up/down on inbox items to record explicit classification feedback
+  3. User can promote a quality signal to a golden dataset entry after confirming the correct label
+  4. Investigation agent can answer "what are the most common misclassifications?" by querying feedback signal data
+**Plans**: TBD
+
+### Phase 21: Eval Framework
+**Goal**: Classifier and Admin Agent quality are measured with deterministic metrics against golden datasets
+**Depends on**: Phase 20 (feedback data for signals), Phase 16 (Cosmos containers)
+**Requirements**: EVAL-01, EVAL-02, EVAL-03, EVAL-04, EVAL-05
+**Success Criteria** (what must be TRUE):
+  1. A golden dataset of 50+ curated test captures with known-correct labels exists and can be run against the Classifier
+  2. Classifier eval produces per-bucket precision/recall, overall accuracy, and confidence calibration metrics
+  3. Admin Agent eval measures routing accuracy by destination and tool usage correctness
+  4. Eval results are stored with timestamps in Cosmos and logged to App Insights for trend tracking
+  5. User can trigger an eval run on-demand from mobile or Claude Code and see results
+**Plans**: TBD
+
+### Phase 22: Self-Monitoring Loop
+**Goal**: The system detects its own quality degradation and alerts the user before captures go wrong
+**Depends on**: Phase 21
+**Requirements**: MON-01, MON-02, MON-03, MON-04
+**Success Criteria** (what must be TRUE):
+  1. Eval pipeline runs automatically on a weekly schedule via GitHub Actions
+  2. Azure Monitor alert fires when Classifier accuracy drops below the configured threshold
+  3. Azure Monitor alert fires when Admin Agent task adherence drops below the configured threshold
+  4. User receives a push notification via Azure Monitor when eval scores degrade
+**Plans**: TBD
+
 ## Backlog
 
 Items not yet scheduled into a milestone or phase.
@@ -70,3 +163,14 @@ Items not yet scheduled into a milestone or phase.
 - v1.0: 1 -> 2 -> 3 -> 4 -> 4.1 -> 4.2 -> 4.3 -> 5 (complete)
 - v2.0: 6 -> 7 -> 8 -> 9 -> 9.1 (complete)
 - v3.0: 10 -> 11 -> 11.1 -> 12 -> 12.1 -> 12.2 -> 12.3 -> 12.3.1 -> 12.5 -> 13 -> 14 -> 15 (complete)
+- v3.1: 16 -> 17 -> 18 -> 19 -> 20 -> 21 -> 22
+
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 16. Query Foundation | v3.1 | 0/TBD | Not started | - |
+| 17. Investigation Agent | v3.1 | 0/TBD | Not started | - |
+| 18. Mobile Investigation Chat | v3.1 | 0/TBD | Not started | - |
+| 19. Claude Code MCP Tool | v3.1 | 0/TBD | Not started | - |
+| 20. Feedback Collection | v3.1 | 0/TBD | Not started | - |
+| 21. Eval Framework | v3.1 | 0/TBD | Not started | - |
+| 22. Self-Monitoring Loop | v3.1 | 0/TBD | Not started | - |

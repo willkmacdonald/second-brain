@@ -1,7 +1,7 @@
 # Requirements: The Active Second Brain
 
 **Defined:** 2026-04-05
-**Core Value:** One-tap capture from a phone instantly routes through an agent that classifies, files, and clarifies — with zero organizational effort.
+**Core Value:** One-tap capture from a phone instantly routes through an agent that classifies, files, and clarifies -- with zero organizational effort.
 
 ## v3.1 Requirements
 
@@ -56,9 +56,9 @@ Deferred to future release. Tracked but not in current roadmap.
 
 ### Specialist Agents
 
-- **AGNT-01**: Projects Agent — action item tracking, progress follow-ups
-- **AGNT-02**: Ideas Agent — weekly idea check-ins, keeps captured ideas alive
-- **AGNT-03**: People Agent — relationship tracking, interaction nudges
+- **AGNT-01**: Projects Agent -- action item tracking, progress follow-ups
+- **AGNT-02**: Ideas Agent -- weekly idea check-ins, keeps captured ideas alive
+- **AGNT-03**: People Agent -- relationship tracking, interaction nudges
 
 ### Proactive Features
 
@@ -85,13 +85,39 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (populated by roadmapper) | | |
+| INV-01 | Phase 17 | Pending |
+| INV-02 | Phase 17 | Pending |
+| INV-03 | Phase 17 | Pending |
+| INV-04 | Phase 17 | Pending |
+| INV-05 | Phase 17 | Pending |
+| MOBL-01 | Phase 18 | Pending |
+| MOBL-02 | Phase 18 | Pending |
+| MOBL-03 | Phase 18 | Pending |
+| MOBL-04 | Phase 18 | Pending |
+| MOBL-05 | Phase 18 | Pending |
+| MOBL-06 | Phase 18 | Pending |
+| MCP-01 | Phase 19 | Pending |
+| FEED-01 | Phase 20 | Pending |
+| FEED-02 | Phase 20 | Pending |
+| FEED-03 | Phase 20 | Pending |
+| FEED-04 | Phase 20 | Pending |
+| EVAL-01 | Phase 21 | Pending |
+| EVAL-02 | Phase 21 | Pending |
+| EVAL-03 | Phase 21 | Pending |
+| EVAL-04 | Phase 21 | Pending |
+| EVAL-05 | Phase 21 | Pending |
+| MON-01 | Phase 22 | Pending |
+| MON-02 | Phase 22 | Pending |
+| MON-03 | Phase 22 | Pending |
+| MON-04 | Phase 22 | Pending |
 
 **Coverage:**
-- v3.1 requirements: 22 total
-- Mapped to phases: 0
-- Unmapped: 22 ⚠️
+- v3.1 requirements: 25 total
+- Mapped to phases: 25
+- Unmapped: 0
+
+**Note:** Phase 16 (Query Foundation) has no direct requirements -- it is infrastructure enabling Phases 17-22.
 
 ---
 *Requirements defined: 2026-04-05*
-*Last updated: 2026-04-05 after initial definition*
+*Last updated: 2026-04-05 after roadmap creation*
