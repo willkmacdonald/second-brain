@@ -1,752 +1,740 @@
-# Architecture: Admin Agent & Shopping Lists Integration
+# Architecture Patterns
 
-**Domain:** Specialist agent integration into existing capture-and-classify pipeline
-**Researched:** 2026-03-01
-**Confidence:** HIGH for handoff pattern and data model, MEDIUM for YouTube transcript integration, HIGH for mobile screen architecture
-
----
-
-## Existing Architecture Summary
-
-Before designing the Admin Agent integration, here is the current system as shipped in v2.0:
-
-```
-Mobile (Expo)                    Backend (FastAPI on Azure Container Apps)
-─────────────                    ────────────────────────────────────────
-Capture Screen ──POST /api/capture──►  capture.py → stream_text_capture()
-  (Voice/Text)                         │
-                                       ├─ AzureAIAgentClient.get_response(stream=True)
-                                       │    └─ Classifier Agent (Foundry, persistent)
-                                       │         ├─ transcribe_audio @tool (voice only)
-                                       │         └─ file_capture @tool
-                                       │              └─ ClassifierTools._write_to_cosmos()
-                                       │                   ├─ Inbox container (always)
-                                       │                   └─ Bucket container (People/Projects/Ideas/Admin)
-                                       │
-                                       └─ FoundrySSEAdapter yields AG-UI events
-                                            └─ STEP_START → STEP_END → CLASSIFIED/MISUNDERSTOOD/LOW_CONFIDENCE → COMPLETE
-
-Inbox Screen ──GET /api/inbox──►  inbox.py → Cosmos query
-             ──DELETE /api/inbox/{id}──►  cascade delete (inbox + bucket)
-             ──PATCH /api/inbox/{id}/recategorize──►  cross-container move
-```
-
-**Key constraints inherited from v2.0:**
-- Connected Agents cannot call local @tool functions (confirmed in prior research)
-- Each agent runs as an independent persistent Foundry agent invoked by FastAPI code
-- `AzureAIAgentClient` with `agent_id` and `should_cleanup_agent=False`
-- Agent instructions managed in AI Foundry portal (not in code)
-- SSE streaming via async generator → StreamingResponse
-- All Cosmos operations use `partition_key="will"` (single user)
+**Domain:** Observability investigation agent + eval framework for existing capture-and-intelligence system
+**Researched:** 2026-04-04
+**Overall Confidence:** HIGH (existing architecture well-understood, target APIs verified with official docs)
 
 ---
 
-## Question 1: How Does Classifier → Admin Agent Handoff Work?
+## Existing Architecture Snapshot
 
-### Recommended Pattern: Code-Based Sequential Routing
-
-**NOT HandoffBuilder. NOT Connected Agents.** Use FastAPI code-based routing -- the same pattern v2.0 already uses for the Classifier, extended with a conditional second agent call.
-
-The handoff pattern from the Azure Architecture Center docs describes this as the "routing" or "dispatch" pattern where routing decisions are made deterministically by code, not by an agent deciding to transfer. This fits because:
-
-1. The Classifier already determines `bucket="Admin"` with confidence scoring
-2. The decision to invoke the Admin Agent is deterministic: `if bucket == "Admin"` → route to Admin Agent
-3. No need for the Classifier to "decide" to hand off -- FastAPI code observes the classification result and routes
-
-### Architecture: Two-Phase Capture Flow
+Before describing new components, here is the current system as shipped in v3.0:
 
 ```
-User captures: "Need cat litter and I should pick up that prescription"
-                                │
-                                ▼
-              ┌─────────────────────────────────┐
-              │     Phase 1: Classification      │
-              │  (existing Classifier pipeline)  │
-              │                                  │
-              │  Classifier Agent sees text       │
-              │  → calls file_capture(            │
-              │      bucket="Admin",              │
-              │      confidence=0.92,             │
-              │      status="classified"          │
-              │    )                              │
-              │  → Inbox doc created              │
-              │  → Admin doc created              │
-              └─────────────┬───────────────────┘
-                            │
-                   SSE: CLASSIFIED event
-                   observed by adapter
-                            │
-                            ▼
-                   bucket == "Admin"?
-                   ┌─────┐     ┌──────┐
-                   │ YES │     │  NO  │
-                   └──┬──┘     └──┬───┘
-                      │           │
-                      ▼           ▼
-              ┌───────────────┐  Standard flow
-              │ Phase 2:      │  (CLASSIFIED event,
-              │ Admin Agent   │   auto-reset)
-              │ enrichment    │
-              │               │
-              │ Admin Agent   │
-              │ receives text │
-              │ + context     │
-              │ → calls       │
-              │   add_shopping│
-              │   _list_items │
-              │ → items filed │
-              │   to Cosmos   │
-              └───────┬───────┘
-                      │
-                      ▼
-              SSE: ADMIN_ENRICHED event
-              (new event type for mobile)
+Mobile (Expo/RN)                    Backend (FastAPI on ACA)
++-----------------+                 +-----------------------------------+
+| Capture Screen  |--POST /capture->| capture.py (SSE StreamingResponse)|
+| (text/voice)    |<---SSE events---| adapter.py (AG-UI protocol)      |
++-----------------+                 |   |                               |
+| Inbox Screen    |--GET/PATCH----->| inbox.py                         |
++-----------------+                 |   |                               |
+| Status Screen   |--GET /errands-->| errands.py -> admin_handoff.py   |
++-----------------+                 |   (triggers Admin Agent)         |
+                                    +---+------+--------+--------------+
+                                        |      |        |
+                              +---------+   +--+--+  +--+------+
+                              | Foundry |   |Cosmos|  |App      |
+                              | Agent   |   |DB    |  |Insights |
+                              | Service |   |9 cont|  |(OTel)   |
+                              +---------+   +------+  +---------+
 ```
 
-### Implementation: Adapter-Level Routing
+**Key integration surfaces for new features:**
+- `main.py` lifespan: all client initialization, app.state wiring
+- `api/` routers: FastAPI endpoints, each gets clients from `request.app.state`
+- `streaming/adapter.py`: SSE generator pattern for AG-UI protocol
+- `streaming/sse.py`: SSE event helper functions (step_start, classified, complete, etc.)
+- `db/cosmos.py`: CosmosManager with `get_container()` for 9 containers
+- `processing/admin_handoff.py`: background processing pattern (fire-and-forget via asyncio.create_task)
+- OTel already wired: `azure-monitor-opentelemetry` + `enable_instrumentation()`
+- `agents/middleware.py`: AuditAgentMiddleware and ToolTimingMiddleware applied to all agent clients
+- Existing KQL queries in `backend/queries/` (system-health, capture-trace, admin-agent-audit, recent-failures)
 
-The routing happens inside a new `stream_admin_enrichment()` function that the capture adapter calls after observing a `CLASSIFIED` event with `bucket="Admin"`. This is **not** a new endpoint -- it extends the existing SSE stream.
-
-```python
-# In streaming/adapter.py (extended)
-
-async def stream_text_capture(...) -> AsyncGenerator[str, None]:
-    """Extended to include Admin Agent enrichment after classification."""
-    # ... existing Phase 1 code (unchanged) ...
-
-    # After Phase 1 completes and we have file_capture result:
-    if detected_tool == "file_capture":
-        # Emit the CLASSIFIED event immediately (user sees instant feedback)
-        yield encode_sse(classified_event(item_id, bucket, confidence))
-
-        # Phase 2: If Admin bucket, invoke Admin Agent for enrichment
-        if bucket == "Admin" and admin_client is not None:
-            yield encode_sse(step_start_event("Processing Admin"))
-            async for event in stream_admin_enrichment(
-                admin_client=admin_client,
-                raw_text=user_text,
-                inbox_item_id=item_id,
-                admin_tools=admin_tools,
-            ):
-                yield event
-            yield encode_sse(step_end_event("Processing Admin"))
-
-    yield encode_sse(complete_event(thread_id, run_id))
-```
-
-### Why This Pattern Over Alternatives
-
-| Pattern | Pros | Cons | Verdict |
-|---------|------|------|---------|
-| **Code-based routing (recommended)** | Uses existing patterns, deterministic, observable, each agent has own tools | Two serial agent calls per Admin capture | Best fit -- proven pattern, zero new infrastructure |
-| Connected Agents (Foundry-native) | Server-managed handoff | Cannot call local @tools, deprecated in new portal | Ruled out by constraints |
-| HandoffBuilder | Agent decides routing | Known bugs with Foundry v2 API (issue #3097), adds complexity | Ruled out |
-| Single agent with all tools | One agent call | Overloaded prompt, tool confusion, harder to maintain | Anti-pattern for specialist agents |
-
-### Latency Impact
-
-Admin captures will take approximately 2x the wall time of non-Admin captures (two sequential agent calls). For a capture-and-forget UX, this is acceptable because:
-- The user sees "Classified" immediately after Phase 1
-- Phase 2 runs while the user sees the classification feedback
-- The "Processing Admin" step provides progress indication
-- Total time: ~3-5 seconds (vs ~1.5-2.5 seconds for non-Admin)
+**Existing agents:**
+1. **Classifier Agent** -- persistent, streaming, @tools: `file_capture`, `transcribe_audio`
+2. **Admin Agent** -- persistent, non-streaming (called in background), @tools: `add_errand_items`, `add_task_items`, `get_routing_context`, `manage_destination`, `manage_affinity_rule`, `query_rules`, `fetch_recipe_url`
 
 ---
 
-## Question 2: Shopping List Data Model in Cosmos DB
+## Recommended Architecture: v3.1 Additions
 
-### Recommended: New `ShoppingLists` Container (Not Extend Admin)
-
-**Create a dedicated `ShoppingLists` container** rather than extending the Admin container. The Admin container holds generic admin captures (documents with rawText, title, classificationMeta). Shopping lists are a fundamentally different data shape -- they are persistent, mutable collections with line items, not point-in-time captures.
-
-### Data Model
+### System Overview (new components in bold)
 
 ```
-ShoppingLists Container
-  Partition Key: /userId
+Mobile (Expo/RN)                         Backend (FastAPI on ACA)
++-------------------+                    +--------------------------------------+
+| Capture Screen    |--POST /capture---->| capture.py (existing)                |
+| + **Feedback UI** |--POST /feedback--->| **api/feedback.py** (NEW)            |
++-------------------+                    |                                      |
+| Inbox Screen      |--GET /inbox------->| inbox.py (existing)                  |
+| + **Feedback btn**|--POST /feedback--->| **api/feedback.py** (NEW)            |
++-------------------+                    |                                      |
+| Status Screen     |--GET /errands----->| errands.py (existing)                |
++-------------------+                    |                                      |
+| **Insights Tab**  |--POST /insights--->| **api/insights.py** (NEW)            |
+| (chat + dashboard)|<---SSE events------| **streaming/insights_adapter.py**    |
+|                   |--GET /insights/    |                                      |
+|                   |   dashboard-------->| **api/insights.py** (dashboard data) |
++-------------------+                    +---+-------+--------+-------+--------+
+                                             |       |        |       |
+                                   +---------+  +----+--+  +--+--+ +--+------+
+                                   | Foundry |  |Cosmos  |  |App  | |**Evals**|
+                                   | Agent   |  |DB      |  |Ins. | |  (CLI)  |
+                                   | Service |  |+Feedbk |  |Query| +---------+
+                                   |+**Inv.**|  |+Evals  |  |API  |
+                                   +---------+  |+Golden |  +-----+
+                                                +--------+
 
-  Document structure:
-  ┌──────────────────────────────────────────────────┐
-  │ ShoppingListDocument                              │
-  │                                                    │
-  │   id: "list-jewel"           (store-scoped ID)    │
-  │   userId: "will"             (partition key)      │
-  │   storeName: "Jewel"         (display name)       │
-  │   storeSlug: "jewel"         (normalized key)     │
-  │   items: [                                        │
-  │     {                                             │
-  │       id: "item-uuid-1"                           │
-  │       name: "Cat litter"                          │
-  │       quantity: "1"          (free-text)           │
-  │       source: "capture"      (capture|recipe|manual)│
-  │       sourceInboxId: "inbox-uuid-abc"             │
-  │       addedAt: "2026-03-01T..."                   │
-  │       checked: false                              │
-  │     },                                            │
-  │     {                                             │
-  │       id: "item-uuid-2"                           │
-  │       name: "Chicken breast (2 lbs)"              │
-  │       quantity: "2 lbs"                            │
-  │       source: "recipe"                            │
-  │       sourceRecipeUrl: "https://youtube.com/..."   │
-  │       addedAt: "2026-03-01T..."                   │
-  │       checked: false                              │
-  │     }                                             │
-  │   ]                                               │
-  │   createdAt: "2026-03-01T..."                     │
-  │   updatedAt: "2026-03-01T..."                     │
-  └──────────────────────────────────────────────────┘
+Claude Code (local, via MCP)
++-------------------+
+| **MCP Server**    |--stdio-->| **mcp/server.py** (NEW standalone)     |
+| (query system     |          | Uses azure-monitor-query directly      |
+|  health, traces)  |          | Auth: az login / DefaultAzureCredential|
++-------------------+          +----------------------------------------+
 ```
 
-### Pydantic Models
+### Component Boundaries
 
-```python
-class ShoppingItem(BaseModel):
-    """Individual item on a shopping list."""
-    id: str = Field(default_factory=lambda: str(uuid4()))
-    name: str
-    quantity: str | None = None
-    source: str = "capture"  # capture | recipe | manual
-    sourceInboxId: str | None = None
-    sourceRecipeUrl: str | None = None
-    addedAt: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    checked: bool = False
-
-
-class ShoppingListDocument(BaseModel):
-    """One shopping list per store. Document in ShoppingLists container."""
-    id: str  # "list-{storeSlug}"
-    userId: str = "will"
-    storeName: str  # "Jewel", "CVS", "Pet Store"
-    storeSlug: str  # "jewel", "cvs", "pet-store"
-    items: list[ShoppingItem] = Field(default_factory=list)
-    createdAt: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    updatedAt: datetime = Field(default_factory=lambda: datetime.now(UTC))
-```
-
-### Why One Document Per Store (Not One Per Item)
-
-Shopping lists are small (10-30 items per store). One document per store means:
-- **Single read** to display all items for a store
-- **Single write** (upsert) when adding items -- no multi-document transactions
-- **Simple delete** -- remove item from array, upsert document
-- **Cosmos free tier friendly** -- fewer RUs consumed, fewer documents
-- Items array will never exceed Cosmos's 2MB document limit for a personal shopping list
-
-If this were multi-user with hundreds of items per store, items-as-documents with a composite partition key would be better. For single-user with <50 items per store, the embedded array pattern is correct.
-
-### Why Not Extend the Admin Container
-
-| Approach | Pros | Cons |
-|----------|------|------|
-| **New ShoppingLists container** | Clean data shape, independent queries, no schema pollution, easy to add new list types later | One more container to initialize |
-| Extend Admin container | No new container | Mixes captures (immutable docs) with lists (mutable collections), complex queries, Admin container schema becomes overloaded |
-
-The Admin container holds classified capture documents (`AdminDocument` with rawText, classificationMeta). Mixing in shopping list documents with completely different fields and query patterns would violate single-responsibility and make both harder to query.
-
-### Cosmos Manager Changes
-
-```python
-# In db/cosmos.py
-CONTAINER_NAMES: list[str] = [
-    "Inbox", "People", "Projects", "Ideas", "Admin", "ShoppingLists"
-]
-```
-
-One line change. The `CosmosManager.initialize()` method already loops over `CONTAINER_NAMES` and creates container clients.
-
-### Shopping List API Endpoints
-
-```
-GET  /api/shopping-lists              → All lists (one per store)
-GET  /api/shopping-lists/{storeSlug}  → Single store list with items
-PATCH /api/shopping-lists/{storeSlug}/items/{itemId}/check   → Toggle checked
-DELETE /api/shopping-lists/{storeSlug}/items/{itemId}         → Remove item
-POST /api/shopping-lists/{storeSlug}/items                   → Manual add (future)
-```
-
-These are standard REST endpoints, NOT SSE streaming. The "Status & Priorities" screen fetches lists via GET, and item interactions (check/delete) are immediate PATCH/DELETE.
+| Component | Status | Responsibility | Communicates With |
+|-----------|--------|---------------|-------------------|
+| `api/feedback.py` | **NEW** | Collect explicit feedback (thumbs up/down, correct bucket) on captures | Cosmos DB (Feedback container), mobile app |
+| `api/insights.py` | **NEW** | Chat endpoint for investigation agent + dashboard summary endpoint | App Insights (via azure-monitor-query), Foundry Agent Service, mobile |
+| `streaming/insights_adapter.py` | **NEW** | SSE streaming for investigation agent responses (text deltas, not classification) | insights.py, AG-UI protocol to mobile |
+| `agents/investigator.py` | **NEW** | Investigation Agent registration + prompt management | Foundry Agent Service |
+| `tools/insights.py` | **NEW** | @tool functions: `query_captures`, `get_system_health`, `get_bucket_distribution`, `trace_capture` | App Insights Query API, Cosmos DB |
+| `evals/` | **NEW** | Eval framework: golden datasets, custom evaluators, eval runner CLI | Azure AI Evaluation SDK, Cosmos DB, App Insights |
+| `mcp/server.py` | **NEW (standalone)** | Claude Code MCP tool for querying App Insights | App Insights Query API (direct, not via backend) |
+| `models/feedback.py` | **NEW** | Pydantic models for FeedbackDocument, EvalResultDocument, GoldenDatasetDocument | Cosmos DB |
+| Mobile: Insights tab | **NEW** | Chat UI + dashboard cards for investigation agent | Backend /insights endpoints |
+| Mobile: Feedback buttons | **MODIFY inbox** | Thumbs up/down on inbox detail card | Backend /feedback endpoint |
 
 ---
 
-## Question 3: Mobile "Status & Priorities" Screen
+## Data Flow
 
-### Recommended: New Tab with REST Data Fetching
-
-The "Status & Priorities" screen is a **read-heavy** view that displays agent-processed output. It does NOT need SSE streaming -- it fetches shopping lists via REST API calls, the same way the Inbox screen fetches inbox items.
-
-### Tab Navigation Update
+### 1. Investigation Agent -- Mobile Chat
 
 ```
-Current tabs:  [Capture]  [Inbox]
-New tabs:      [Capture]  [Inbox]  [Status]
-```
-
-Add a third tab to the existing `(tabs)/_layout.tsx`.
-
-### Screen Architecture
-
-```
-StatusScreen
-  └─ useFocusEffect → fetchShoppingLists()
-  └─ FlatList (stores)
-       └─ StoreCard (collapsible)
-            └─ ShoppingItem (swipe-to-remove)
-                 ├─ Item name + quantity
-                 ├─ Source indicator (capture/recipe)
-                 └─ Swipe right → DELETE /api/shopping-lists/{store}/items/{id}
-```
-
-### Data Flow
-
-```
-StatusScreen
-    │
-    ├─ On focus: GET /api/shopping-lists
-    │   Response: [
-    │     { storeName: "Jewel", storeSlug: "jewel", items: [...] },
-    │     { storeName: "CVS", storeSlug: "cvs", items: [...] },
-    │   ]
-    │
-    ├─ On swipe-to-remove:
-    │   DELETE /api/shopping-lists/{storeSlug}/items/{itemId}
-    │   Optimistic UI: remove from local state immediately
-    │   Rollback on failure
-    │
-    └─ On pull-to-refresh: re-fetch all lists
-```
-
-### Why REST Not SSE
-
-The Status screen displays **already-processed** data. Unlike the Capture screen where agent processing happens in real-time and must stream events, shopping lists are written to Cosmos by the Admin Agent during capture and then read back as static data. There is no real-time processing to stream.
-
-### No Push Notifications (v3.0)
-
-Per PROJECT.md: "No push notifications this milestone -- pull-based UI." The Status screen uses pull-to-refresh. Push notifications are deferred to v3.1+.
-
----
-
-## Question 4: YouTube Transcript Fetching -- Where Does It Happen?
-
-### Recommended: Agent @tool Function (Not Backend Service)
-
-YouTube transcript extraction should be an `@tool` function on the Admin Agent, not a separate backend service. The reasoning:
-
-1. **The Admin Agent decides when to extract** -- when it receives a YouTube URL as captured text, it calls `extract_recipe_ingredients` to get the transcript and parse ingredients
-2. **The agent interprets the transcript** -- GPT-4o is excellent at extracting structured ingredient lists from unstructured transcript text
-3. **The tool is simple** -- `youtube-transcript-api` is a lightweight library (~5 lines of code to get a transcript), wrapped in `asyncio.to_thread()` for async safety
-4. **Follows the existing pattern** -- `transcribe_audio` is already a @tool on the Classifier; `extract_recipe_ingredients` follows the same class-based tool pattern
-
-### Implementation: Two-Step Tool Chain
-
-The Admin Agent's instructions (in Foundry portal) tell it to:
-1. If the text contains a YouTube URL, call `fetch_youtube_transcript` first
-2. Read the transcript, extract ingredients and quantities
-3. Call `add_shopping_list_items` to file them to the correct stores
-
-This mirrors how the Classifier uses `transcribe_audio` then `file_capture` -- two @tool calls in sequence, orchestrated by the agent's reasoning.
-
-### Tool Definitions
-
-```python
-class AdminTools:
-    """Tools for the Admin Agent, bound to CosmosManager."""
-
-    def __init__(self, cosmos_manager: CosmosManager) -> None:
-        self._manager = cosmos_manager
-
-    @tool(approval_mode="never_require")
-    async def fetch_youtube_transcript(
-        self,
-        url: Annotated[str, Field(description="YouTube video URL")],
-    ) -> str:
-        """Fetch the transcript of a YouTube video.
-
-        Returns the full transcript text. The agent should parse this
-        to extract recipe ingredients and quantities, then call
-        add_shopping_list_items to file them.
-        """
-        video_id = _extract_video_id(url)
-        if not video_id:
-            return "Error: Could not extract video ID from URL"
-
-        transcript_entries = await asyncio.to_thread(
-            YouTubeTranscriptApi.get_transcript, video_id
-        )
-        full_text = " ".join(entry["text"] for entry in transcript_entries)
-        return full_text
-
-    @tool(approval_mode="never_require")
-    async def add_shopping_list_items(
-        self,
-        items: Annotated[
-            list[dict],
-            Field(description=(
-                "List of items to add. Each item: "
-                '{"name": "...", "quantity": "...", "store": "..."}'
-            )),
-        ],
-        source_inbox_id: Annotated[
-            str | None,
-            Field(description="Inbox item ID this came from"),
-        ] = None,
-        source_recipe_url: Annotated[
-            str | None,
-            Field(description="YouTube URL if items are from a recipe"),
-        ] = None,
-    ) -> dict:
-        """Add items to store-based shopping lists.
-
-        Items are grouped by store and added to the appropriate
-        ShoppingList document in Cosmos DB. Creates the list document
-        if it doesn't exist for that store yet.
-        """
-        # Group items by store, upsert to Cosmos
-        ...
-```
-
-### Why @tool Not Backend Service
-
-| Approach | Pros | Cons |
-|----------|------|------|
-| **Agent @tool (recommended)** | Agent orchestrates the full flow, interprets transcript with GPT-4o reasoning, follows existing pattern | youtube-transcript-api is blocking (needs asyncio.to_thread) |
-| Backend service endpoint | Clean separation | Requires new endpoint, loses agent reasoning context, agent can't interpret transcript in-context |
-| Pre-process before agent | Simplest backend code | Agent can't decide when to fetch, breaks agent autonomy |
-
-The `asyncio.to_thread()` wrapper for the blocking `youtube-transcript-api` library is the standard pattern for using sync libraries in FastAPI/async contexts. It runs the blocking call in a thread pool, preventing event loop starvation.
-
-### YouTube Transcript Library
-
-**Use `youtube-transcript-api`** (PyPI, latest v1.2.4, Jan 2026):
-- No API key required
-- No headless browser
-- Fetches auto-generated or manual captions
-- Lightweight dependency
-- Well-maintained (active in 2025-2026)
-
-**Confidence: HIGH** -- this is the de facto standard for YouTube transcript extraction in Python. Verified on PyPI and GitHub.
-
----
-
-## Complete System Architecture: After v3.0
-
-```
-┌────────────────────────────────────────────────────────────────────────────┐
-│                         Mobile App (Expo)                                  │
-│                                                                            │
-│   Capture Screen ──────────────── AG-UI SSE Client                        │
-│   Inbox Screen ────────────────── REST API (GET/DELETE/PATCH)             │
-│   Status Screen (NEW) ─────────── REST API (GET/DELETE)                   │
-│         │                    │  ▲                                          │
-└─────────┼────────────────────┼──┼──────────────────────────────────────────┘
-          │                    ▼  │
-     ┌────────────────────────────────────────────────────────────────────┐
-     │               FastAPI (Azure Container Apps)                       │
-     │                                                                    │
-     │   POST /api/capture ──────────► stream_text_capture()              │
-     │   POST /api/capture/voice ────► stream_voice_capture()             │
-     │   POST /api/capture/follow-up ► stream_follow_up_capture()         │
-     │                                                                    │
-     │   GET  /api/inbox ────────────► Cosmos query                       │
-     │   DELETE /api/inbox/{id} ─────► cascade delete                     │
-     │   PATCH /api/inbox/{id}/recat ► cross-container move               │
-     │                                                                    │
-     │   GET  /api/shopping-lists ──────────► Cosmos query (NEW)          │
-     │   DELETE /api/shopping-lists/.../{id} ► array item remove (NEW)    │
-     │                                                                    │
-     │   ┌── Lifespan ──────────────────────────────────────────────┐     │
-     │   │                                                          │     │
-     │   │  AzureAIAgentClient (probe, connectivity check)          │     │
-     │   │                                                          │     │
-     │   │  Classifier Client (AzureAIAgentClient)                  │     │
-     │   │    agent_id: AZURE_AI_CLASSIFIER_AGENT_ID                │     │
-     │   │    tools: [file_capture, transcribe_audio]               │     │
-     │   │    middleware: [AuditAgentMiddleware, ToolTimingMiddleware]│     │
-     │   │                                                          │     │
-     │   │  Admin Client (AzureAIAgentClient) ◄── NEW              │     │
-     │   │    agent_id: AZURE_AI_ADMIN_AGENT_ID                    │     │
-     │   │    tools: [add_shopping_list_items,                      │     │
-     │   │            fetch_youtube_transcript]                     │     │
-     │   │    middleware: [AuditAgentMiddleware, ToolTimingMiddleware]│     │
-     │   │                                                          │     │
-     │   │  ClassifierTools (→ Cosmos: Inbox, Buckets)              │     │
-     │   │  AdminTools (→ Cosmos: ShoppingLists) ◄── NEW           │     │
-     │   │  TranscriptionTools (→ Blob Storage + OpenAI)            │     │
-     │   │                                                          │     │
-     │   │  CosmosManager (6 containers)                            │     │
-     │   │    Inbox | People | Projects | Ideas | Admin             │     │
-     │   │    ShoppingLists ◄── NEW                                 │     │
-     │   │                                                          │     │
-     │   └──────────────────────────────────────────────────────────┘     │
-     └────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Component Boundaries
-
-### New Components (v3.0)
-
-| Component | File | Responsibility | Communicates With |
-|-----------|------|----------------|-------------------|
-| `AdminTools` | `tools/admin.py` | @tool functions for shopping list CRUD + YouTube transcript | CosmosManager (ShoppingLists container) |
-| `ensure_admin_agent()` | `agents/admin.py` | Self-healing Admin Agent registration | Foundry Agent Service |
-| `ShoppingListDocument` / `ShoppingItem` | `models/documents.py` | Pydantic schemas for shopping list data | AdminTools, shopping_lists API |
-| `shopping_lists` router | `api/shopping_lists.py` | REST endpoints for Status screen | CosmosManager (ShoppingLists container) |
-| `stream_admin_enrichment()` | `streaming/adapter.py` | SSE streaming for Admin Agent phase | Admin AzureAIAgentClient |
-| `StatusScreen` | `mobile/app/(tabs)/status.tsx` | Shopping list display with swipe-to-remove | REST API (/api/shopping-lists) |
-
-### Modified Components (v3.0)
-
-| Component | File | Change |
-|-----------|------|--------|
-| `CosmosManager` | `db/cosmos.py` | Add `"ShoppingLists"` to `CONTAINER_NAMES` |
-| `config.py` | `config.py` | Add `azure_ai_admin_agent_id: str = ""` |
-| `main.py` lifespan | `main.py` | Initialize Admin Agent client, AdminTools, register in app.state |
-| `stream_text_capture()` | `streaming/adapter.py` | After CLASSIFIED with bucket="Admin", call `stream_admin_enrichment()` |
-| `stream_voice_capture()` | `streaming/adapter.py` | Same conditional Admin Agent routing |
-| Tab layout | `mobile/app/(tabs)/_layout.tsx` | Add Status tab |
-| SSE events | `streaming/sse.py` | Add `admin_enriched_event()` |
-| AG-UI types | `mobile/lib/types.ts` | Add `ADMIN_ENRICHED` event type |
-
-### Unchanged Components
-
-| Component | Why Unchanged |
-|-----------|---------------|
-| `ClassifierTools` | Classifier still files to Admin bucket as before |
-| `ensure_classifier_agent()` | Classifier agent unchanged |
-| Classifier instructions | No change needed -- still classifies into Admin bucket |
-| `api/inbox.py` | Inbox CRUD unaffected by shopping lists |
-| `api/capture.py` | Endpoint handlers unchanged -- routing happens in adapter |
-| `tools/transcription.py` | Voice transcription unchanged |
-| `tools/cosmos_crud.py` | Generic CRUD tools unchanged |
-
----
-
-## Data Flow: Ad Hoc Item Capture
-
-```
-User says: "Need cat litter"
-    │
-    ▼
-POST /api/capture { text: "Need cat litter" }
-    │
-    ▼
-stream_text_capture()
-    │
-    ├─ Phase 1: Classifier Agent
-    │   Agent reasons: "This is a household supply need → Admin"
-    │   Agent calls: file_capture(
-    │       text="Need cat litter",
-    │       bucket="Admin",
-    │       confidence=0.88,
-    │       status="classified",
-    │       title="Cat litter"
-    │   )
-    │   Result: Inbox doc created, Admin doc created
-    │
-    ├─ SSE: CLASSIFIED { inboxItemId, bucket: "Admin", confidence: 0.88 }
-    │   (mobile shows "Filed -> Admin (0.88)" toast immediately)
-    │
-    ├─ Phase 2: Admin Agent enrichment
-    │   SSE: STEP_START { stepName: "Processing Admin" }
-    │   Admin Agent receives: "Need cat litter"
-    │   Admin Agent reasons: "Cat litter → pet store"
-    │   Admin Agent calls: add_shopping_list_items([
-    │       { name: "Cat litter", quantity: "1", store: "Pet Store" }
-    │   ], source_inbox_id="inbox-uuid")
-    │   Result: ShoppingLists/list-pet-store updated
-    │   SSE: ADMIN_ENRICHED { stores: ["Pet Store"], itemCount: 1 }
-    │   SSE: STEP_END { stepName: "Processing Admin" }
-    │
-    └─ SSE: COMPLETE
-
-Total SSE sequence:
-  STEP_START("Classifying")
-  STEP_END("Classifying")
-  CLASSIFIED(...)
-  STEP_START("Processing Admin")
-  STEP_END("Processing Admin")
-  ADMIN_ENRICHED(...)
+User types question in Insights tab: "How many captures failed today?"
+    |
+    v
+POST /api/insights/chat { question, thread_id? }
+    |
+    v
+insights.py creates Message, calls Investigation Agent (streaming)
+    |
+    v
+Agent reasons, calls @tools as needed:
+  - query_captures(bucket?, status?, timespan_hours, limit)
+      -> Constructs KQL internally, runs via LogsQueryClient
+  - get_system_health()
+      -> Runs pre-built KQL: capture volume, success rate, error count, latency
+  - trace_capture(trace_id)
+      -> Runs capture-trace KQL + reads Cosmos inbox doc
+  - get_bucket_distribution(timespan_hours)
+      -> Returns classification distribution
+    |
+    v
+insights_adapter.py streams AG-UI events:
+  STEP_START("Investigating")
+  TEXT_MESSAGE_CONTENT (delta streaming of agent's answer)
+  STEP_END("Investigating")
   COMPLETE
+    |
+    v
+Mobile Insights tab renders streaming text (ChatGPT-style)
 ```
 
-## Data Flow: YouTube Recipe Capture
+**Key difference from capture flow:** The investigation agent streams natural language text responses, not classification outcomes. Uses `TEXT_MESSAGE_CONTENT` events with delta streaming. No CLASSIFIED/MISUNDERSTOOD/LOW_CONFIDENCE events.
+
+**Thread persistence:** Investigation agent threads are short-lived. No need to persist foundryThreadId to Cosmos -- conversations are ephemeral Q&A, not follow-up flows.
+
+### 2. Investigation Agent -- MCP Tool for Claude Code
 
 ```
-User says: "Make this recipe https://youtube.com/watch?v=abc123"
-    │
-    ▼
-POST /api/capture { text: "Make this recipe https://youtube.com/watch?v=abc123" }
-    │
-    ▼
-stream_text_capture()
-    │
-    ├─ Phase 1: Classifier Agent
-    │   Agent reasons: "Recipe link, household task → Admin"
-    │   Agent calls: file_capture(bucket="Admin", ...)
-    │
-    ├─ SSE: CLASSIFIED
-    │
-    ├─ Phase 2: Admin Agent enrichment
-    │   Admin Agent receives text with YouTube URL
-    │   Admin Agent calls: fetch_youtube_transcript(url="https://youtube.com/...")
-    │   Tool returns: "...today we're making chicken parmesan. You'll need
-    │                  2 pounds of chicken breast, a cup of breadcrumbs,
-    │                  marinara sauce, mozzarella cheese..."
-    │   Admin Agent reasons over transcript, extracts ingredients:
-    │     - Chicken breast 2 lbs → Jewel
-    │     - Breadcrumbs 1 cup → Jewel
-    │     - Marinara sauce → Jewel
-    │     - Mozzarella cheese → Jewel
-    │   Admin Agent calls: add_shopping_list_items([
-    │       { name: "Chicken breast", quantity: "2 lbs", store: "Jewel" },
-    │       { name: "Breadcrumbs", quantity: "1 cup", store: "Jewel" },
-    │       { name: "Marinara sauce", quantity: "1 jar", store: "Jewel" },
-    │       { name: "Mozzarella cheese", quantity: "1 package", store: "Jewel" },
-    │   ], source_recipe_url="https://youtube.com/...")
-    │
-    └─ SSE: ADMIN_ENRICHED { stores: ["Jewel"], itemCount: 4 }
+Claude Code invokes MCP tool: query_second_brain("show me capture failures today")
+    |
+    v
+mcp/server.py (stdio transport, local Python process)
+    |
+    v
+Uses azure-monitor-query LogsQueryClient directly
+    - DefaultAzureCredential (az login locally)
+    - Runs KQL against Log Analytics workspace
+    |
+    v
+Returns formatted text results to Claude Code
+```
+
+**Why standalone process, not backend API:** The MCP server runs as a local stdio child process spawned by Claude Code. Going through the deployed backend would require: (a) API key management for a dev tool, (b) unnecessary network round-trip local->ACA->App Insights, (c) exposing raw KQL as a backend endpoint. The MCP server queries App Insights directly, which is simpler and faster.
+
+**MCP tools exposed:**
+- `query_app_insights(kql, timespan_hours)` -- raw KQL (safe because single-user dev tool, guarded with timeout + row limit)
+- `get_system_health()` -- pre-built dashboard summary
+- `recent_captures(limit)` -- recent captures with outcomes
+- `trace_capture(trace_id)` -- full lifecycle trace for a specific capture
+- `recent_errors(hours)` -- error-level logs
+
+### 3. Dashboard Summary
+
+```
+User opens Insights tab
+    |
+    v
+GET /api/insights/dashboard
+    |
+    v
+insights.py runs pre-built KQL queries via LogsQueryClient:
+  - Capture volume (24h, by hour)
+  - Success rate (2xx vs 4xx/5xx)
+  - Bucket distribution (pie chart data)
+  - Admin Agent stats (processed, failed, retry count)
+  - Error count
+  - P50/P90 latency
+    |
+    v
+Returns JSON:
+{
+  "captureCount24h": 15,
+  "successRate": 93.3,
+  "bucketDistribution": {"Admin": 8, "Ideas": 3, "Projects": 2, "People": 2},
+  "adminStats": {"processed": 7, "failed": 1, "retried": 1},
+  "errorCount": 2,
+  "latencyP50Ms": 1850,
+  "latencyP90Ms": 3200
+}
+```
+
+### 4. Feedback Collection
+
+```
+User views inbox item detail
+    |
+    v
+Taps thumbs-up (correct) or thumbs-down (wrong bucket) + selects correct bucket
+    |
+    v
+POST /api/feedback {
+    inboxItemId: "abc-123",
+    feedbackType: "correct" | "wrong_bucket",
+    correctBucket?: "Ideas",    // only if wrong_bucket
+    captureTraceId?: "trace-xyz"
+}
+    |
+    v
+feedback.py writes FeedbackDocument to Cosmos Feedback container
+    |
+    v
+(Later) eval runner reads Feedback to compute explicit accuracy metrics
+```
+
+### 5. Eval Pipeline
+
+```
+Triggered: manually (uv run -m second_brain.evals.runner) or GitHub Actions cron
+
+    |
+    v
+evals/runner.py loads data from three sources:
+    |
+    +-- 1. Golden dataset (Cosmos GoldenDataset container)
+    |       Curated captures with expected bucket, expected confidence range
+    |
+    +-- 2. Implicit signals (App Insights via KQL)
+    |       - Misunderstood rate, safety-net rate, low-confidence rate
+    |       - Recategorize rate (from Inbox PATCH logs)
+    |       - Admin Agent retry/failure rate
+    |
+    +-- 3. Explicit feedback (Cosmos Feedback container)
+    |       - Thumbs up/down counts
+    |       - Wrong bucket corrections with correct_bucket
+    |
+    v
+Classifier evals:
+  - BucketAccuracyEvaluator (custom code-based): correct bucket vs golden dataset
+  - ConfidenceCalibrationEvaluator (custom code-based): confidence vs actual accuracy
+  - F1ScoreEvaluator (built-in): bucket prediction as text match
+  - ImplicitSignalEvaluator (custom code-based): misunderstood/safety-net rates as scores
+    |
+    v
+Admin Agent evals:
+  - TaskAdherenceEvaluator (built-in): did agent complete the processing task?
+  - ToolCallAccuracyEvaluator (built-in): did agent call the right tools?
+  - ErrandRoutingAccuracyEvaluator (custom code-based): items routed to correct destinations
+    |
+    v
+Results written to:
+  1. Cosmos EvalResults container (historical tracking)
+  2. App Insights custom metrics (for Azure Monitor alert triggers)
+    |
+    v
+If scores below threshold -> Azure Monitor scheduled query alert fires
 ```
 
 ---
 
-## Admin Agent Instructions (Foundry Portal)
+## New Cosmos DB Containers
 
-The Admin Agent's instructions in the Foundry portal should include:
-
-1. **Store routing rules** -- a mapping of item categories to stores:
-   - Groceries/food → Jewel
-   - Pharmacy/health → CVS
-   - Pet supplies → Pet Store
-   - General household → Target
-   - (Will can customize these in the portal without code changes)
-
-2. **YouTube recipe handling** -- when text contains a YouTube URL:
-   - Call `fetch_youtube_transcript` to get the video transcript
-   - Parse the transcript for ingredients and quantities
-   - Route all food ingredients to the grocery store (Jewel)
-
-3. **Item normalization** -- the agent should:
-   - Clean up item names ("cat litter" not "I need some cat litter")
-   - Extract quantities when mentioned ("2 lbs chicken" → name: "Chicken", quantity: "2 lbs")
-   - Use sensible defaults when quantity is not specified
-
-These instructions live in the Foundry portal and are editable without code deployment, following the same pattern as the Classifier agent.
+| Container | Partition Key | Purpose | Document Shape |
+|-----------|--------------|---------|----------------|
+| `Feedback` | `/userId` | Explicit user feedback on captures | `{id, userId, inboxItemId, feedbackType, correctBucket?, captureTraceId, createdAt}` |
+| `EvalResults` | `/evalRunId` | Eval run results for historical tracking | `{id, evalRunId, timestamp, evaluatorName, score, details, metrics}` |
+| `GoldenDataset` | `/userId` | Curated capture examples with expected outcomes | `{id, userId, rawText, expectedBucket, expectedConfidenceRange, tags, createdAt}` |
 
 ---
 
-## Anti-Patterns to Avoid
+## New Azure Resources
 
-### Anti-Pattern 1: Agent-as-Database
-**What:** Having the Admin Agent query Cosmos to check if items already exist before adding
-**Why bad:** Adds complexity, latency, and failure modes. The agent is for reasoning about categorization, not data management.
-**Instead:** Accept duplicates at write time. The user can remove items from the Status screen. Dedup logic (if ever needed) belongs in the tool, not the agent.
+| Resource | Purpose | Notes |
+|----------|---------|-------|
+| Investigation Agent (Foundry) | Third persistent agent | Same pattern as Classifier + Admin Agent. Managed via `ensure_investigator_agent()` |
+| Log Analytics Reader RBAC | Allow KQL queries from backend + MCP tool | Already have workspace-based App Insights. Grant `Log Analytics Reader` to Container App managed identity (backend) and local dev credential (MCP tool) |
 
-### Anti-Pattern 2: Returning Shopping List State in SSE
-**What:** Streaming the full shopping list contents back through SSE events after enrichment
-**Why bad:** The Status screen fetches lists via REST. Duplicating the data through SSE creates two sources of truth and SSE payload bloat.
-**Instead:** The `ADMIN_ENRICHED` event is a notification ("items were added to these stores"), not a data payload. The Status screen fetches fresh data on focus.
-
-### Anti-Pattern 3: Shared Foundry Thread Between Classifier and Admin Agent
-**What:** Running both agents on the same Foundry thread/conversation
-**Why bad:** The agents have different instructions, tools, and purposes. A shared thread pollutes context and causes confusion.
-**Instead:** Each agent gets its own thread. The Admin Agent's thread is ephemeral (one-shot enrichment), not persisted for follow-up.
-
-### Anti-Pattern 4: Making the Admin Agent a Connected Agent of the Classifier
-**What:** Registering Admin as a connected agent callable by the Classifier
-**Why bad:** Connected Agents cannot call local @tool functions. The Admin Agent needs `add_shopping_list_items` which writes to Cosmos locally.
-**Instead:** Code-based routing in FastAPI. Classifier runs, code inspects result, code invokes Admin Agent separately.
+No new Azure resources beyond the Foundry agent and RBAC grant. The Log Analytics workspace already exists.
 
 ---
 
 ## Patterns to Follow
 
-### Pattern 1: Class-Based Tool Binding
-**What:** `AdminTools(cosmos_manager)` binds Cosmos references to @tool functions via `self`
-**When:** Any tool that needs stateful references (DB clients, API clients)
-**Source:** Existing `ClassifierTools` and `TranscriptionTools` patterns
+### Pattern 1: Third Persistent Agent (Investigation Agent)
 
-### Pattern 2: Self-Healing Agent Registration
-**What:** `ensure_admin_agent()` checks stored agent ID, creates new agent if missing
-**When:** Startup (lifespan)
-**Source:** Existing `ensure_classifier_agent()` pattern
+**What:** Register a third persistent Foundry agent alongside Classifier and Admin Agent, using the identical `ensure_*_agent()` + `AzureAIAgentClient` pattern.
 
-### Pattern 3: Separate AzureAIAgentClient Per Agent
-**What:** Create a distinct `AzureAIAgentClient` instance for each agent with its own `agent_id` and middleware
-**When:** Each persistent agent needs its own client
-**Source:** Existing `classifier_client` in main.py lifespan
+**When:** The investigation agent answers questions about system health, capture history, and agent behavior.
 
-### Pattern 4: Optimistic UI with Rollback
-**What:** Remove item from local state immediately on swipe, rollback if DELETE fails
-**When:** Shopping list item removal
-**Source:** Existing Inbox delete pattern
+**Why this pattern:** The existing codebase has two agents registered in `main.py` lifespan with `ensure_*_agent()`, separate `AzureAIAgentClient` instances with middleware, and local @tool execution. Following the same pattern minimizes new patterns to learn and maintains consistency.
+
+```python
+# agents/investigator.py -- mirrors agents/classifier.py and agents/admin.py
+INVESTIGATOR_INSTRUCTIONS = """You are the Investigation Agent for the Second Brain system.
+You answer questions about system health, capture history, classification accuracy,
+and agent behavior by querying Application Insights and Cosmos DB.
+
+When asked about system health, call get_system_health().
+When asked about specific captures, call query_captures() or trace_capture().
+When asked about bucket distribution, call get_bucket_distribution().
+
+Always present data clearly with counts, percentages, and time ranges.
+If a query returns no results, say so explicitly.
+"""
+
+async def ensure_investigator_agent(
+    foundry_client: AzureAIAgentClient,
+    stored_agent_id: str = "",
+) -> str:
+    """Register or verify the Investigation Agent in Foundry."""
+    # Same pattern as ensure_classifier_agent / ensure_admin_agent
+    ...
+```
+
+```python
+# main.py lifespan additions:
+# --- LogsQueryClient for App Insights queries ---
+from azure.monitor.query.aio import LogsQueryClient as AsyncLogsQueryClient
+
+logs_client = AsyncLogsQueryClient(credential=credential)
+app.state.logs_client = logs_client
+
+# --- Investigation Agent ---
+investigator_agent_id = await ensure_investigator_agent(
+    foundry_client=foundry_client,
+    stored_agent_id=settings.azure_ai_investigator_agent_id,
+)
+insights_tools = InsightsTools(
+    logs_client=logs_client,
+    workspace_id=settings.log_analytics_workspace_id,
+    cosmos_manager=cosmos_mgr,
+)
+investigator_client = AzureAIAgentClient(
+    credential=credential,
+    project_endpoint=settings.azure_ai_project_endpoint,
+    agent_id=investigator_agent_id,
+    should_cleanup_agent=False,
+    middleware=[AuditAgentMiddleware(), ToolTimingMiddleware()],
+)
+app.state.investigator_client = investigator_client
+app.state.insights_tools = insights_tools
+app.state.investigator_agent_tools = [
+    insights_tools.query_captures,
+    insights_tools.get_system_health,
+    insights_tools.get_bucket_distribution,
+    insights_tools.trace_capture,
+]
+```
+
+### Pattern 2: SSE Streaming for Investigation (Reuse AG-UI Protocol)
+
+**What:** Stream investigation agent responses to the mobile app using the same SSE + AG-UI event protocol the capture flow uses.
+
+**When:** Mobile Insights tab sends a chat message to the investigation agent.
+
+**Why:** The mobile app already has `ag-ui-client.ts` with `attachCallbacks()` that handles STEP_START, TEXT_MESSAGE_CONTENT, STEP_END, COMPLETE, ERROR. Reusing this protocol means minimal new client-side parsing.
+
+**Key difference from capture flow:** Investigation streams natural language text, not classification events. Use `TEXT_MESSAGE_CONTENT` with delta streaming. The existing `onTextDelta` callback in `attachCallbacks()` already handles this event type.
+
+```python
+# streaming/insights_adapter.py
+async def stream_investigation(
+    client: AzureAIAgentClient,
+    question: str,
+    tools: list,
+    thread_id: str,
+    run_id: str,
+) -> AsyncGenerator[str, None]:
+    """Stream investigation agent response as AG-UI SSE events."""
+    yield encode_sse(step_start_event("Investigating"))
+
+    messages = [Message(role="user", text=question)]
+    options = ChatOptions(tools=tools)
+
+    try:
+        async with asyncio.timeout(120):  # Longer timeout for KQL queries
+            stream = client.get_response(
+                messages=messages, stream=True, options=options
+            )
+            async for update in stream:
+                for content in update.contents or []:
+                    if content.type == "text" and getattr(content, "text", None):
+                        yield encode_sse(text_delta_event(content.text))
+                    elif content.type == "function_call":
+                        # Log tool calls but don't emit to client
+                        ...
+                    elif content.type == "function_result":
+                        # Tool results consumed by agent, not streamed
+                        ...
+
+        yield encode_sse(step_end_event("Investigating"))
+        yield encode_sse(complete_event(thread_id, run_id))
+    except Exception as exc:
+        yield encode_sse(error_event(str(exc)))
+        yield encode_sse(complete_event(thread_id, run_id))
+```
+
+### Pattern 3: MCP Server as Standalone Process
+
+**What:** A separate Python project under `mcp/` that runs as a stdio-transport MCP server for Claude Code.
+
+**When:** Will uses Claude Code and wants to investigate system health, query captures, or debug issues without opening the mobile app or Azure portal.
+
+**Implementation:**
+```python
+# mcp/server.py
+from mcp.server.fastmcp import FastMCP
+from azure.identity import DefaultAzureCredential
+from azure.monitor.query import LogsQueryClient
+from datetime import timedelta
+
+mcp = FastMCP("second-brain-insights")
+
+# Initialize on first use (lazy)
+_client = None
+_workspace_id = None
+
+def _get_client():
+    global _client, _workspace_id
+    if _client is None:
+        import os
+        _workspace_id = os.environ["LOG_ANALYTICS_WORKSPACE_ID"]
+        _client = LogsQueryClient(DefaultAzureCredential())
+    return _client, _workspace_id
+
+@mcp.tool()
+def query_app_insights(kql: str, timespan_hours: int = 24) -> str:
+    """Run a KQL query against the Second Brain App Insights workspace.
+    Use for custom investigation queries. Results limited to 100 rows."""
+    client, workspace_id = _get_client()
+    response = client.query_workspace(
+        workspace_id=workspace_id,
+        query=kql,
+        timespan=timedelta(hours=timespan_hours),
+        server_timeout=30,
+    )
+    # Format as readable table
+    ...
+
+@mcp.tool()
+def get_system_health() -> str:
+    """Get a dashboard summary of Second Brain health for the last 24 hours."""
+    ...
+
+@mcp.tool()
+def recent_captures(limit: int = 20) -> str:
+    """Show recent captures with classification outcomes."""
+    ...
+
+@mcp.tool()
+def trace_capture(trace_id: str) -> str:
+    """Trace a specific capture through its full lifecycle."""
+    ...
+
+@mcp.tool()
+def recent_errors(hours: int = 24) -> str:
+    """Show recent error-level logs and exceptions."""
+    ...
+```
+
+**Claude Code configuration (project-level `.mcp.json`):**
+```json
+{
+  "mcpServers": {
+    "second-brain-insights": {
+      "command": "uv",
+      "args": ["--directory", "/path/to/second-brain/mcp", "run", "server.py"],
+      "env": {
+        "LOG_ANALYTICS_WORKSPACE_ID": "your-workspace-id"
+      }
+    }
+  }
+}
+```
+
+**Why sync not async for MCP:** The MCP SDK's stdio transport manages the event loop. The `azure-monitor-query` sync client is simpler here and avoids async complexity in a synchronous stdio context. FastMCP handles the protocol layer.
+
+### Pattern 4: Eval as CLI + CI, Not Backend Endpoint
+
+**What:** Run evals from a CLI command or GitHub Actions, not as a backend API.
+
+**When:** Manually after shipping changes, or automatically on a weekly schedule.
+
+**Why:** Evals are batch operations that take minutes. They should not run inside the FastAPI request-response cycle because:
+- They use LLM judges (GPT-4o) which are slow and expensive
+- They should run against the deployed system, not inside it
+- GitHub Actions cron provides scheduling without infrastructure
+- CLI entry point keeps eval code testable in isolation
+
+```python
+# evals/runner.py (CLI entry point)
+import asyncio
+import json
+from azure.ai.evaluation import evaluate, F1ScoreEvaluator
+from second_brain.evals.evaluators import (
+    BucketAccuracyEvaluator,
+    ConfidenceCalibrationEvaluator,
+    ImplicitSignalEvaluator,
+)
+
+async def run_classifier_evals(golden_dataset_path: str) -> dict:
+    """Run Classifier accuracy evals against a golden dataset."""
+    result = evaluate(
+        data=golden_dataset_path,
+        evaluators={
+            "bucket_accuracy": BucketAccuracyEvaluator(),
+            "confidence_calibration": ConfidenceCalibrationEvaluator(),
+            "f1_score": F1ScoreEvaluator(),
+        },
+        azure_ai_project=os.environ.get("AZURE_AI_PROJECT"),
+    )
+    return result
+
+if __name__ == "__main__":
+    # Usage: uv run -m second_brain.evals.runner --classifier --golden golden.jsonl
+    ...
+```
+
+### Pattern 5: Implicit Signal Collection (Zero-Effort Feedback)
+
+**What:** Derive quality signals from actions Will already takes, without requiring explicit feedback for every capture.
+
+**When:** Always, automatically, as part of normal operation.
+
+**Why:** Single user, limited patience for rating every capture. The system already logs rich signals:
+
+| Implicit Signal | Source | What It Means | Already Logged? |
+|----------------|--------|---------------|-----------------|
+| Recategorize | Inbox PATCH /recategorize | Classifier got bucket wrong | YES (App Insights) |
+| Safety-net fire | adapter.py `_safety_net_file_as_misunderstood` | Classifier failed to call file_capture | YES (logger.warning) |
+| Low-confidence | adapter.py `low_confidence_event` | Classifier uncertain | YES (OTel span attribute) |
+| Misunderstood | adapter.py `misunderstood_event` | Classifier confused | YES (OTel span attribute) |
+| Admin retry | admin_handoff.py retry logic | Admin Agent needed second attempt | YES (logger.warning + span) |
+| Admin failed | admin_handoff.py `_mark_inbox_failed` | Admin Agent couldn't process | YES (logger.error + span) |
+| Swipe-to-delete inbox | inbox.py DELETE | Capture was junk | YES (App Insights request log) |
+
+The eval pipeline reads these with KQL queries from App Insights. No new write paths needed -- all signals are already in the telemetry.
+
+---
+
+## Anti-Patterns to Avoid
+
+### Anti-Pattern 1: Investigation Agent Generates Raw KQL
+
+**What:** Letting the LLM write arbitrary KQL and executing it against App Insights.
+
+**Why bad:** KQL injection risk, unpredictable query cost (timeouts, massive result sets), and LLMs frequently get KQL syntax wrong (table names, operators, date functions).
+
+**Instead:** The Investigation Agent calls @tool functions that accept structured parameters (bucket, status, timespan, limit) and construct KQL internally. The tools use parameterized query templates with validated inputs.
+
+```python
+# GOOD: Parameterized tool for the Investigation Agent
+@tool
+async def query_captures(
+    bucket: str | None = None,
+    status: str | None = None,
+    timespan_hours: int = 24,
+    limit: int = 20,
+) -> str:
+    """Query recent captures with optional filters."""
+    filters = []
+    if bucket:
+        filters.append(f'| where customDimensions.bucket == "{bucket}"')
+    if status:
+        filters.append(f'| where customDimensions.status == "{status}"')
+    kql = f"""
+    traces
+    | where timestamp > ago({timespan_hours}h)
+    | where customDimensions.component == "classifier"
+    {chr(10).join(filters)}
+    | project timestamp, message, customDimensions
+    | order by timestamp desc
+    | take {min(limit, 50)}
+    """
+    # Execute via LogsQueryClient
+    ...
+```
+
+**Exception for MCP tool:** The Claude Code MCP tool CAN expose a raw KQL tool because: (a) Will is the only user and Claude Code is a developer tool, (b) it is guarded with `server_timeout=30` and `| take 100` appended.
+
+### Anti-Pattern 2: Eval Framework as Backend Background Service
+
+**What:** Running evals continuously inside the FastAPI backend as a recurring background task.
+
+**Why bad:** Evals use LLM judges (GPT-4o) which are slow (~5-10 seconds per eval item) and consume the same deployment used for captures. Running them as a background service creates unpredictable load spikes, makes failures invisible, and conflates the eval concern with the serving concern.
+
+**Instead:** Evals run as a separate CLI process or GitHub Actions job. They execute against the deployed system from outside, not inside.
+
+### Anti-Pattern 3: Storing Eval Scores on Inbox Documents
+
+**What:** Adding eval score fields to existing InboxDocument.
+
+**Why bad:** Conflates capture data with eval metadata. Inbox documents are the system of record for captures; eval results are a separate analytical concern. Mixing them pollutes the capture schema and makes both harder to query.
+
+**Instead:** Store eval results in a dedicated `EvalResults` container. Link to captures by `captureTraceId` when needed.
+
+### Anti-Pattern 4: Backend API as Proxy for MCP Server
+
+**What:** Having the MCP server call the deployed backend API for App Insights data.
+
+**Why bad:** Adds unnecessary complexity: MCP server (local) -> HTTPS to ACA -> backend proxies to App Insights. The backend doesn't expose raw KQL and shouldn't. API key auth adds friction for a dev tool.
+
+**Instead:** MCP server queries App Insights directly using `azure-monitor-query` with `DefaultAzureCredential` (`az login` locally). One hop, no auth management.
+
+### Anti-Pattern 5: Single "Observability Agent" for Both Mobile and MCP
+
+**What:** Using the same agent/code path for both the mobile investigation chat and the Claude Code MCP tool.
+
+**Why bad:** Different users, different needs. The mobile chat is conversational (natural language in, natural language out, streaming SSE). The MCP tool is programmatic (Claude Code formulates queries, needs structured data back). Forcing both through the same agent creates prompt conflicts and response format issues.
+
+**Instead:** Two separate implementations:
+- **Investigation Agent (Foundry)** for mobile chat: persistent agent, streaming, @tools with parameterized queries, natural language responses
+- **MCP server** for Claude Code: standalone process, raw KQL capability, structured text output, no agent framework overhead
+
+---
+
+## Integration Points Summary
+
+### New Components -> Existing (what new code touches)
+
+| New Component | Existing Component | Integration Type |
+|---------------|-------------------|------------------|
+| `api/insights.py` | `main.py` lifespan | Router registration + investigator client/tools init |
+| `api/insights.py` | `streaming/sse.py` | Reuse existing SSE event helpers (step_start, step_end, complete, error) + new text_delta |
+| `api/insights.py` | `auth.py` | Same API key middleware (existing) |
+| `api/feedback.py` | `main.py` lifespan | Router registration |
+| `api/feedback.py` | `db/cosmos.py` | New container: Feedback |
+| `agents/investigator.py` | `agents/classifier.py` pattern | Same ensure_agent pattern |
+| `agents/investigator.py` | `agents/middleware.py` | Same AuditAgentMiddleware + ToolTimingMiddleware |
+| `tools/insights.py` | `db/cosmos.py` | Read from Inbox + bucket containers for capture queries |
+| `evals/runner.py` | `config.py` | Read settings for Azure endpoints |
+| `evals/evaluators.py` | `models/documents.py` | Uses InboxDocument schema for golden dataset structure |
+| Mobile Insights tab | `ag-ui-client.ts` | Reuse attachCallbacks + SSE pattern (TEXT_MESSAGE_CONTENT events) |
+| Mobile feedback buttons | New POST handler (not SSE) | Simple fetch() call to /api/feedback |
+
+### Modifications to Existing Code
+
+| Existing File | Modification | Reason |
+|---------------|-------------|--------|
+| `main.py` | Add: LogsQueryClient init, investigator agent init, insights/feedback routers | Lifespan wiring for investigation agent + feedback collection |
+| `config.py` | Add: `azure_ai_investigator_agent_id`, `log_analytics_workspace_id` | Investigation agent needs agent ID + workspace ID |
+| `db/cosmos.py` | Add: `Feedback`, `EvalResults`, `GoldenDataset` to CONTAINER_NAMES | New containers (same init pattern) |
+| `models/documents.py` | Add: FeedbackDocument, EvalResultDocument, GoldenDatasetDocument | New Pydantic models for new containers |
+| `streaming/sse.py` | Add: `text_delta_event()` helper function | Investigation agent streams text, not classification events |
+| `pyproject.toml` | Add: `azure-monitor-query`, `azure-ai-evaluation` (optional dep) | New SDK dependencies |
+| Mobile `(tabs)/_layout.tsx` | Add: Insights tab | New tab in tab navigator |
+| Mobile inbox detail component | Add: thumbs-up/down buttons | Feedback collection surface |
+
+### Unchanged Components
+
+| Component | Why Unchanged |
+|-----------|---------------|
+| `api/capture.py` | Capture flow unaffected |
+| `streaming/adapter.py` | Capture streaming unaffected |
+| `agents/classifier.py` | Classifier agent unchanged |
+| `agents/admin.py` | Admin agent unchanged |
+| `tools/classification.py` | Classification tools unchanged |
+| `tools/admin.py` | Admin tools unchanged |
+| `processing/admin_handoff.py` | Admin processing unchanged |
+| `api/errands.py` | Errands API unchanged |
+| `api/inbox.py` | Inbox API unchanged |
 
 ---
 
 ## Scalability Considerations
 
-| Concern | Current (single user) | If Multi-User (future) |
-|---------|----------------------|------------------------|
-| Shopping list size | Embedded array in single doc (~50 items max) | Split to items-as-documents with composite partition key |
-| YouTube transcript length | Full text sent to agent (~10K tokens for 30min video) | Summarize before sending to agent to reduce token cost |
-| Agent latency | 2x for Admin captures (acceptable for capture-and-forget) | Consider async processing with webhook callback |
-| Cosmos RUs | Free tier sufficient | Autoscale provisioned throughput |
+| Concern | Current (1 user) | Notes |
+|---------|-------------------|-------|
+| App Insights query rate | ~10-20 queries/day (chat + dashboard) | Log Analytics API allows 200 requests/30s per user. No concern. |
+| Foundry Agent concurrent requests | 3 agents, 1 user | No concurrent pressure. Warm-up loop already handles cold starts. Add investigator to warm-up list. |
+| Cosmos RU for new containers | Feedback + EvalResults + GoldenDataset | ~5 additional RU/s max. Free tier (1000 RU/s shared) has headroom. |
+| Eval pipeline cost | Weekly runs, ~50-100 golden items | ~$0.50-1.50/run with GPT-4o judge. Acceptable for hobby project. |
+| MCP server resource usage | Local process, on-demand | Zero cost when not in use. Spawned/killed by Claude Code. |
+| Dashboard KQL queries | 6 queries per dashboard load | ~2-3 seconds total. Cache on mobile side (stale-while-revalidate pattern). |
 
 ---
 
-## Build Order (Dependency-Driven)
+## Suggested Build Order
 
-The following build order respects component dependencies:
+Based on dependency analysis:
 
-### Phase 1: Data Foundation
-1. `ShoppingListDocument` / `ShoppingItem` Pydantic models
-2. Add `"ShoppingLists"` to CosmosManager
-3. Create ShoppingLists container in Cosmos DB (Azure portal or script)
-4. `AdminTools` class with `add_shopping_list_items` (Cosmos writes)
+### Phase A: Foundation (enables everything else)
+1. **App Insights Query API integration** -- Add `azure-monitor-query` dependency, `LogsQueryClient` init in lifespan, `tools/insights.py` with parameterized query functions, `log_analytics_workspace_id` in config.
+2. **New Cosmos containers** -- Add Feedback, EvalResults, GoldenDataset to CosmosManager + Pydantic models.
 
-**Why first:** Everything depends on the data layer. Without models and tools, neither the agent nor the API can function.
+### Phase B: Investigation Agent (highest user value)
+3. **Investigation Agent registration** -- `agents/investigator.py`, config setting, third persistent agent in Foundry, lifespan wiring.
+4. **Investigation Agent streaming** -- `api/insights.py` chat endpoint + `streaming/insights_adapter.py` + `text_delta_event()` in sse.py.
+5. **Mobile Insights tab -- chat** -- Chat UI that reuses AG-UI SSE client with TEXT_MESSAGE_CONTENT handling.
 
-### Phase 2: Admin Agent Registration
-5. `ensure_admin_agent()` function (mirrors ensure_classifier_agent)
-6. `config.py`: add `azure_ai_admin_agent_id`
-7. `main.py` lifespan: initialize Admin Agent client + AdminTools
-8. Write Admin Agent instructions in Foundry portal
+### Phase C: Dashboard (complements investigation)
+6. **Dashboard endpoint** -- `GET /api/insights/dashboard` with pre-built KQL queries returning summary JSON.
+7. **Mobile Insights tab -- dashboard** -- Dashboard cards above the chat interface.
 
-**Why second:** The agent must exist before it can be invoked. Instructions determine behavior.
+### Phase D: MCP Tool (developer experience, parallel-safe)
+8. **MCP server for Claude Code** -- Standalone `mcp/server.py` with raw KQL, system health, capture tracing, recent errors. Independent of all other phases.
 
-### Phase 3: Capture Pipeline Integration
-9. `stream_admin_enrichment()` in adapter.py
-10. Extend `stream_text_capture()` with Admin routing
-11. Extend `stream_voice_capture()` with Admin routing
-12. New SSE events: `admin_enriched_event()`
-13. Mobile: handle `ADMIN_ENRICHED` event type
+### Phase E: Feedback Collection
+9. **Feedback API** -- `api/feedback.py` endpoint, FeedbackDocument model, Cosmos writes.
+10. **Mobile feedback UI** -- Thumbs up/down on inbox detail card, POST to feedback endpoint.
 
-**Why third:** Depends on Phase 2 (agent exists) and Phase 1 (tools write to Cosmos).
+### Phase F: Eval Framework
+11. **Golden dataset seeding** -- CLI tool to curate captures from Inbox into GoldenDataset container.
+12. **Custom evaluators** -- BucketAccuracyEvaluator, ConfidenceCalibrationEvaluator, ImplicitSignalEvaluator, ErrandRoutingAccuracyEvaluator.
+13. **Eval runner CLI** -- `uv run -m second_brain.evals.runner` entry point using azure-ai-evaluation.
+14. **Admin Agent evals** -- TaskAdherenceEvaluator + ToolCallAccuracyEvaluator with AIAgentConverter.
 
-### Phase 4: Shopping List API + Status Screen
-14. `api/shopping_lists.py` REST endpoints
-15. Mobile: `StatusScreen` component
-16. Mobile: Tab layout update
-17. Mobile: Swipe-to-remove interaction
+### Phase G: Self-Monitoring Loop
+15. **Eval CI integration** -- GitHub Actions workflow for weekly scheduled eval runs.
+16. **Alert on regression** -- Azure Monitor scheduled query alert when eval scores drop below threshold.
+17. **Eval trends in dashboard** -- Add eval score history to Insights dashboard.
 
-**Why fourth:** The Status screen reads data written by Phase 3. It can be built in parallel with Phase 3 since the API reads from Cosmos directly.
-
-### Phase 5: YouTube Recipe Integration
-18. `fetch_youtube_transcript` @tool
-19. Add `youtube-transcript-api` to backend dependencies
-20. Update Admin Agent instructions for recipe handling
-21. End-to-end testing with real YouTube recipe URLs
-
-**Why last:** This is an enhancement to the Admin Agent flow. The core shopping list pipeline (ad hoc items) should work first. YouTube recipes add complexity (transcript fetching, ingredient parsing) that should be layered on after the base is solid.
+**Phase ordering rationale:**
+- Phase A must come first: LogsQueryClient and Cosmos containers are prerequisites for everything.
+- Phase B is the highest-value user-facing feature: asking the system "what happened?" in natural language.
+- Phase C builds on Phase A's query infrastructure and complements Phase B's chat with at-a-glance metrics.
+- Phase D is fully independent (standalone process) and can run in parallel with B/C, but is lower priority (developer convenience vs user feature).
+- Phase E needs containers from Phase A but is otherwise independent. It collects data that Phase F consumes.
+- Phase F depends on Phase E (explicit feedback) + Phase A (implicit signals from App Insights) + golden dataset curation.
+- Phase G closes the loop: automated eval runs + alerts when quality degrades + trend visibility.
 
 ---
 
 ## Sources
 
-- [Azure AI Agent Orchestration Patterns](https://learn.microsoft.com/en-us/azure/architecture/ai-ml/guide/ai-agent-design-patterns) -- Microsoft Architecture Center, updated 2026-02-12 (HIGH confidence)
-- [Foundry Agent Service overview](https://learn.microsoft.com/en-us/azure/foundry/agents/overview) -- Microsoft Learn (HIGH confidence)
-- [HandoffBuilder + Foundry v2 payload errors](https://github.com/microsoft/agent-framework/issues/3097) -- GitHub issue, confirms HandoffBuilder bugs with AzureAIClient (HIGH confidence)
-- [youtube-transcript-api](https://pypi.org/project/youtube-transcript-api/) -- PyPI, v1.2.4, Jan 2026 (HIGH confidence)
-- [youtube-transcript-api GitHub](https://github.com/jdepoix/youtube-transcript-api) -- source code, async usage patterns (HIGH confidence)
-- Existing codebase: `backend/src/second_brain/` -- all current patterns verified by reading source (HIGH confidence)
+- [Azure Monitor Query client library for Python](https://learn.microsoft.com/en-us/python/api/overview/azure/monitor-query-readme?view=azure-python) -- LogsQueryClient, async client, KQL query execution, workspace querying (HIGH confidence, official docs, updated 2025-07-30)
+- [Azure AI Evaluation SDK -- Local Evaluation](https://learn.microsoft.com/en-us/azure/foundry-classic/how-to/develop/evaluate-sdk) -- evaluate() function, built-in evaluators, custom evaluators, data formats (HIGH confidence, official docs, updated 2026-02-25)
+- [Azure AI Evaluation SDK -- Agent Evaluation](https://learn.microsoft.com/en-us/azure/ai-foundry/how-to/develop/agent-evaluate-sdk?view=foundry-classic) -- IntentResolutionEvaluator, ToolCallAccuracyEvaluator, TaskAdherenceEvaluator, AIAgentConverter for Foundry agents (HIGH confidence, official docs, updated 2026-03-19)
+- [Custom Evaluators](https://learn.microsoft.com/en-us/azure/ai-foundry/concepts/evaluation-evaluators/custom-evaluators?view=foundry-classic) -- Code-based and prompt-based custom evaluator patterns (HIGH confidence, official docs, updated 2026-03-19)
+- [MCP Server Build Guide](https://modelcontextprotocol.io/docs/develop/build-server) -- FastMCP Python SDK, stdio transport, @mcp.tool() decorator (HIGH confidence, official docs)
+- [Claude Code MCP Documentation](https://code.claude.com/docs/en/mcp) -- Connecting MCP servers to Claude Code (HIGH confidence, official docs)
+- [azure-ai-evaluation on PyPI](https://pypi.org/project/azure-ai-evaluation/) -- Package version and installation (HIGH confidence)
+- [azure-monitor-query on PyPI](https://pypi.org/project/azure-monitor-query/) -- Package version, async support via azure-monitor-query[aio] (HIGH confidence)
+- Existing codebase: `backend/src/second_brain/` -- All current patterns verified by reading source (HIGH confidence)
+- Existing KQL queries: `backend/queries/*.kql` -- system-health, capture-trace, admin-agent-audit, recent-failures (HIGH confidence, used as templates for new query tools)

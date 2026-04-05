@@ -1,503 +1,301 @@
-# Domain Pitfalls: v3.0 Admin Agent & Shopping Lists
+# Domain Pitfalls
 
-**Domain:** Adding a second specialist agent (Admin Agent), store-based shopping lists, YouTube recipe ingredient extraction, and Classifier-to-Admin Agent inline handoff to an existing single-agent Foundry Agent Service system
-**Researched:** 2026-03-01
-**Confidence:** MEDIUM-HIGH -- Multi-agent Foundry patterns verified via official docs and SDK reference. YouTube transcript extraction pitfalls verified via GitHub issues and multiple independent sources. Cosmos DB array operations verified via official Microsoft Learn docs. SSE adapter pitfalls based on direct codebase analysis.
-
----
+**Domain:** Observability investigation agent + eval framework for existing capture-and-classify system
+**Researched:** 2026-04-04
 
 ## Critical Pitfalls
 
-Mistakes that cause rewrites, data corruption, or features that silently fail in production.
+Mistakes that cause rewrites or major issues.
 
----
+### Pitfall 1: KQL Schema Mismatch -- Portal Queries vs Programmatic API Queries
 
-### Pitfall 1: Thread Cross-Contamination Between Classifier and Admin Agent
+**What goes wrong:** The existing `.kql` files in `backend/queries/` use `AppTraces`, `AppRequests`, `AppExceptions`, `AppDependencies` (Application Insights portal schema). But `azure-monitor-query` `LogsQueryClient` hits the Log Analytics workspace endpoint, where those table names do not exist. The workspace-based schema uses `traces`, `requests`, `exceptions`, `dependencies` with different column casing. Every programmatic query will fail or return empty results.
 
-**What goes wrong:**
-You create a single `AzureAIAgentClient` instance with `agent_id=classifier_id` and try to reuse it for the Admin Agent by swapping `agent_id` at runtime, or you pass the Classifier's Foundry thread to the Admin Agent. The Admin Agent sees the Classifier's conversation history (classification reasoning, bucket decisions) in its thread context and produces confused output -- it tries to re-classify instead of managing shopping lists, or it hallucinates items based on the Classifier's reasoning text.
+**Why it happens:** Application Insights has two query contexts: (1) the App Insights "Logs" blade in the portal, which auto-translates `AppTraces` to the underlying workspace tables, and (2) direct Log Analytics workspace queries via the REST API / Python SDK, which require the raw workspace table names. When you copy-paste queries that work in the portal into programmatic code, they break. The project already documented this in MEMORY.md ("Workspace-based App Insights uses `traces`/`requests` tables, not `AppTraces`/`AppRequests`") but the existing KQL files still use the portal schema.
 
-**Why it happens:**
-The existing codebase creates a single `classifier_client` (`AzureAIAgentClient`) at startup with `agent_id=classifier_agent_id`. The current code in `main.py` (line 184-191) binds the client to a specific agent ID. Foundry threads (server-managed conversations) are agent-scoped -- the thread contains the full message history including system prompts and tool call results for that agent. When a Classifier thread is passed to the Admin Agent via `conversation_id` in `ChatOptions`, the Admin Agent receives the Classifier's entire reasoning chain as context.
-
-Per the official Microsoft docs: "It is unsafe to use an AgentThread instance that was created by one agent with a different agent instance."
-
-**Consequences:**
-- Admin Agent inherits Classifier's conversation context and produces nonsensical output
-- Shopping list items get filed as inbox captures instead of list operations
-- Token waste from feeding irrelevant classification history to the Admin Agent
-- Non-deterministic behavior -- sometimes works if the Classifier context is short enough
+**Consequences:** The investigation agent returns empty results or errors for every question. If the agent wraps errors poorly, users get "no data found" instead of understanding the schema mismatch. This is insidious because the same queries work fine when manually copy-pasted into the portal. The official Azure MCP Server had this exact bug (GitHub issue #250) requiring a fix in PR #280.
 
 **Prevention:**
-Create a **separate** `AzureAIAgentClient` instance for the Admin Agent with its own `agent_id`. Each agent gets its own client, its own tools, and its own threads. The capture flow should be:
+- Maintain two sets of KQL templates: portal-compatible (existing files, for human use) and workspace-compatible (new files, for programmatic queries via `LogsQueryClient`)
+- Validate every KQL template against `LogsQueryClient` before shipping
+- The investigation agent's KQL generation system prompt must specify workspace schema table names explicitly: `traces` not `AppTraces`, `customDimensions` column access patterns, lowercase column names where they differ
+- Build a schema reference document that maps portal names to workspace names for the investigation agent's context
 
-```
-Classifier client (existing thread) -> file_capture result
-   |
-   v  (code-based routing in FastAPI, NOT Connected Agents)
-Admin Agent client (NEW thread) -> admin tools
-```
+**Detection:** Agent returns zero rows for queries that should have data. Test early with a simple `traces | take 1` query through the SDK.
 
-The handoff is code-based: after the Classifier's `file_capture` returns `bucket="Admin"`, the FastAPI capture endpoint creates a NEW thread on the Admin Agent client and passes only the classified text (not the Classifier's thread history). This is the same pattern used today for code-based routing (per PROJECT.md: "Connected Agents can't call local @tools").
+**Confidence:** HIGH -- Already documented in project MEMORY.md. Azure MCP Server had the same issue (GitHub #250, fixed in PR #280). Verified against Azure Monitor Query SDK documentation.
 
-**Detection:**
-Admin Agent responses mention "classification", "confidence", or "bucket" when it should be talking about stores and items. Shopping list items appear in the Inbox container instead of the Admin/ShoppingLists container.
+**Phase guidance:** Must be addressed in the very first phase that introduces programmatic KQL queries. Build and validate a workspace-compatible KQL template library before any agent logic.
 
-**Confidence:** HIGH -- verified via official AzureAIAgentClient docs and Microsoft thread isolation warnings.
+### Pitfall 2: LLM KQL Hallucination -- Wrong Tables, Columns, and Operators
 
----
+**What goes wrong:** When the investigation agent translates natural language to KQL, the LLM hallucinates table names, column names, operators, and filter values that do not exist in the actual schema. Microsoft's NL2KQL research (arxiv 2404.02933) confirms that schema hallucinations dominate production failures, with filter-literal accuracy dropping as low as 0.10 on novel schemas.
 
-### Pitfall 2: YouTube Transcript Extraction Blocked on Azure Cloud IPs
+**Why it happens:** GPT-4o has trained on general KQL examples from the internet, but the Second Brain's App Insights workspace has a specific schema with specific custom dimensions (`capture_trace_id`, `component`, `event_type`). Without explicit schema grounding, the LLM guesses column names from training data. It might generate `customDimensions.traceId` instead of `customDimensions.capture_trace_id`, or use `AppTraces` instead of `traces`, or invent operators that work in SQL but not KQL.
 
-**What goes wrong:**
-You deploy `youtube-transcript-api` to Azure Container Apps and it works in local development but returns `RequestBlocked` or `IpBlocked` errors in production. Every YouTube recipe URL submitted by the user fails silently or with an unhelpful error message. The feature appears completely broken after deployment.
-
-**Why it happens:**
-YouTube actively blocks IP ranges belonging to cloud providers (Azure, AWS, GCP). The `youtube-transcript-api` Python library makes direct HTTP requests to YouTube's servers to scrape transcript data -- it does not use an official API. When requests originate from Azure Container Apps (which uses Azure datacenter IPs), YouTube recognizes the IP block and returns HTTP 429 or custom blocking responses. This is confirmed across multiple GitHub issues (#303, #317, #511) and is the single most reported problem with this library.
-
-**Consequences:**
-- Feature works perfectly during local development and testing but fails 100% in production
-- Users submit YouTube URLs and get error messages instead of ingredients
-- No fallback behavior, so the capture is lost or filed as a generic Admin item without extraction
+**Consequences:** Users get wrong answers, empty results, or runtime errors. Worse: the agent might return plausible-looking but incorrect data (querying the wrong table returns unrelated rows matching loose filters). For a single-user system where Will trusts the answers, this is dangerous -- bad data looks like good data.
 
 **Prevention:**
-Do NOT rely on `youtube-transcript-api` for cloud-deployed extraction. Instead, use one of these approaches (ordered by recommendation):
+- Provide the exact schema in the investigation agent's system prompt: table names, column names, custom dimension keys, data types, and example values
+- Use a curated library of KQL templates with parameterized slots for common questions (template-first approach, not free-form KQL generation)
+- Implement a two-stage approach: (1) map user intent to a known query template, (2) fall back to free-form KQL only for novel questions with explicit schema injection and few-shot examples
+- Add a KQL validation step before execution -- at minimum, check that referenced tables exist in a whitelist (`traces`, `requests`, `exceptions`, `dependencies`, `customEvents`, `customMetrics`)
+- Include 5-10 example KQL queries (the existing workspace-compatible templates) as few-shot examples in the system prompt
 
-1. **Feed the YouTube URL directly to GPT-4o as part of the Admin Agent prompt.** GPT-4o cannot access URLs, but you can use the YouTube Data API v3 (official, authenticated, not blocked) to fetch video metadata and captions. The YouTube Data API provides `captions.list` and `captions.download` endpoints that work from any IP when authenticated with an API key or OAuth token.
+**Detection:** Track "query syntax error" vs "query returned 0 rows" vs "query succeeded" rates. Alert when failure rate exceeds 20%.
 
-2. **Use the YouTube Data API v3** (official Google API) with an API key to download captions. This is the legitimate, supported way to access YouTube captions and is not subject to IP blocking. Requires a Google Cloud project and API key, but is free for the volume you need (single-user system, a few recipes per week).
+**Confidence:** HIGH -- NL2KQL paper and multiple production reports confirm this. The existing custom dimensions structure is non-standard enough to guarantee hallucination without grounding.
 
-3. **Client-side extraction.** The mobile app extracts the transcript before sending it to the backend. The user's phone IP is residential and will not be blocked. However, this adds complexity to the mobile app.
+**Phase guidance:** Address in the investigation agent phase. Build template-based queries first, add free-form as a stretch goal with guardrails.
 
-4. **Residential proxy.** Route `youtube-transcript-api` requests through a rotating residential proxy service. This works but adds ongoing cost and operational complexity for a hobby project.
+### Pitfall 3: LogsQueryClient Partial Results and Timeouts Treated as Success
 
-**Recommendation:** Use the YouTube Data API v3 with an API key. It is the only approach that is reliable, legitimate, and requires no ongoing maintenance. The `youtube-transcript-api` library is fundamentally fragile for cloud deployment.
+**What goes wrong:** `azure-monitor-query` `LogsQueryClient.query_workspace()` returns `LogsQueryPartialResult` (not an exception) when queries time out or hit data limits. If the code only checks for exceptions and not `response.status`, partial results are silently treated as complete results. The default server timeout is 3 minutes; the max is 10 minutes.
 
-**Detection:**
-Monitor for `RequestBlocked` exceptions in Application Insights. If YouTube extraction works locally but not in production, this is the cause.
+**Why it happens:** The Python SDK's `query_workspace` returns a union type (`LogsQueryResult | LogsQueryPartialResult`). The partial result contains both `partial_data` and `partial_error`. Most tutorial code shows `for table in response.tables` which works for `LogsQueryResult` but silently returns incomplete data for `LogsQueryPartialResult`. Additionally, the batch query API (`query_batch`) can return a mix of `LogsQueryResult`, `LogsQueryPartialResult`, and `LogsQueryError` objects in the same response.
 
-**Confidence:** HIGH -- verified across multiple GitHub issues, community reports, and independent testing. This is a well-known, long-standing problem.
-
----
-
-### Pitfall 3: Shopping List Items Stored as Arrays Inside Documents Cause Read-Modify-Write Race Conditions
-
-**What goes wrong:**
-You model each store's shopping list as a single Cosmos DB document with an `items` array property (e.g., `{"store": "Jewel", "items": ["milk", "eggs", "bread"]}`). When the Admin Agent adds an item at the same time the user swipes to remove a different item, you get a lost update: the agent reads the document, adds "butter" to the items array, and writes it back -- overwriting the user's concurrent removal of "eggs". The user sees "eggs" reappear on their list.
-
-**Why it happens:**
-Cosmos DB's default concurrency model is Last Writer Wins (LWW). Without ETags or the Patch API, the standard pattern is read-modify-write, which is inherently racy. Even though this is a single-user system, there are two concurrent writers: the Admin Agent (running asynchronously in the backend) and the user (swiping to remove items on the mobile app). These operations can overlap because the Agent's `get_response` call takes 2-5 seconds, during which the user might remove items.
-
-**Consequences:**
-- Removed items reappear (ghost items)
-- Added items disappear
-- User loses trust in the system ("I already crossed that off!")
-- Debugging is difficult because it only happens under concurrent modification
+**Consequences:** The investigation agent shows partial data without indicating incompleteness. A question like "how many captures failed this week?" returns a count based on a subset of data, giving a misleadingly optimistic answer. The user trusts the number because it came from an authoritative-looking system.
 
 **Prevention:**
-Use the **Cosmos DB Patch API** for all shopping list mutations. The Patch API supports atomic array operations without reading the full document first:
+- Always check `response.status == LogsQueryStatus.SUCCESS` before using results
+- For partial results, include the error context in the agent's response: "Note: results may be incomplete due to query timeout"
+- Set `server_timeout=600` (max 10 minutes) for aggregate queries
+- Limit time ranges in KQL queries (`ago(24h)` or `ago(7d)` defaults, not unbounded)
+- Add `| take 500` or `| limit 1000` safeguards to prevent result set explosion
+- Build a query execution wrapper that normalizes all three statuses into a consistent result type with an `is_partial` flag
 
-```python
-# Add item to array (atomic, no read required)
-operations = [
-    {"op": "add", "path": "/items/-", "value": {"name": "butter", "addedAt": "..."}}
-]
-await container.patch_item(item=doc_id, partition_key="will", patch_operations=operations)
+**Detection:** Log the query status on every execution. Alert if partial results exceed 10% of queries.
 
-# Remove item by index (atomic)
-operations = [
-    {"op": "remove", "path": "/items/2"}
-]
-await container.patch_item(item=doc_id, partition_key="will", patch_operations=operations)
-```
+**Confidence:** HIGH -- Verified from official Azure SDK documentation and troubleshooting guide.
 
-The Patch API resolves concurrent modifications at the **path level**, not the document level. Two patches to different paths (one adding to `/items/-`, one removing `/items/2`) are automatically conflict-resolved. This is confirmed in the official Cosmos DB partial document update documentation.
+**Phase guidance:** Build the query execution wrapper in the first phase. The wrapper must handle SUCCESS, PARTIAL, and FAILURE before any higher-level agent logic.
 
-**Important caveat:** Removing by array index is fragile if the list changes between when the UI renders and when the delete request arrives. Use a unique item ID within each array element and find-then-remove on the backend, or model items as individual documents (see Alternative Design below).
+### Pitfall 4: Evaluating Classifier with the Same Model That Classifies (Self-Enhancement Bias)
 
-**Alternative design:** Model each shopping list item as its own Cosmos DB document rather than an array within a store document. This eliminates array index issues entirely. The query `SELECT * FROM c WHERE c.store = "Jewel" AND c.type = "shopping_item"` returns the list. Each item has its own `id` and can be independently created/deleted without touching other items. This is more Cosmos-idiomatic (one document per entity) and avoids all array manipulation pitfalls.
+**What goes wrong:** Using GPT-4o as an LLM-as-judge to evaluate GPT-4o's classification creates a self-enhancement bias. Research shows LLMs prefer their own outputs and give inflated scores. The eval framework reports high quality while actual classification degrades.
 
-**Detection:**
-Items that were removed by the user reappear. Items added by the agent are missing. Check Application Insights for concurrent Cosmos writes to the same document ID within a 5-second window.
+**Why it happens:** Self-enhancement bias is well-documented in LLM evaluation research. When the same model generates and judges, it shares the same biases, blind spots, and stylistic preferences. Studies confirm this leads to evaluation hallucination -- judges producing inconsistent outputs for semantically equivalent inputs. Position bias (preferring the first option), verbosity bias (longer = better), and self-preference all compound. In pairwise code judging, simply swapping presentation order of responses shifts accuracy by 10%+.
 
-**Confidence:** HIGH -- Cosmos DB Patch API and concurrency behavior verified via official Microsoft Learn documentation.
-
----
-
-### Pitfall 4: Admin Agent Tools Registered on Classifier Client (Tool Leakage)
-
-**What goes wrong:**
-You add the Admin Agent's tools (e.g., `add_shopping_item`, `get_shopping_list`, `extract_recipe_ingredients`) to the `classifier_agent_tools` list in `main.py` because "both agents need tools." The Classifier agent now sees shopping list tools in its available tool set and occasionally calls `add_shopping_item` directly during classification, bypassing the Admin Agent entirely. Items appear on shopping lists without going through the Admin Agent's store-routing logic.
-
-**Why it happens:**
-The current codebase builds `agent_tools` as a flat list (main.py lines 195-198) and passes it to the streaming adapter. If Admin Agent tools are added to this same list, they become available to any agent that receives the tools list. The Classifier agent's instructions say "classify into People/Projects/Ideas/Admin" but LLMs are opportunistic -- if a tool called `add_shopping_item` is available and the user says "need cat litter", the Classifier might skip classification entirely and call the shopping tool directly.
-
-**Consequences:**
-- Classifier bypasses the bucket classification system for Admin captures
-- Items land on shopping lists without Admin Agent's store-routing intelligence
-- The Admin Agent never sees the capture, so no store assignment happens
-- Inconsistent behavior -- sometimes classified correctly, sometimes tool-called directly
+**Consequences:** The eval framework reports high scores while actual quality degrades. The self-monitoring loop never fires alerts because the judge agrees with the classifier. Will only discovers problems when misclassified captures accumulate in the inbox.
 
 **Prevention:**
-Maintain **separate tool lists** for each agent. The architecture should be:
+- For classifier accuracy evals: use deterministic metrics (exact match against golden dataset labels, confusion matrix, per-bucket precision/recall) -- no LLM judge needed
+- For Admin Agent quality evals (free-form output): use a different model as judge, or use binary pass/fail rubrics that reduce subjectivity
+- For any LLM-as-judge eval: randomize presentation order, use binary scoring, require explicit chain-of-thought reasoning in the judge's response before the score
+- Complement LLM-as-judge with implicit signals: did Will reclassify the capture? Delete it? Swipe away an errand item immediately?
+- Cross-validate judge scores against human labels on a subset; if correlation is low, the judge is unreliable
 
-```python
-# In lifespan:
-app.state.classifier_agent_tools = [classifier_tools.file_capture, transcription_tools.transcribe_audio]
-app.state.admin_agent_tools = [admin_tools.add_shopping_item, admin_tools.get_shopping_list, admin_tools.extract_recipe]
+**Detection:** Cross-validate LLM-judge scores against human labels on a subset (10-20 items). If Pearson correlation < 0.7, the judge is unreliable.
 
-# In capture flow:
-# Step 1: Classifier runs with classifier_agent_tools only
-# Step 2: If bucket == "Admin", Admin Agent runs with admin_agent_tools only
-```
+**Confidence:** HIGH -- Multiple academic papers (arxiv 2511.04205), Weights & Biases research, Arize AI documentation all confirm self-enhancement bias.
 
-Each agent client receives only its own tools in the `ChatOptions`. The Classifier never sees shopping list tools. The Admin Agent never sees `file_capture`.
+**Phase guidance:** Address in the eval framework phase. Start with deterministic metrics for classification. Only add LLM-as-judge for subjective quality after deterministic metrics are proven.
 
-**Detection:**
-Shopping list items appear without a corresponding Admin Agent run in Application Insights. The `agentChain` in the inbox document shows only `["Classifier"]` for items that should show `["Classifier", "AdminAgent"]`.
+### Pitfall 5: Azure AI Evaluation SDK Consolidation -- Building on a Moving Target
 
-**Confidence:** HIGH -- direct analysis of existing codebase patterns.
+**What goes wrong:** The evaluation SDK is actively migrating from `azure-ai-evaluation` to `azure-ai-projects` v2 (at 2.0.0b4 as of early 2026). The two packages have different APIs, different evaluator patterns (the new `grade(sample, item)` function signature vs the old `__call__` pattern), and the v2 SDK is still in beta. Building on one and having to migrate to the other wastes significant effort.
 
----
+**Why it happens:** Microsoft is consolidating agents, inference, and evaluation into a single `azure-ai-projects` package. The custom evaluator pattern changed fundamentally: the new SDK uses OpenAI's Eval API protocol internally, evaluators are registered in a project catalog, and code-based evaluators run in a sandboxed environment. Both old and new patterns coexist in documentation, causing confusion about which to use.
+
+**Consequences:** Code built on the old `azure-ai-evaluation` `evaluate()` function needs rewriting when v2 goes GA. Code built on the v2 beta may break with API changes. Either way, eval pipeline code becomes throwaway if not properly abstracted.
+
+**Prevention:**
+- Check the state of `azure-ai-projects` v2 SDK at build time -- if stable, use it; if still beta, use the stable `azure-ai-evaluation` with abstraction
+- Keep the eval pipeline thin: golden datasets in JSONL files, evaluator logic in standalone Python functions, orchestration as a CLI script
+- Do not couple eval logic to SDK evaluator registration -- write evaluators as plain functions first, then wrap for whichever SDK is current
+- For classifier accuracy, use code-based evaluators (exact match, confusion matrix) that do not depend on the eval SDK at all -- plain Python with pytest is sufficient
+- Pin SDK versions in `pyproject.toml` and monitor release notes
+
+**Detection:** If the eval pipeline imports change more than once, the abstraction layer is missing.
+
+**Confidence:** MEDIUM -- The migration direction is confirmed (multiple sources), but timeline to GA is uncertain. The beta may stabilize before the project ships.
+
+**Phase guidance:** Research the exact SDK state when the eval phase starts. Keep evaluator logic decoupled from SDK registration.
 
 ## Moderate Pitfalls
 
-Mistakes that cause significant debugging time or suboptimal UX but are recoverable without rewrites.
+### Pitfall 6: MCP Tool Timeout for Long-Running KQL Queries
 
----
+**What goes wrong:** Claude Code's MCP tool execution has a default timeout of 60 seconds. Complex KQL queries over a week of data can take 30-120 seconds via `LogsQueryClient`. The MCP tool call silently drops the result if it exceeds the timeout, and Claude Code reports a generic error.
 
-### Pitfall 5: SSE Adapter Assumes Single-Agent Tool Detection Pattern
-
-**What goes wrong:**
-The existing `FoundrySSEAdapter` (streaming/adapter.py) is hardcoded to detect `file_capture` as the sole tool outcome. When you add the Admin Agent handoff, the adapter does not know how to detect or emit events for Admin Agent tool calls (`add_shopping_item`, `extract_recipe`). The mobile app receives a CLASSIFIED event but has no information about what the Admin Agent did -- no shopping list confirmation, no ingredient extraction feedback.
-
-**Why it happens:**
-The adapter's `_emit_result_event` function (adapter.py line 59-87) only knows about four statuses: `misunderstood`, `classified`, `pending`, and fallback to `unresolved`. The stream iteration loop (line 206-218) specifically checks `content.name == "file_capture"`. When a two-agent pipeline runs, the Admin Agent's tool calls produce `function_call` and `function_result` content objects with different tool names that the adapter silently ignores.
-
-**Consequences:**
-- Admin Agent processes captures but the mobile app shows no feedback about what happened
-- User sees "Filed -> Admin" but does not know the item was added to a shopping list or which store
-- No shopping list confirmation event reaches the mobile app
-- The safety net (line 246-255) might fire incorrectly, filing the capture as misunderstood
+**Why it happens:** The MCP TypeScript SDK has `DEFAULT_REQUEST_TIMEOUT_MSEC = 60000`. KQL query execution time depends on data volume, query complexity, and workspace load. Aggregate queries (`summarize`, `percentile`, time-binned analysis) over longer periods are especially slow. Additionally, SSE transport connections can be dropped by HTTP proxies after ~5 minutes idle.
 
 **Prevention:**
-Extend the SSE event vocabulary for Admin Agent outcomes. Add new event types:
+- Use stdio transport for the MCP server (local process, no network timeout issues, recommended by Claude Code docs)
+- Set `MCP_TIMEOUT=120000` (120 seconds) in Claude Code configuration
+- Design KQL queries with `| take` limits and bounded time ranges (default to `ago(24h)`)
+- For expensive queries (weekly summaries, trend analysis), pre-compute results in a daily batch job that writes to Cosmos, rather than querying raw logs in real-time
+- Return meaningful error messages when queries approach timeout limits
 
-```python
-# New SSE events for Admin Agent outcomes
-def shopping_item_added_event(inbox_item_id: str, store: str, item_name: str) -> dict:
-    return {
-        "type": "SHOPPING_ITEM_ADDED",
-        "value": {
-            "inboxItemId": inbox_item_id,
-            "store": store,
-            "itemName": item_name,
-        },
-    }
+**Detection:** Log MCP tool call durations. Monitor for timeout errors in Claude Code.
 
-def recipe_extracted_event(inbox_item_id: str, store: str, item_count: int) -> dict:
-    return {
-        "type": "RECIPE_EXTRACTED",
-        "value": {
-            "inboxItemId": inbox_item_id,
-            "store": store,
-            "itemCount": item_count,
-        },
-    }
-```
+**Confidence:** MEDIUM -- Timeout issues documented in Claude Code GitHub issues (#3033, #20335, #22542). Exact behavior may vary with Claude Code versions.
 
-The adapter needs to be extended (or a new `stream_admin_capture` function created) that handles the two-step pipeline: Classifier stream followed by Admin Agent stream. The mobile `ag-ui-client.ts` `attachCallbacks` function needs new cases in its switch statement for these event types.
+**Phase guidance:** Address when building the MCP tool. Test with realistic data volumes.
 
-**Detection:**
-Admin captures show "Filed -> Admin" but no shopping list confirmation. The `COMPLETE` event fires without any Admin-specific event preceding it.
+### Pitfall 7: Building a Custom MCP Server When Azure MCP Server Already Exists
 
-**Confidence:** HIGH -- direct analysis of existing adapter code.
+**What goes wrong:** Building a custom MCP server from scratch for App Insights KQL queries when the official Azure MCP Server (`@azure/mcp`) already provides `monitor_query_workspace_logs`, `monitor_list_tables`, `monitor_list_workspaces`, and metric query tools. This wastes weeks reimplementing solved problems.
 
----
+**Why it happens:** The Azure MCP Server was released in 2025 and may not be well-known. It provides 11 Monitor tools and 5 Workbooks tools that cover most observability use cases. The project may also benefit from existing community MCP servers for Log Analytics (multiple repos on GitHub).
 
-### Pitfall 6: YouTube Recipe Videos Without Captions Fail Silently
-
-**What goes wrong:**
-User pastes a YouTube recipe URL. The backend attempts transcript extraction, gets a `TranscriptsDisabled` or `NoTranscriptFound` error, and either crashes the capture or files it as a generic Admin item with no ingredients extracted. The user has no idea why the extraction failed or what to do about it.
-
-**Why it happens:**
-Approximately 15% of YouTube videos have no captions at all (neither manual nor auto-generated). Cooking videos from small creators, non-English videos, and very recent uploads frequently lack captions. Auto-generated captions, when present, have only 60-70% accuracy, meaning ingredient names and quantities are often garbled ("two cups of flour" becomes "two cups of flower").
-
-**Consequences:**
-- Silent failure: user submits URL, nothing happens or item filed without ingredients
-- Garbled ingredients from auto-captions: "1 tsp cayenne" becomes "1 tsp came in"
-- No user feedback about why extraction failed
-- User learns the feature is unreliable and stops using it
+**Consequences:** Weeks spent building, testing, and maintaining a custom MCP server that reimplements what Azure already provides. Ongoing maintenance burden as the Azure SDK evolves.
 
 **Prevention:**
-Build a robust fallback chain:
+- Evaluate the Azure MCP Server first: install it, test `monitor_query_workspace_logs` against the Second Brain workspace, verify it handles workspace-based schema correctly
+- If Azure MCP Server works for the basic query case, use it directly and build custom MCP tools only for domain-specific operations (e.g., "trace capture X end-to-end", "show classifier accuracy for last week", "compare error rates before and after deploy")
+- If it does not work (the App Insights table bug was fixed in PR #280 but test against the current version), consider the community `log-analytics-mcp-server` or `mcp-kql-server` before building from scratch
+- The custom MCP tools should complement the Azure MCP Server, not replace it
 
-1. **Try official YouTube Data API captions first** (manual captions are highest quality)
-2. **Fall back to auto-generated captions** with a quality warning
-3. **If no captions exist at all**, inform the user: "This video doesn't have captions. Try pasting the recipe text directly."
-4. **Post-extraction validation:** Have the Admin Agent sanity-check extracted ingredients. If the transcript quality is poor, the LLM can often correct obvious transcription errors ("flower" -> "flour" in a recipe context).
+**Detection:** If the MCP server implementation estimate exceeds 1 week, evaluate existing solutions first.
 
-Add an SSE event like `EXTRACTION_FAILED` so the mobile app can show a meaningful message instead of a generic error.
+**Confidence:** HIGH -- Azure MCP Server is official, documented on Microsoft Learn, with 11 Monitor tools.
 
-**Detection:**
-Application Insights tracking of YouTube extraction attempts with a `success/failure/fallback` attribute. High failure rate indicates caption availability issues. Monitor for garbled ingredient names in shopping lists.
+**Phase guidance:** First task in the MCP tool phase: spike the Azure MCP Server against the real workspace.
 
-**Confidence:** MEDIUM -- YouTube caption availability statistics are approximate but consistently reported. Auto-caption accuracy is well-documented by Google.
+### Pitfall 8: Golden Dataset Rot -- Static Test Data vs Evolving System
 
----
+**What goes wrong:** The golden dataset for classifier evaluation is built from captures at a point in time. As Will's usage patterns evolve (new destinations, new recipe sites, new project types, new phrasing), the golden dataset no longer represents real-world distribution. Eval scores stay green while real-world accuracy degrades on novel inputs.
 
-### Pitfall 7: Admin Agent Store Routing Drifts Without Grounding Data
+**Why it happens:** Golden datasets are point-in-time snapshots. The Second Brain's capture patterns evolve with Will's life: new stores added via voice affinity rules, new recipe sites discovered, new projects started. A golden dataset from April 2026 will not cover captures from June 2026 mentioning new destinations or using new phrasing patterns. This is a single-user system, so the input distribution is entirely driven by one person's changing habits.
 
-**What goes wrong:**
-The Admin Agent is instructed to route items to stores ("Jewel for groceries, CVS for pharmacy, pet store for pet supplies") via its system prompt. Initially it works. Over time, the agent starts making inconsistent decisions: "cat litter" goes to Jewel one day and the pet store the next. "Bandages" sometimes goes to CVS, sometimes to Jewel. The routing becomes unreliable, and the user spends more time correcting the agent than doing manual routing.
-
-**Why it happens:**
-LLM-based routing via instructions alone (without structured data) is inherently non-deterministic. The agent's store assignment depends on its interpretation of the item in context, which varies across runs. There is no persistent "store catalog" or "item-to-store mapping" that the agent can reference. Without grounding data, the agent relies on general world knowledge, which is noisy for edge cases.
-
-**Consequences:**
-- Items routed to wrong stores
-- Same item routed differently on different days
-- User loses confidence in the system
-- Correcting misrouted items is tedious
+**Consequences:** False confidence in classifier quality. The eval pipeline reports 95% accuracy on stale data while real-world accuracy on novel inputs drops.
 
 **Prevention:**
-Ground the Admin Agent with a structured store registry as a tool:
+- Build the golden dataset from actual production captures (sample from Cosmos Inbox), not synthetic data
+- Include a "dataset refresh" script that pulls recent captures, presents them for manual label review, and adds them to the golden set
+- Track eval scores over time AND dataset freshness (days since last capture added); alert on both score drops and staleness
+- Include explicit edge cases: multi-bucket captures, ambiguous captures, recipe URLs, voice transcription artifacts, novel destinations
+- Target 50-100 captures in the initial golden dataset, refreshed monthly
 
-```python
-@tool
-async def get_store_registry(self) -> str:
-    """Return the list of stores and their categories for item routing."""
-    return json.dumps({
-        "stores": [
-            {"name": "Jewel", "categories": ["groceries", "produce", "dairy", "meat", "baking"]},
-            {"name": "CVS", "categories": ["pharmacy", "health", "beauty", "first aid"]},
-            {"name": "Pet Store", "categories": ["pet food", "pet supplies", "cat litter"]},
-        ]
-    })
-```
+**Detection:** If the most recent capture in the golden dataset is more than 30 days old, flag for refresh.
 
-Additionally, track where items were previously routed and use that history as context. If "cat litter" was routed to "Pet Store" last time, it should go there again. This can be a simple Cosmos DB query: "What store was this item type last assigned to?"
+**Confidence:** HIGH -- Well-known ML evaluation anti-pattern, amplified by single-user system dynamics.
 
-**Detection:**
-User manually corrects store assignments frequently. Same item appears on different store lists across different captures.
+**Phase guidance:** Build the dataset refresh workflow alongside the initial golden dataset, not as an afterthought.
 
-**Confidence:** MEDIUM -- LLM non-determinism is well-established; the specific store-routing scenario is inferred from the project's use case.
+### Pitfall 9: Implicit Signals Without a Feedback Storage Layer
 
----
+**What goes wrong:** The eval framework plans to use implicit signals (reclassifications, deletions, errand item swipe-to-remove) but there is no storage layer to record these as structured evaluation events. The current Cosmos schema tracks captures and errands but not user correction actions.
 
-### Pitfall 8: ContextVar Follow-Up Pattern Does Not Extend to Two-Agent Pipeline
+**Why it happens:** The existing API endpoints handle CRUD operations but do not log corrections as evaluation data. When Will reclassifies a capture via the inbox, the backend updates the inbox document's `classificationMeta` but does not record "user changed bucket from X to Y" as a separate evaluation signal. Similarly, when Will swipes away an errand item, the item is deleted but there is no record of "this item was rejected."
 
-**What goes wrong:**
-The existing follow-up flow uses `_follow_up_inbox_item_id` ContextVar to tell `file_capture` to update an existing inbox doc instead of creating a new one. When the Admin Agent runs as a second step after the Classifier, the ContextVar is not set in the Admin Agent's execution context. If the Admin Agent calls any tool that needs to reference the original inbox item (e.g., to link a shopping list item back to its capture), it cannot find the context.
-
-**Why it happens:**
-ContextVars are scoped to the async task that sets them. The Classifier runs in one `get_response` call, and the Admin Agent runs in a separate `get_response` call. If the Admin Agent is invoked in a different async context (which it will be, since it is a separate client call), the ContextVar from the Classifier's context is not inherited.
-
-**Consequences:**
-- Admin Agent tools cannot reference the original inbox item
-- Shopping list items are not linked back to their capture
-- Follow-up flows for Admin items behave differently than other buckets
-- Debugging is confusing because the ContextVar works fine for the Classifier but is empty for the Admin Agent
+**Consequences:** Without structured feedback data, the eval framework cannot compute implicit accuracy metrics. The team has to parse App Insights logs to reconstruct user corrections, which is fragile, incomplete, and tied to the 30-day retention window.
 
 **Prevention:**
-Pass the inbox item ID explicitly to Admin Agent tools rather than relying on ContextVars. The capture flow should:
+- Add evaluation event tracking to existing API endpoints: when `recategorize` is called, emit a structured event with `from_bucket`, `to_bucket`, `original_confidence`; when an errand item is deleted within 1 minute of creation, flag as "likely rejected"
+- Store events in either a new EvalEvents Cosmos container or as structured App Insights custom events (cheaper, leverages existing infrastructure)
+- Design the event schema before building the eval framework -- it consumes this data
+- Capture at minimum: reclassification events, deletion-within-N-minutes events, low-confidence manual selection events, and errand item rapid-removal events
 
-1. Classifier runs, `file_capture` returns `item_id`
-2. FastAPI code extracts the `item_id` from the Classifier's response
-3. Admin Agent tools receive `inbox_item_id` as an explicit parameter (either passed in the user message or as a tool argument)
+**Detection:** If the eval pipeline has to parse unstructured App Insights logs to find correction signals, the feedback storage layer is missing.
 
-Do not extend the ContextVar pattern to a multi-agent pipeline. Explicit parameter passing is more robust and debuggable.
+**Confidence:** HIGH -- Verified by reading existing `models/documents.py` and API routes. No evaluation event model exists.
 
-**Detection:**
-Shopping list items in Cosmos DB have no `inboxRecordId` field. Admin Agent tool results do not include `item_id`. Follow-up flows for Admin captures break.
+**Phase guidance:** Must be built early, before or as the first task of the eval framework phase.
 
-**Confidence:** HIGH -- direct analysis of existing ContextVar pattern in `classification.py`.
+### Pitfall 10: Mobile Dashboard Over-Engineering for a Single-User System
 
----
+**What goes wrong:** Building an elaborate real-time dashboard with multiple chart types, date range selectors, and interactive drill-down when Will is the only user and checks it occasionally. Charting libraries (react-native-gifted-charts, Victory Native) add complexity, native dependencies, and maintenance burden for a feature used a few times a week.
+
+**Why it happens:** Dashboards are visually impressive and fun to build. The natural instinct is to build a rich monitoring experience. But for a single-user hobby project, the ROI is low -- Will can ask the investigation agent a question in the chat interface instead of reading pre-built charts.
+
+**Consequences:** Weeks spent on chart rendering, responsive layouts, data formatting, date picker components, and chart library compatibility with Expo. Meanwhile, the investigation agent chat interface provides the same answers with much less code.
+
+**Prevention:**
+- Start with the investigation agent chat interface as the primary observability surface
+- Build the mobile dashboard as a "health summary" screen with 3-5 key metrics as text (not charts): capture count today, error count, last failure time, classifier confidence average, Admin Agent success rate
+- Only add charts if the text summary proves insufficient after real-world use
+- If charts are eventually needed, use react-native-gifted-charts (pure JS, Expo compatible, no native module dependencies, 75+ chart types)
+
+**Detection:** If the dashboard phase estimate exceeds 2 weeks, scope is too large.
+
+**Confidence:** HIGH -- Judgment call based on project context (single user, hobby project, learning focus).
+
+**Phase guidance:** Build the chat interface first. Add the summary screen second. Charts only if needed later.
 
 ## Minor Pitfalls
 
-Mistakes that cause annoyance or minor issues but are straightforward to fix.
+### Pitfall 11: KQL Injection via Investigation Agent
 
----
+**What goes wrong:** If the investigation agent constructs KQL by string-concatenating user input, accidental input could alter query semantics. While this is a single-user system, the principle matters for code quality.
 
-### Pitfall 9: Cosmos DB Container Not Created for Shopping Lists
+**Prevention:** Use parameterized KQL templates where user values are inserted into `where` clauses with proper escaping. Since KQL does not have parameterized queries like SQL, sanitize inputs: validate that user-provided values match expected types (UUIDs for trace IDs, known strings for component names, time ranges as `ago()` expressions). Strip KQL operators (`|`, `where`, `extend`, `project`) from user-provided values.
 
-**What goes wrong:**
-You add shopping list logic that writes to a "ShoppingLists" container, deploy to Azure Container Apps, and get `CosmosResourceNotFoundError` on the first shopping list operation. The container does not exist because `CosmosManager.initialize()` only creates container proxies for the 5 hardcoded containers: `["Inbox", "People", "Projects", "Ideas", "Admin"]`.
+**Confidence:** MEDIUM -- KQL injection is less severe than SQL injection because Log Analytics is read-only, but it could return unintended data or cause query errors.
 
-**Why it happens:**
-`cosmos.py` line 17 defines `CONTAINER_NAMES` as a fixed list. Any new container must be added to this list AND created in the Cosmos DB account (either via Azure Portal, CLI, or Bicep/Terraform). The `CosmosManager.initialize()` method does not create containers -- it only gets references to existing ones.
+**Phase guidance:** Address when building the KQL query construction layer.
 
-**Prevention:**
-Before writing any shopping list code, decide the data model first:
+### Pitfall 12: App Insights 30-Day Data Retention Boundary
 
-- **Option A: Separate "ShoppingLists" container.** Add it to `CONTAINER_NAMES`, create the container in Azure with `/userId` partition key, add a Pydantic model for shopping list documents.
-- **Option B: Use the existing "Admin" container.** Add a `type` field to distinguish admin documents from shopping list items (e.g., `type: "shopping_item"` vs `type: "admin_capture"`). This avoids creating a new container but requires query filtering.
-
-Option B is simpler for a single-user system and avoids Cosmos DB container count concerns (serverless pricing is per-container).
-
-**Detection:**
-`CosmosResourceNotFoundError` on first shopping list operation. Easy to spot, easy to fix.
-
-**Confidence:** HIGH -- direct codebase analysis.
-
----
-
-### Pitfall 10: Mobile App Treats All CLASSIFIED Events Identically
-
-**What goes wrong:**
-The mobile app's `ag-ui-client.ts` receives a CLASSIFIED event for an Admin capture and shows "Filed -> Admin (0.95)" -- the same as any other bucket. The user has no idea that a shopping list item was created or what store it was assigned to. The feedback is technically correct but useless for the shopping list use case.
-
-**Why it happens:**
-The `attachCallbacks` function in `ag-ui-client.ts` (line 68-75) handles CLASSIFIED events by extracting `bucket` and `confidence` and building a generic result string. There is no special handling for Admin bucket captures that went through the Admin Agent pipeline. The mobile app has no concept of Admin-specific outcomes.
+**What goes wrong:** App Insights data is retained for 30 days. If the investigation agent or eval pipeline queries beyond this window, results are silently empty. Golden dataset evaluations referencing historical trace IDs return nothing.
 
 **Prevention:**
-The capture flow for Admin items needs to emit a richer event that the mobile app can handle differently. Options:
+- Investigation agent system prompt must include the 30-day retention limit and communicate it to users
+- Eval pipeline stores evaluation results in Cosmos (persistent) rather than depending on App Insights for historical data
+- Consider exporting critical telemetry summaries to Cosmos or Blob Storage for trend analysis beyond 30 days
+- Daily/weekly aggregation jobs can compute and persist summary metrics that outlive the raw telemetry
 
-1. **New event type (ADMIN_PROCESSED)** that includes Admin-specific data (store name, item count, what was done)
-2. **Extended CLASSIFIED event** with an optional `adminResult` field when `bucket == "Admin"`
-3. **Second SSE stream** where the Admin Agent's processing is streamed as additional events after CLASSIFIED
+**Confidence:** HIGH -- Already documented in `backend/queries/README.md`.
 
-Option 1 is cleanest -- it follows the existing pattern of type-specific events (CLASSIFIED, MISUNDERSTOOD, LOW_CONFIDENCE).
+**Phase guidance:** Address in both the investigation agent and eval framework phases.
 
-On the mobile side, add a new callback:
-```typescript
-onAdminProcessed?: (inboxItemId: string, action: string, details: object) => void;
-```
+### Pitfall 13: Custom Evaluator Sandbox Limits in Azure AI Foundry
 
-**Detection:**
-Admin captures show the same generic "Filed -> Admin" feedback as non-shopping-list Admin items. Users have no confirmation that their shopping list was updated.
-
-**Confidence:** HIGH -- direct analysis of mobile app codebase.
-
----
-
-### Pitfall 11: Timeout Pressure in Two-Agent Pipeline
-
-**What goes wrong:**
-The existing adapter uses `asyncio.timeout(60)` for the entire capture stream (adapter.py line 181). A two-agent pipeline (Classifier 2-3s + Admin Agent 3-5s + tool execution) approaches this timeout, especially if YouTube transcript extraction is involved (network round-trip to YouTube + LLM processing of transcript). Complex recipes with many ingredients push the total time past 60 seconds, and the capture times out with a generic error.
-
-**Why it happens:**
-The 60-second timeout was calibrated for a single-agent pipeline (Classifier only). Adding a second agent effectively doubles the LLM call time. Adding YouTube extraction adds a third network dependency. The timeout is global (covers the entire stream), not per-step.
-
-**Consequences:**
-- YouTube recipe captures fail intermittently
-- Timeout errors are not actionable for the user
-- Partial results are lost (Classifier classified successfully, but Admin Agent timed out before finishing)
+**What goes wrong:** Azure AI Foundry's code-based custom evaluators run in a sandboxed environment with: no network access, 2-minute execution limit per grade call, 2GB memory, limited packages (numpy, pandas, scikit-learn, rapidfuzz, pydantic, etc., but no custom packages). If the classifier accuracy evaluator needs to fetch ground truth from Cosmos or call Azure OpenAI, it cannot run in the sandbox.
 
 **Prevention:**
-Either increase the timeout for Admin-routed captures or implement per-step timeouts:
+- Classifier accuracy evaluators should be simple code-based comparisons (exact match, fuzzy match via rapidfuzz which is available in the sandbox) operating on pre-prepared JSONL data
+- Prepare evaluation datasets as self-contained JSONL files with both predictions and ground truth labels before submitting to the eval API
+- Use prompt-based evaluators (LLM-as-judge) only for subjective quality metrics where the sandbox's LLM call handles the external API dependency
+- For complex evaluators needing external access (Cosmos queries, multiple API calls), run them locally as Python scripts via a CLI rather than in the Foundry sandbox
 
-```python
-# Separate timeouts per stage
-CLASSIFIER_TIMEOUT = 30  # seconds
-ADMIN_AGENT_TIMEOUT = 45  # seconds (more for YouTube extraction)
+**Confidence:** HIGH -- Verified from official Microsoft Learn documentation on custom evaluators (published 2026-03-06).
 
-# Or a single increased timeout for multi-agent pipelines
-MULTI_AGENT_TIMEOUT = 90  # seconds
-```
+**Phase guidance:** Address in the eval framework phase when designing evaluator architecture.
 
-Also, stream progress events between stages so the user knows the system is working: "Classifying..." -> "Classified as Admin" -> "Extracting recipe ingredients..." -> "Added 12 items to Jewel shopping list."
+### Pitfall 14: Investigation Agent Chat Reusing Capture SSE Patterns Without Adaptation
 
-**Detection:**
-TimeoutError in Application Insights for Admin captures. YouTube recipe captures have a higher timeout rate than text captures.
-
-**Confidence:** HIGH -- direct analysis of existing timeout values and estimated pipeline duration.
-
----
-
-### Pitfall 12: Shopping List Screen Fetches Data Shape Incompatible with Inbox Pattern
-
-**What goes wrong:**
-You build the new "Status & Priorities" screen by copying the Inbox screen's data fetching pattern (`GET /api/inbox` returning `InboxListResponse`). But shopping list data has a fundamentally different shape: it is grouped by store, each store has a list of items, and items can be checked off. The inbox pattern (flat list of captures) does not map to this structure. You end up with awkward data transforms on the mobile side, or you build a bespoke API that does not follow the existing patterns.
-
-**Why it happens:**
-The inbox is a flat, reverse-chronological list of captures. Shopping lists are hierarchical (store -> items) and stateful (items can be completed/removed). These are different data access patterns that require different API design and different UI components.
-
-**Consequences:**
-- Flat list API does not support "group by store" efficiently
-- Mobile side needs complex client-side grouping logic
-- No support for item completion state in the inbox response model
-- API feels bolted-on rather than designed
+**What goes wrong:** The existing SSE streaming in `streaming/adapter.py` is designed for the capture flow: it emits CLASSIFIED, LOW_CONFIDENCE, MISUNDERSTOOD, and COMPLETE events in a specific sequence. Reusing this adapter for the investigation agent chat produces confusing event types that do not make sense for a Q&A conversation (there is no "classification" happening, no "bucket" to report).
 
 **Prevention:**
-Design the shopping list API endpoint independently from the inbox API:
+- Build a separate SSE streaming function for investigation agent responses, modeled as a simple text stream with progress indicators
+- The investigation agent needs events like: QUERY_STARTED (with the KQL being executed), QUERY_RESULT (with the data), AGENT_RESPONSE (with the natural language summary), ERROR (with diagnostics)
+- Do not reuse the capture-flow event vocabulary; the investigation agent is a different interaction pattern (Q&A vs capture-classify)
+- The existing `react-native-sse` client library on mobile already handles arbitrary event types, so new event names are free
 
-```python
-# New API endpoint for shopping lists
-@router.get("/api/shopping-lists")
-async def get_shopping_lists(request: Request) -> ShoppingListsResponse:
-    """Return shopping lists grouped by store."""
-    # Query Cosmos for shopping items grouped by store
-    ...
+**Confidence:** HIGH -- Direct analysis of existing adapter code.
 
-@router.delete("/api/shopping-lists/{store}/{item_id}")
-async def remove_shopping_item(request: Request, store: str, item_id: str):
-    """Remove a shopping list item."""
-    ...
-```
-
-Response shape:
-```json
-{
-  "stores": [
-    {
-      "name": "Jewel",
-      "items": [
-        {"id": "...", "name": "milk", "addedAt": "...", "source": "recipe:..."}
-      ]
-    }
-  ]
-}
-```
-
-Do not try to reuse `InboxListResponse` or `InboxItemResponse`. They are different domain concepts.
-
-**Detection:**
-Mobile code has excessive `.filter()`, `.reduce()`, and `.group()` calls to reshape inbox-style data into store-grouped lists. Or the API endpoint returns data that does not match what the UI needs.
-
-**Confidence:** HIGH -- direct analysis of existing data models and API patterns.
-
----
+**Phase guidance:** Address when building the investigation agent's API endpoint.
 
 ## Phase-Specific Warnings
 
 | Phase Topic | Likely Pitfall | Mitigation |
 |---|---|---|
-| Admin Agent registration | Pitfall 1 (thread contamination), Pitfall 4 (tool leakage) | Create separate AzureAIAgentClient, separate tool lists |
-| Shopping list data model | Pitfall 3 (race conditions), Pitfall 9 (container not created) | Use Patch API or individual documents; create container first |
-| YouTube recipe extraction | Pitfall 2 (IP blocking), Pitfall 6 (no captions), Pitfall 11 (timeouts) | Use YouTube Data API v3; build fallback chain; increase timeout |
-| Classifier -> Admin handoff | Pitfall 1 (thread contamination), Pitfall 8 (ContextVar scope) | Code-based routing with explicit param passing, new threads |
-| SSE streaming for Admin | Pitfall 5 (adapter assumes single agent), Pitfall 10 (generic CLASSIFIED) | New event types, extended adapter |
-| Mobile shopping list screen | Pitfall 12 (data shape mismatch), Pitfall 10 (no Admin feedback) | Independent API design, new SSE events |
-
----
-
-## Key Architectural Decision: Shopping List Item Granularity
-
-The most impactful design decision for v3.0 is how shopping list items are stored in Cosmos DB. This decision affects pitfalls 3, 9, and 12.
-
-**Recommendation: One document per shopping list item** (not arrays within a store document).
-
-| Approach | Pros | Cons |
-|---|---|---|
-| Array in store doc | Fewer documents, single read for full list | Race conditions, array index fragility, max document size |
-| Individual item docs | Atomic create/delete, no race conditions, simple queries | More documents, cross-partition queries if not careful |
-
-For a single-user system with serverless Cosmos DB pricing (pay per RU, not per document), individual documents are strongly preferred. Each item gets its own `id`, can be independently created and deleted, and queries like `SELECT * FROM c WHERE c.store = "Jewel" AND c.type = "shopping_item"` are efficient with a composite index.
-
----
+| Programmatic KQL query library | Schema mismatch (Pitfall 1) + Partial results (Pitfall 3) | Build and validate workspace-compatible templates with proper status handling first |
+| Investigation agent NL-to-KQL | LLM hallucination (Pitfall 2) | Template-first with schema grounding; free-form KQL as guarded fallback |
+| MCP tool for Claude Code | Timeout (Pitfall 6) + Build vs buy (Pitfall 7) | Evaluate Azure MCP Server first; use stdio transport; set MCP_TIMEOUT |
+| Investigation agent API + streaming | SSE pattern mismatch (Pitfall 14) | New event vocabulary for Q&A flow, separate from capture-flow adapter |
+| Mobile observability surface | Over-engineering (Pitfall 10) | Chat interface first, text health summary second, charts only if proven needed |
+| Golden dataset creation | Dataset rot (Pitfall 8) | Build from production captures with monthly refresh workflow |
+| Eval framework architecture | SDK churn (Pitfall 5) + Sandbox limits (Pitfall 13) | Decouple evaluator logic from SDK; prepare self-contained JSONL files |
+| Classifier accuracy eval | Self-enhancement bias (Pitfall 4) | Deterministic metrics (exact match, confusion matrix), not LLM-as-judge |
+| Implicit signal collection | Missing feedback storage (Pitfall 9) | Add evaluation event tracking to existing API endpoints before building eval pipeline |
+| Data retention awareness | 30-day boundary (Pitfall 12) | Persist eval results to Cosmos; include retention limit in agent system prompt |
 
 ## Sources
 
-- [AzureAIAgentClient API Reference](https://learn.microsoft.com/en-us/python/api/agent-framework-core/agent_framework.azure.azureaiagentclient?view=agent-framework-python-latest) -- agent_id, should_cleanup_agent, thread isolation
-- [Cosmos DB Partial Document Update](https://learn.microsoft.com/en-us/azure/cosmos-db/partial-document-update) -- Patch API operations, array manipulation, conflict resolution
-- [Cosmos DB Optimistic Concurrency Control](https://learn.microsoft.com/en-us/azure/cosmos-db/database-transactions-optimistic-concurrency) -- ETag-based concurrency
-- [youtube-transcript-api GitHub Issues #303](https://github.com/jdepoix/youtube-transcript-api/issues/303) -- cloud IP blocking
-- [youtube-transcript-api GitHub Issues #317](https://github.com/jdepoix/youtube-transcript-api/issues/317) -- AWS Lambda blocking
-- [youtube-transcript-api GitHub Issues #511](https://github.com/jdepoix/youtube-transcript-api/issues/511) -- IP blocking with proxies
-- [youtube-transcript-api PyPI](https://pypi.org/project/youtube-transcript-api/) -- library documentation and proxy support
-- [Azure AI Foundry Connected Agents](https://learn.microsoft.com/en-us/azure/ai-foundry/agents/how-to/connected-agents?view=foundry-classic) -- multi-agent patterns
-- [Multi-Turn Conversations](https://learn.microsoft.com/en-us/agent-framework/user-guide/agents/multi-turn-conversation) -- thread safety warnings
-- [Building a nutritional co-pilot using LLMs](https://medium.com/@kbambalov/building-a-nutritional-co-pilot-using-llms-part-1-recipe-extraction-e112645ef9fd) -- recipe extraction patterns
+- [Azure Monitor Query Python SDK](https://learn.microsoft.com/en-us/python/api/overview/azure/monitor-query-readme?view=azure-python) -- LogsQueryClient, partial results, timeout handling, async client (HIGH confidence)
+- [Azure MCP Server Monitor Tools](https://learn.microsoft.com/en-us/azure/developer/azure-mcp-server/tools/azure-monitor) -- 11 Monitor tools + 5 Workbooks tools for Log Analytics queries (HIGH confidence)
+- [Azure MCP Server Issue #250](https://github.com/Azure/azure-mcp/issues/250) -- App Insights table query failures, fixed in PR #280 (HIGH confidence)
+- [Custom Evaluators - Microsoft Foundry](https://learn.microsoft.com/en-us/azure/foundry/concepts/evaluation-evaluators/custom-evaluators) -- grade() function, sandbox constraints, supported packages (HIGH confidence)
+- [NL2KQL: Natural Language to Kusto Query](https://arxiv.org/html/2404.02933v1) -- Schema hallucination dominates NL-to-KQL failures (HIGH confidence)
+- [LLM-as-a-Judge Exploration](https://wandb.ai/site/articles/exploring-llm-as-a-judge/) -- Self-enhancement bias, position bias, verbosity bias (HIGH confidence)
+- [LLM Judge Fairness Research](https://www.resultsense.com/insights/2025-10-01-llm-judge-fairness-research-business-implications) -- Evaluation hallucination patterns (MEDIUM confidence)
+- [Azure AI Projects v2 Migration Guide](https://medium.com/@badrvkacimi/migrating-to-azure-ai-projects-v2-the-unified-foundry-sdk-you-need-to-know-0102d969df1f) -- SDK consolidation direction (MEDIUM confidence)
+- [Claude Code MCP Timeout Issues](https://github.com/anthropics/claude-code/issues/3033) -- SSE timeout, tool execution limits (MEDIUM confidence)
+- [MCP Best Practices](https://modelcontextprotocol.info/docs/best-practices/) -- Single-purpose servers, transport selection (MEDIUM confidence)
+- [Building Golden Datasets for AI Evaluation](https://www.getmaxim.ai/articles/building-a-golden-dataset-for-ai-evaluation-a-step-by-step-guide/) -- Dataset curation, refresh cadence (MEDIUM confidence)
+- [Azure Monitor Malicious KQL Query](https://securecloud.blog/2022/04/27/azure-monitor-malicious-kql-query/) -- KQL injection risks (LOW confidence, single source)
+- [Avoiding Common Pitfalls in LLM Evaluation](https://www.honeyhive.ai/post/avoiding-common-pitfalls-in-llm-evaluation) -- Evaluation anti-patterns overview (MEDIUM confidence)
+- [Claude Code MCP Documentation](https://code.claude.com/docs/en/mcp) -- Transport types, timeout configuration (HIGH confidence)

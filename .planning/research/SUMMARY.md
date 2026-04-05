@@ -1,179 +1,188 @@
 # Project Research Summary
 
-**Project:** Second Brain v3.0 — Admin Agent & Shopping Lists
-**Domain:** Multi-agent personal capture system with specialist agent routing
-**Researched:** 2026-03-01
+**Project:** The Active Second Brain -- v3.1 Observability & Evals
+**Domain:** AI agent observability, natural language telemetry investigation, LLM evaluation framework
+**Researched:** 2026-04-04
 **Confidence:** HIGH
 
 ## Executive Summary
 
-Second Brain v3.0 adds the first specialist agent (Admin Agent) to an existing single-agent capture pipeline. The system already classifies captures into People/Projects/Ideas/Admin buckets via a persistent Foundry Agent Service agent — v3.0 makes the "Admin" bucket actionable by routing those captures through a second agent that manages store-based shopping lists and extracts ingredients from YouTube recipe URLs. The core approach is code-based sequential routing in FastAPI (not Foundry Connected Agents), which is the only viable pattern given that Connected Agents cannot invoke local @tool functions. The architecture is an incremental extension of v2.0's proven patterns: one new `AzureAIAgentClient`, one new tool class, one new Cosmos container, one new REST API router, and one new mobile tab.
+v3.1 adds three capabilities to the Second Brain: (1) a conversational investigation agent that translates natural language into KQL queries over App Insights, accessible from both mobile and Claude Code, (2) an evaluation framework that measures Classifier and Admin Agent quality using golden datasets, implicit signals, and deterministic metrics, and (3) a self-monitoring loop that alerts when quality degrades. The existing v3.0 infrastructure already logs rich telemetry (per-capture trace IDs, component tags, OTel spans, four KQL query templates, Azure Monitor alerts) -- v3.1 makes that telemetry queryable and actionable without opening the Azure Portal.
 
-The recommended approach is well-scoped and straightforward to implement because the patterns are already established in the codebase. Admin Agent registration mirrors `ensure_classifier_agent()` exactly. Tool structure mirrors `ClassifierTools`. The SSE streaming adapter is extended (not rewritten) to handle a two-phase pipeline. The single significant new dependency is `youtube-transcript-api` (v1.2.4), but there is a critical deployment risk: cloud provider IPs (Azure Container Apps) are actively blocked by YouTube's servers when using this library. Research confirms this as a well-documented, high-frequency failure mode across GitHub issues #303, #317, and #511. The correct mitigation is the official YouTube Data API v3 with an API key, not a proxy workaround, for all production use.
+The recommended approach is to build two independent tracks that converge late. The **investigation track** (App Insights query integration, Foundry investigation agent, mobile chat, MCP tool for Claude Code) delivers immediate operational value and depends on `azure-monitor-query` SDK and the existing Foundry Agent Service pattern. The **eval track** (golden datasets, custom evaluators via `azure-ai-evaluation`, feedback collection, score tracking, degradation alerts) provides long-term quality assurance and depends on deterministic metrics first, LLM-as-judge second. Both tracks share a foundation phase (LogsQueryClient setup, new Cosmos containers, workspace-compatible KQL templates).
 
-The three primary risks are: (1) YouTube transcript extraction via `youtube-transcript-api` fails in production on Azure IPs — switch to YouTube Data API v3 from the start, not as a retrofit; (2) concurrent writes to shopping list data require the Cosmos DB Patch API or individual-item documents to avoid lost updates under concurrent Admin Agent writes and user swipe-to-remove actions; (3) the SSE adapter must be extended with new Admin-specific event types or the mobile app will show no confirmation that any Admin capture was processed. None of these risks are blockers — each has a clear prevention strategy that must be built in from the start rather than patched later.
+The primary risks are KQL schema mismatches between portal and programmatic queries (already documented in project memory, also hit by the Azure MCP Server team in GitHub #250), LLM hallucination of KQL table/column names (mitigated by template-first query construction with structured tool parameters), and self-enhancement bias in evals (mitigated by using deterministic metrics for classification accuracy instead of LLM-as-judge). The eval SDK landscape is in flux (`azure-ai-evaluation` migrating toward `azure-ai-projects` v2), so evaluator logic should be written as plain Python functions first, wrapped for whichever SDK is current at build time.
 
 ## Key Findings
 
 ### Recommended Stack
 
-The existing stack requires only one new package for v3.0. The `youtube-transcript-api` (v1.2.4) handles YouTube caption extraction without an API key in local environments, but research confirms it is unreliable on Azure datacenter IPs. The practical implication: plan for YouTube Data API v3 integration from the start rather than discovering the cloud IP block after deployment. All other components — `agent-framework-azure-ai`, `azure-cosmos`, FastAPI, Expo/expo-router, Azure Container Apps CI/CD — are unchanged and already in production.
+The backend adds two Azure SDKs: `azure-monitor-query` (v2.0.0, GA) for programmatic KQL queries against the Log Analytics workspace, and `azure-ai-evaluation` (v1.16.x) for the eval framework with custom evaluators and batch evaluation. A standalone MCP server using the official `mcp` package (v1.27.0, includes FastMCP built-in) provides Claude Code integration via stdio transport. The mobile app needs `victory-native` for dashboard charts only if text metrics prove insufficient -- no other new dependencies. The chat UI is a custom FlatList component reusing the existing `react-native-sse` streaming infrastructure.
 
 **Core technologies:**
-- `youtube-transcript-api` v1.2.4: YouTube transcript extraction — use for local dev only; use YouTube Data API v3 for production cloud deployment
-- `agent-framework-azure-ai` v1.0.0rc2: AzureAIAgentClient for Admin Agent — same package as Classifier, reuse existing patterns exactly
-- `azure-cosmos` (existing): ShoppingLists container — one new container with `/userId` partition key, one line added to `CONTAINER_NAMES`
-- `expo-router` v6 (existing): Third tab for Status screen — add one `Tabs.Screen` entry, no new mobile packages required
+- `azure-monitor-query` (>=2.0.0): Programmatic KQL queries via async `LogsQueryClient` -- reuses `DefaultAzureCredential`, no pandas needed
+- `azure-ai-evaluation` (>=1.16.0): Batch eval API with custom code-based evaluators, `AIAgentConverter` for Foundry agent thread-to-eval conversion
+- `mcp` (>=1.27.0): MCP server for Claude Code with stdio transport -- standalone process, NOT in the Docker image
+- Custom FlatList chat: Zero-dependency chat UI for investigation agent, avoids `react-native-gifted-chat` compatibility issues
 
-**Version-critical detail:** The v1.x `youtube-transcript-api` API is a breaking change from v0.x. Do NOT use the old static `YouTubeTranscriptApi.get_transcript()` — instantiate `YouTubeTranscriptApi()` and use `.fetch()`. See STACK.md for the correct v1.x usage.
+**Critical version notes:**
+- `azure-monitor-query` v2.0.0 removed `MetricsClient` (moved to separate package) -- irrelevant since we only need logs queries
+- `azure-ai-projects` is already a transitive dependency; pin explicitly only if needed for `AIAgentConverter`, watch for version conflicts with `agent-framework-azure-ai`
+- `azure-ai-evaluation` pulls in ~50-100MB of dependencies; consider `[project.optional-dependencies]` under `eval` extra to keep Docker image lean
 
 ### Expected Features
 
 **Must have (table stakes):**
-- Classifier to Admin Agent inline handoff — core premise of v3.0; code-based routing detects `bucket == "Admin"` and invokes Admin Agent in the same SSE stream
-- Store-based shopping lists in Cosmos DB — one document per store (or one per item; see Gaps); items grouped by store (Jewel, CVS, Pet Store)
-- Agent-driven store routing — Admin Agent instructions map item categories to stores; routing evolves without code deployment
-- Ad hoc item capture to correct store — primary use case (est. 70% of usage); voice/text capture lands in the right store list automatically
-- YouTube recipe URL to ingredient extraction — stated project goal; pipeline is transcript fetch → agent reasoning → add items
-- Status & Priorities screen (third mobile tab) — displays shopping lists grouped by store with check-off and swipe-to-remove
-- Swipe-to-remove on shopping list items — matches existing Inbox UX; requires atomic Cosmos writes to avoid lost updates
+- TS-1: Investigation agent backend (NL to KQL to execute to summarize)
+- TS-2: Mobile chat interface for investigation agent (SSE streaming, multi-turn)
+- TS-3: Claude Code MCP tool for App Insights queries (evaluate Azure MCP Server first, build custom only if needed)
+- TS-4: Classifier golden dataset + accuracy eval (50-100 curated captures, deterministic metrics)
+- TS-5: Admin Agent quality eval (task adherence, routing accuracy, tool call correctness)
+- TS-6: Eval score tracking over time (Cosmos + App Insights custom events)
+- TS-7: Alert on eval score degradation (Azure Monitor scheduled query rules)
 
 **Should have (differentiators):**
-- Voice capture to shopping list items — zero additional code once handoff exists; the existing voice pipeline flows through automatically
-- Multi-store splitting from single capture — "need milk and cat litter" files to two stores in one capture; primarily agent instruction quality
-- Recipe source attribution on items — items from YouTube recipes show which recipe they came from
-- Real-time streaming feedback during Admin processing — SSE step events show "Classifying... Routing to Admin... Extracting recipe..." rather than a blank spinner
+- D-1: Implicit quality signals from user behavior (recategorizations, HITL selections, errand re-routing -- zero extra effort)
+- D-2: Mobile observability dashboard (3-5 metric cards, text-only initially)
+- D-5: Quick action chips in investigation chat (one-tap common queries)
 
-**Defer to v3.1+:**
-- Push notifications for list updates — pull-based UI is sufficient for single user at v3.0
-- Location-aware store reminders — geofencing complexity, Expo managed workflow limitations
-- Auto-ordering (Chewy.com, etc.) — requires computer use, extreme complexity
-- Item deduplication/merge — accept duplicates for now; user can manually delete
-- Recipe website scraping for non-YouTube URLs — `recipe-scrapers` supports 611 sites but is out of scope for v3.0
+**Defer (even within v3.1):**
+- D-2 charts: Start text-only, add Victory Native charts only if proven insufficient
+- D-3: Auto-promotion of quality signals to golden dataset (start with manual review)
+- D-4: On-demand eval trigger from mobile (add after eval pipeline is proven)
+- Historical trend charts on mobile (use Foundry portal for visual analytics)
+- Multi-agent pipeline eval (evaluate Classifier and Admin independently first)
 
 ### Architecture Approach
 
-The v3.0 architecture extends the existing pipeline with a sequential two-phase capture flow. Phase 1 is unchanged: the Classifier Agent classifies the capture and calls `file_capture` to bucket it. Phase 2 is new: if `bucket == "Admin"`, FastAPI code routes to the Admin Agent client which runs its tool chain (`add_shopping_list_items`, optionally `fetch_youtube_transcript`). The handoff is deterministic code logic, not agent-to-agent communication. The SSE stream continues across both phases — the mobile app sees one unbroken stream with Classifier events followed by Admin events. The Status screen is a separate REST data-fetching screen (not SSE), identical in pattern to the Inbox screen but with a purpose-built hierarchical API response shape.
+The architecture extends the existing three-layer pattern (Mobile, FastAPI backend on ACA, Azure services) with minimal new integration surfaces. The investigation agent is a third persistent Foundry agent following the identical `ensure_*_agent()` pattern. It uses parameterized @tool functions that construct KQL internally -- not free-form LLM-generated KQL -- and streams responses via AG-UI SSE protocol with `TEXT_MESSAGE_CONTENT` events. The MCP server is a completely standalone Python process (stdio transport) that queries App Insights directly; it does NOT go through the backend API. The eval framework runs as a CLI + GitHub Actions job, NOT inside the FastAPI request-response cycle. Three new Cosmos containers (Feedback, EvalResults, GoldenDataset) store evaluation data.
 
 **Major components:**
-1. `AdminTools` (tools/admin.py) — @tool functions for shopping list CRUD and YouTube transcript fetching; bound to `CosmosManager` via constructor injection, same as `ClassifierTools`
-2. `ensure_admin_agent()` (agents/admin.py) — self-healing Admin Agent registration on startup; mirrors `ensure_classifier_agent()` exactly
-3. `stream_admin_enrichment()` (streaming/adapter.py) — extends SSE adapter for two-phase pipeline; emits Admin-specific events (`ADMIN_ENRICHED`, `SHOPPING_ITEM_ADDED`, `RECIPE_EXTRACTED`, `EXTRACTION_FAILED`)
-4. `api/shopping_lists.py` — REST router for Status screen: `GET /api/shopping-lists`, `PATCH` item checked, `DELETE` item
-5. `StatusScreen` (mobile/app/(tabs)/status.tsx) — third tab; fetches on focus, collapsible store sections, swipe-to-remove with optimistic UI
-6. `ShoppingListDocument` / `ShoppingItem` (models/documents.py) — Pydantic schemas for the new `ShoppingLists` Cosmos container
+1. `api/insights.py` + `streaming/insights_adapter.py` -- Investigation agent chat endpoint with SSE streaming
+2. `tools/insights.py` -- @tool functions with parameterized KQL queries (query_captures, get_system_health, trace_capture, get_bucket_distribution)
+3. `agents/investigator.py` -- Third persistent Foundry agent registration (mirrors Classifier/Admin pattern)
+4. `mcp/server.py` -- Standalone MCP server for Claude Code with raw KQL capability (guarded with timeout + row limits)
+5. `api/feedback.py` -- Explicit feedback collection (thumbs up/down on inbox items)
+6. `evals/` -- Golden dataset management, custom evaluators, eval runner CLI
+7. Mobile Insights tab -- Chat UI (FlatList) + dashboard cards (text metrics)
 
 ### Critical Pitfalls
 
-1. **Thread cross-contamination between Classifier and Admin Agent** — Create a separate `AzureAIAgentClient` instance for the Admin Agent with its own `agent_id`. Never pass the Classifier's Foundry thread to the Admin Agent. Microsoft docs explicitly warn this is unsafe. The Admin Agent gets ephemeral threads (one-shot per capture), the Classifier gets persistent threads. This separation must be the starting design, not a retrofit.
-
-2. **YouTube transcript extraction blocked on Azure cloud IPs** — `youtube-transcript-api` works locally but fails in production on Azure Container Apps. YouTube actively blocks cloud datacenter IP ranges. GitHub issues #303, #317, #511 all confirm this. Use the YouTube Data API v3 (official, authenticated, not blocked) for production. Do not attempt residential proxy workarounds for a hobby project.
-
-3. **Shopping list array writes create race conditions** — The Admin Agent (writing items) and the user (swiping to remove) can write to the same Cosmos document concurrently. Cosmos DB defaults to Last Writer Wins, so one write will silently overwrite the other. Use the Cosmos DB Patch API for atomic array operations, or — strongly preferred per PITFALLS.md — model each item as its own Cosmos document with a `store` field, enabling independent create/delete with no array index fragility.
-
-4. **Admin Agent tools registered on Classifier client (tool leakage)** — If shopping list tools are added to the Classifier's tool list, the Classifier will opportunistically call `add_shopping_item` directly, bypassing the Admin Agent's store-routing logic. Maintain strictly separate tool lists per agent client from day one.
-
-5. **SSE adapter assumes single-agent tool detection** — The existing adapter only recognizes `file_capture` as a terminal tool call. Admin Agent tool calls are silently ignored without adapter extension. New event types are required: `ADMIN_ENRICHED`, `SHOPPING_ITEM_ADDED`, `RECIPE_EXTRACTED`, `EXTRACTION_FAILED`. The mobile `ag-ui-client.ts` switch statement must handle these types for the user to see any confirmation of Admin processing.
+1. **KQL schema mismatch** (CRITICAL) -- Portal uses `AppTraces`/`AppRequests`, programmatic SDK uses `traces`/`requests`. Build and validate workspace-compatible KQL templates before any agent logic. The Azure MCP Server had this exact bug (GitHub #250).
+2. **LLM KQL hallucination** (CRITICAL) -- GPT-4o will guess wrong table/column names without explicit schema grounding. Use parameterized @tool functions with structured parameters, NOT free-form KQL generation. Template-first, free-form only as guarded fallback.
+3. **Partial results treated as success** (CRITICAL) -- `LogsQueryClient` returns `LogsQueryPartialResult` (not an exception) on timeout. Always check `response.status == LogsQueryStatus.SUCCESS`. Build a query wrapper that normalizes all statuses with an `is_partial` flag.
+4. **Self-enhancement bias in evals** (CRITICAL) -- Using GPT-4o to judge GPT-4o classification gives inflated scores. Use deterministic metrics (exact match, confusion matrix, per-bucket precision/recall) for classifier accuracy. Reserve LLM-as-judge for Admin Agent subjective quality only.
+5. **Eval SDK in flux** (MODERATE) -- `azure-ai-evaluation` migrating toward `azure-ai-projects` v2. Write evaluators as plain Python functions first, wrap for SDK second. Keep the eval pipeline thin and decoupled.
 
 ## Implications for Roadmap
 
-Based on combined research, the dependency chain is clear and the build order is driven by data-before-behavior: the data model and tools must exist before the agent can be registered, the agent must exist before the capture handoff can work, and the handoff must write data before the mobile screen has anything to display. YouTube extraction is the highest-risk feature and should be layered on last after the core ad hoc item pipeline is validated.
+Based on research, suggested phase structure:
 
-### Phase 1: Data Foundation
+### Phase 1: Query Foundation + Cosmos Containers
+**Rationale:** Everything downstream depends on the ability to run KQL programmatically and store evaluation data. This is a pure infrastructure phase with no user-facing output.
+**Delivers:** `LogsQueryClient` initialization in lifespan, `log_analytics_workspace_id` config setting, workspace-compatible KQL template library (translated from existing portal-schema .kql files), query execution wrapper with partial-result handling, three new Cosmos containers (Feedback, EvalResults, GoldenDataset) with Pydantic models, `Log Analytics Reader` RBAC for Container App managed identity.
+**Addresses:** Foundation for TS-1 through TS-7
+**Avoids:** KQL schema mismatch (Pitfall 1), partial results as success (Pitfall 3)
 
-**Rationale:** Every downstream component (agent tools, API endpoints, mobile screen) depends on Pydantic models and the Cosmos container. Zero of the remaining phases can function without this layer. Must be first.
-**Delivers:** `ShoppingListDocument` + `ShoppingItem` Pydantic models; `"ShoppingLists"` added to `CONTAINER_NAMES`; `AdminTools` class with `add_shopping_list_items` @tool writing to Cosmos; `ShoppingLists` container created in Azure Portal.
-**Addresses:** TS-2 (store-based data model), TS-3 (store routing via tool)
-**Avoids:** Pitfall 9 (container not created before code writes to it), Pitfall 3 (data model decision locked in early with Patch API or individual docs)
+### Phase 2: Investigation Agent (Backend)
+**Rationale:** Highest user value -- ability to ask "what happened?" in natural language. Depends on Phase 1's query infrastructure.
+**Delivers:** Investigation Agent registered in Foundry, `agents/investigator.py`, `tools/insights.py` with parameterized @tools (query_captures, get_system_health, trace_capture, get_bucket_distribution), `api/insights.py` chat endpoint, `streaming/insights_adapter.py` with TEXT_MESSAGE_CONTENT events.
+**Addresses:** TS-1
+**Avoids:** LLM KQL hallucination (Pitfall 2) via parameterized tools, SSE pattern mismatch (Pitfall 14) via separate adapter
 
-### Phase 2: Admin Agent Registration
+### Phase 3: Mobile Investigation Chat
+**Rationale:** Puts the investigation agent in Will's hands on his primary device. Depends on Phase 2's backend.
+**Delivers:** Insights screen in mobile app, FlatList chat UI with SSE streaming, quick action chips (D-5), dashboard summary cards with text metrics (D-2).
+**Addresses:** TS-2, D-2, D-5
+**Avoids:** Dashboard over-engineering (Pitfall 10) by starting text-only
 
-**Rationale:** The Admin Agent must exist as a registered Foundry agent before the capture pipeline can invoke it. Agent instructions — written in the Foundry portal — determine all store-routing behavior and must be written alongside the code.
-**Delivers:** `ensure_admin_agent()` function in agents/admin.py; `azure_ai_admin_agent_id` config setting; Admin Agent client initialized in main.py lifespan; `AZURE_AI_ADMIN_AGENT_ID` env var on Container Apps; Admin Agent instructions written in Foundry portal with store routing rules.
-**Addresses:** TS-1 (second persistent Foundry agent), TS-3 (agent-driven store routing)
-**Avoids:** Pitfall 1 (thread contamination — separate AzureAIAgentClient instance from day one), Pitfall 4 (tool leakage — separate tool lists per agent from day one)
+### Phase 4: Claude Code MCP Tool
+**Rationale:** Developer experience during coding sessions. Fully independent of Phases 2-3 (queries App Insights directly, standalone process). Can run in parallel with Phase 3.
+**Delivers:** Standalone `mcp/server.py` with 5 tools (query_app_insights, get_system_health, recent_captures, trace_capture, recent_errors), Claude Code project-level `.mcp.json` configuration.
+**Addresses:** TS-3
+**Avoids:** Build vs buy (Pitfall 7) by evaluating Azure MCP Server first, timeout issues (Pitfall 6) via stdio transport + bounded queries
 
-### Phase 3: Capture Pipeline Integration
+### Phase 5: Feedback Collection + Implicit Signals
+**Rationale:** Collects the evaluation data that Phase 6 consumes. Must precede the eval framework so the pipeline has real data from day one.
+**Delivers:** `api/feedback.py` endpoint, FeedbackDocument model, thumbs up/down on mobile inbox detail, evaluation event tracking on recategorize/HITL/errand routing endpoints.
+**Addresses:** D-1, prerequisite for TS-4/TS-5
+**Avoids:** Missing feedback storage (Pitfall 9) by building the storage layer before the eval pipeline
 
-**Rationale:** With the data layer (Phase 1) and agent registered (Phase 2), the end-to-end ad hoc item capture flow can be wired together. The SSE adapter extension and new event types must be done in this phase — retrofitting them later creates mobile/backend misalignment risk.
-**Delivers:** `stream_admin_enrichment()` in adapter.py; conditional Admin routing in `stream_text_capture()` and `stream_voice_capture()`; new SSE events (`ADMIN_ENRICHED`, `SHOPPING_ITEM_ADDED`); mobile handles new event types and shows store confirmation toast; per-step timeout values increased for two-agent pipeline (recommended: 90 seconds total).
-**Addresses:** TS-1 (handoff), TS-4 (ad hoc item capture), D-1 (voice capture flows through automatically), D-4 (streaming feedback)
-**Avoids:** Pitfall 5 (adapter single-agent assumption), Pitfall 8 (ContextVar scope — pass `inbox_item_id` explicitly, not via ContextVar), Pitfall 10 (generic CLASSIFIED feedback is useless for Admin captures), Pitfall 11 (60-second timeout insufficient for two-agent pipeline)
+### Phase 6: Eval Framework (Classifier + Admin Agent)
+**Rationale:** Core quality measurement. Depends on Phase 1 (Cosmos containers), Phase 5 (feedback data), and existing App Insights telemetry for implicit signals.
+**Delivers:** Golden dataset seeding CLI, custom evaluators (BucketAccuracyEvaluator, ConfidenceCalibrationEvaluator, ImplicitSignalEvaluator, ErrandRoutingAccuracyEvaluator), eval runner CLI (`uv run -m second_brain.evals.runner`), Admin Agent eval with TaskAdherenceEvaluator + ToolCallAccuracyEvaluator.
+**Addresses:** TS-4, TS-5
+**Avoids:** Self-enhancement bias (Pitfall 4) via deterministic metrics first, SDK churn (Pitfall 5) via decoupled evaluator logic, golden dataset rot (Pitfall 8) by building from production captures with refresh workflow, sandbox limits (Pitfall 13) by preparing self-contained JSONL
 
-### Phase 4: Shopping List API and Status Screen
-
-**Rationale:** Once Cosmos has shopping list data written by Phase 3, the REST endpoints and mobile screen can be built. The API and mobile screen are relatively independent of Phase 3 implementation details — they read from Cosmos, so they can be built in parallel with Phase 3 once the data model (Phase 1) is finalized.
-**Delivers:** `api/shopping_lists.py` router (`GET /api/shopping-lists`, `PATCH` check item, `DELETE` item); `StatusScreen` mobile component (third tab, collapsible store sections, item list); swipe-to-remove with optimistic UI and rollback; tab layout update in `_layout.tsx`.
-**Addresses:** TS-6 (Status screen), TS-7 (swipe-to-remove)
-**Avoids:** Pitfall 12 (data shape mismatch — design shopping list API independently from InboxListResponse; response is hierarchical store/items, not flat)
-
-### Phase 5: YouTube Recipe Extraction
-
-**Rationale:** Enhancement layer on top of the working ad hoc item pipeline. Deliberately last because YouTube extraction has the most implementation uncertainty (cloud IP blocking, caption availability, timeout pressure from a third network dependency). The full v3.0 value proposition — daily shopping list management via voice/text capture — is delivered without YouTube extraction.
-**Delivers:** `fetch_youtube_transcript` @tool; YouTube Data API v3 integration (not `youtube-transcript-api` for production); Admin Agent instructions updated for recipe handling; `RECIPE_EXTRACTED` and `EXTRACTION_FAILED` SSE events; fallback chain for missing captions ("No captions available — paste recipe text directly"); end-to-end test with real YouTube recipe URLs.
-**Addresses:** TS-5 (YouTube recipe extraction), D-3 (recipe source attribution on items)
-**Avoids:** Pitfall 2 (cloud IP blocking — use YouTube Data API v3, not `youtube-transcript-api` in production), Pitfall 6 (missing captions — build graceful fallback chain before considering this done)
+### Phase 7: Self-Monitoring Loop
+**Rationale:** Closes the loop -- automated eval runs, score tracking, degradation alerts, trend visibility. Depends on Phase 6's eval pipeline being functional.
+**Delivers:** Eval score persistence to Cosmos + App Insights custom events (TS-6), Azure Monitor scheduled query alerts for score degradation (TS-7), GitHub Actions weekly eval cron, eval scores visible in mobile dashboard, on-demand eval trigger (D-4), golden dataset evolution with manual review (D-3).
+**Addresses:** TS-6, TS-7, D-3, D-4
+**Avoids:** 30-day App Insights retention (Pitfall 12) by persisting results to Cosmos
 
 ### Phase Ordering Rationale
 
-- **Data before behavior:** Pydantic models and Cosmos container in Phase 1 unblock all downstream phases. The decision between embedded array vs. individual item documents must be made here and cannot be changed cheaply later.
-- **Agent before handoff:** The Admin Agent must be registered (Phase 2) before the capture pipeline can route to it (Phase 3). Writing agent instructions alongside registration is critical — routing accuracy depends on instruction quality.
-- **Ad hoc items before recipe extraction:** The core shopping list use case (Phases 3-4) should work reliably and be validated before adding the complexity of YouTube extraction (Phase 5). This allows store routing quality to be assessed with simple text captures first.
-- **YouTube extraction deliberately last:** It has the highest implementation risk (cloud IP blocking is a confirmed production failure mode, not a hypothetical) and is the most separable enhancement. The daily-use value of the system is fully delivered without it.
-- **Status screen parallelizable with Phase 3:** The API endpoints read from Cosmos written by Phase 1 models. They can be built alongside Phase 3 if bandwidth allows, since the only shared dependency is the Phase 1 data model.
+- **Phase 1 must come first:** `LogsQueryClient` and Cosmos containers are prerequisites for everything. The workspace-compatible KQL template library prevents the most critical pitfall (schema mismatch) from cascading into later phases.
+- **Phases 2-3 are the highest-value track:** Natural language investigation delivers immediate operational value. These have the clearest dependency chain (backend agent, then mobile UI).
+- **Phase 4 is fully independent:** The MCP server is a standalone process that queries App Insights directly. It can be built in parallel with Phase 3 or deferred with no impact on other phases.
+- **Phase 5 before Phase 6:** The eval framework consumes feedback data. Building feedback collection first ensures the eval pipeline has real data to work with.
+- **Phases 6-7 are the quality track:** Eval framework first (measure quality), self-monitoring second (alert on degradation). Placing this track later also gives time for implicit signals to accrue from normal usage.
+- **Two tracks converge at Phase 7:** Dashboard shows eval scores, investigation agent can query eval results, and degradation alerts tie investigation to evaluation.
 
 ### Research Flags
 
 Phases likely needing deeper research during planning:
-- **Phase 5 (YouTube extraction):** YouTube Data API v3 setup, caption download API surface, and handling auto-generated vs manual caption types need implementation-time research. STACK.md covers `youtube-transcript-api` thoroughly but does not fully document the YouTube Data API v3 alternative path. Treat this as pre-work before Phase 5 starts.
-- **Phase 3 (SSE adapter extension):** The two-phase streaming pipeline is novel for this codebase. The adapter refactor scope, new event type contracts, and mobile event handling should be designed carefully before coding to avoid mobile/backend misalignment that would require changes to both sides.
+- **Phase 2:** Investigation agent system prompt engineering -- needs careful schema grounding, few-shot KQL examples, and testing against real workspace data. The NL-to-KQL translation quality is the highest-risk technical area in the milestone.
+- **Phase 6:** Eval SDK state check -- verify `azure-ai-evaluation` vs `azure-ai-projects` v2 migration status at build time. Custom evaluator sandbox constraints need validation against actual requirements. The `AIAgentConverter` API for Admin Agent thread-to-eval conversion may need implementation-time research.
 
-Phases with standard patterns (skip research):
-- **Phase 1 (Data Foundation):** Pydantic models and Cosmos container are identical to existing containers and tool class patterns. No unknowns.
-- **Phase 2 (Admin Agent Registration):** Exact mirror of `ensure_classifier_agent()`. No new patterns.
-- **Phase 4 (Shopping List API + Status Screen):** REST endpoints follow existing FastAPI router patterns. Expo tab addition is documented and trivial. Optimistic UI matches existing Inbox swipe-to-delete pattern.
+Phases with standard patterns (skip research-phase):
+- **Phase 1:** Well-documented Azure SDK (`azure-monitor-query`), standard Cosmos container setup. Existing project memory already covers the schema mismatch.
+- **Phase 3:** Standard React Native FlatList + existing SSE infrastructure. No new patterns.
+- **Phase 4:** MCP server with stdio transport is well-documented. Evaluate Azure MCP Server first -- may not need custom build at all.
+- **Phase 5:** Simple CRUD endpoint + Cosmos writes. Follows existing patterns.
+- **Phase 7:** Azure Monitor scheduled query rules already built in v3.0 Phase 14. GitHub Actions cron is standard.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | All existing packages verified in production. `youtube-transcript-api` fully researched including cloud IP blocking pitfall. YouTube Data API v3 is the correct production alternative. One new dependency only. |
-| Features | HIGH | Feature set is small and well-defined. Scope tightly bounded by PROJECT.md anti-features list. No ambiguous requirements. Usage scenario estimates (70% ad hoc, 15% recipe, 10% at-store, 5% multi-store) are plausible for single-user system. |
-| Architecture | HIGH | Code-based routing pattern is identical to existing Classifier pattern. Handoff mechanics, data model, SSE extension, and REST API design are all detailed and verified against codebase. Component boundaries are clear. |
-| Pitfalls | HIGH | 12 pitfalls identified. Critical pitfalls verified via official docs, confirmed GitHub issues, and direct codebase analysis. Cloud IP blocking has multiple independent source confirmations across 2024-2026. Cosmos race condition prevention is well-documented. |
+| Stack | HIGH | All recommended packages are GA with official Microsoft/MCP SDK docs. `azure-ai-evaluation` is the newest (v1.16.x) but well-documented. Victory Native is MEDIUM (needs Expo SDK 54 compatibility validation at install time). |
+| Features | MEDIUM-HIGH | Feature scope is well-defined with clear dependency chains. Two independent tracks reduce risk. The investigation agent's NL-to-KQL quality is the main uncertainty -- template-first approach mitigates this. |
+| Architecture | HIGH | Extends existing patterns (persistent Foundry agent, SSE streaming, Cosmos containers). No new architectural paradigms. MCP server is the only fully new component type, and it is standalone with no integration surface into the backend. |
+| Pitfalls | HIGH | All critical pitfalls verified against official docs, academic papers, and project history. The KQL schema mismatch is already documented in project memory. Self-enhancement bias is well-established in literature. |
 
 **Overall confidence:** HIGH
 
 ### Gaps to Address
 
-- **YouTube Data API v3 implementation path:** Research confirmed `youtube-transcript-api` won't work in production but did not fully document the YouTube Data API v3 setup (Google Cloud project, API key, caption download endpoint, handling caption types). Resolve before Phase 5 begins — treat as Phase 5 pre-work research.
-
-- **Individual item documents vs embedded array — firm decision needed before Phase 1:** PITFALLS.md recommends individual item documents (one Cosmos document per shopping list item) for atomicity and no array index fragility. STACK.md and ARCHITECTURE.md both describe embedded arrays in a store document. This must be decided before Phase 1 starts. Recommendation: go with individual item documents — the Pitfall 3 analysis is rigorous on concurrent write risks and serverless Cosmos DB pricing is per-RU not per-document, so document count is not a cost concern.
-
-- **Admin Agent instruction quality:** Store routing accuracy depends entirely on instructions written in the Foundry portal. These can only be validated empirically after the end-to-end pipeline works. Plan for an instruction-tuning sub-step in Phase 3 after first captures flow through. Consider the `get_store_registry` grounding tool (Pitfall 7) to reduce routing non-determinism from the start.
-
-- **Two-agent pipeline timeout UX:** PITFALLS.md recommends 90 seconds for the full multi-agent pipeline including YouTube extraction. Confirm the current mobile progress indicator design handles this gracefully. A 90-second capture with no progress feedback will feel broken. SSE step events ("Classifying...", "Routing to Admin...", "Extracting recipe...") are essential, not optional, for this timeout range.
+- **Victory Native + Expo SDK 54 compatibility:** MEDIUM confidence. Use `npx expo install` and validate at install time. Fallback: text-only metrics (preferred for v3.1 anyway). Charts are deferred by default.
+- **`azure-ai-evaluation` SDK stability:** Check migration status toward `azure-ai-projects` v2 when Phase 6 starts. If v2 is GA, use it directly. If still beta, use stable `azure-ai-evaluation` with an abstraction layer over evaluator functions.
+- **Azure MCP Server current state:** The App Insights table bug (GitHub #250) was fixed in PR #280, but the exact release version needs verification against the real workspace. Test before deciding build vs buy for Phase 4.
+- **Log Analytics Reader RBAC:** Container App managed identity and local dev credential both need `Log Analytics Reader` role on the workspace. Verify RBAC is in place before Phase 1 integration testing.
+- **Investigation Agent prompt quality:** NL-to-KQL translation quality depends heavily on system prompt engineering with schema context and few-shot examples. Cannot be assessed until the agent is built and tested against real queries. Budget time for prompt iteration in Phase 2.
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- [youtube-transcript-api PyPI](https://pypi.org/project/youtube-transcript-api/) — v1.2.4 release date, v1.x API, install instructions
-- [youtube-transcript-api GitHub](https://github.com/jdepoix/youtube-transcript-api) — cloud IP blocking issues #303, #317, #511
-- [AzureAIAgentClient API Reference](https://learn.microsoft.com/en-us/python/api/agent-framework-core/agent_framework.azure.azureaiagentclient?view=agent-framework-python-latest) — agent_id, should_cleanup_agent, thread isolation warnings
-- [Azure AI Agent Orchestration Patterns](https://learn.microsoft.com/en-us/azure/architecture/ai-ml/guide/ai-agent-design-patterns) — routing/dispatch pattern, multi-agent design
-- [Foundry Agent Service overview](https://learn.microsoft.com/en-us/azure/foundry/agents/overview?view=foundry-classic) — persistent agents, multi-agent orchestration
-- [Azure AI Foundry Connected Agents](https://learn.microsoft.com/en-us/azure/ai-foundry/agents/how-to/connected-agents?view=foundry-classic) — confirms local @tool limitation (rules out Connected Agents)
-- [HandoffBuilder GitHub issue #3097](https://github.com/microsoft/agent-framework/issues/3097) — confirms HandoffBuilder bugs with AzureAIClient (rules out HandoffBuilder)
-- [Cosmos DB Partial Document Update](https://learn.microsoft.com/en-us/azure/cosmos-db/partial-document-update) — Patch API, atomic array operations
-- [Cosmos DB Optimistic Concurrency Control](https://learn.microsoft.com/en-us/azure/cosmos-db/database-transactions-optimistic-concurrency) — ETag-based concurrency, Last Writer Wins behavior
-- [Expo Router tabs documentation](https://docs.expo.dev/router/advanced/tabs/) — adding new tab screens
-- Existing codebase (`backend/src/second_brain/`) — all current patterns verified by reading source
+- [azure-monitor-query SDK docs](https://learn.microsoft.com/en-us/python/api/overview/azure/monitor-query-readme?view=azure-python) -- LogsQueryClient, async client, partial results, timeout handling
+- [azure-ai-evaluation SDK docs](https://learn.microsoft.com/en-us/python/api/overview/azure/ai-evaluation-readme?view=azure-python) -- evaluate() API, custom evaluators, batch evaluation
+- [Agent Evaluation with Foundry SDK](https://learn.microsoft.com/en-us/azure/ai-foundry/how-to/develop/agent-evaluate-sdk?view=foundry-classic) -- AIAgentConverter, TaskAdherenceEvaluator, ToolCallAccuracyEvaluator
+- [Custom Evaluators in Foundry](https://learn.microsoft.com/en-us/azure/ai-foundry/concepts/evaluation-evaluators/custom-evaluators?view=foundry-classic) -- Code-based evaluators, sandbox constraints, supported packages
+- [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk) -- FastMCP built-in, stdio transport, v1.27.0
+- [Claude Code MCP docs](https://code.claude.com/docs/en/mcp) -- Transport types, tool configuration
+- [Azure MCP Server Monitor Tools](https://learn.microsoft.com/en-us/azure/developer/azure-mcp-server/tools/azure-monitor) -- query_workspace_logs, 11 Monitor tools
+- [NL2KQL Research (arxiv 2404.02933)](https://arxiv.org/html/2404.02933v1) -- Schema hallucination in NL-to-KQL translation
+- [Azure MCP Server Issue #250](https://github.com/Azure/azure-mcp/issues/250) -- App Insights table query failures, fixed in PR #280
 
 ### Secondary (MEDIUM confidence)
-- [Building a nutritional co-pilot using LLMs](https://medium.com/@kbambalov/building-a-nutritional-co-pilot-using-llms-part-1-recipe-extraction-e112645ef9fd) — recipe extraction patterns via LLM
-- [AnyList features](https://www.anylist.com/features) — competitive context for shopping list UX conventions
-- [NerdWallet best grocery list apps 2025](https://www.nerdwallet.com/finance/learn/best-grocery-list-apps) — market context, user expectations
-- [Nielsen Norman Group: contextual swipe](https://www.nngroup.com/articles/contextual-swipe/) — swipe-to-remove UX conventions
+- [LLM-as-a-Judge (Weights & Biases)](https://wandb.ai/site/articles/exploring-llm-as-a-judge/) -- Self-enhancement bias, position bias, evaluation patterns
+- [Azure AI Projects v2 Migration](https://medium.com/@badrvkacimi/migrating-to-azure-ai-projects-v2-the-unified-foundry-sdk-you-need-to-know-0102d969df1f) -- SDK consolidation direction
+- [Golden Dataset Building (Maxim AI)](https://www.getmaxim.ai/articles/building-a-golden-dataset-for-ai-evaluation-a-step-by-step-guide/) -- Dataset curation, refresh patterns
+- [Victory Native for Expo](https://kushabhi5.medium.com/using-victory-native-for-charts-in-an-expo-react-native-project-bd57d805cb8c) -- Expo compatibility reference
+- [Implicit Feedback Patterns (Winder AI)](https://winder.ai/user-feedback-llm-powered-applications/) -- Zero-effort quality signals from user behavior
+
+### Tertiary (LOW confidence)
+- [Azure Monitor KQL Injection](https://securecloud.blog/2022/04/27/azure-monitor-malicious-kql-query/) -- KQL injection risks (read-only mitigates severity)
 
 ---
 
@@ -181,12 +190,12 @@ Phases with standard patterns (skip research):
 
 | File | Purpose |
 |------|---------|
-| `.planning/research/STACK.md` | Technology recommendations — 1 new package, integration points, what NOT to add |
-| `.planning/research/FEATURES.md` | Feature landscape — table stakes, differentiators, anti-features, usage scenarios |
-| `.planning/research/ARCHITECTURE.md` | Architecture patterns — handoff design, data model, SSE extension, build order |
-| `.planning/research/PITFALLS.md` | Domain pitfalls — 12 pitfalls with prevention strategies, phase-specific warnings |
-| `.planning/research/SUMMARY.md` | This file — executive summary and roadmap implications |
+| `.planning/research/STACK.md` | Technology recommendations -- 4 new backend packages, MCP server, mobile charting, what NOT to add |
+| `.planning/research/FEATURES.md` | Feature landscape -- 7 table stakes, 5 differentiators, 11 anti-features, dependency graph, user scenarios |
+| `.planning/research/ARCHITECTURE.md` | Architecture patterns -- investigation agent, MCP server, eval pipeline, data flows, build order |
+| `.planning/research/PITFALLS.md` | Domain pitfalls -- 5 critical, 5 moderate, 4 minor, phase-specific warnings |
+| `.planning/research/SUMMARY.md` | This file -- executive summary and roadmap implications |
 
 ---
-*Research completed: 2026-03-01*
+*Research completed: 2026-04-04*
 *Ready for roadmap: yes*
