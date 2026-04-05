@@ -1,14 +1,14 @@
 ---
 gsd_state_version: 1.0
-milestone: v3.0
-milestone_name: Admin Agent & Shopping Lists
-status: complete
-last_updated: "2026-03-23T17:15:00.000Z"
+milestone: v3.1
+milestone_name: Observability & Evals
+status: active
+last_updated: "2026-04-05T00:00:00.000Z"
 progress:
-  total_phases: 19
-  completed_phases: 19
-  total_plans: 61
-  completed_plans: 61
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State
@@ -18,14 +18,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-23)
 
 **Core value:** One-tap capture from a phone instantly routes through an agent that classifies, files, and clarifies -- with zero organizational effort.
-**Current focus:** v3.0 shipped. Planning next milestone.
+**Current focus:** v3.1 Observability & Evals — the system watches itself.
 
 ## Current Position
 
-Milestone: v3.0 Admin Agent & Shopping Lists -- SHIPPED 2026-03-23
-Last activity: 2026-03-23 -- Milestone completion and archival
-
-Next: /gsd:new-milestone for v3.1+ planning
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-04-05 — Milestone v3.1 started
 
 ## Performance Metrics
 

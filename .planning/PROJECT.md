@@ -8,6 +8,15 @@ A personal capture-and-intelligence system that turns fleeting thoughts — voic
 
 One-tap capture from a phone instantly routes through an agent that classifies, files, and clarifies — with zero organizational effort from the user.
 
+## Current Milestone: v3.1 Observability & Evals
+
+**Goal:** The system watches itself — an investigation agent answers questions about captures and system health, an eval pipeline measures agent quality, and alerts fire when things degrade.
+
+**Target features:**
+- Observability investigation agent (mobile chat + dashboard + Claude Code MCP tool)
+- Eval framework for Classifier and Admin Agent quality (implicit signals, manual feedback, golden datasets, Azure AI Foundry evals)
+- Self-monitoring loop with alerts when eval scores drop
+
 ## Current State (after v3.0)
 
 **Shipped:** v3.0 Admin Agent & Shopping Lists (2026-03-23)
@@ -58,7 +67,13 @@ One-tap capture from a phone instantly routes through an agent that classifies, 
 - ✓ Azure Monitor alerts and KQL operational queries — v3.0
 - ✓ Security hardening (timing-safe auth, parameterized queries, upload validation) — v3.0
 
-### Active (v3.1+)
+### Active (v3.1)
+
+- [ ] Observability investigation agent — natural language interface over App Insights (mobile chat + dashboard + Claude Code MCP tool)
+- [ ] Eval framework for Classifier and Admin Agent quality — implicit signals, manual feedback, golden datasets, Azure AI Foundry evals
+- [ ] Self-monitoring alerts when eval scores drop
+
+### Active (v3.2+)
 
 - [ ] Push notifications for agent-processed output
 - [ ] Location-aware reminders (notify near store with items on list)
@@ -140,4 +155,4 @@ One-tap capture from a phone instantly routes through an agent that classifies, 
 | hmac.compare_digest for API key auth | Timing-safe comparison prevents timing attacks | ✓ Good — security baseline |
 
 ---
-*Last updated: 2026-03-23 after v3.0 milestone completed*
+*Last updated: 2026-04-05 after v3.1 milestone started*
