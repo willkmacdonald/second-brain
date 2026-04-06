@@ -34,6 +34,7 @@ from openai import AsyncAzureOpenAI  # noqa: E402
 
 from second_brain.agents.admin import ensure_admin_agent  # noqa: E402
 from second_brain.agents.classifier import ensure_classifier_agent  # noqa: E402
+from second_brain.agents.investigation import ensure_investigation_agent  # noqa: E402
 from second_brain.agents.middleware import (  # noqa: E402
     AuditAgentMiddleware,
     ToolTimingMiddleware,
@@ -41,6 +42,7 @@ from second_brain.agents.middleware import (  # noqa: E402
 from second_brain.api.capture import router as capture_router  # noqa: E402
 from second_brain.api.health import router as health_router  # noqa: E402
 from second_brain.api.inbox import router as inbox_router  # noqa: E402
+from second_brain.api.investigate import router as investigate_router  # noqa: E402
 from second_brain.api.errands import router as errands_router  # noqa: E402
 from second_brain.api.tasks import router as tasks_router  # noqa: E402
 from second_brain.api.telemetry import router as telemetry_router  # noqa: E402
@@ -51,8 +53,10 @@ from second_brain.db.cosmos import CosmosManager  # noqa: E402
 from second_brain.observability.client import close_logs_client, create_logs_client  # noqa: E402
 from playwright.async_api import async_playwright  # noqa: E402
 
+from second_brain.streaming.investigation_adapter import SoftRateLimiter  # noqa: E402
 from second_brain.tools.admin import AdminTools  # noqa: E402
 from second_brain.tools.classification import ClassifierTools  # noqa: E402
+from second_brain.tools.investigation import InvestigationTools  # noqa: E402
 from second_brain.tools.recipe import RecipeTools  # noqa: E402
 from second_brain.tools.transcription import TranscriptionTools  # noqa: E402
 from second_brain.warmup import agent_warmup_loop  # noqa: E402
@@ -313,6 +317,64 @@ async def lifespan(app: FastAPI):
             app.state.browser = None
             app.state.recipe_tools = None
 
+        # --- Investigation Agent Registration (non-fatal) ---
+        # Investigation Agent is not required for core capture flow.
+        # If registration fails, investigation features are simply
+        # unavailable (503 on /api/investigate).
+        try:
+            investigation_agent_id = await ensure_investigation_agent(
+                foundry_client=foundry_client,
+                stored_agent_id=settings.azure_ai_investigation_agent_id,
+            )
+            app.state.investigation_agent_id = investigation_agent_id
+
+            # InvestigationTools requires LogsQueryClient
+            if app.state.logs_client is not None:
+                investigation_tools = InvestigationTools(
+                    logs_client=app.state.logs_client,
+                    workspace_id=settings.log_analytics_workspace_id,
+                )
+                app.state.investigation_tools_instance = investigation_tools
+
+                investigation_client = AzureAIAgentClient(
+                    credential=credential,
+                    project_endpoint=settings.azure_ai_project_endpoint,
+                    agent_id=investigation_agent_id,
+                    should_cleanup_agent=False,
+                    middleware=[AuditAgentMiddleware(), ToolTimingMiddleware()],
+                )
+                app.state.investigation_client = investigation_client
+                app.state.investigation_tools = [
+                    investigation_tools.trace_lifecycle,
+                    investigation_tools.recent_errors,
+                    investigation_tools.system_health,
+                    investigation_tools.usage_patterns,
+                ]
+                app.state.investigation_rate_limiter = SoftRateLimiter()
+
+                logger.info(
+                    "Investigation agent ready: id=%s tools=%d",
+                    investigation_agent_id,
+                    len(app.state.investigation_tools),
+                )
+            else:
+                logger.warning(
+                    "Investigation agent registered but LogsQueryClient "
+                    "unavailable -- investigation tools disabled"
+                )
+                app.state.investigation_client = None
+                app.state.investigation_tools = []
+                app.state.investigation_rate_limiter = None
+        except Exception:
+            logger.warning(
+                "Investigation agent registration failed -- investigation unavailable",
+                exc_info=True,
+            )
+            app.state.investigation_agent_id = None
+            app.state.investigation_client = None
+            app.state.investigation_tools = []
+            app.state.investigation_rate_limiter = None
+
         # --- Background task tracking ---
         # Strong references prevent GC of fire-and-forget tasks.
         # Tasks self-remove via add_done_callback when complete.
@@ -330,6 +392,8 @@ async def lifespan(app: FastAPI):
             warmup_clients: list = [("classifier", classifier_client)]
             if app.state.admin_client is not None:
                 warmup_clients.append(("admin", app.state.admin_client))
+            if getattr(app.state, "investigation_client", None) is not None:
+                warmup_clients.append(("investigation", app.state.investigation_client))
             warmup_task = asyncio.create_task(
                 agent_warmup_loop(
                     clients=warmup_clients,
@@ -393,6 +457,7 @@ app.include_router(capture_router)
 app.include_router(errands_router)
 app.include_router(tasks_router)
 app.include_router(telemetry_router)
+app.include_router(investigate_router)
 
 if __name__ == "__main__":
     import uvicorn
