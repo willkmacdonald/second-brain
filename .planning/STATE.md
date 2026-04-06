@@ -72,6 +72,10 @@ v3.0 decisions archived to .planning/milestones/v3.0-ROADMAP.md
 
 None.
 
+### Roadmap Evolution
+
+- Phase 16.1 inserted after Phase 16: Improve deployment process (URGENT)
+
 ### Blockers/Concerns
 
 - [Resolved]: Log Analytics Reader RBAC assigned to Container App managed identity (Phase 16-03)
