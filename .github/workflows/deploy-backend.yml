@@ -23,7 +23,19 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     steps:
+      - name: Record pipeline start
+        run: echo "PIPELINE_START=$(date +%s)" >> "$GITHUB_ENV"
+
       - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.5.4"
+
+      - name: Validate lockfile
+        working-directory: backend
+        run: uv lock --check
 
       - name: Log in to Azure
         uses: azure/login@v2
