@@ -83,6 +83,24 @@ See: .planning/milestones/v3.0-ROADMAP.md
   4. Feedback, EvalResults, and GoldenDataset Cosmos containers exist with Pydantic document models
 **Plans**: 3 (Wave 1: observability module + Cosmos containers in parallel, Wave 2: infrastructure setup + deploy)
 
+### Phase 16.1: Improve Deployment Process (INSERTED)
+
+**Goal:** Harden the deploy-backend workflow with dependency safety, commit-correlated revision naming, post-deploy health verification, revision cleanup, and structured deploy summary
+**Requirements**: (infrastructure -- no direct requirements; prevents deployment failures)
+**Depends on:** Phase 16
+**Success Criteria** (what must be TRUE):
+  1. `uv lock --check` fails the workflow if pyproject.toml and uv.lock are out of sync
+  2. Every deployed revision name contains the git SHA for commit correlation
+  3. Health endpoint is verified post-deploy (JSON body check, not just HTTP 200)
+  4. Deployed image SHA matches the expected build SHA
+  5. Old revisions are deactivated after successful verification
+  6. Structured deploy summary appears on the workflow run page
+**Plans:** 2 plans (Wave 1: pre-build safety + revision naming, Wave 2: post-deploy verification + summary)
+
+Plans:
+- [ ] 16.1-01-PLAN.md -- Pre-build dependency validation and commit-correlated revision naming
+- [ ] 16.1-02-PLAN.md -- Post-deploy health verification, revision cleanup, and deploy summary
+
 ### Phase 17: Investigation Agent
 **Goal**: User can ask natural language questions about their captures and system health and get human-readable answers
 **Depends on**: Phase 16
@@ -163,11 +181,12 @@ Items not yet scheduled into a milestone or phase.
 - v1.0: 1 -> 2 -> 3 -> 4 -> 4.1 -> 4.2 -> 4.3 -> 5 (complete)
 - v2.0: 6 -> 7 -> 8 -> 9 -> 9.1 (complete)
 - v3.0: 10 -> 11 -> 11.1 -> 12 -> 12.1 -> 12.2 -> 12.3 -> 12.3.1 -> 12.5 -> 13 -> 14 -> 15 (complete)
-- v3.1: 16 -> 17 -> 18 -> 19 -> 20 -> 21 -> 22
+- v3.1: 16 -> 16.1 -> 17 -> 18 -> 19 -> 20 -> 21 -> 22
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 16. Query Foundation | 3/3 | Complete    | 2026-04-06 | - |
+| 16.1. Improve Deployment Process | v3.1 | 0/2 | Not started | - |
 | 17. Investigation Agent | v3.1 | 0/TBD | Not started | - |
 | 18. Mobile Investigation Chat | v3.1 | 0/TBD | Not started | - |
 | 19. Claude Code MCP Tool | v3.1 | 0/TBD | Not started | - |
