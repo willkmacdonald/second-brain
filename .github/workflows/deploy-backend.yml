@@ -64,3 +64,60 @@ jobs:
             --resource-group ${{ env.RESOURCE_GROUP }} \
             --image "${{ env.IMAGE_TAG }}" \
             --revision-suffix "$REVISION_SUFFIX"
+
+      - name: Verify deployment health
+        run: |
+          HEALTH_URL="https://brain.willmacdonald.com/health"
+          MAX_ATTEMPTS=15
+          POLL_INTERVAL=12
+
+          for i in $(seq 1 $MAX_ATTEMPTS); do
+            HTTP_CODE=$(curl -s -o /tmp/health.json -w "%{http_code}" "$HEALTH_URL" 2>/dev/null || echo "000")
+            if [ "$HTTP_CODE" = "200" ]; then
+              STATUS=$(jq -r '.status' /tmp/health.json)
+              if [ "$STATUS" = "ok" ]; then
+                echo "Health check passed on attempt $i"
+                jq . /tmp/health.json
+                echo "HEALTH_STATUS=healthy" >> "$GITHUB_ENV"
+                exit 0
+              fi
+              echo "Attempt $i/$MAX_ATTEMPTS: HTTP 200 but status=$STATUS"
+            else
+              echo "Attempt $i/$MAX_ATTEMPTS: HTTP $HTTP_CODE"
+            fi
+            if [ "$i" -eq "$MAX_ATTEMPTS" ]; then
+              echo "::error::Health check failed after $MAX_ATTEMPTS attempts (${MAX_ATTEMPTS}x${POLL_INTERVAL}s)"
+              echo "HEALTH_STATUS=failed" >> "$GITHUB_ENV"
+              exit 1
+            fi
+            sleep $POLL_INTERVAL
+          done
+
+      - name: Verify deployed image
+        run: |
+          DEPLOYED_IMAGE=$(az containerapp revision show \
+            --name ${{ env.CONTAINER_APP_NAME }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --revision "$REVISION_NAME" \
+            --query "properties.template.containers[0].image" \
+            -o tsv)
+
+          if [ "$DEPLOYED_IMAGE" != "$IMAGE_TAG" ]; then
+            echo "::error::Image mismatch! Expected: $IMAGE_TAG, Got: $DEPLOYED_IMAGE"
+            exit 1
+          fi
+          echo "Image verified: $DEPLOYED_IMAGE"
+
+          TRAFFIC_WEIGHT=$(az containerapp ingress traffic show \
+            --name ${{ env.CONTAINER_APP_NAME }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --query "[?revisionName=='$REVISION_NAME'].weight | [0]" \
+            -o tsv 2>/dev/null || echo "unknown")
+
+          echo "TRAFFIC_WEIGHT=$TRAFFIC_WEIGHT" >> "$GITHUB_ENV"
+
+          if [ "$TRAFFIC_WEIGHT" != "100" ]; then
+            echo "::warning::Latest revision traffic weight is ${TRAFFIC_WEIGHT}%, expected 100%"
+          else
+            echo "Traffic weight: 100%"
+          fi
