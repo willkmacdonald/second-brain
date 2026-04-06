@@ -95,7 +95,7 @@ See: .planning/milestones/v3.0-ROADMAP.md
   4. Deployed image SHA matches the expected build SHA
   5. Old revisions are deactivated after successful verification
   6. Structured deploy summary appears on the workflow run page
-**Plans:** 2 plans (Wave 1: pre-build safety + revision naming, Wave 2: post-deploy verification + summary)
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 16.1-01-PLAN.md -- Pre-build dependency validation and commit-correlated revision naming
@@ -186,7 +186,7 @@ Items not yet scheduled into a milestone or phase.
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 16. Query Foundation | 3/3 | Complete    | 2026-04-06 | - |
-| 16.1. Improve Deployment Process | v3.1 | 0/2 | Not started | - |
+| 16.1. Improve Deployment Process | 1/2 | In Progress|  | - |
 | 17. Investigation Agent | v3.1 | 0/TBD | Not started | - |
 | 18. Mobile Investigation Chat | v3.1 | 0/TBD | Not started | - |
 | 19. Claude Code MCP Tool | v3.1 | 0/TBD | Not started | - |
