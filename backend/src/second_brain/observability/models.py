@@ -55,3 +55,25 @@ class AdminAuditRecord(BaseModel):
     message: str
     capture_trace_id: str | None = None
     component: str | None = None
+
+
+class EnhancedHealthSummary(BaseModel):
+    """System health with P95/P99 latency and trend comparison."""
+
+    capture_count: int = 0
+    success_rate: float | None = None
+    error_count: int = 0
+    avg_duration_ms: float | None = None
+    p95_duration_ms: float | None = None
+    p99_duration_ms: float | None = None
+    admin_processing_count: int = 0
+    # Previous period for trend comparison
+    prev_capture_count: int = 0
+    prev_error_count: int = 0
+
+
+class UsagePatternRecord(BaseModel):
+    """A single row from a usage pattern query."""
+
+    label: str  # time bin, bucket name, or destination name
+    count: int = 0
