@@ -22,12 +22,12 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 
 ## Current Position
 
-Phase: 17 of 22 (Investigation Agent) -- IN PROGRESS
-Plan: 1 of 2 in current phase
-Status: Plan 17-01 complete. Enhanced KQL templates and query functions for investigation tools.
-Last activity: 2026-04-06 -- Plan 17-01 completed (KQL templates + models + query functions)
+Phase: 17 of 22 (Investigation Agent) -- COMPLETE
+Plan: 2 of 2 in current phase
+Status: Phase 17 complete. Investigation Agent with 4 KQL tools, SSE streaming, POST /api/investigate endpoint.
+Last activity: 2026-04-06 -- Plan 17-02 completed (InvestigationTools, agent registration, SSE adapter, API endpoint)
 
-Progress: [██████████░░░░░░░░░░] 50% (Phase 17: 1/2 plans)
+Progress: [████████████████████] 100% (Phase 17: 2/2 plans)
 
 ## Performance Metrics
 
@@ -42,8 +42,8 @@ Progress: [██████████░░░░░░░░░░] 50% (Ph
 - Timeline: 2026-02-26 to 2026-03-01 (4 days)
 
 **Velocity (v3.1):**
-- Plans completed: 5
-- Last plan duration: 3min (17-01)
+- Plans completed: 6
+- Last plan duration: 7min (17-02)
 - Timeline: 2026-04-05 to present
 
 *Updated after each plan completion*
@@ -75,6 +75,9 @@ v3.0 decisions archived to .planning/milestones/v3.0-ROADMAP.md
 - [Phase 17]: SYSTEM_HEALTH_ENHANCED uses summarize (not toscalar+print) to support percentile() function
 - [Phase 17]: server_timeout=30 on investigation queries to leave headroom under agent's 60s timeout
 - [Phase 17]: Original SYSTEM_HEALTH and RECENT_FAILURES preserved as fallback alongside enhanced versions
+- [Phase 17]: Investigation Agent tool_choice defaults to auto (not required) so agent can respond without calling tools
+- [Phase 17]: Investigation text output is PRIMARY deliverable (SSE "text" events), not suppressed as reasoning
+- [Phase 17]: SoftRateLimiter warns at 10 queries/min but never blocks requests
 
 ### Pending Todos
 
@@ -93,5 +96,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-06
-Stopped at: Completed 17-01-PLAN.md -- enhanced KQL templates and query functions for investigation tools
-Resume action: Execute 17-02-PLAN.md (InvestigationTools, agent registration, SSE adapter, API endpoint)
+Stopped at: Completed 17-02-PLAN.md -- Phase 17 complete (Investigation Agent with tools, SSE streaming, API endpoint)
+Resume action: Begin Phase 18 planning (Mobile Chat UI for Investigation Agent)

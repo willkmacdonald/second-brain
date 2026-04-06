@@ -63,7 +63,7 @@ See: .planning/milestones/v3.0-ROADMAP.md
 **Milestone Goal:** The system watches itself -- an investigation agent answers questions about captures and system health, an eval pipeline measures agent quality, and alerts fire when things degrade.
 
 - [x] **Phase 16: Query Foundation** - LogsQueryClient, workspace-compatible KQL templates, Cosmos containers for eval data (completed 2026-04-05)
-- [ ] **Phase 17: Investigation Agent** - Third Foundry agent with parameterized KQL tools and SSE streaming endpoint
+- [x] **Phase 17: Investigation Agent** - Third Foundry agent with parameterized KQL tools and SSE streaming endpoint (completed 2026-04-06)
 - [ ] **Phase 18: Mobile Investigation Chat** - Chat screen, dashboard cards, quick action chips, and error deep-linking
 - [ ] **Phase 19: Claude Code MCP Tool** - Standalone MCP server for App Insights queries from Claude Code
 - [ ] **Phase 20: Feedback Collection** - Implicit quality signals, explicit thumbs up/down, golden dataset promotion
@@ -191,7 +191,7 @@ Items not yet scheduled into a milestone or phase.
 |-------|-----------|----------------|--------|-----------|
 | 16. Query Foundation | 3/3 | Complete    | 2026-04-06 | - |
 | 16.1. Improve Deployment Process | 2/2 | Complete    | 2026-04-06 | - |
-| 17. Investigation Agent | 1/2 | In Progress|  | - |
+| 17. Investigation Agent | 2/2 | Complete   | 2026-04-06 | - |
 | 18. Mobile Investigation Chat | v3.1 | 0/TBD | Not started | - |
 | 19. Claude Code MCP Tool | v3.1 | 0/TBD | Not started | - |
 | 20. Feedback Collection | v3.1 | 0/TBD | Not started | - |
