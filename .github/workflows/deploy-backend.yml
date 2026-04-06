@@ -50,12 +50,17 @@ jobs:
       - name: Build and push image
         run: |
           IMAGE_TAG="${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}"
+          echo "IMAGE_TAG=$IMAGE_TAG" >> "$GITHUB_ENV"
           docker build --platform linux/amd64 -t "$IMAGE_TAG" ./backend
           docker push "$IMAGE_TAG"
 
       - name: Deploy to Container Apps
         run: |
+          REVISION_SUFFIX="sha-$(echo ${{ github.sha }} | cut -c1-7)"
+          echo "REVISION_SUFFIX=$REVISION_SUFFIX" >> "$GITHUB_ENV"
+          echo "REVISION_NAME=${{ env.CONTAINER_APP_NAME }}--${REVISION_SUFFIX}" >> "$GITHUB_ENV"
           az containerapp update \
             --name ${{ env.CONTAINER_APP_NAME }} \
             --resource-group ${{ env.RESOURCE_GROUP }} \
-            --image "${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}"
+            --image "${{ env.IMAGE_TAG }}" \
+            --revision-suffix "$REVISION_SUFFIX"
