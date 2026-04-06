@@ -111,7 +111,11 @@ Plans:
   3. User can ask about recent errors and get a list with trace IDs, timestamps, and which component failed
   4. User can ask about system health and see error rates, capture volume, and latency trends for a given time window
   5. User can ask about usage patterns (captures per day, bucket distribution, destination usage) and get summarized results
-**Plans**: TBD
+**Plans**: 2 (Wave 1: enhanced KQL + query functions, Wave 2: agent tools + streaming + API endpoint)
+
+Plans:
+- [ ] 17-01-PLAN.md -- Enhanced KQL templates, result models, and query functions for investigation tools
+- [ ] 17-02-PLAN.md -- InvestigationTools, agent registration, SSE adapter, API endpoint, lifespan wiring
 
 ### Phase 18: Mobile Investigation Chat
 **Goal**: Investigation agent is accessible from the phone with a conversational chat interface and at-a-glance health dashboard
@@ -187,7 +191,7 @@ Items not yet scheduled into a milestone or phase.
 |-------|-----------|----------------|--------|-----------|
 | 16. Query Foundation | 3/3 | Complete    | 2026-04-06 | - |
 | 16.1. Improve Deployment Process | 2/2 | Complete    | 2026-04-06 | - |
-| 17. Investigation Agent | v3.1 | 0/TBD | Not started | - |
+| 17. Investigation Agent | v3.1 | 0/2 | Planned | - |
 | 18. Mobile Investigation Chat | v3.1 | 0/TBD | Not started | - |
 | 19. Claude Code MCP Tool | v3.1 | 0/TBD | Not started | - |
 | 20. Feedback Collection | v3.1 | 0/TBD | Not started | - |
