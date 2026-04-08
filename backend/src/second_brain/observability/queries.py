@@ -197,10 +197,18 @@ async def query_admin_audit(
 # New query functions for Phase 17 Investigation Agent
 # ---------------------------------------------------------------------------
 
-# Severity string to KQL severity level mapping
+# Severity string to KQL severity level mapping.
+#
+# Azure SeverityLevel scale: 0=Verbose, 1=Information, 2=Warning,
+#                            3=Error, 4=Critical.
+#
+# Do NOT change without verifying against Azure docs. Historical bug
+# (2026-04-08): this map had warning=3, error=4 which silently filtered
+# out all Error-level entries and only showed Critical-level entries.
+# Test 2 in Phase 17 verification missed errors as a result.
 _SEVERITY_MAP: dict[str, int] = {
-    "warning": 3,
-    "error": 4,
+    "warning": 2,
+    "error": 3,
 }
 
 
