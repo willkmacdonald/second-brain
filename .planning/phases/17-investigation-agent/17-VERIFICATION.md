@@ -145,6 +145,30 @@ The phase delivers a complete investigation agent stack: KQL templates querying 
 
 ---
 
+## Second Runtime Gap (Found 2026-04-08, same session)
+
+After fixing the KQL table names, a second runtime bug surfaced immediately on re-test. The tool call now reached the backend cleanly (no SEM0100), but the agent received `tool_error: "Failed to query system health: 'str' object has no attribute 'name'"`.
+
+**Root cause:** `queries.py:65` (pre-existing Phase 16 code) parsed the query response as:
+
+```python
+columns = [col.name for col in table.columns]
+```
+
+This assumes `table.columns` is a list of objects with a `.name` attribute. Per the Azure SDK docs ([LogsTable class](https://learn.microsoft.com/en-us/python/api/azure-monitor-query/azure.monitor.query.logstable?view=azure-python)), `LogsTable.columns` is `List[str]` — a plain list of column name strings. The code crashed when it called `.name` on a string.
+
+**How it evaded Phase 16 verification:** Phase 16 shipped zero tests for `execute_kql()` or any of the query functions. The verifier checked imports, types, and file existence but never executed the code path. The bug sat dormant for 3 days until this debug session triggered the first real query.
+
+**Fix:** Changed lines 65 and 77 in `queries.py` from `[col.name for col in table.columns]` to `list(table.columns)`.
+
+**Lesson (amplifies the earlier lesson):** Verification of any code that talks to an external API should include at least one live round-trip, not just static import/type checks. Purely static verification is false confidence for integration code.
+
+**Follow-up:** Phase 17 ships without unit tests for the observability layer. A future phase should add:
+- Integration tests that execute each KQL template against a sandbox workspace
+- Unit tests for `execute_kql()` with a mocked `LogsQueryClient` that returns realistic `LogsTable` fixtures (with `columns: list[str]`)
+
+---
+
 _Verified: 2026-04-06T04:00:00Z_
 _Verifier: Claude (gsd-verifier)_
 _Runtime gap found & fixed: 2026-04-08_

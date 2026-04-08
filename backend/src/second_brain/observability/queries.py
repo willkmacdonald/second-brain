@@ -62,7 +62,8 @@ async def execute_kql(
     if response.status == LogsQueryStatus.SUCCESS:
         tables: list[list[dict]] = []
         for table in response.tables:
-            columns = [col.name for col in table.columns]
+            # LogsTable.columns is List[str] per the Azure SDK, not objects
+            columns = list(table.columns)
             rows = [dict(zip(columns, row, strict=True)) for row in table.rows]
             tables.append(rows)
         return QueryResult(tables=tables, is_partial=False)
@@ -74,7 +75,7 @@ async def execute_kql(
         tables = []
         if response.partial_data:
             for table in response.partial_data:
-                columns = [col.name for col in table.columns]
+                columns = list(table.columns)
                 rows = [dict(zip(columns, row, strict=True)) for row in table.rows]
                 tables.append(rows)
         return QueryResult(
