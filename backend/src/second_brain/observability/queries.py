@@ -305,9 +305,7 @@ async def query_recent_failures_filtered(
     # Build component filter clause
     component_filter = ""
     if component:
-        component_filter = (
-            f'| where tostring(customDimensions.component) == "{component}"\n'
-        )
+        component_filter = f'| where tostring(Properties.component) == "{component}"\n'
 
     query = RECENT_FAILURES_FILTERED.format(
         component_filter=component_filter,

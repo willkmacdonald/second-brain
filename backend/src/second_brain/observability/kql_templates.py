@@ -1,17 +1,37 @@
-"""Workspace-compatible KQL query templates for Log Analytics.
+"""Workspace-schema KQL query templates for Log Analytics.
 
-All templates use the workspace schema (traces, requests, dependencies,
-exceptions) rather than the portal schema (AppTraces, AppRequests, etc.).
+All templates query the Log Analytics workspace directly via
+`LogsQueryClient.query_workspace()`, which exposes the workspace-style
+table and column names (NOT the portal-style aliases).
 
-Field mapping applied during migration:
-  Portal              -> Workspace
-  AppTraces            -> traces
-  AppRequests          -> requests
-  AppDependencies      -> dependencies
-  AppExceptions        -> exceptions
-  TimeGenerated        -> timestamp
-  SeverityLevel        -> severityLevel
-  Message (capital)    -> message (lowercase)
+Schema reference for this workspace:
+
+  Tables:
+    AppRequests       (portal alias: requests)
+    AppTraces         (portal alias: traces)
+    AppDependencies   (portal alias: dependencies)
+    AppExceptions     (portal alias: exceptions)
+
+  Common columns:
+    TimeGenerated     (portal alias: timestamp)
+    Name              (portal alias: name) -- on AppRequests/AppDependencies
+    ResultCode        (portal alias: resultCode)
+    DurationMs        (portal alias: duration, already in milliseconds)
+    Message           (portal alias: message) -- on AppTraces/AppExceptions
+    SeverityLevel     (portal alias: severityLevel)
+    Properties        (portal alias: customDimensions) -- dynamic type
+
+Time filtering: The `timespan` parameter on
+`LogsQueryClient.query_workspace()` acts as an implicit
+`where TimeGenerated ...` filter at the API level. Templates therefore
+only need explicit `TimeGenerated` filters when splitting the span
+into sub-periods (e.g., current vs previous period comparisons).
+
+Output column naming: Each template uses `project`/`extend` to emit
+column names that match what the Python parsing layer in `queries.py`
+expects (`timestamp`, `ItemType`, `severityLevel`, `Message`,
+`Component`, `CaptureTraceId`, etc.). This keeps the Python layer
+decoupled from workspace-schema specifics.
 """
 
 # ---------------------------------------------------------------------------
@@ -21,45 +41,46 @@ Field mapping applied during migration:
 
 CAPTURE_TRACE = """\
 let trace_id = "{trace_id}";
-union traces, dependencies, requests, exceptions
-| where customDimensions.capture_trace_id == trace_id
-    or customDimensions["capture_trace_id"] == trace_id
+union withsource=SourceTable AppRequests, AppDependencies, AppTraces, AppExceptions
+| where tostring(Properties.capture_trace_id) == trace_id
 | project
-    timestamp,
+    timestamp = TimeGenerated,
     ItemType = case(
-        itemType == "trace", "Log",
-        itemType == "dependency", "Dependency",
-        itemType == "request", "Request",
-        itemType == "exception", "Exception",
-        itemType
+        SourceTable == "AppTraces", "Log",
+        SourceTable == "AppRequests", "Request",
+        SourceTable == "AppDependencies", "Dependency",
+        SourceTable == "AppExceptions", "Exception",
+        SourceTable
     ),
-    severityLevel,
-    Message = coalesce(message, name, type),
-    Component = tostring(customDimensions.component),
-    CaptureTraceId = tostring(customDimensions.capture_trace_id)
+    severityLevel = SeverityLevel,
+    Message = coalesce(Message, Name, ExceptionType),
+    Component = tostring(Properties.component),
+    CaptureTraceId = tostring(Properties.capture_trace_id)
 | order by timestamp asc
 """
 
 # ---------------------------------------------------------------------------
-# Recent Failures -- ERROR-level logs and unhandled exceptions (last 24h)
+# Recent Failures -- ERROR-level logs and unhandled exceptions
 # ---------------------------------------------------------------------------
 # No parameters -- timespan controlled by the query_workspace call.
+# AppExceptions rows are always included; AppTraces rows are filtered
+# by SeverityLevel >= 3 (warning or higher).
 
 RECENT_FAILURES = """\
-union traces, exceptions
-| where severityLevel >= 3
-    or itemType == "exception"
+union withsource=SourceTable
+    (AppTraces | where SeverityLevel >= 3),
+    AppExceptions
 | project
-    timestamp,
+    timestamp = TimeGenerated,
     ItemType = case(
-        itemType == "trace", "Log",
-        itemType == "exception", "Exception",
-        itemType
+        SourceTable == "AppTraces", "Log",
+        SourceTable == "AppExceptions", "Exception",
+        SourceTable
     ),
-    severityLevel,
-    Message = coalesce(message, type),
-    Component = tostring(customDimensions.component),
-    CaptureTraceId = tostring(customDimensions.capture_trace_id)
+    severityLevel = SeverityLevel,
+    Message = coalesce(Message, ExceptionType),
+    Component = tostring(Properties.component),
+    CaptureTraceId = tostring(Properties.capture_trace_id)
 | order by timestamp desc
 | take 50
 """
@@ -67,40 +88,40 @@ union traces, exceptions
 # ---------------------------------------------------------------------------
 # System Health -- consolidated summary for programmatic consumption
 # ---------------------------------------------------------------------------
-# Returns a single row with key metrics.  The portal version had five
-# separate sections; this consolidates them into one query.
+# Returns a single row with key metrics. Timespan controlled by the
+# query_workspace call.
 
 SYSTEM_HEALTH = """\
-let capture_requests = requests
-| where name has "/api/capture";
+let capture_requests = AppRequests
+| where Name has "/api/capture";
 let capture_count = toscalar(capture_requests | summarize count());
 let successful_count = toscalar(
     capture_requests
-    | where toint(resultCode) >= 200 and toint(resultCode) < 400
+    | where toint(ResultCode) >= 200 and toint(ResultCode) < 400
     | summarize count()
 );
 let client_error_count = toscalar(
     capture_requests
-    | where toint(resultCode) >= 400 and toint(resultCode) < 500
+    | where toint(ResultCode) >= 400 and toint(ResultCode) < 500
     | summarize count()
 );
 let server_error_count = toscalar(
     capture_requests
-    | where toint(resultCode) >= 500
+    | where toint(ResultCode) >= 500
     | summarize count()
 );
 let error_log_count = toscalar(
-    traces
-    | where severityLevel >= 3
+    AppTraces
+    | where SeverityLevel >= 3
     | summarize count()
 );
 let avg_duration = toscalar(
     capture_requests
-    | summarize avg(duration)
+    | summarize avg(DurationMs)
 );
 let admin_count = toscalar(
-    traces
-    | where customDimensions.component == "admin_agent"
+    AppTraces
+    | where tostring(Properties.component) == "admin_agent"
     | summarize count()
 );
 print
@@ -121,34 +142,34 @@ print
 # The execute_kql timespan should be 2x {time_range} to cover both periods.
 
 SYSTEM_HEALTH_ENHANCED = """\
-let current_period = requests
-| where name has "/api/capture"
-| where timestamp > ago({time_range});
-let previous_period = requests
-| where name has "/api/capture"
-| where timestamp between (ago(2 * {time_range}) .. ago({time_range}));
+let current_period = AppRequests
+| where Name has "/api/capture"
+| where TimeGenerated > ago({time_range});
+let previous_period = AppRequests
+| where Name has "/api/capture"
+| where TimeGenerated between (ago(2 * {time_range}) .. ago({time_range}));
 let current_stats = current_period
 | summarize
     capture_count = count(),
-    successful_count = countif(toint(resultCode) >= 200 and toint(resultCode) < 400),
-    error_count = countif(toint(resultCode) >= 500),
-    avg_duration_ms = avg(duration),
-    p95_duration_ms = percentile(duration, 95),
-    p99_duration_ms = percentile(duration, 99);
+    successful_count = countif(toint(ResultCode) >= 200 and toint(ResultCode) < 400),
+    error_count = countif(toint(ResultCode) >= 500),
+    avg_duration_ms = avg(DurationMs),
+    p95_duration_ms = percentile(DurationMs, 95),
+    p99_duration_ms = percentile(DurationMs, 99);
 let previous_stats = previous_period
 | summarize
     prev_capture_count = count(),
-    prev_error_count = countif(toint(resultCode) >= 500);
+    prev_error_count = countif(toint(ResultCode) >= 500);
 let error_log_count = toscalar(
-    traces
-    | where timestamp > ago({time_range})
-    | where severityLevel >= 3
+    AppTraces
+    | where TimeGenerated > ago({time_range})
+    | where SeverityLevel >= 3
     | summarize count()
 );
 let admin_count = toscalar(
-    traces
-    | where timestamp > ago({time_range})
-    | where customDimensions.component == "admin_agent"
+    AppTraces
+    | where TimeGenerated > ago({time_range})
+    | where tostring(Properties.component) == "admin_agent"
     | summarize count()
 );
 current_stats
@@ -163,27 +184,27 @@ current_stats
 # ---------------------------------------------------------------------------
 # Parameterised with {component_filter}, {severity_filter}, {limit}
 # via str.format().
-# {component_filter} should be empty string for no filter, or:
-#   | where tostring(customDimensions.component) == "component_name"
-# {severity_filter} is a KQL severity level int (3=warning, 4=error)
-# {limit} is the row limit (default 10)
+# {component_filter} should be empty string for no filter, or a line like:
+#   | where tostring(Properties.component) == "component_name"
+# {severity_filter} is a KQL severity level int (3=warning, 4=error).
+# {limit} is the row limit (default 10).
 
 RECENT_FAILURES_FILTERED = """\
-union traces, exceptions
-| where severityLevel >= {severity_filter}
-    or itemType == "exception"
+union withsource=SourceTable
+    (AppTraces | where SeverityLevel >= {severity_filter}),
+    AppExceptions
 {component_filter}\
 | project
-    timestamp,
+    timestamp = TimeGenerated,
     ItemType = case(
-        itemType == "trace", "Log",
-        itemType == "exception", "Exception",
-        itemType
+        SourceTable == "AppTraces", "Log",
+        SourceTable == "AppExceptions", "Exception",
+        SourceTable
     ),
-    severityLevel,
-    Message = coalesce(message, type),
-    Component = tostring(customDimensions.component),
-    CaptureTraceId = tostring(customDimensions.capture_trace_id)
+    severityLevel = SeverityLevel,
+    Message = coalesce(Message, ExceptionType),
+    Component = tostring(Properties.component),
+    CaptureTraceId = tostring(Properties.capture_trace_id)
 | order by timestamp desc
 | take {limit}
 """
@@ -194,11 +215,11 @@ union traces, exceptions
 # No parameters -- timespan controlled by the query_workspace call.
 
 LATEST_CAPTURE_TRACE_ID = """\
-requests
-| where name has "/api/capture"
-| where toint(resultCode) >= 200 and toint(resultCode) < 400
+AppTraces
+| where isnotempty(tostring(Properties.capture_trace_id))
+| extend trace_id = tostring(Properties.capture_trace_id)
+| summarize timestamp = min(TimeGenerated) by trace_id
 | top 1 by timestamp desc
-| extend trace_id = tostring(customDimensions.capture_trace_id)
 | project trace_id, timestamp
 """
 
@@ -209,9 +230,9 @@ requests
 # {bin_size} must be a KQL duration literal (e.g., "1h", "1d").
 
 USAGE_PATTERNS_BY_PERIOD = """\
-requests
-| where name has "/api/capture"
-| summarize capture_count = count() by bin(timestamp, {bin_size})
+AppRequests
+| where Name has "/api/capture"
+| summarize capture_count = count() by timestamp = bin(TimeGenerated, {bin_size})
 | order by timestamp asc
 """
 
@@ -221,10 +242,10 @@ requests
 # No parameters -- timespan controlled by the query_workspace call.
 
 USAGE_PATTERNS_BY_BUCKET = """\
-traces
-| where customDimensions.component == "classifier"
-| where message has "Filed to"
-| extend bucket = extract("Filed to (\\\\w+)", 1, message)
+AppTraces
+| where tostring(Properties.component) == "classifier"
+| where Message has "Filed to"
+| extend bucket = extract("Filed to (\\\\w+)", 1, Message)
 | where isnotempty(bucket)
 | summarize count_ = count() by bucket
 | order by count_ desc
@@ -236,10 +257,10 @@ traces
 # No parameters -- timespan controlled by the query_workspace call.
 
 USAGE_PATTERNS_BY_DESTINATION = """\
-traces
-| where customDimensions.component == "admin_agent"
-| where message has "Added"
-| extend destination = extract("to ([\\\\w-]+)", 1, message)
+AppTraces
+| where tostring(Properties.component) == "admin_agent"
+| where Message has "Added"
+| extend destination = extract("to ([\\\\w-]+)", 1, Message)
 | where isnotempty(destination)
 | summarize count_ = count() by destination
 | order by count_ desc
@@ -250,15 +271,15 @@ traces
 # ---------------------------------------------------------------------------
 
 ADMIN_AUDIT_LOG = """\
-traces
-| where customDimensions.component == "admin_agent"
-    or customDimensions.component == "admin_handoff"
+AppTraces
+| where tostring(Properties.component) == "admin_agent"
+    or tostring(Properties.component) == "admin_handoff"
 | project
-    timestamp,
-    severityLevel,
-    Message = message,
-    CaptureTraceId = tostring(customDimensions.capture_trace_id),
-    Component = tostring(customDimensions.component)
+    timestamp = TimeGenerated,
+    severityLevel = SeverityLevel,
+    Message,
+    CaptureTraceId = tostring(Properties.capture_trace_id),
+    Component = tostring(Properties.component)
 | order by timestamp desc
 """
 
@@ -267,20 +288,20 @@ traces
 # ---------------------------------------------------------------------------
 
 ADMIN_AUDIT_SUMMARY = """\
-traces
-| where customDimensions.component in ("admin_agent", "admin_handoff")
-| where isnotempty(customDimensions.capture_trace_id)
+AppTraces
+| where tostring(Properties.component) in ("admin_agent", "admin_handoff")
+| where isnotempty(tostring(Properties.capture_trace_id))
 | summarize
-    StartTime = min(timestamp),
-    EndTime = max(timestamp),
+    StartTime = min(TimeGenerated),
+    EndTime = max(TimeGenerated),
     LogCount = count(),
-    Errors = countif(severityLevel >= 3),
+    Errors = countif(SeverityLevel >= 3),
     HasErrandCreation = countif(
-        message has "add_errand_items"
-        or message has "errand"
-        or message has "shopping"
+        Message has "add_errand_items"
+        or Message has "errand"
+        or Message has "shopping"
     )
-    by CaptureTraceId = tostring(customDimensions.capture_trace_id)
+    by CaptureTraceId = tostring(Properties.capture_trace_id)
 | extend DurationSeconds = datetime_diff('second', EndTime, StartTime)
 | order by StartTime desc
 """

@@ -108,11 +108,43 @@ All files scanned for TODO/FIXME/PLACEHOLDER/stub patterns -- none found. No emp
 
 ### Gaps Summary
 
-No gaps found. All 10 observable truths are verified. All 9 artifacts exist, are substantive, and are wired. All 7 key links are connected. All 5 requirements (INV-01 through INV-05) are satisfied. No anti-patterns detected. All 4 task commits (a8d2ea2, 981c3a5, b29332c, dc2054c) verified in git log. All files pass ruff check.
+Initial verification (2026-04-06) found no gaps. Post-deployment live testing on 2026-04-08 revealed a runtime gap: all KQL templates used portal-style table/column names (`requests`, `traces`, `customDimensions`, etc.) that do not exist when queried via the Log Analytics workspace API. See "Post-Deployment Runtime Gap" below.
 
 The phase delivers a complete investigation agent stack: KQL templates querying App Insights via workspace schema, typed Pydantic models, async query functions with server_timeout=30, InvestigationTools with 4 @tool functions, SSE streaming adapter with text as primary output, POST /api/investigate endpoint with 503 guards, SoftRateLimiter, and non-fatal lifespan wiring with warmup registration.
 
 ---
 
+## Post-Deployment Runtime Gap (Found 2026-04-08)
+
+**What went wrong:** Truth #5 ("All new KQL templates use workspace schema") was marked VERIFIED based on the PLAN's and kql_templates.py docstring's assertion that `traces`/`requests`/`exceptions`/`dependencies` ARE the workspace schema names. That was wrong. The actual workspace schema uses `AppTraces`/`AppRequests`/`AppExceptions`/`AppDependencies` with different column names (`TimeGenerated` vs `timestamp`, `Properties` vs `customDimensions`, etc.). The portal-style lowercase names only work when querying via the App Insights API (which is a separate endpoint from `LogsQueryClient.query_workspace()`).
+
+**How it surfaced:** First live invocation of `POST /api/investigate` with question "How is the system doing?" returned a `tool_error` SSE event: `"'where' operator: Failed to resolve table or column expression named 'requests'"`.
+
+**Root cause:** The Phase 16 plan and the Phase 17 plan both documented a `portal → workspace` mapping with the direction inverted. Static verification trusted the comment; no live query was executed against the workspace during verification. This class of bug is only caught by runtime execution against real infrastructure.
+
+**Fix applied:** All 11 KQL templates in `kql_templates.py` rewritten to use workspace-schema names:
+- Tables: `traces → AppTraces`, `requests → AppRequests`, `exceptions → AppExceptions`, `dependencies → AppDependencies`
+- Columns: `timestamp → TimeGenerated`, `name → Name`, `resultCode → ResultCode`, `duration → DurationMs`, `message → Message`, `severityLevel → SeverityLevel`, `customDimensions → Properties`
+- `CAPTURE_TRACE` and `RECENT_FAILURES*` rewritten to use `union withsource=SourceTable` to synthesize the `ItemType` column (workspace schema has no `itemType` column).
+- `LATEST_CAPTURE_TRACE_ID` rewritten to query `AppTraces` instead of `AppRequests` — the `capture_trace_id` lives in log extras (`Properties.capture_trace_id` on trace rows), not on the HTTP request telemetry row. The original template would have returned empty trace IDs even if the table name had been right.
+- `queries.py` line 309 updated: interpolated `customDimensions.component` → `Properties.component` in the `RECENT_FAILURES_FILTERED` component filter.
+- Python parsing layer (`queries.py` result parsing) unchanged: templates preserve the same output column names via `project`/`extend` aliases.
+
+**Live verification of fix:** All 11 templates executed successfully against workspace `2a8ba30f-1bb5-489c-b7d6-bcb22f5814d2` via `az monitor log-analytics query` before commit. Evidence:
+- `CAPTURE_TRACE` with real trace `008242de-56ef-4cf7-8821-a045bfee6248` → 12 rows, full pipeline visible (capture → classifier → admin_agent)
+- `SYSTEM_HEALTH_ENHANCED` (the query that originally failed) → returned `capture_count=8`, `successful_count=8`, `p95_duration_ms=6533`, `admin_processing_count=6` over the last 7 days
+- `USAGE_PATTERNS_BY_BUCKET` → 7 captures filed to Admin, 1 to Projects
+- All 11 templates produce the output columns expected by `queries.py` row parsers
+
+**Follow-up items (not in scope for this fix):**
+- `USAGE_PATTERNS_BY_DESTINATION` regex `to ([\w-]+)` is too greedy and extracts garbage tokens like "your", "the" from admin_agent messages. Pre-existing bug, not caused by the table-name migration — deferred to a separate issue.
+- `RECENT_FAILURES_FILTERED` in `queries.py:309` interpolates a user-controlled `component` string directly into KQL. Theoretical injection risk if user input ever reaches it. Currently safe because the agent validates `component` against a fixed set — deferred as a defense-in-depth improvement.
+- Observability code verification should include at least one live query execution against the target workspace before being marked VERIFIED — pure static analysis missed this bug.
+
+**Impact on original Truth #5:** Still VERIFIED, but now with correct semantics — the templates DO use workspace schema, which (it turns out) means `AppTraces`/`AppRequests` etc., not the lowercase aliases the PLAN documented.
+
+---
+
 _Verified: 2026-04-06T04:00:00Z_
 _Verifier: Claude (gsd-verifier)_
+_Runtime gap found & fixed: 2026-04-08_
