@@ -1,6 +1,6 @@
 """Pydantic models for App Insights query results."""
 
-from pydantic import BaseModel
+from pydantic import BaseModel, computed_field, field_validator
 
 
 class QueryResult(BaseModel):
@@ -25,6 +25,18 @@ class TraceRecord(BaseModel):
     component: str | None = None
     capture_trace_id: str | None = None
 
+    @field_validator("component", "capture_trace_id", mode="before")
+    @classmethod
+    def _empty_to_none(cls, v: str | None) -> str | None:
+        """Normalize empty strings to None.
+
+        Same fix as FailureRecord -- applied here for symmetry so
+        trace_lifecycle output is consistent with recent_errors.
+        """
+        if v is None or (isinstance(v, str) and v.strip() == ""):
+            return None
+        return v
+
 
 class FailureRecord(BaseModel):
     """A single row from the recent-failures query."""
@@ -35,6 +47,45 @@ class FailureRecord(BaseModel):
     message: str
     component: str | None = None
     capture_trace_id: str | None = None
+
+    @field_validator("component", "capture_trace_id", mode="before")
+    @classmethod
+    def _empty_to_none(cls, v: str | None) -> str | None:
+        """Normalize empty strings to None.
+
+        KQL's tostring(Properties.<missing_field>) returns "" not null.
+        Without this validator, the agent receives "component": "" and
+        renders blank table cells, which users mistake for broken data.
+        """
+        if v is None or (isinstance(v, str) and v.strip() == ""):
+            return None
+        return v
+
+    @computed_field
+    @property
+    def capture_trace_id_short(self) -> str | None:
+        """First 8 chars of the trace ID, or None if absent.
+
+        The agent renders this in the Trace ID table column to keep
+        the table layout compact. The full ID is rendered separately
+        in a footer line for Phase 18 mobile-tap compatibility.
+        """
+        if self.capture_trace_id is None:
+            return None
+        return self.capture_trace_id[:8]
+
+
+class FailureQueryResult(BaseModel):
+    """Result wrapper for recent_failures queries with total count metadata.
+
+    Allows the recent_errors tool to report 'showing N of M' when results
+    are capped, instead of silently dropping rows past the limit.
+    """
+
+    total_count: int  # true total before the take N cap
+    returned_count: int  # actual rows returned (<= total_count)
+    truncated: bool  # True if returned_count < total_count
+    records: list[FailureRecord]
 
 
 class HealthSummary(BaseModel):
