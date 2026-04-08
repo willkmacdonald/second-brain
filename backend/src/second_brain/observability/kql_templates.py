@@ -184,17 +184,29 @@ current_stats
 # ---------------------------------------------------------------------------
 # Parameterised with {component_filter}, {severity_filter}, {limit}
 # via str.format().
+#
+# Returns TWO tables:
+#   table 0: single row [{total_count: int}] -- total filtered rows BEFORE
+#            the take N cap
+#   table 1: up to {limit} failure rows
+#
+# The Python parser in queries.py depends on this exact order. The
+# multi-statement form lets the agent report "showing N of M" when
+# results are capped, instead of silently dropping rows past the limit.
+#
 # {component_filter} should be empty string for no filter, or a line like:
 #   | where tostring(Properties.component) == "component_name"
-# {severity_filter} is a KQL severity level int (3=warning, 4=error).
+# {severity_filter} is a KQL severity level int (Azure scale:
+#   2=Warning, 3=Error, 4=Critical). Applied to BOTH AppTraces AND
+#   AppExceptions so handled exceptions logged at Warning level are
+#   excluded from "errors" results.
 # {limit} is the row limit (default 10).
 
 RECENT_FAILURES_FILTERED = """\
-union withsource=SourceTable
+let filtered = union withsource=SourceTable
     (AppTraces | where SeverityLevel >= {severity_filter}),
-    AppExceptions
-{component_filter}\
-| project
+    (AppExceptions | where SeverityLevel >= {severity_filter})
+{component_filter}| project
     timestamp = TimeGenerated,
     ItemType = case(
         SourceTable == "AppTraces", "Log",
@@ -204,9 +216,9 @@ union withsource=SourceTable
     severityLevel = SeverityLevel,
     Message = coalesce(Message, ExceptionType),
     Component = tostring(Properties.component),
-    CaptureTraceId = tostring(Properties.capture_trace_id)
-| order by timestamp desc
-| take {limit}
+    CaptureTraceId = tostring(Properties.capture_trace_id);
+filtered | summarize total_count = count();
+filtered | order by timestamp desc | take {limit};
 """
 
 # ---------------------------------------------------------------------------
