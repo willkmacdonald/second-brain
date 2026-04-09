@@ -21,6 +21,7 @@ from second_brain.observability.kql_templates import (
 from second_brain.observability.models import (
     AdminAuditRecord,
     EnhancedHealthSummary,
+    FailureQueryResult,
     FailureRecord,
     HealthSummary,
     QueryResult,
@@ -297,21 +298,31 @@ async def query_recent_failures_filtered(
     severity: str = "error",
     limit: int = 10,
     timespan: timedelta = timedelta(hours=24),
-) -> list[FailureRecord]:
-    """Return recent failures with optional component filter and severity level.
+) -> FailureQueryResult:
+    """Return recent failures with total count metadata.
+
+    The KQL template returns two tables: a single-row count, and the
+    top N filtered rows. This lets the recent_errors tool report
+    'showing N of M' when results are capped, instead of silently
+    dropping rows past the limit.
 
     Args:
         client: Log Analytics query client.
         workspace_id: Log Analytics workspace ID.
-        component: Filter by component name (e.g., "classifier", "admin_agent").
-            None for all components.
-        severity: Minimum severity: "warning" (level 3) or "error" (level 4).
+        component: Filter by component name (e.g., "classifier",
+            "admin_agent"). None for all components.
+        severity: Minimum severity: "warning" (Azure level 2) or
+            "error" (Azure level 3). Defaults to "error", which
+            includes both Error (3) and Critical (4).
         limit: Maximum number of rows to return (default 10).
         timespan: Time window for the query.
-    """
-    severity_level = _SEVERITY_MAP.get(severity, 4)
 
-    # Build component filter clause
+    Returns:
+        FailureQueryResult with total_count, returned_count, truncated
+        flag, and the list of FailureRecord rows.
+    """
+    severity_level = _SEVERITY_MAP.get(severity, 3)
+
     component_filter = ""
     if component:
         component_filter = f'| where tostring(Properties.component) == "{component}"\n'
@@ -330,11 +341,23 @@ async def query_recent_failures_filtered(
         server_timeout=30,
     )
 
-    if not result.tables or not result.tables[0]:
-        return []
+    # Defensive: KQL must return at least 2 tables (count + rows).
+    # If anything went wrong upstream, fall back to a sensible empty result.
+    if not result.tables or len(result.tables) < 2:
+        return FailureQueryResult(
+            total_count=0,
+            returned_count=0,
+            truncated=False,
+            records=[],
+        )
 
+    # Table 0: single row with total_count
+    total_row = result.tables[0][0] if result.tables[0] else {}
+    total_count = int(total_row.get("total_count", 0) or 0)
+
+    # Table 1: up to {limit} failure rows
     records: list[FailureRecord] = []
-    for row in result.tables[0]:
+    for row in result.tables[1]:
         records.append(
             FailureRecord(
                 timestamp=str(row.get("timestamp", "")),
@@ -345,7 +368,13 @@ async def query_recent_failures_filtered(
                 capture_trace_id=row.get("CaptureTraceId"),
             )
         )
-    return records
+
+    return FailureQueryResult(
+        total_count=total_count,
+        returned_count=len(records),
+        truncated=len(records) < total_count,
+        records=records,
+    )
 
 
 async def query_usage_patterns(
