@@ -40,6 +40,10 @@ TIME_RANGE_MAP: dict[str, tuple[str, timedelta]] = {
 # Allowed group_by values for usage_patterns
 _ALLOWED_GROUP_BY = frozenset({"day", "hour", "bucket", "destination"})
 
+# Maximum rows returned by recent_errors. Mirrored in the Foundry portal
+# instructions; keep both in sync.
+_RESULT_LIMIT = 10
+
 
 def _validate_time_range(time_range: str, default: str = "24h") -> str:
     """Return validated time_range key, falling back to default if invalid."""
@@ -165,8 +169,10 @@ class InvestigationTools:
     ) -> str:
         """Query recent errors and failures from App Insights.
 
-        Returns error-level log entries with optional component filtering.
-        Results are capped at 10 most recent entries.
+        Returns Error- and Critical-level log entries (Azure SeverityLevel
+        >= 3) with optional component filtering. Results are capped at 10
+        most recent entries; the response includes total_count so the agent
+        can report 'showing N of M' when truncated.
         """
         log_extra: dict = {"component": "investigation_agent"}
         logger.info(
@@ -180,22 +186,24 @@ class InvestigationTools:
             time_range = _validate_time_range(time_range, "24h")
             _kql_duration, td = TIME_RANGE_MAP[time_range]
 
-            records = await query_recent_failures_filtered(
+            result = await query_recent_failures_filtered(
                 self._logs_client,
                 self._workspace_id,
                 component=component,
                 severity="error",
-                limit=10,
+                limit=_RESULT_LIMIT,
                 timespan=td,
             )
 
             return json.dumps(
                 {
-                    "count": len(records),
-                    "note": "Results capped at 10 most recent entries.",
+                    "total_count": result.total_count,
+                    "returned_count": result.returned_count,
+                    "truncated": result.truncated,
                     "time_range": time_range,
                     "component_filter": component,
-                    "errors": [r.model_dump() for r in records],
+                    "severity": "error_or_critical",
+                    "errors": [r.model_dump() for r in result.records],
                 },
                 default=str,
             )
