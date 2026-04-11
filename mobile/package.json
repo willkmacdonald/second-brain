@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@ag-ui/core": "^0.0.45",
+    "@sentry/react-native": "~7.2.0",
     "expo": "~54.0.33",
     "expo-audio": "~1.1.1",
     "expo-clipboard": "~8.0.8",

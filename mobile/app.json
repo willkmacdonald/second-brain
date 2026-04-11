@@ -52,6 +52,13 @@
           "microphonePermission": "Allow Second Brain to access your microphone for voice capture.",
           "speechRecognitionPermission": "Allow Second Brain to use speech recognition for voice-to-text capture."
         }
+      ],
+      [
+        "@sentry/react-native/expo",
+        {
+          "organization": "SENTRY_ORG_SLUG",
+          "project": "SENTRY_PROJECT_SLUG"
+        }
       ]
     ],
     "web": {
