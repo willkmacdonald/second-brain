@@ -64,6 +64,7 @@ See: .planning/milestones/v3.0-ROADMAP.md
 
 - [x] **Phase 16: Query Foundation** - LogsQueryClient, workspace-compatible KQL templates, Cosmos containers for eval data (completed 2026-04-05)
 - [x] **Phase 17: Investigation Agent** - Third Foundry agent with parameterized KQL tools and SSE streaming endpoint (completed 2026-04-06)
+- [ ] **Phase 17.3: Address Critical Observability Gaps** (INSERTED) - Sentry crash reporting, React error boundaries, ErrorFallback recovery UI
 - [ ] **Phase 18: Mobile Investigation Chat** - Chat screen, dashboard cards, quick action chips, and error deep-linking
 - [ ] **Phase 19: Claude Code MCP Tool** - Standalone MCP server for App Insights queries from Claude Code
 - [ ] **Phase 20: Feedback Collection** - Implicit quality signals, explicit thumbs up/down, golden dataset promotion
@@ -116,6 +117,21 @@ Plans:
 Plans:
 - [ ] 17-01-PLAN.md -- Enhanced KQL templates, result models, and query functions for investigation tools
 - [ ] 17-02-PLAN.md -- InvestigationTools, agent registration, SSE adapter, API endpoint, lifespan wiring
+
+### Phase 17.3: Address Critical Observability Gaps (INSERTED)
+
+**Goal:** Mobile app crashes and rendering errors are visible via Sentry crash reporting and caught by React error boundaries with graceful recovery UI
+**Requirements**: OBS-01, OBS-02
+**Depends on:** Phase 17
+**Success Criteria** (what must be TRUE):
+  1. Unhandled JS exceptions are captured and reported to Sentry (not silently lost)
+  2. Native crashes (OOM, Obj-C exceptions) are captured and reported to Sentry
+  3. React rendering errors are caught by an error boundary with a recovery UI instead of crashing the screen
+  4. Existing reportError() pipeline to /api/telemetry continues to work unchanged
+**Plans:** 1 plan
+
+Plans:
+- [ ] 17.3-01-PLAN.md -- Sentry SDK integration, ErrorFallback component, root layout wrapping
 
 ### Phase 18: Mobile Investigation Chat
 **Goal**: Investigation agent is accessible from the phone with a conversational chat interface and at-a-glance health dashboard
@@ -185,13 +201,14 @@ Items not yet scheduled into a milestone or phase.
 - v1.0: 1 -> 2 -> 3 -> 4 -> 4.1 -> 4.2 -> 4.3 -> 5 (complete)
 - v2.0: 6 -> 7 -> 8 -> 9 -> 9.1 (complete)
 - v3.0: 10 -> 11 -> 11.1 -> 12 -> 12.1 -> 12.2 -> 12.3 -> 12.3.1 -> 12.5 -> 13 -> 14 -> 15 (complete)
-- v3.1: 16 -> 16.1 -> 17 -> 18 -> 19 -> 20 -> 21 -> 22
+- v3.1: 16 -> 16.1 -> 17 -> 17.3 -> 18 -> 19 -> 20 -> 21 -> 22
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 16. Query Foundation | 3/3 | Complete    | 2026-04-06 | - |
 | 16.1. Improve Deployment Process | 2/2 | Complete    | 2026-04-06 | - |
 | 17. Investigation Agent | 2/2 | Complete    | 2026-04-06 | - |
+| 17.3. Address Critical Observability Gaps | v3.1 | 0/1 | Not started | - |
 | 18. Mobile Investigation Chat | v3.1 | 0/TBD | Not started | - |
 | 19. Claude Code MCP Tool | v3.1 | 0/TBD | Not started | - |
 | 20. Feedback Collection | v3.1 | 0/TBD | Not started | - |
