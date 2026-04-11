@@ -22,12 +22,12 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 
 ## Current Position
 
-Phase: 17 of 22 (Investigation Agent) -- COMPLETE
-Plan: 2 of 2 in current phase
-Status: Phase 17 complete. Investigation Agent with 4 KQL tools, SSE streaming, POST /api/investigate endpoint.
-Last activity: 2026-04-06 -- Plan 17-02 completed (InvestigationTools, agent registration, SSE adapter, API endpoint)
+Phase: 17.3 of 22 (Address Critical Observability Gaps) -- IN PROGRESS
+Plan: 1 of 1 in current phase (awaiting user verification checkpoint)
+Status: Plan 17.3-01 code complete. Sentry SDK installed, error boundaries added, source map config done. Awaiting user Sentry account setup and build verification.
+Last activity: 2026-04-11 -- Plan 17.3-01 Tasks 1-2 completed (Sentry SDK, ErrorFallback, root layout integration)
 
-Progress: [████████████████████] 100% (Phase 17: 2/2 plans)
+Progress: [██████████████████░░] 90% (Phase 17.3: 1/1 plans, pending verification)
 
 ## Performance Metrics
 
@@ -42,8 +42,8 @@ Progress: [████████████████████] 100% (P
 - Timeline: 2026-02-26 to 2026-03-01 (4 days)
 
 **Velocity (v3.1):**
-- Plans completed: 6
-- Last plan duration: 7min (17-02)
+- Plans completed: 7
+- Last plan duration: 2min (17.3-01)
 - Timeline: 2026-04-05 to present
 
 *Updated after each plan completion*
@@ -78,6 +78,10 @@ v3.0 decisions archived to .planning/milestones/v3.0-ROADMAP.md
 - [Phase 17]: Investigation Agent tool_choice defaults to auto (not required) so agent can respond without calling tools
 - [Phase 17]: Investigation text output is PRIMARY deliverable (SSE "text" events), not suppressed as reasoning
 - [Phase 17]: SoftRateLimiter warns at 10 queries/min but never blocks requests
+- [Phase 17.3]: Sentry disabled in __DEV__ to avoid noise from React strict mode double-rendering
+- [Phase 17.3]: tracesSampleRate 1.0 appropriate for single-user app (no cost concern)
+- [Phase 17.3]: initSentry() at module scope before rendering, not in useEffect (catches early crashes)
+- [Phase 17.3]: Placeholder values for Sentry org/project/DSN -- user replaces before first EAS build
 
 ### Pending Todos
 
@@ -87,6 +91,7 @@ None.
 
 - Phase 16.1 inserted after Phase 16: Improve deployment process (URGENT)
 - Phase 16.1 complete: pre-build uv lockfile validation + commit-correlated revision naming (Plan 01) + post-deploy health verification, image SHA check, revision cleanup, deploy summary (Plan 02)
+- Phase 17.3 inserted after Phase 17: Address critical observability gaps (URGENT) -- Plan 01 (Sentry crash reporting) code complete, awaiting user verification
 
 ### Blockers/Concerns
 
@@ -95,6 +100,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-04-06
-Stopped at: Completed 17-02-PLAN.md -- Phase 17 complete (Investigation Agent with tools, SSE streaming, API endpoint)
-Resume action: Begin Phase 18 planning (Mobile Chat UI for Investigation Agent)
+Last session: 2026-04-11
+Stopped at: Plan 17.3-01 checkpoint:human-verify -- Sentry code complete, awaiting user Sentry account setup and build verification
+Resume action: User completes Sentry setup (account, DSN, org/project slugs), runs EAS build, verifies crash reporting works. Then approve checkpoint to close Phase 17.3. Next: Phase 18 (Mobile Investigation Chat).
