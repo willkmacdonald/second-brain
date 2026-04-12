@@ -8,12 +8,17 @@ import {
   StyleSheet,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, router } from "expo-router";
 import { API_BASE_URL, API_KEY } from "../../constants/config";
 import { StatusSectionRenderer } from "../../components/StatusSectionRenderer";
 import { ErrandRow } from "../../components/ErrandRow";
 import { TaskRow } from "../../components/TaskRow";
 import { RoutingPicker } from "../../components/RoutingPicker";
+import {
+  DashboardCards,
+  type DashboardData,
+} from "../../components/DashboardCards";
+import { sendInvestigation } from "../../lib/investigate-client";
 
 interface ErrandItem {
   id: string;
@@ -73,6 +78,86 @@ export default function StatusScreen() {
     AdminNotification[]
   >([]);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const dashboardCleanupRef = useRef<(() => void) | null>(null);
+
+  const [dashboardData, setDashboardData] = useState<DashboardData>({
+    captureCount: null,
+    successRate: null,
+    lastError: null,
+    loading: true,
+  });
+
+  const fetchDashboardData = useCallback(() => {
+    if (!API_KEY) return;
+
+    setDashboardData((prev) => ({ ...prev, loading: true }));
+
+    let accumulated = "";
+
+    const { cleanup } = sendInvestigation({
+      question:
+        "Give me a brief system health summary for the last 24 hours. Include capture count, success rate percentage, and the most recent error if any.",
+      apiKey: API_KEY,
+      callbacks: {
+        onThinking: () => {
+          // no-op
+        },
+        onText: (content: string) => {
+          accumulated += content;
+        },
+        onDone: () => {
+          // Parse capture count
+          let captureCount: number | null = null;
+          const captureMatch =
+            accumulated.match(/(\d+)\s*captures?/i) ??
+            accumulated.match(/processed\s*(\d+)/i) ??
+            accumulated.match(/(\d+)\s*(?:items?|recordings?)\s*(?:captured|processed)/i);
+          if (captureMatch) {
+            captureCount = parseInt(captureMatch[1], 10);
+          }
+
+          // Parse success rate
+          let successRate: number | null = null;
+          const successMatch = accumulated.match(
+            /(\d+(?:\.\d+)?)\s*%/i,
+          );
+          if (successMatch) {
+            successRate = parseFloat(successMatch[1]);
+          }
+
+          // Parse last error
+          let lastError: string | null = null;
+          const errorMatch =
+            accumulated.match(/(?:error|failure|failed)[:\s]+(.+?)(?:\n|$)/i) ??
+            accumulated.match(/(?:most recent error)[:\s]+(.+?)(?:\n|$)/i);
+          if (errorMatch) {
+            const errorText = errorMatch[1].trim();
+            if (
+              errorText.length > 0 &&
+              !/no\s+errors?|none|no\s+failures?/i.test(errorText)
+            ) {
+              lastError =
+                errorText.length > 80
+                  ? errorText.substring(0, 77) + "..."
+                  : errorText;
+            }
+          }
+
+          setDashboardData({
+            captureCount,
+            successRate,
+            lastError,
+            loading: false,
+          });
+        },
+        onError: () => {
+          setDashboardData((prev) => ({ ...prev, loading: false }));
+        },
+      },
+    });
+
+    dashboardCleanupRef.current = cleanup;
+  }, []);
 
   const fetchData = useCallback(async () => {
     if (!API_KEY) {
@@ -167,6 +252,7 @@ export default function StatusScreen() {
   useFocusEffect(
     useCallback(() => {
       void fetchData();
+      fetchDashboardData();
       focusPollCountRef.current = 0;
       focusPollRef.current = setInterval(() => {
         focusPollCountRef.current += 1;
@@ -184,8 +270,9 @@ export default function StatusScreen() {
           clearInterval(focusPollRef.current);
           focusPollRef.current = null;
         }
+        dashboardCleanupRef.current?.();
       };
-    }, [fetchData]),
+    }, [fetchData, fetchDashboardData]),
   );
 
   // Continue polling while processing is still active (beyond focus polls)
@@ -339,34 +426,52 @@ export default function StatusScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <View style={styles.screenHeader}>
+        <Text style={styles.screenTitle}>Status</Text>
+        <Pressable
+          onPress={() => router.push("/investigate")}
+          hitSlop={8}
+        >
+          <Text style={styles.headerIcon}>{"\uD83D\uDD0D"}</Text>
+        </Pressable>
+      </View>
       <SectionList
         sections={sections}
         extraData={expandedSections}
         keyExtractor={(item) => item.id}
         ListHeaderComponent={
-          processingCount > 0 || adminNotifications.length > 0 ? (
-            <View>
-              {adminNotifications.map((n) => (
-                <View key={n.inboxItemId} style={styles.notificationBanner}>
-                  <Text style={styles.notificationText}>{n.message}</Text>
-                  <Pressable
-                    onPress={() => handleDismissNotification(n.inboxItemId)}
-                  >
-                    <Text style={styles.dismissText}>Dismiss</Text>
-                  </Pressable>
-                </View>
-              ))}
-              {processingCount > 0 && (
-                <View style={styles.processingBanner}>
-                  <ActivityIndicator size="small" color="#4a90d9" />
-                  <Text style={styles.processingText}>
-                    Processing {processingCount} new capture
-                    {processingCount !== 1 ? "s" : ""}...
-                  </Text>
-                </View>
-              )}
-            </View>
-          ) : null
+          <View>
+            <DashboardCards
+              data={dashboardData}
+              onErrorPress={(errorMsg) => {
+                router.push({
+                  pathname: "/investigate",
+                  params: {
+                    initialQuery: `Tell me about this recent error: ${errorMsg}`,
+                  },
+                });
+              }}
+            />
+            {adminNotifications.map((n) => (
+              <View key={n.inboxItemId} style={styles.notificationBanner}>
+                <Text style={styles.notificationText}>{n.message}</Text>
+                <Pressable
+                  onPress={() => handleDismissNotification(n.inboxItemId)}
+                >
+                  <Text style={styles.dismissText}>Dismiss</Text>
+                </Pressable>
+              </View>
+            ))}
+            {processingCount > 0 && (
+              <View style={styles.processingBanner}>
+                <ActivityIndicator size="small" color="#4a90d9" />
+                <Text style={styles.processingText}>
+                  Processing {processingCount} new capture
+                  {processingCount !== 1 ? "s" : ""}...
+                </Text>
+              </View>
+            )}
+          </View>
         }
         renderSectionHeader={({ section }) => (
           <StatusSectionRenderer
@@ -425,6 +530,23 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#0f0f23",
+  },
+  screenHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
+  screenTitle: {
+    fontSize: 28,
+    fontWeight: "bold",
+    color: "#ffffff",
+  },
+  headerIcon: {
+    fontSize: 22,
+    color: "#4a90d9",
   },
   loadingContainer: {
     flex: 1,
