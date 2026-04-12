@@ -56,10 +56,11 @@
       [
         "@sentry/react-native/expo",
         {
-          "organization": "SENTRY_ORG_SLUG",
-          "project": "SENTRY_PROJECT_SLUG"
+          "organization": "not-applicable-7c",
+          "project": "react-native"
         }
-      ]
+      ],
+      "@sentry/react-native"
     ],
     "web": {
       "bundler": "metro"

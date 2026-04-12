@@ -8,7 +8,7 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_SENTRY_DSN": "SENTRY_DSN_PLACEHOLDER"
+        "EXPO_PUBLIC_SENTRY_DSN": "https://69df752ff3025bbfd12ce010a8084773@o4511203611574272.ingest.us.sentry.io/4511203613999104"
       }
     },
     "preview": {
@@ -18,7 +18,7 @@
       "autoIncrement": true,
       "env": {
         "EXPO_PUBLIC_API_URL": "https://brain.willmacdonald.com",
-        "EXPO_PUBLIC_SENTRY_DSN": "SENTRY_DSN_PLACEHOLDER"
+        "EXPO_PUBLIC_SENTRY_DSN": "https://69df752ff3025bbfd12ce010a8084773@o4511203611574272.ingest.us.sentry.io/4511203613999104"
       }
     }
   },
