@@ -31,6 +31,15 @@ function RootLayout() {
               headerTintColor: "#ffffff",
             }}
           />
+          <Stack.Screen
+            name="investigate"
+            options={{
+              headerShown: true,
+              headerTitle: "Investigate",
+              headerStyle: { backgroundColor: "#0f0f23" },
+              headerTintColor: "#ffffff",
+            }}
+          />
         </Stack>
       </Sentry.ErrorBoundary>
     </GestureHandlerRootView>
