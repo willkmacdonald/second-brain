@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Observability & Evals
 status: unknown
-last_updated: "2026-04-12T02:42:39.037Z"
+last_updated: "2026-04-12T04:28:47.965Z"
 progress:
-  total_phases: 13
+  total_phases: 14
   completed_phases: 11
-  total_plans: 38
-  completed_plans: 36
+  total_plans: 40
+  completed_plans: 37
 ---
 
 # Project State
@@ -22,12 +22,12 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 
 ## Current Position
 
-Phase: 17.3 of 22 (Address Critical Observability Gaps) -- COMPLETE
-Plan: 1 of 1 in current phase -- COMPLETE
-Status: Phase 17.3 complete. Sentry crash reporting verified on device (iPhone 14 Pro Max, iOS 26.4). All observability gaps addressed.
-Last activity: 2026-04-11 -- Plan 17.3-01 verified and approved (Sentry test error visible in dashboard)
+Phase: 18 of 22 (Mobile Investigation Chat)
+Plan: 1 of 2 in current phase -- COMPLETE
+Status: Plan 18-01 complete. Chat screen with SSE streaming, markdown bubbles, voice input, and quick action chips.
+Last activity: 2026-04-12 -- Plan 18-01 executed (SSE client + chat screen + route registration)
 
-Progress: [████████████████████] 100% (Phase 17.3: 1/1 plans complete)
+Progress: [██████████----------] 50% (Phase 18: 1/2 plans complete)
 
 ## Performance Metrics
 
@@ -43,7 +43,7 @@ Progress: [████████████████████] 100% (P
 
 **Velocity (v3.1):**
 - Plans completed: 7
-- Last plan duration: 3min (17.3-01)
+- Last plan duration: 4min (18-01)
 - Timeline: 2026-04-05 to present
 
 *Updated after each plan completion*
@@ -82,6 +82,7 @@ v3.0 decisions archived to .planning/milestones/v3.0-ROADMAP.md
 - [Phase 17.3]: tracesSampleRate 1.0 appropriate for single-user app (no cost concern)
 - [Phase 17.3]: initSentry() at module scope before rendering, not in useEffect (catches early crashes)
 - [Phase 17.3]: Placeholder values for Sentry org/project/DSN -- user replaces before first EAS build
+- [Phase 18]: Used useMarkdown hook from react-native-marked instead of Markdown component to avoid nested FlatList conflict
 
 ### Pending Todos
 
@@ -100,6 +101,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-04-11
-Stopped at: Completed 17.3-01-PLAN.md -- Phase 17.3 fully complete
-Resume action: Begin Phase 18 (Mobile Investigation Chat)
+Last session: 2026-04-12
+Stopped at: Completed 18-01-PLAN.md -- Chat screen with SSE streaming, markdown, voice, chips
+Resume action: Execute Phase 18 Plan 02 (Dashboard cards + status screen integration)

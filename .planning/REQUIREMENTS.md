@@ -22,10 +22,10 @@ Requirements for v3.1 Observability & Evals milestone. Each maps to roadmap phas
 
 ### Mobile Experience
 
-- [ ] **MOBL-01**: User can open a chat screen from the Status screen to ask investigation questions
-- [ ] **MOBL-02**: Investigation agent streams responses via SSE with "Thinking..." indicator
-- [ ] **MOBL-03**: User can ask follow-up questions in the same conversation thread
-- [ ] **MOBL-04**: User can tap quick-action chips for common queries (recent errors, today's captures, system health, last eval results)
+- [x] **MOBL-01**: User can open a chat screen from the Status screen to ask investigation questions
+- [x] **MOBL-02**: Investigation agent streams responses via SSE with "Thinking..." indicator
+- [x] **MOBL-03**: User can ask follow-up questions in the same conversation thread
+- [x] **MOBL-04**: User can tap quick-action chips for common queries (recent errors, today's captures, system health, last eval results)
 - [ ] **MOBL-05**: User can see at-a-glance health dashboard cards (capture count, success rate, eval scores, last error)
 - [ ] **MOBL-06**: User can tap a dashboard error card to jump to investigation chat with pre-filled query
 
@@ -97,10 +97,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INV-05 | Phase 17 | Complete |
 | OBS-01 | Phase 17.3 | Complete |
 | OBS-02 | Phase 17.3 | Complete |
-| MOBL-01 | Phase 18 | Pending |
-| MOBL-02 | Phase 18 | Pending |
-| MOBL-03 | Phase 18 | Pending |
-| MOBL-04 | Phase 18 | Pending |
+| MOBL-01 | Phase 18 | Complete |
+| MOBL-02 | Phase 18 | Complete |
+| MOBL-03 | Phase 18 | Complete |
+| MOBL-04 | Phase 18 | Complete |
 | MOBL-05 | Phase 18 | Pending |
 | MOBL-06 | Phase 18 | Pending |
 | MCP-01 | Phase 19 | Complete |
