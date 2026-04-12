@@ -3,10 +3,10 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Observability & Evals
 status: unknown
-last_updated: "2026-04-12T04:28:47.965Z"
+last_updated: "2026-04-12T04:37:50.519Z"
 progress:
   total_phases: 14
-  completed_phases: 11
+  completed_phases: 12
   total_plans: 40
   completed_plans: 38
 ---

@@ -213,7 +213,7 @@ Items not yet scheduled into a milestone or phase.
 | 16.1. Improve Deployment Process | 2/2 | Complete    | 2026-04-06 | - |
 | 17. Investigation Agent | 2/2 | Complete    | 2026-04-06 | - |
 | 17.3. Address Critical Observability Gaps | 1/1 | Complete    | 2026-04-12 | - |
-| 18. Mobile Investigation Chat | 2/2 | Complete   | 2026-04-12 | - |
+| 18. Mobile Investigation Chat | 2/2 | Complete    | 2026-04-12 | - |
 | 19. Claude Code MCP Tool | v3.1 | 0/TBD | Not started | - |
 | 20. Feedback Collection | v3.1 | 0/TBD | Not started | - |
 | 21. Eval Framework | v3.1 | 0/TBD | Not started | - |
