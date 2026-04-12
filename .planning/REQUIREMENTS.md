@@ -26,8 +26,8 @@ Requirements for v3.1 Observability & Evals milestone. Each maps to roadmap phas
 - [x] **MOBL-02**: Investigation agent streams responses via SSE with "Thinking..." indicator
 - [x] **MOBL-03**: User can ask follow-up questions in the same conversation thread
 - [x] **MOBL-04**: User can tap quick-action chips for common queries (recent errors, today's captures, system health, last eval results)
-- [ ] **MOBL-05**: User can see at-a-glance health dashboard cards (capture count, success rate, eval scores, last error)
-- [ ] **MOBL-06**: User can tap a dashboard error card to jump to investigation chat with pre-filled query
+- [x] **MOBL-05**: User can see at-a-glance health dashboard cards (capture count, success rate, eval scores, last error)
+- [x] **MOBL-06**: User can tap a dashboard error card to jump to investigation chat with pre-filled query
 
 ### Claude Code Integration
 
@@ -101,8 +101,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MOBL-02 | Phase 18 | Complete |
 | MOBL-03 | Phase 18 | Complete |
 | MOBL-04 | Phase 18 | Complete |
-| MOBL-05 | Phase 18 | Pending |
-| MOBL-06 | Phase 18 | Pending |
+| MOBL-05 | Phase 18 | Complete |
+| MOBL-06 | Phase 18 | Complete |
 | MCP-01 | Phase 19 | Complete |
 | FEED-01 | Phase 20 | Complete |
 | FEED-02 | Phase 20 | Complete |

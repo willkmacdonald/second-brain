@@ -8,7 +8,7 @@ progress:
   total_phases: 14
   completed_phases: 11
   total_plans: 40
-  completed_plans: 37
+  completed_plans: 38
 ---
 
 # Project State
@@ -22,12 +22,12 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 
 ## Current Position
 
-Phase: 18 of 22 (Mobile Investigation Chat)
-Plan: 1 of 2 in current phase -- COMPLETE
-Status: Plan 18-01 complete. Chat screen with SSE streaming, markdown bubbles, voice input, and quick action chips.
-Last activity: 2026-04-12 -- Plan 18-01 executed (SSE client + chat screen + route registration)
+Phase: 18 of 22 (Mobile Investigation Chat) -- COMPLETE
+Plan: 2 of 2 in current phase -- COMPLETE
+Status: Phase 18 complete. All MOBL-01 through MOBL-06 requirements addressed.
+Last activity: 2026-04-12 -- Plan 18-02 executed (dashboard cards + status screen integration)
 
-Progress: [██████████----------] 50% (Phase 18: 1/2 plans complete)
+Progress: [████████████████████] 100% (Phase 18: 2/2 plans complete)
 
 ## Performance Metrics
 
@@ -42,8 +42,8 @@ Progress: [██████████----------] 50% (Phase 18: 1/2 plans co
 - Timeline: 2026-02-26 to 2026-03-01 (4 days)
 
 **Velocity (v3.1):**
-- Plans completed: 7
-- Last plan duration: 4min (18-01)
+- Plans completed: 8
+- Last plan duration: 2min (18-02)
 - Timeline: 2026-04-05 to present
 
 *Updated after each plan completion*
@@ -83,6 +83,7 @@ v3.0 decisions archived to .planning/milestones/v3.0-ROADMAP.md
 - [Phase 17.3]: initSentry() at module scope before rendering, not in useEffect (catches early crashes)
 - [Phase 17.3]: Placeholder values for Sentry org/project/DSN -- user replaces before first EAS build
 - [Phase 18]: Used useMarkdown hook from react-native-marked instead of Markdown component to avoid nested FlatList conflict
+- [Phase 18]: Dashboard metrics parsed from investigation agent prose via regex (no separate backend endpoint)
 
 ### Pending Todos
 
@@ -102,5 +103,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-12
-Stopped at: Completed 18-01-PLAN.md -- Chat screen with SSE streaming, markdown, voice, chips
-Resume action: Execute Phase 18 Plan 02 (Dashboard cards + status screen integration)
+Stopped at: Completed 18-02-PLAN.md -- Dashboard cards + status screen integration (Phase 18 complete)
+Resume action: Execute Phase 19 or next planned phase

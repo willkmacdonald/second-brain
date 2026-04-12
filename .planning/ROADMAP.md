@@ -65,7 +65,7 @@ See: .planning/milestones/v3.0-ROADMAP.md
 - [x] **Phase 16: Query Foundation** - LogsQueryClient, workspace-compatible KQL templates, Cosmos containers for eval data (completed 2026-04-05)
 - [x] **Phase 17: Investigation Agent** - Third Foundry agent with parameterized KQL tools and SSE streaming endpoint (completed 2026-04-06)
 - [x] **Phase 17.3: Address Critical Observability Gaps** (INSERTED) - Sentry crash reporting, React error boundaries, ErrorFallback recovery UI (completed 2026-04-11)
-- [ ] **Phase 18: Mobile Investigation Chat** - Chat screen, dashboard cards, quick action chips, and error deep-linking
+- [x] **Phase 18: Mobile Investigation Chat** - Chat screen, dashboard cards, quick action chips, and error deep-linking (completed 2026-04-12)
 - [ ] **Phase 19: Claude Code MCP Tool** - Standalone MCP server for App Insights queries from Claude Code
 - [ ] **Phase 20: Feedback Collection** - Implicit quality signals, explicit thumbs up/down, golden dataset promotion
 - [ ] **Phase 21: Eval Framework** - Golden datasets, deterministic evaluators, score storage, on-demand trigger
@@ -143,7 +143,7 @@ Plans:
   3. User can ask follow-up questions in the same conversation thread without losing context
   4. Quick action chips (recent errors, today's captures, system health, last eval results) send pre-filled queries with one tap
   5. Dashboard cards on the Status screen show capture count, success rate, eval scores, and last error at a glance
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 18-01-PLAN.md -- Investigation chat screen with SSE streaming, markdown bubbles, quick action chips, and voice input
@@ -213,7 +213,7 @@ Items not yet scheduled into a milestone or phase.
 | 16.1. Improve Deployment Process | 2/2 | Complete    | 2026-04-06 | - |
 | 17. Investigation Agent | 2/2 | Complete    | 2026-04-06 | - |
 | 17.3. Address Critical Observability Gaps | 1/1 | Complete    | 2026-04-12 | - |
-| 18. Mobile Investigation Chat | 1/2 | In Progress|  | - |
+| 18. Mobile Investigation Chat | 2/2 | Complete   | 2026-04-12 | - |
 | 19. Claude Code MCP Tool | v3.1 | 0/TBD | Not started | - |
 | 20. Feedback Collection | v3.1 | 0/TBD | Not started | - |
 | 21. Eval Framework | v3.1 | 0/TBD | Not started | - |
