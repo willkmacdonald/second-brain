@@ -15,6 +15,11 @@ Requirements for v3.1 Observability & Evals milestone. Each maps to roadmap phas
 - [x] **INV-04**: User can query system health (error rates, capture volume, latency trends)
 - [x] **INV-05**: User can query usage insights (capture counts by period, destination usage, bucket distribution)
 
+### Observability Gaps
+
+- [x] **OBS-01**: Unhandled JS exceptions and native crashes are captured and reported to Sentry (not silently lost)
+- [x] **OBS-02**: React rendering errors are caught by an error boundary with recovery UI instead of crashing the screen
+
 ### Mobile Experience
 
 - [ ] **MOBL-01**: User can open a chat screen from the Status screen to ask investigation questions
@@ -90,6 +95,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INV-03 | Phase 17 | Complete |
 | INV-04 | Phase 17 | Complete |
 | INV-05 | Phase 17 | Complete |
+| OBS-01 | Phase 17.3 | Complete |
+| OBS-02 | Phase 17.3 | Complete |
 | MOBL-01 | Phase 18 | Pending |
 | MOBL-02 | Phase 18 | Pending |
 | MOBL-03 | Phase 18 | Pending |
@@ -112,12 +119,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MON-04 | Phase 22 | Pending |
 
 **Coverage:**
-- v3.1 requirements: 25 total
-- Mapped to phases: 25
+- v3.1 requirements: 27 total
+- Mapped to phases: 27
 - Unmapped: 0
 
 **Note:** Phase 16 (Query Foundation) has no direct requirements -- it is infrastructure enabling Phases 17-22.
 
 ---
 *Requirements defined: 2026-04-05*
-*Last updated: 2026-04-05 after roadmap creation*
+*Last updated: 2026-04-11 after Phase 17.3 completion (OBS-01, OBS-02 added)*

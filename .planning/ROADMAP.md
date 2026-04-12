@@ -131,7 +131,7 @@ Plans:
 **Plans:** 1/1 plans complete
 
 Plans:
-- [ ] 17.3-01-PLAN.md -- Sentry SDK integration, ErrorFallback component, root layout wrapping
+- [x] 17.3-01-PLAN.md -- Sentry SDK integration, ErrorFallback component, root layout wrapping
 
 ### Phase 18: Mobile Investigation Chat
 **Goal**: Investigation agent is accessible from the phone with a conversational chat interface and at-a-glance health dashboard
