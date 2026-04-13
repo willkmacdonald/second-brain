@@ -2,7 +2,7 @@
 
 Where telemetry exists, where it doesn't, and what that means for debugging.
 
-Last updated: 2026-04-12
+Last updated: 2026-04-13
 
 ---
 
@@ -13,6 +13,8 @@ Last updated: 2026-04-12
 **~~1. Mobile crash reporting~~** — RESOLVED (Phase 17.3, 2026-04-11). Sentry React Native SDK installed. Unhandled JS exceptions, native crashes, and OOM events are now reported to Sentry. See "Sentry vs App Insights" section below.
 
 **~~2. React error boundaries~~** — RESOLVED (Phase 17.3, 2026-04-11). `Sentry.ErrorBoundary` wraps the root layout with an `ErrorFallback` recovery UI. Rendering errors are caught, reported to Sentry, and the user sees a "Try Again" screen instead of a blank crash.
+
+**~~3. Foundry agent observability~~** — RESOLVED (Phase 17.4, 2026-04-13). Agent Framework SDK `enable_instrumentation()` provides GenAI spans (token counts, durations, tool calls) in App Insights. Parameterized `AuditAgentMiddleware` differentiates classifier/admin/investigation spans. Azure Monitor alert rules for agent timeout, slow thinking, and consecutive failures.
 
 ### Defer (Nice to Have)
 
@@ -192,6 +194,38 @@ This is the most instrumented path in the system. When a capture arrives:
 
 ---
 
+## Agent Framework GenAI Spans
+
+The Agent Framework SDK emits OpenTelemetry spans for every agent interaction when `enable_instrumentation()` is called (in `main.py` after `configure_azure_monitor()`):
+
+| Span Name | What It Tracks | Where in App Insights |
+|-----------|---------------|----------------------|
+| `invoke_agent <agent_name>` | Full agent run lifecycle | AppDependencies |
+| `chat <model_name>` | LLM inference call (thinking time) | AppDependencies |
+| `execute_tool <function_name>` | Tool execution within agent run | AppDependencies |
+| `{agent_name}_agent_run` | Custom middleware span (classifier/admin/investigation) | AppDependencies (via OTel tracer) |
+| `tool_{function_name}` | Custom tool timing middleware | AppDependencies (via OTel tracer) |
+
+**Metrics automatically tracked:**
+- `gen_ai.usage.input_tokens` -- input tokens per call
+- `gen_ai.usage.output_tokens` -- output tokens per call
+- `gen_ai.client.operation.duration` -- operation duration histogram
+
+**Content recording:**
+Set `ENABLE_SENSITIVE_DATA=true` as a Container App env var to include prompt/response content in spans. This is appropriate for this single-user system and provides enormous debugging value. Without it, only token counts and durations are recorded (no prompt/response text).
+
+### Agents (Preview) View in App Insights
+
+Application Insights has a new "Agents (Preview)" view that provides:
+- Agent runs overview with token consumption
+- Tool call analytics
+- Error rate monitoring per agent
+- End-to-end transaction details with agent step visualization
+
+Access: Azure Portal -> Application Insights -> second-brain-insights -> Agents (Preview)
+
+---
+
 ## 3. Azure Infrastructure (Automatic Telemetry)
 
 These are tracked by Azure without any application code.
@@ -205,15 +239,20 @@ These are tracked by Azure without any application code.
 | `AppDependencies` | Outbound HTTP calls (Cosmos DB, Foundry API, Key Vault) | Automatic via `azure-core-tracing-opentelemetry` |
 | `AppTraces` | All `logger.info/warning/error/critical()` calls with custom dimensions | Automatic via Azure Monitor logging handler |
 
-### Azure Monitor Alerts (3 Rules)
+### Azure Monitor Alert Rules (6 Rules)
 
-| Alert | Condition | Severity | Evaluation Window |
-|-------|-----------|----------|-------------------|
-| API-Error-Spike | > 3 ERROR-level traces in 5 minutes | Warning (2) | Every 5 min |
-| Capture-Processing-Failures | > 2 admin agent failures in 15 minutes | Warning (2) | Every 15 min |
-| API-Health-Check | > 5 HTTP 5xx responses in 10 minutes | Important (1) | Every 10 min |
+All alerts fire to the SecondBrainAlerts action group (push notification to phone). Auto-mitigate is enabled (alerts auto-resolve when condition clears).
 
-All alerts deliver push notifications to Azure mobile app (will@willmacdonald.com). Auto-mitigate is enabled (alerts auto-resolve when condition clears).
+| Alert | Condition | Window | Severity |
+|-------|-----------|--------|----------|
+| API-Error-Spike | > 3 ERROR-level traces in 5 minutes | 5min | Warning (2) |
+| Capture-Processing-Failures | > 2 admin agent failures in 15 minutes | 15min | Warning (2) |
+| API-Health-Check | > 5 HTTP 5xx responses in 10 minutes | 10min | Important (1) |
+| Agent-Timeout | Any agent call >60s (`invoke_agent` or `*_agent_run` spans) | 5min | Warning (2) |
+| Agent-Slow-Thinking | LLM inference >30s (`chat` spans) | 5min | Informational (3) |
+| Agent-Consecutive-Failures | 3+ agent errors in 10min window (stream errors, timeouts, warmup failures) | 10min | Warning (2) |
+
+The first three rules were created during v3.0. The Agent-* rules were added in Phase 17.4 to cover Foundry agent health. Alert KQL queries use portal-style table names (`dependencies`, `traces`) since they are scoped to the App Insights resource.
 
 ### Container Apps
 
@@ -328,7 +367,7 @@ KQL queries are version-controlled in `backend/queries/`:
 
 ### Via Azure Monitor Alerts
 
-Three alert rules fire push notifications to your phone (see Section 3).
+Six alert rules fire push notifications to your phone (see Section 3). The three Agent-* rules cover timeouts, slow LLM thinking, and consecutive failures.
 
 ---
 
