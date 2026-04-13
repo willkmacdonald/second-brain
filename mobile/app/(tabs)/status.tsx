@@ -96,7 +96,7 @@ export default function StatusScreen() {
 
     const { cleanup } = sendInvestigation({
       question:
-        "Give me a brief system health summary for the last 24 hours. Include capture count, success rate percentage, and the most recent error if any.",
+        "Give me a dashboard summary for the last 24 hours. First call system_health to get capture count and success rate. Then call recent_errors to check for actual errors. Report: 1) capture count as a number, 2) success rate as a percentage, 3) if recent_errors returned any errors, quote the most recent error message verbatim after 'Last error:'. If recent_errors returned zero errors, write 'Last error: None'. Keep the response under 5 sentences.",
       apiKey: API_KEY,
       callbacks: {
         onThinking: () => {
@@ -128,8 +128,9 @@ export default function StatusScreen() {
           // Parse last error
           let lastError: string | null = null;
           const errorMatch =
-            accumulated.match(/(?:error|failure|failed)[:\s]+(.+?)(?:\n|$)/i) ??
-            accumulated.match(/(?:most recent error)[:\s]+(.+?)(?:\n|$)/i);
+            accumulated.match(/Last error:\s*(.+?)(?:\n|$)/i) ??
+            accumulated.match(/most recent error[:\s]+(.+?)(?:\n|$)/i) ??
+            accumulated.match(/(?:error|failure)[:\s]+["']?(.+?)["']?(?:\n|$)/i);
           if (errorMatch) {
             const errorText = errorMatch[1].trim();
             if (
