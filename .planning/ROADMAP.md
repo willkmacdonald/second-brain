@@ -65,7 +65,7 @@ See: .planning/milestones/v3.0-ROADMAP.md
 - [x] **Phase 16: Query Foundation** - LogsQueryClient, workspace-compatible KQL templates, Cosmos containers for eval data (completed 2026-04-05)
 - [x] **Phase 17: Investigation Agent** - Third Foundry agent with parameterized KQL tools and SSE streaming endpoint (completed 2026-04-06)
 - [x] **Phase 17.3: Address Critical Observability Gaps** (INSERTED) - Sentry crash reporting, React error boundaries, ErrorFallback recovery UI (completed 2026-04-11)
-- [ ] **Phase 17.4: Foundry Observability and Codex Code Review** (INSERTED) - AI Foundry agent visibility, SDK diagnostics, code review
+- [x] **Phase 17.4: Foundry Observability and Codex Code Review** (INSERTED) - AI Foundry agent visibility, SDK diagnostics, code review (completed 2026-04-13)
 - [x] **Phase 18: Mobile Investigation Chat** - Chat screen, dashboard cards, quick action chips, and error deep-linking (completed 2026-04-12)
 - [ ] **Phase 19: Claude Code MCP Tool** - Standalone MCP server for App Insights queries from Claude Code
 - [ ] **Phase 20: Feedback Collection** - Implicit quality signals, explicit thumbs up/down, golden dataset promotion
@@ -148,7 +148,7 @@ Plans:
   6. All backend tests pass (recipe DNS decoupled, errands coroutine leak fixed)
   7. Planning docs reflect current product behavior (Errors 24h, deferred eval scores)
   8. Codex code review runs automatically on PRs
-**Plans:** 3/4 plans executed
+**Plans:** 4/4 plans complete
 
 Plans:
 - [x] 17.4-01-PLAN.md -- Fix all Codex code review findings and reconcile stale planning docs
@@ -238,7 +238,7 @@ Items not yet scheduled into a milestone or phase.
 | 16.1. Improve Deployment Process | 2/2 | Complete    | 2026-04-06 | - |
 | 17. Investigation Agent | 2/2 | Complete    | 2026-04-06 | - |
 | 17.3. Address Critical Observability Gaps | 1/1 | Complete    | 2026-04-12 | - |
-| 17.4. Foundry Observability and Codex Code Review | 3/4 | In Progress|  | - |
+| 17.4. Foundry Observability and Codex Code Review | 4/4 | Complete   | 2026-04-13 | - |
 | 18. Mobile Investigation Chat | 4/4 | Complete   | 2026-04-13 | - |
 | 19. Claude Code MCP Tool | v3.1 | 0/TBD | Not started | - |
 | 20. Feedback Collection | v3.1 | 0/TBD | Not started | - |

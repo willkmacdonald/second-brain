@@ -22,12 +22,12 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 
 ## Current Position
 
-Phase: 17.4 of 22 (Foundry Observability and Codex Code Review) -- IN PROGRESS
-Plan: 3 of 4 in current phase -- COMPLETE
-Status: Plan 17.4-03 complete. Codex CI code review workflow with read-only sandbox and PR-scoped prompt.
-Last activity: 2026-04-13 -- Plan 17.4-03 executed (Codex CI workflow and review prompt)
+Phase: 17.4 of 22 (Foundry Observability and Codex Code Review) -- COMPLETE
+Plan: 4 of 4 in current phase -- COMPLETE
+Status: Phase 17.4 complete. All 4 plans executed, deployed, and verified live.
+Last activity: 2026-04-13 -- Plan 17.4-04 executed (Azure Monitor alerts, instrumentation docs, post-deploy verification)
 
-Progress: [███████████████░░░░░] 75% (Phase 17.4: 3/4 plans complete)
+Progress: [████████████████████] 100% (Phase 17.4: 4/4 plans complete)
 
 ## Performance Metrics
 
@@ -114,5 +114,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-13
-Stopped at: Completed 17.4-03-PLAN.md -- Codex CI code review workflow with read-only sandbox and PR-scoped prompt
-Resume action: Execute 17.4-04-PLAN.md (eval framework planning doc)
+Stopped at: Phase 17.4 complete -- all 4 plans executed, deployed, and verified live
+Resume action: Next phase per roadmap
