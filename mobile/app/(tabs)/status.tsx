@@ -129,11 +129,15 @@ export default function StatusScreen() {
 
           // Parse error count
           let errorCount: number | null = null;
-          const errorCountMatch =
-            accumulated.match(/(\d+)\s*errors?/i) ??
-            accumulated.match(/error\s*count[:\s]*(\d+)/i);
-          if (errorCountMatch) {
-            errorCount = parseInt(errorCountMatch[1], 10);
+          if (/no\s+errors?\b/i.test(accumulated)) {
+            errorCount = 0;
+          } else {
+            const errorCountMatch =
+              accumulated.match(/(\d+)\s*errors?/i) ??
+              accumulated.match(/error\s*count[:\s]*(\d+)/i);
+            if (errorCountMatch) {
+              errorCount = parseInt(errorCountMatch[1], 10);
+            }
           }
 
           setDashboardData({
@@ -144,7 +148,12 @@ export default function StatusScreen() {
           });
         },
         onError: () => {
-          setDashboardData((prev) => ({ ...prev, loading: false }));
+          setDashboardData({
+            captureCount: null,
+            successRate: null,
+            errorCount: null,
+            loading: false,
+          });
         },
       },
     });
