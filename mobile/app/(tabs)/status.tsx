@@ -18,7 +18,7 @@ import {
   DashboardCards,
   type DashboardData,
 } from "../../components/DashboardCards";
-import { sendInvestigation } from "../../lib/investigate-client";
+
 
 interface ErrandItem {
   id: string;
@@ -78,7 +78,7 @@ export default function StatusScreen() {
     AdminNotification[]
   >([]);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const dashboardCleanupRef = useRef<(() => void) | null>(null);
+
 
   const [dashboardData, setDashboardData] = useState<DashboardData>({
     captureCount: null,
@@ -87,78 +87,31 @@ export default function StatusScreen() {
     loading: true,
   });
 
-  const fetchDashboardData = useCallback(() => {
+  const fetchDashboardData = useCallback(async () => {
     if (!API_KEY) return;
 
     setDashboardData((prev) => ({ ...prev, loading: true }));
 
-    let accumulated = "";
-
-    const { cleanup } = sendInvestigation({
-      question:
-        "Give me a brief system health summary for the last 24 hours. Include capture count, success rate percentage, and error count.",
-      apiKey: API_KEY,
-      callbacks: {
-        onThinking: () => {
-          // no-op
-        },
-        onText: (content: string) => {
-          accumulated += content;
-        },
-        onDone: () => {
-          // Parse capture count
-          let captureCount: number | null = null;
-          const captureMatch =
-            accumulated.match(/(\d+)\s*captures?/i) ??
-            accumulated.match(/capture\s*count[:\s]*(\d+)/i) ??
-            accumulated.match(/captures?[:\s]*(\d+)/i) ??
-            accumulated.match(/processed\s*(\d+)/i);
-          if (captureMatch) {
-            captureCount = parseInt(captureMatch[1], 10);
-          }
-
-          // Parse success rate
-          let successRate: number | null = null;
-          const successMatch =
-            accumulated.match(/success\s*rate[:\s]+(\d+(?:\.\d+)?)\s*%/i) ??
-            accumulated.match(/(\d+(?:\.\d+)?)\s*%\s*success/i) ??
-            accumulated.match(/(\d+(?:\.\d+)?)\s*%/i);
-          if (successMatch) {
-            successRate = parseFloat(successMatch[1]);
-          }
-
-          // Parse error count
-          let errorCount: number | null = null;
-          if (/no\s+errors?\b/i.test(accumulated)) {
-            errorCount = 0;
-          } else {
-            const errorCountMatch =
-              accumulated.match(/(\d+)\s*errors?/i) ??
-              accumulated.match(/error\s*count[:\s]*(\d+)/i);
-            if (errorCountMatch) {
-              errorCount = parseInt(errorCountMatch[1], 10);
-            }
-          }
-
-          setDashboardData({
-            captureCount,
-            successRate,
-            errorCount,
-            loading: false,
-          });
-        },
-        onError: () => {
-          setDashboardData({
-            captureCount: null,
-            successRate: null,
-            errorCount: null,
-            loading: false,
-          });
-        },
-      },
-    });
-
-    dashboardCleanupRef.current = cleanup;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/health-summary`, {
+        headers: { Authorization: `Bearer ${API_KEY}` },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setDashboardData({
+        captureCount: data.captureCount ?? null,
+        successRate: data.successRate ?? null,
+        errorCount: data.errorCount ?? null,
+        loading: false,
+      });
+    } catch {
+      setDashboardData({
+        captureCount: null,
+        successRate: null,
+        errorCount: null,
+        loading: false,
+      });
+    }
   }, []);
 
   const fetchData = useCallback(async () => {
@@ -272,7 +225,7 @@ export default function StatusScreen() {
           clearInterval(focusPollRef.current);
           focusPollRef.current = null;
         }
-        dashboardCleanupRef.current?.();
+
       };
     }, [fetchData, fetchDashboardData]),
   );
