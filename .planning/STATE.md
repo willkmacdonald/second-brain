@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Observability & Evals
 status: unknown
-last_updated: "2026-04-13T03:10:12.395Z"
+last_updated: "2026-04-13T21:13:29.028Z"
 progress:
-  total_phases: 14
+  total_phases: 15
   completed_phases: 12
-  total_plans: 42
-  completed_plans: 40
+  total_plans: 46
+  completed_plans: 43
 ---
 
 # Project State
@@ -23,11 +23,11 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 ## Current Position
 
 Phase: 17.4 of 22 (Foundry Observability and Codex Code Review) -- IN PROGRESS
-Plan: 2 of 4 in current phase -- COMPLETE
-Status: Plan 17.4-02 complete. Parameterized middleware, active health check, self-healing warmup, 30s timeout.
-Last activity: 2026-04-13 -- Plan 17.4-02 executed (observability hardening with 9 new tests)
+Plan: 3 of 4 in current phase -- COMPLETE
+Status: Plan 17.4-03 complete. Codex CI code review workflow with read-only sandbox and PR-scoped prompt.
+Last activity: 2026-04-13 -- Plan 17.4-03 executed (Codex CI workflow and review prompt)
 
-Progress: [██████████░░░░░░░░░░] 50% (Phase 17.4: 2/4 plans complete)
+Progress: [███████████████░░░░░] 75% (Phase 17.4: 3/4 plans complete)
 
 ## Performance Metrics
 
@@ -42,8 +42,8 @@ Progress: [██████████░░░░░░░░░░] 50% (Ph
 - Timeline: 2026-02-26 to 2026-03-01 (4 days)
 
 **Velocity (v3.1):**
-- Plans completed: 11
-- Last plan duration: 3min (17.4-01)
+- Plans completed: 12
+- Last plan duration: 1min (17.4-03)
 - Timeline: 2026-04-05 to present
 
 *Updated after each plan completion*
@@ -93,6 +93,7 @@ v3.0 decisions archived to .planning/milestones/v3.0-ROADMAP.md
 - [Phase 17.4]: Client factory pattern for warmup self-heal (avoids private SDK attr access)
 - [Phase 17.4]: Foundry health cache on app.state (not module global) for test isolation
 - [Phase 17.4]: Investigation timeout reduced to 30s (from 60s) with user-friendly error message
+- [Phase 17.4]: Review prompt scoped to PR diff only (not repo-wide) to reduce noise
 
 ### Pending Todos
 
@@ -113,5 +114,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-13
-Stopped at: Completed 17.4-02-PLAN.md -- Backend observability hardening (middleware, health, warmup, timeout, tests)
-Resume action: Execute 17.4-03-PLAN.md (Codex CI workflow and review prompt)
+Stopped at: Completed 17.4-03-PLAN.md -- Codex CI code review workflow with read-only sandbox and PR-scoped prompt
+Resume action: Execute 17.4-04-PLAN.md (eval framework planning doc)
