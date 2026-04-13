@@ -7,8 +7,8 @@ last_updated: "2026-04-13T03:10:12.395Z"
 progress:
   total_phases: 14
   completed_phases: 12
-  total_plans: 41
-  completed_plans: 39
+  total_plans: 42
+  completed_plans: 40
 ---
 
 # Project State
@@ -23,11 +23,11 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 ## Current Position
 
 Phase: 18 of 22 (Mobile Investigation Chat) -- COMPLETE
-Plan: 3 of 3 in current phase -- COMPLETE
-Status: Phase 18 complete. UAT gap closure plan 18-03 fixed voice event leak and Sentry blind spot.
-Last activity: 2026-04-13 -- Plan 18-03 executed (UAT gap closure: voice event guard + Sentry instrumentation)
+Plan: 4 of 4 in current phase -- COMPLETE
+Status: Phase 18 complete. Gap closure plan 18-04 fixed dashboard-to-investigation error inconsistency (UAT Test 9).
+Last activity: 2026-04-13 -- Plan 18-04 executed (gap closure: dashboard prompt + error regex for consistent error display)
 
-Progress: [████████████████████] 100% (Phase 18: 3/3 plans complete)
+Progress: [████████████████████] 100% (Phase 18: 4/4 plans complete)
 
 ## Performance Metrics
 
@@ -42,8 +42,8 @@ Progress: [████████████████████] 100% (P
 - Timeline: 2026-02-26 to 2026-03-01 (4 days)
 
 **Velocity (v3.1):**
-- Plans completed: 9
-- Last plan duration: 3min (18-03)
+- Plans completed: 10
+- Last plan duration: 1min (18-04)
 - Timeline: 2026-04-05 to present
 
 *Updated after each plan completion*
@@ -86,6 +86,7 @@ v3.0 decisions archived to .planning/milestones/v3.0-ROADMAP.md
 - [Phase 18]: Dashboard metrics parsed from investigation agent prose via regex (no separate backend endpoint)
 - [Phase 18]: isRecordingRef guard prevents cross-screen speech event leaks (ref not state to avoid stale closures)
 - [Phase 18]: Sentry.captureMessage additive alongside console.error (no-op in dev, active in production EAS builds)
+- [Phase 18]: Dashboard prompt forces both system_health AND recent_errors tool calls for data provenance consistency with deep-link
 
 ### Pending Todos
 
@@ -105,5 +106,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-13
-Stopped at: Completed 18-03-PLAN.md -- UAT gap closure (voice event guard + Sentry instrumentation)
-Resume action: Re-run UAT to confirm fixes, then proceed to Phase 19
+Stopped at: Completed 18-04-PLAN.md -- Gap closure (dashboard error consistency for UAT Test 9)
+Resume action: Re-run UAT to confirm all tests pass (especially Test 9), then proceed to Phase 19
