@@ -136,13 +136,25 @@ Plans:
 
 ### Phase 17.4: Foundry Observability and Codex Code Review (INSERTED)
 
-**Goal:** [Urgent work - to be planned]
-**Requirements**: TBD
+**Goal:** All three Foundry agents have differentiated observability in App Insights (parameterized spans, active health checks, self-healing warmup, alert rules), all Codex code review findings are fixed, and Codex runs as a CI step on PRs
+**Requirements**: FOBS-01, FOBS-02, FOBS-03, FOBS-04, FOBS-05, CFIX-01, CFIX-02, CFIX-03
 **Depends on:** Phase 17.3
-**Plans:** 0 plans
+**Success Criteria** (what must be TRUE):
+  1. All three agents emit distinct OTel spans with agent-specific names (not all "Classifier")
+  2. /health performs active Foundry connectivity check with 60s cached result
+  3. Warmup loop recreates AzureAIAgentClient after 3 consecutive failures
+  4. Azure Monitor alerts fire on agent timeouts, slow thinking, and consecutive failures
+  5. TypeScript type checking passes (ErrorFallback types fixed)
+  6. All backend tests pass (recipe DNS decoupled, errands coroutine leak fixed)
+  7. Planning docs reflect current product behavior (Errors 24h, deferred eval scores)
+  8. Codex code review runs automatically on PRs
+**Plans:** 4 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 17.4 to break down)
+- [ ] 17.4-01-PLAN.md -- Fix all Codex code review findings and reconcile stale planning docs
+- [ ] 17.4-02-PLAN.md -- Backend agent observability hardening (parameterized middleware, enhanced health, self-healing warmup, investigate timeout)
+- [ ] 17.4-03-PLAN.md -- Codex CI workflow and review prompt
+- [ ] 17.4-04-PLAN.md -- Azure Monitor alert rules, instrumentation docs update, and deploy verification checkpoint
 
 ### Phase 18: Mobile Investigation Chat
 **Goal**: Investigation agent is accessible from the phone with a conversational chat interface and at-a-glance health dashboard
@@ -218,7 +230,7 @@ Items not yet scheduled into a milestone or phase.
 - v1.0: 1 -> 2 -> 3 -> 4 -> 4.1 -> 4.2 -> 4.3 -> 5 (complete)
 - v2.0: 6 -> 7 -> 8 -> 9 -> 9.1 (complete)
 - v3.0: 10 -> 11 -> 11.1 -> 12 -> 12.1 -> 12.2 -> 12.3 -> 12.3.1 -> 12.5 -> 13 -> 14 -> 15 (complete)
-- v3.1: 16 -> 16.1 -> 17 -> 17.3 -> 18 -> 19 -> 20 -> 21 -> 22
+- v3.1: 16 -> 16.1 -> 17 -> 17.3 -> 17.4 -> 18 -> 19 -> 20 -> 21 -> 22
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -226,6 +238,7 @@ Items not yet scheduled into a milestone or phase.
 | 16.1. Improve Deployment Process | 2/2 | Complete    | 2026-04-06 | - |
 | 17. Investigation Agent | 2/2 | Complete    | 2026-04-06 | - |
 | 17.3. Address Critical Observability Gaps | 1/1 | Complete    | 2026-04-12 | - |
+| 17.4. Foundry Observability and Codex Code Review | 0/4 | Not started | - | - |
 | 18. Mobile Investigation Chat | 4/4 | Complete   | 2026-04-13 | - |
 | 19. Claude Code MCP Tool | v3.1 | 0/TBD | Not started | - |
 | 20. Feedback Collection | v3.1 | 0/TBD | Not started | - |

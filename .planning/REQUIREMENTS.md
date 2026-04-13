@@ -20,6 +20,20 @@ Requirements for v3.1 Observability & Evals milestone. Each maps to roadmap phas
 - [x] **OBS-01**: Unhandled JS exceptions and native crashes are captured and reported to Sentry (not silently lost)
 - [x] **OBS-02**: React rendering errors are caught by an error boundary with recovery UI instead of crashing the screen
 
+### Foundry Observability
+
+- [ ] **FOBS-01**: All three Foundry agents emit differentiated OTel spans with agent-specific names in App Insights
+- [ ] **FOBS-02**: /health endpoint performs active Foundry connectivity check with cached results (60s TTL)
+- [ ] **FOBS-03**: Agent warmup self-heals by recreating AzureAIAgentClient after consecutive failures
+- [ ] **FOBS-04**: Azure Monitor alerts fire on agent timeouts (>60s), slow thinking (>30s), and consecutive failures (3+ in 10min)
+- [ ] **FOBS-05**: Prompt/response content is recorded in App Insights spans for debugging (ENABLE_SENSITIVE_DATA)
+
+### Code Quality
+
+- [ ] **CFIX-01**: All Codex code review findings are fixed (ErrorFallback types, recipe DNS tests, stale docs, errands coroutine leak)
+- [ ] **CFIX-02**: MOBL-04/MOBL-05 requirements text reconciled with Phase 18 implementation (eval scores deferred to Phase 21)
+- [ ] **CFIX-03**: Codex code review runs automatically as a CI step on pull requests
+
 ### Mobile Experience
 
 - [x] **MOBL-01**: User can open a chat screen from the Status screen to ask investigation questions
@@ -117,14 +131,22 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MON-02 | Phase 22 | Pending |
 | MON-03 | Phase 22 | Pending |
 | MON-04 | Phase 22 | Pending |
+| FOBS-01 | Phase 17.4 | Pending |
+| FOBS-02 | Phase 17.4 | Pending |
+| FOBS-03 | Phase 17.4 | Pending |
+| FOBS-04 | Phase 17.4 | Pending |
+| FOBS-05 | Phase 17.4 | Pending |
+| CFIX-01 | Phase 17.4 | Pending |
+| CFIX-02 | Phase 17.4 | Pending |
+| CFIX-03 | Phase 17.4 | Pending |
 
 **Coverage:**
-- v3.1 requirements: 27 total
-- Mapped to phases: 27
+- v3.1 requirements: 35 total
+- Mapped to phases: 35
 - Unmapped: 0
 
 **Note:** Phase 16 (Query Foundation) has no direct requirements -- it is infrastructure enabling Phases 17-22.
 
 ---
 *Requirements defined: 2026-04-05*
-*Last updated: 2026-04-11 after Phase 17.3 completion (OBS-01, OBS-02 added)*
+*Last updated: 2026-04-13 after Phase 17.4 planning (FOBS-01-05, CFIX-01-03 added)*
