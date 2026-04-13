@@ -27,17 +27,27 @@ from second_brain.tools.classification import follow_up_context
 
 logger = logging.getLogger(__name__)
 
+
 # Shared log extra factory for capture endpoints
 def _capture_extra(trace_id: str) -> dict:
     return {"capture_trace_id": trace_id, "component": "capture"}
 
+
 router = APIRouter(tags=["Capture"])
 
 MAX_AUDIO_SIZE = 25 * 1024 * 1024  # 25 MB
-ALLOWED_AUDIO_TYPES = frozenset({
-    "audio/m4a", "audio/mp4", "audio/mpeg", "audio/wav",
-    "audio/x-m4a", "audio/aac", "audio/ogg",
-})
+ALLOWED_AUDIO_TYPES = frozenset(
+    {
+        "audio/m4a",
+        "audio/mp4",
+        "audio/mpeg",
+        "audio/wav",
+        "audio/vnd.wave",
+        "audio/x-m4a",
+        "audio/aac",
+        "audio/ogg",
+    }
+)
 
 
 async def _validate_and_read_audio(file: UploadFile) -> bytes:
@@ -54,6 +64,7 @@ async def _validate_and_read_audio(file: UploadFile) -> bytes:
     if len(audio_bytes) > MAX_AUDIO_SIZE:
         raise HTTPException(status_code=413, detail="Audio file too large (max 25 MB)")
     return audio_bytes
+
 
 SSE_HEADERS = {
     "Cache-Control": "no-cache",
@@ -218,9 +229,7 @@ async def capture(request: Request, body: TextCaptureBody) -> StreamingResponse:
     )
 
     return StreamingResponse(
-        _stream_with_thread_id_persistence(
-            generator, cosmos_manager, capture_trace_id
-        ),
+        _stream_with_thread_id_persistence(generator, cosmos_manager, capture_trace_id),
         media_type="text/event-stream",
         headers=SSE_HEADERS,
     )

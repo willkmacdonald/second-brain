@@ -29,6 +29,7 @@ import {
   sendFollowUpVoice,
 } from "../../lib/ag-ui-client";
 import { reportError } from "../../lib/telemetry";
+import { Sentry } from "../../lib/sentry";
 import {
   checkOnDeviceSupport,
   requestSpeechPermissions,
@@ -85,6 +86,13 @@ export default function CaptureScreen() {
   const wasRecordingRef = useRef(false);
   // Ref to track if we are in follow-up mode when "end" fires
   const isFollowUpRecordingRef = useRef(false);
+  // Ref to guard speech event handlers against cross-screen event leaks
+  // (e.g. investigate screen's voice session firing events into capture screen)
+  const isRecordingRef = useRef(false);
+
+  useEffect(() => {
+    isRecordingRef.current = isRecording;
+  }, [isRecording]);
 
   // HITL state
   const [hitlQuestion, setHitlQuestion] = useState<string | null>(null);
@@ -128,11 +136,13 @@ export default function CaptureScreen() {
 
   // Audio file URI for fallback (persisted audio from expo-speech-recognition)
   useSpeechRecognitionEvent("audiostart", (event) => {
+    if (!isRecordingRef.current) return; // Ignore events from other screens
     setAudioFileUri(event.uri ?? null);
   });
 
   // Error during speech recognition -- fall back to cloud if audio file exists
   useSpeechRecognitionEvent("error", (event) => {
+    if (!isRecordingRef.current) return; // Ignore events from other screens
     console.warn("Speech recognition error:", event.error, event.message);
     if (audioFileUri && API_KEY) {
       // Fall back to cloud upload with the persisted audio file
@@ -206,6 +216,10 @@ export default function CaptureScreen() {
           },
           onError: (error: string) => {
             console.error("Voice capture fallback error:", error);
+            Sentry.captureMessage(
+              `Voice capture fallback error: ${error}`,
+              "error",
+            );
             setProcessing(false);
             setProcessingStage(null);
             setToast({
@@ -614,6 +628,10 @@ export default function CaptureScreen() {
             },
             onError: (error: string) => {
               console.error("Voice capture error:", error);
+              Sentry.captureMessage(
+                `Voice capture error: ${error}`,
+                "error",
+              );
               setProcessing(false);
               setProcessingStage(null);
               setToast({

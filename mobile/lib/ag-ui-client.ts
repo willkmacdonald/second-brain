@@ -313,10 +313,11 @@ export function sendVoiceCapture({
   const traceId = generateTraceId();
 
   const formData = new FormData();
+  const isWav = audioUri.toLowerCase().endsWith(".wav");
   formData.append("file", {
     uri: audioUri,
-    type: "audio/m4a",
-    name: "voice-capture.m4a",
+    type: isWav ? "audio/wav" : "audio/m4a",
+    name: isWav ? "voice-capture.wav" : "voice-capture.m4a",
   } as any);
 
   const es = new EventSource<AGUIEventType>(
