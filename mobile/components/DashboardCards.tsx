@@ -3,13 +3,13 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 export interface DashboardData {
   captureCount: number | null;
   successRate: number | null;
-  lastError: string | null;
+  errorCount: number | null;
   loading: boolean;
 }
 
 interface DashboardCardsProps {
   data: DashboardData;
-  onErrorPress: (errorMessage: string) => void;
+  onErrorPress: () => void;
 }
 
 /**
@@ -20,7 +20,13 @@ interface DashboardCardsProps {
  * - Last Error: tappable, deep-links to investigation chat
  */
 export function DashboardCards({ data, onErrorPress }: DashboardCardsProps) {
-  const hasError = data.lastError !== null;
+  const hasErrors = data.errorCount !== null && data.errorCount > 0;
+
+  const errorDisplay = data.loading
+    ? "..."
+    : hasErrors
+      ? `${data.errorCount} error${data.errorCount !== 1 ? "s" : ""}`
+      : "None";
 
   return (
     <View style={styles.row}>
@@ -44,25 +50,21 @@ export function DashboardCards({ data, onErrorPress }: DashboardCardsProps) {
         </Text>
       </View>
 
-      {/* Last Error */}
+      {/* Errors (24h) */}
       <Pressable
-        style={[styles.card, hasError && styles.cardError]}
-        onPress={() => {
-          if (hasError) {
-            onErrorPress(data.lastError!);
-          }
-        }}
-        disabled={!hasError}
+        style={[styles.card, hasErrors && styles.cardError]}
+        onPress={onErrorPress}
+        disabled={!hasErrors}
       >
-        <Text style={styles.label}>Last Error</Text>
+        <Text style={styles.label}>Errors (24h)</Text>
         <Text
           style={[
             styles.value,
-            hasError ? styles.errorText : styles.noErrorText,
+            hasErrors ? styles.errorText : styles.noErrorText,
           ]}
           numberOfLines={2}
         >
-          {data.loading ? "..." : (data.lastError ?? "None")}
+          {errorDisplay}
         </Text>
       </Pressable>
     </View>

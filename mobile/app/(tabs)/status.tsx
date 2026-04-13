@@ -83,7 +83,7 @@ export default function StatusScreen() {
   const [dashboardData, setDashboardData] = useState<DashboardData>({
     captureCount: null,
     successRate: null,
-    lastError: null,
+    errorCount: null,
     loading: true,
   });
 
@@ -96,7 +96,7 @@ export default function StatusScreen() {
 
     const { cleanup } = sendInvestigation({
       question:
-        "Give me a brief system health summary for the last 24 hours. Include capture count, success rate percentage, and the most recent error if any. For the error field, only report actual errors from recent_errors — do not interpret other metrics as errors. Format the error line as 'Last error: <message>' or 'Last error: None'.",
+        "Give me a brief system health summary for the last 24 hours. Include capture count, success rate percentage, and error count.",
       apiKey: API_KEY,
       callbacks: {
         onThinking: () => {
@@ -112,8 +112,7 @@ export default function StatusScreen() {
             accumulated.match(/(\d+)\s*captures?/i) ??
             accumulated.match(/capture\s*count[:\s]*(\d+)/i) ??
             accumulated.match(/captures?[:\s]*(\d+)/i) ??
-            accumulated.match(/processed\s*(\d+)/i) ??
-            accumulated.match(/(\d+)\s*(?:items?|recordings?)\s*(?:captured|processed)/i);
+            accumulated.match(/processed\s*(\d+)/i);
           if (captureMatch) {
             captureCount = parseInt(captureMatch[1], 10);
           }
@@ -128,29 +127,19 @@ export default function StatusScreen() {
             successRate = parseFloat(successMatch[1]);
           }
 
-          // Parse last error
-          let lastError: string | null = null;
-          const errorMatch =
-            accumulated.match(/Last error:\s*(.+?)(?:\n|$)/i) ??
-            accumulated.match(/most recent error[:\s]+(.+?)(?:\n|$)/i) ??
-            accumulated.match(/recent error[:\s]+["']?(.+?)["']?(?:\n|$)/i);
-          if (errorMatch) {
-            const errorText = errorMatch[1].trim();
-            if (
-              errorText.length > 0 &&
-              !/no\s+errors?|none|no\s+failures?/i.test(errorText)
-            ) {
-              lastError =
-                errorText.length > 80
-                  ? errorText.substring(0, 77) + "..."
-                  : errorText;
-            }
+          // Parse error count
+          let errorCount: number | null = null;
+          const errorCountMatch =
+            accumulated.match(/(\d+)\s*errors?/i) ??
+            accumulated.match(/error\s*count[:\s]*(\d+)/i);
+          if (errorCountMatch) {
+            errorCount = parseInt(errorCountMatch[1], 10);
           }
 
           setDashboardData({
             captureCount,
             successRate,
-            lastError,
+            errorCount,
             loading: false,
           });
         },
@@ -447,11 +436,12 @@ export default function StatusScreen() {
           <View>
             <DashboardCards
               data={dashboardData}
-              onErrorPress={(errorMsg) => {
+              onErrorPress={() => {
                 router.push({
                   pathname: "/investigate",
                   params: {
-                    initialQuery: `Tell me about this recent error: ${errorMsg}`,
+                    initialQuery:
+                      "Show me the recent errors from the last 24 hours with details",
                   },
                 });
               }}
