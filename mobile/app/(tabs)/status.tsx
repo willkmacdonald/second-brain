@@ -96,7 +96,7 @@ export default function StatusScreen() {
 
     const { cleanup } = sendInvestigation({
       question:
-        "Give me a dashboard summary for the last 24 hours. First call system_health to get capture count and success rate. Then call recent_errors to check for actual errors. Report: 1) capture count as a number, 2) success rate as a percentage, 3) if recent_errors returned any errors, quote the most recent error message verbatim after 'Last error:'. If recent_errors returned zero errors, write 'Last error: None'. Keep the response under 5 sentences.",
+        "Give me a brief system health summary for the last 24 hours. Include capture count, success rate percentage, and the most recent error if any. For the error field, only report actual errors from recent_errors — do not interpret other metrics as errors. Format the error line as 'Last error: <message>' or 'Last error: None'.",
       apiKey: API_KEY,
       callbacks: {
         onThinking: () => {
@@ -110,6 +110,7 @@ export default function StatusScreen() {
           let captureCount: number | null = null;
           const captureMatch =
             accumulated.match(/(\d+)\s*captures?/i) ??
+            accumulated.match(/capture\s*count[:\s]+(\d+)/i) ??
             accumulated.match(/processed\s*(\d+)/i) ??
             accumulated.match(/(\d+)\s*(?:items?|recordings?)\s*(?:captured|processed)/i);
           if (captureMatch) {
@@ -118,9 +119,10 @@ export default function StatusScreen() {
 
           // Parse success rate
           let successRate: number | null = null;
-          const successMatch = accumulated.match(
-            /(\d+(?:\.\d+)?)\s*%/i,
-          );
+          const successMatch =
+            accumulated.match(/success\s*rate[:\s]+(\d+(?:\.\d+)?)\s*%/i) ??
+            accumulated.match(/(\d+(?:\.\d+)?)\s*%\s*success/i) ??
+            accumulated.match(/(\d+(?:\.\d+)?)\s*%/i);
           if (successMatch) {
             successRate = parseFloat(successMatch[1]);
           }
