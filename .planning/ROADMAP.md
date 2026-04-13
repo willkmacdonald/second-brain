@@ -181,7 +181,11 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. User can query App Insights from Claude Code via MCP tool (trace lookups, recent failures, system health) and get structured results
   2. MCP server runs as a standalone process with stdio transport (not inside the Docker image)
-**Plans**: TBD
+**Plans**: 2 (Wave 1: MCP server + registration, Wave 2: Skill migration)
+
+Plans:
+- [ ] 19-01-PLAN.md -- MCP server with 6 telemetry tools (trace_lifecycle, recent_errors, system_health, usage_patterns, admin_audit, run_kql) and Claude Code registration
+- [ ] 19-02-PLAN.md -- Migrate /investigate skill from deployed API to local MCP tools
 
 ### Phase 20: Feedback Collection
 **Goal**: Quality signals flow into the system automatically from user behavior and explicitly from user feedback
