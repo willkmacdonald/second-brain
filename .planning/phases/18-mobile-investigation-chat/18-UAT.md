@@ -1,9 +1,9 @@
 ---
-status: diagnosed
+status: resolved
 phase: 18-mobile-investigation-chat
 source: [18-01-SUMMARY.md, 18-02-SUMMARY.md, 18-03-SUMMARY.md]
 started: 2026-04-12T05:00:00Z
-updated: 2026-04-13T04:50:00Z
+updated: 2026-04-13T06:00:00Z
 ---
 
 ## Current Test
@@ -46,9 +46,7 @@ result: pass (re-verified after 18-03 gap closure)
 
 ### 9. Error Card Deep-Link to Investigation Chat
 expected: On the Status screen, tap the last error card. It navigates to the investigation chat screen with a pre-filled query about the error, which auto-sends and the agent provides relevant details about that error.
-result: issue
-reported: "Error card shows an error ('count remained consistent at zero') and deep-links correctly to investigate screen with pre-filled query. But the agent responds 'No errors found in the last 24h' — contradicting the error it just reported on the dashboard. The dashboard health summary and the error deep-link query produce inconsistent results from the same agent."
-severity: blocker
+result: pass (resolved by 18-04 gap closure — prompt now forces both system_health + recent_errors tools)
 
 ### 10. Investigate Icon on Status Screen
 expected: On the Status screen, there is a magnifying glass icon (🔍) in the header area. Tapping it opens the investigation chat screen.
@@ -57,15 +55,15 @@ result: pass
 ## Summary
 
 total: 10
-passed: 9
-issues: 1
+passed: 10
+issues: 0
 pending: 0
 skipped: 0
 
 ## Gaps
 
 - truth: "Error card deep-link query returns consistent results with the dashboard health summary that surfaced the error"
-  status: failed
+  status: resolved
   reason: "User reported: Dashboard health summary mentions an error ('count remained consistent at zero'), card displays it, deep-link sends 'Tell me about this recent error: count remained consistent at zero' to agent, but agent responds 'No errors found in the last 24h'. The dashboard and deep-link both query the same investigation agent but get inconsistent answers."
   severity: blocker
   test: 9
