@@ -124,7 +124,7 @@ async def stream_investigation(
         last_tool_name: str | None = None
 
         try:
-            async with asyncio.timeout(60):
+            async with asyncio.timeout(30):
                 stream = client.get_response(
                     messages=messages,
                     stream=True,
@@ -189,14 +189,18 @@ async def stream_investigation(
 
         except TimeoutError:
             logger.warning(
-                "Investigation stream timed out after 60s",
+                "Investigation stream timed out after 30s",
                 extra={"component": "investigation_agent"},
             )
             span.set_attribute("investigate.timed_out", True)
             yield encode_sse(
                 {
                     "type": "error",
-                    "message": ("Investigation timed out. Please try again."),
+                    "message": (
+                        "The investigation timed out after 30 seconds. "
+                        "The agent may be processing a complex query -- "
+                        "please try again or simplify your question."
+                    ),
                 }
             )
             yield encode_sse({"type": "done", "thread_id": thread_id or ""})

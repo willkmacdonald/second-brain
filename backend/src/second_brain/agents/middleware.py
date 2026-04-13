@@ -25,11 +25,15 @@ tracer = trace.get_tracer("second_brain.agents")
 
 
 class AuditAgentMiddleware(AgentMiddleware):
-    """Produces an OTel span for each classifier agent run.
+    """Produces an OTel span for each agent run.
 
     Tracks agent name and duration as span attributes for Application Insights
     tracing. Debug-level logs retained as secondary output channel.
     """
+
+    def __init__(self, agent_name: str = "classifier") -> None:
+        self._agent_name = agent_name
+        self._span_name = f"{agent_name}_agent_run"
 
     async def process(
         self,
@@ -37,8 +41,8 @@ class AuditAgentMiddleware(AgentMiddleware):
         call_next: Callable[[], Awaitable[None]],
     ) -> None:
         """Create OTel span around agent run lifecycle."""
-        with tracer.start_as_current_span("classifier_agent_run") as span:
-            span.set_attribute("agent.name", "Classifier")
+        with tracer.start_as_current_span(self._span_name) as span:
+            span.set_attribute("agent.name", self._agent_name)
             start = time.monotonic()
             logger.debug("[Agent] Run started")
 

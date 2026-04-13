@@ -215,7 +215,10 @@ async def lifespan(app: FastAPI):
             project_endpoint=settings.azure_ai_project_endpoint,
             agent_id=classifier_agent_id,
             should_cleanup_agent=False,
-            middleware=[AuditAgentMiddleware(), ToolTimingMiddleware()],
+            middleware=[
+                AuditAgentMiddleware(agent_name="classifier"),
+                ToolTimingMiddleware(),
+            ],
         )
         app.state.classifier_client = classifier_client
 
@@ -253,7 +256,10 @@ async def lifespan(app: FastAPI):
                 project_endpoint=settings.azure_ai_project_endpoint,
                 agent_id=admin_agent_id,
                 should_cleanup_agent=False,
-                middleware=[AuditAgentMiddleware(), ToolTimingMiddleware()],
+                middleware=[
+                    AuditAgentMiddleware(agent_name="admin"),
+                    ToolTimingMiddleware(),
+                ],
             )
             app.state.admin_client = admin_client
             app.state.admin_agent_tools = [
@@ -341,7 +347,10 @@ async def lifespan(app: FastAPI):
                     project_endpoint=settings.azure_ai_project_endpoint,
                     agent_id=investigation_agent_id,
                     should_cleanup_agent=False,
-                    middleware=[AuditAgentMiddleware(), ToolTimingMiddleware()],
+                    middleware=[
+                        AuditAgentMiddleware(agent_name="investigation"),
+                        ToolTimingMiddleware(),
+                    ],
                 )
                 app.state.investigation_client = investigation_client
                 app.state.investigation_tools = [
