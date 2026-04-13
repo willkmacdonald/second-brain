@@ -30,8 +30,8 @@ Requirements for v3.1 Observability & Evals milestone. Each maps to roadmap phas
 
 ### Code Quality
 
-- [ ] **CFIX-01**: All Codex code review findings are fixed (ErrorFallback types, recipe DNS tests, stale docs, errands coroutine leak)
-- [ ] **CFIX-02**: MOBL-04/MOBL-05 requirements text reconciled with Phase 18 implementation (eval scores deferred to Phase 21)
+- [x] **CFIX-01**: All Codex code review findings are fixed (ErrorFallback types, recipe DNS tests, stale docs, errands coroutine leak)
+- [x] **CFIX-02**: MOBL-04/MOBL-05 requirements text reconciled with Phase 18 implementation (eval scores deferred to Phase 21)
 - [ ] **CFIX-03**: Codex code review runs automatically as a CI step on pull requests
 
 ### Mobile Experience
@@ -136,8 +136,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FOBS-03 | Phase 17.4 | Pending |
 | FOBS-04 | Phase 17.4 | Pending |
 | FOBS-05 | Phase 17.4 | Pending |
-| CFIX-01 | Phase 17.4 | Pending |
-| CFIX-02 | Phase 17.4 | Pending |
+| CFIX-01 | Phase 17.4 | Complete |
+| CFIX-02 | Phase 17.4 | Complete |
 | CFIX-03 | Phase 17.4 | Pending |
 
 **Coverage:**

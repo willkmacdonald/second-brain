@@ -151,7 +151,7 @@ Plans:
 **Plans:** 4 plans
 
 Plans:
-- [ ] 17.4-01-PLAN.md -- Fix all Codex code review findings and reconcile stale planning docs
+- [x] 17.4-01-PLAN.md -- Fix all Codex code review findings and reconcile stale planning docs
 - [ ] 17.4-02-PLAN.md -- Backend agent observability hardening (parameterized middleware, enhanced health, self-healing warmup, investigate timeout)
 - [ ] 17.4-03-PLAN.md -- Codex CI workflow and review prompt
 - [ ] 17.4-04-PLAN.md -- Azure Monitor alert rules, instrumentation docs update, and deploy verification checkpoint
@@ -238,7 +238,7 @@ Items not yet scheduled into a milestone or phase.
 | 16.1. Improve Deployment Process | 2/2 | Complete    | 2026-04-06 | - |
 | 17. Investigation Agent | 2/2 | Complete    | 2026-04-06 | - |
 | 17.3. Address Critical Observability Gaps | 1/1 | Complete    | 2026-04-12 | - |
-| 17.4. Foundry Observability and Codex Code Review | 0/4 | Not started | - | - |
+| 17.4. Foundry Observability and Codex Code Review | 1/4 | In progress | - | - |
 | 18. Mobile Investigation Chat | 4/4 | Complete   | 2026-04-13 | - |
 | 19. Claude Code MCP Tool | v3.1 | 0/TBD | Not started | - |
 | 20. Feedback Collection | v3.1 | 0/TBD | Not started | - |

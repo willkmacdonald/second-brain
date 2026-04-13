@@ -22,12 +22,12 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 
 ## Current Position
 
-Phase: 18 of 22 (Mobile Investigation Chat) -- COMPLETE
-Plan: 4 of 4 in current phase -- COMPLETE
-Status: Phase 18 complete. Gap closure plan 18-04 fixed dashboard-to-investigation error inconsistency (UAT Test 9).
-Last activity: 2026-04-13 -- Plan 18-04 executed (gap closure: dashboard prompt + error regex for consistent error display)
+Phase: 17.4 of 22 (Foundry Observability and Codex Code Review) -- IN PROGRESS
+Plan: 1 of 4 in current phase -- COMPLETE
+Status: Plan 17.4-01 complete. Fixed all Codex code review findings and reconciled stale planning docs.
+Last activity: 2026-04-13 -- Plan 17.4-01 executed (ErrorFallback types, recipe DNS tests, errands coroutine leak, doc reconciliation)
 
-Progress: [████████████████████] 100% (Phase 18: 4/4 plans complete)
+Progress: [█████░░░░░░░░░░░░░░░] 25% (Phase 17.4: 1/4 plans complete)
 
 ## Performance Metrics
 
@@ -42,8 +42,8 @@ Progress: [████████████████████] 100% (P
 - Timeline: 2026-02-26 to 2026-03-01 (4 days)
 
 **Velocity (v3.1):**
-- Plans completed: 10
-- Last plan duration: 1min (18-04)
+- Plans completed: 11
+- Last plan duration: 3min (17.4-01)
 - Timeline: 2026-04-05 to present
 
 *Updated after each plan completion*
@@ -87,6 +87,9 @@ v3.0 decisions archived to .planning/milestones/v3.0-ROADMAP.md
 - [Phase 18]: isRecordingRef guard prevents cross-screen speech event leaks (ref not state to avoid stale closures)
 - [Phase 18]: Sentry.captureMessage additive alongside console.error (no-op in dev, active in production EAS builds)
 - [Phase 18]: Dashboard prompt forces both system_health AND recent_errors tool calls for data provenance consistency with deep-link
+- [Phase 17.4]: ErrorFallback uses error: unknown with instanceof narrowing (Sentry FallbackRender contract)
+- [Phase 17.4]: Recipe tests use autouse DNS mock fixture to prevent live resolution
+- [Phase 17.4]: MOBL-04/MOBL-05 eval items deferred to Phase 21 (not implemented in Phase 18)
 
 ### Pending Todos
 
@@ -107,5 +110,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-13
-Stopped at: Completed 18-04-PLAN.md -- Gap closure (dashboard error consistency for UAT Test 9)
-Resume action: Re-run UAT to confirm all tests pass (especially Test 9), then proceed to Phase 19
+Stopped at: Completed 17.4-01-PLAN.md -- Codex code review fixes and planning doc reconciliation
+Resume action: Execute 17.4-02-PLAN.md (backend agent observability hardening)
