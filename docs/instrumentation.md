@@ -180,7 +180,7 @@ This is the most instrumented path in the system. When a capture arrives:
 | Rate limit warning | SSE event only (soft limiter, never blocks) | — |
 | Tool call | SSE event: `{"type": "tool_call", "tool": name}` | — |
 | Tool error | SSE event + log | WARNING/ERROR |
-| Stream timeout (60s) | "Investigation stream timed out after 60s" | WARNING |
+| Stream timeout (30s) | "Investigation stream timed out after 30s" | WARNING |
 | Stream error | Full stack trace | ERROR |
 
 ### Error Handling

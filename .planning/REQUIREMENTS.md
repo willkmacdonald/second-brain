@@ -22,11 +22,11 @@ Requirements for v3.1 Observability & Evals milestone. Each maps to roadmap phas
 
 ### Foundry Observability
 
-- [ ] **FOBS-01**: All three Foundry agents emit differentiated OTel spans with agent-specific names in App Insights
-- [ ] **FOBS-02**: /health endpoint performs active Foundry connectivity check with cached results (60s TTL)
-- [ ] **FOBS-03**: Agent warmup self-heals by recreating AzureAIAgentClient after consecutive failures
-- [ ] **FOBS-04**: Azure Monitor alerts fire on agent timeouts (>60s), slow thinking (>30s), and consecutive failures (3+ in 10min)
-- [ ] **FOBS-05**: Prompt/response content is recorded in App Insights spans for debugging (ENABLE_SENSITIVE_DATA)
+- [x] **FOBS-01**: All three Foundry agents emit differentiated OTel spans with agent-specific names in App Insights
+- [x] **FOBS-02**: /health endpoint performs active Foundry connectivity check with cached results (60s TTL)
+- [x] **FOBS-03**: Agent warmup self-heals by recreating AzureAIAgentClient after consecutive failures
+- [x] **FOBS-04**: Azure Monitor alerts fire on agent timeouts (>60s), slow thinking (>30s), and consecutive failures (3+ in 10min)
+- [x] **FOBS-05**: Prompt/response content is recorded in App Insights spans for debugging (ENABLE_SENSITIVE_DATA)
 
 ### Code Quality
 
@@ -131,11 +131,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MON-02 | Phase 22 | Pending |
 | MON-03 | Phase 22 | Pending |
 | MON-04 | Phase 22 | Pending |
-| FOBS-01 | Phase 17.4 | Pending |
-| FOBS-02 | Phase 17.4 | Pending |
-| FOBS-03 | Phase 17.4 | Pending |
-| FOBS-04 | Phase 17.4 | Pending |
-| FOBS-05 | Phase 17.4 | Pending |
+| FOBS-01 | Phase 17.4 | Complete |
+| FOBS-02 | Phase 17.4 | Complete |
+| FOBS-03 | Phase 17.4 | Complete |
+| FOBS-04 | Phase 17.4 | Complete |
+| FOBS-05 | Phase 17.4 | Complete |
 | CFIX-01 | Phase 17.4 | Complete |
 | CFIX-02 | Phase 17.4 | Complete |
 | CFIX-03 | Phase 17.4 | Complete |
