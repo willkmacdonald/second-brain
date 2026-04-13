@@ -1,17 +1,19 @@
 import { View, Text, Pressable, StyleSheet } from "react-native";
 
 interface ErrorFallbackProps {
-  error: Error;
+  error: unknown;
   componentStack: string | null;
   resetError: () => void;
   eventId: string;
 }
 
 export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
+  const message = error instanceof Error ? error.message : String(error);
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Something went wrong</Text>
-      <Text style={styles.message}>{error.message}</Text>
+      <Text style={styles.message}>{message}</Text>
       <Pressable style={styles.button} onPress={resetError}>
         <Text style={styles.buttonText}>Try Again</Text>
       </Pressable>

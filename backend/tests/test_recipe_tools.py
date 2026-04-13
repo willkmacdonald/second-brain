@@ -3,9 +3,21 @@
 Tests use mocked Playwright browser -- no real browser or network calls.
 """
 
+import socket
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
 from second_brain.tools.recipe import RecipeTools, _extract_json_ld_recipe
+
+
+@pytest.fixture(autouse=True)
+def mock_dns_resolution():
+    """Prevent live DNS resolution in recipe URL tests."""
+    fake_addr = [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 0))]
+    with patch("second_brain.tools.recipe.socket.getaddrinfo", return_value=fake_addr):
+        yield
+
 
 # ---------------------------------------------------------------------------
 # _extract_json_ld_recipe tests (pure function, no mocking needed)
