@@ -1,6 +1,8 @@
 """Health check and dashboard summary endpoints."""
 
+import asyncio
 import logging
+import time
 
 from fastapi import APIRouter, HTTPException, Request
 
@@ -10,6 +12,10 @@ logger = logging.getLogger("second_brain")
 
 router = APIRouter()
 
+# Cache TTL for Foundry health check (seconds). Mutable state lives on
+# app.state to avoid cross-process leakage in tests.
+_FOUNDRY_CACHE_TTL = 60.0
+
 
 @router.get("/health")
 async def health_check(request: Request) -> dict:
@@ -18,7 +24,23 @@ async def health_check(request: Request) -> dict:
     foundry_client = getattr(request.app.state, "foundry_client", None)
 
     if foundry_client is not None:
-        foundry_status = "connected"
+        # Active Foundry connectivity check with TTL cache on app.state
+        now = time.monotonic()
+        cache = getattr(request.app.state, "_foundry_health_cache", None)
+        if cache is not None and (now - cache["checked_at"]) < _FOUNDRY_CACHE_TTL:
+            foundry_status = cache["status"]
+        else:
+            try:
+                async with asyncio.timeout(5):
+                    async for _ in foundry_client.agents_client.list_agents(limit=1):
+                        break
+                foundry_status = "connected"
+            except Exception:
+                foundry_status = "degraded"
+            request.app.state._foundry_health_cache = {
+                "status": foundry_status,
+                "checked_at": now,
+            }
 
     cosmos_status = (
         "connected"
@@ -32,6 +54,12 @@ async def health_check(request: Request) -> dict:
         else "not_initialized"
     )
 
+    investigation_status = (
+        "ready"
+        if getattr(request.app.state, "investigation_client", None) is not None
+        else "not_initialized"
+    )
+
     overall = "ok" if foundry_status == "connected" else "degraded"
 
     return {
@@ -39,6 +67,7 @@ async def health_check(request: Request) -> dict:
         "foundry": foundry_status,
         "cosmos": cosmos_status,
         "admin_agent": admin_status,
+        "investigation_agent": investigation_status,
     }
 
 

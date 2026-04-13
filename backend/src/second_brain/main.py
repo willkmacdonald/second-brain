@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+from collections.abc import Callable
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
@@ -403,10 +404,67 @@ async def lifespan(app: FastAPI):
                 warmup_clients.append(("admin", app.state.admin_client))
             if getattr(app.state, "investigation_client", None) is not None:
                 warmup_clients.append(("investigation", app.state.investigation_client))
+
+            # Factory functions for self-healing: recreate agent clients on
+            # consecutive warmup failures without manual Container App restart.
+            def _make_classifier_client() -> AzureAIAgentClient:
+                return AzureAIAgentClient(
+                    credential=credential,
+                    project_endpoint=settings.azure_ai_project_endpoint,
+                    agent_id=classifier_agent_id,
+                    should_cleanup_agent=False,
+                    middleware=[
+                        AuditAgentMiddleware(agent_name="classifier"),
+                        ToolTimingMiddleware(),
+                    ],
+                )
+
+            warmup_factories: dict[str, Callable[[], AzureAIAgentClient]] = {
+                "classifier": _make_classifier_client,
+            }
+            if app.state.admin_client is not None:
+
+                def _make_admin_client() -> AzureAIAgentClient:
+                    return AzureAIAgentClient(
+                        credential=credential,
+                        project_endpoint=settings.azure_ai_project_endpoint,
+                        agent_id=app.state.admin_agent_id,
+                        should_cleanup_agent=False,
+                        middleware=[
+                            AuditAgentMiddleware(agent_name="admin"),
+                            ToolTimingMiddleware(),
+                        ],
+                    )
+
+                warmup_factories["admin"] = _make_admin_client
+            if getattr(app.state, "investigation_client", None) is not None:
+
+                def _make_investigation_client() -> AzureAIAgentClient:
+                    return AzureAIAgentClient(
+                        credential=credential,
+                        project_endpoint=settings.azure_ai_project_endpoint,
+                        agent_id=app.state.investigation_agent_id,
+                        should_cleanup_agent=False,
+                        middleware=[
+                            AuditAgentMiddleware(agent_name="investigation"),
+                            ToolTimingMiddleware(),
+                        ],
+                    )
+
+                warmup_factories["investigation"] = _make_investigation_client
+
+            def _on_recreate(name: str, new_client: AzureAIAgentClient) -> None:
+                """Update app.state with the recreated client."""
+                attr = f"{name}_client"
+                setattr(app.state, attr, new_client)
+                logger.info("app.state.%s replaced by warmup self-heal", attr)
+
             warmup_task = asyncio.create_task(
                 agent_warmup_loop(
                     clients=warmup_clients,
                     interval_seconds=settings.agent_warmup_interval_minutes * 60,
+                    client_factories=warmup_factories,
+                    on_recreate=_on_recreate,
                 )
             )
             logger.info(
