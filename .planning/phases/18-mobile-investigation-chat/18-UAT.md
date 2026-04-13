@@ -41,11 +41,11 @@ expected: Tap the "New" button in the header. The chat clears — all messages d
 result: pass
 
 ### 8. Dashboard Health Cards on Status Screen
-expected: Open the Status screen. Three health metric cards appear near the top: capture count (24h), success rate (%), and last error. Cards show real data or "--" fallback while loading. No errors on navigation.
+expected: Open the Status screen. Three health metric cards appear near the top: capture count (24h), success rate (%), and errors (24h). Cards show real data or "--" fallback while loading. No errors on navigation.
 result: pass (re-verified after 18-03 gap closure)
 
 ### 9. Error Card Deep-Link to Investigation Chat
-expected: On the Status screen, tap the last error card. It navigates to the investigation chat screen with a pre-filled query about the error, which auto-sends and the agent provides relevant details about that error.
+expected: On the Status screen, tap the errors (24h) card. It navigates to the investigation chat screen with a pre-filled query about the error, which auto-sends and the agent provides relevant details about that error.
 result: pass (resolved by 18-04 gap closure — prompt now forces both system_health + recent_errors tools)
 
 ### 10. Investigate Icon on Status Screen

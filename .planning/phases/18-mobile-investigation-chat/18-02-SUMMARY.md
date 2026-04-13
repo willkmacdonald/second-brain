@@ -10,7 +10,7 @@ requires:
     plan: 01
     provides: "SSE client (sendInvestigation), investigate chat screen with initialQuery param"
 provides:
-  - "3 health dashboard cards on Status screen (captures, success rate, last error)"
+  - "3 health dashboard cards on Status screen (captures, success rate, errors (24h))"
   - "Error card deep-link to investigation chat with pre-filled query"
   - "Header investigate icon on Status screen"
 affects: [mobile-status-screen, mobile-ux]
@@ -43,7 +43,7 @@ completed: 2026-04-12
 
 # Phase 18 Plan 02: Health Dashboard Cards & Status Screen Integration Summary
 
-**3 health metric cards (captures, success rate, last error) on Status screen with investigate icon and error deep-link to chat**
+**3 health metric cards (captures, success rate, errors (24h)) on Status screen with investigate icon and error deep-link to chat**
 
 ## Performance
 
@@ -54,7 +54,7 @@ completed: 2026-04-12
 - **Files modified:** 2
 
 ## Accomplishments
-- DashboardCards component with 3 metric cards: capture count (24h), success rate %, and last error
+- DashboardCards component with 3 metric cards: capture count (24h), success rate %, and errors (24h)
 - Health data fetched via investigation agent SSE on every screen focus with regex-based response parsing
 - Error card tappable to deep-link into investigation chat with pre-filled error query
 - Internal header row on Status screen with magnifying glass icon to open investigation chat
@@ -67,7 +67,7 @@ Each task was committed atomically:
 1. **Task 1: Create DashboardCards component and integrate into Status screen with health data fetching** - `165cb31` (feat)
 
 ## Files Created/Modified
-- `mobile/components/DashboardCards.tsx` - 3-card dashboard row component with capture count, success rate, and tappable last error
+- `mobile/components/DashboardCards.tsx` - 3-card dashboard row component with capture count, success rate, and tappable errors (24h)
 - `mobile/app/(tabs)/status.tsx` - Added DashboardCards in ListHeaderComponent, investigate header icon, dashboard data fetching via sendInvestigation
 
 ## Decisions Made

@@ -39,8 +39,8 @@ Requirements for v3.1 Observability & Evals milestone. Each maps to roadmap phas
 - [x] **MOBL-01**: User can open a chat screen from the Status screen to ask investigation questions
 - [x] **MOBL-02**: Investigation agent streams responses via SSE with "Thinking..." indicator
 - [x] **MOBL-03**: User can ask follow-up questions in the same conversation thread
-- [x] **MOBL-04**: User can tap quick-action chips for common queries (recent errors, today's captures, system health, last eval results)
-- [x] **MOBL-05**: User can see at-a-glance health dashboard cards (capture count, success rate, eval scores, last error)
+- [x] **MOBL-04**: User can tap quick-action chips for common queries (recent errors, today's captures, system health) (eval results chip deferred to Phase 21)
+- [x] **MOBL-05**: User can see at-a-glance health dashboard cards (capture count, success rate, errors (24h)) (eval scores card deferred to Phase 21)
 - [x] **MOBL-06**: User can tap a dashboard error card to jump to investigation chat with pre-filled query
 
 ### Claude Code Integration

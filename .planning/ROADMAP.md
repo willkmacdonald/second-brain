@@ -164,8 +164,8 @@ Plans:
   1. User can open a chat screen from the Status screen and type a question to the investigation agent
   2. Agent responses stream in real-time via SSE with a visible "Thinking..." indicator while the agent works
   3. User can ask follow-up questions in the same conversation thread without losing context
-  4. Quick action chips (recent errors, today's captures, system health, last eval results) send pre-filled queries with one tap
-  5. Dashboard cards on the Status screen show capture count, success rate, eval scores, and last error at a glance
+  4. Quick action chips (recent errors, today's captures, system health) send pre-filled queries with one tap (eval results chip deferred to Phase 21)
+  5. Dashboard cards on the Status screen show capture count, success rate, and errors (24h) at a glance (eval scores card deferred to Phase 21)
 **Plans:** 4/4 plans complete
 
 Plans:

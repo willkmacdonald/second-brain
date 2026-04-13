@@ -4,7 +4,6 @@ Validates dynamic destination queries, HITL routing with auto-rule-save,
 admin notification delivery, and Admin Agent processing trigger.
 """
 
-import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -99,7 +98,7 @@ def _setup_destination_items(
     mock_cosmos_manager: MagicMock,
     destination_items: dict[str, list[dict]],
 ) -> None:
-    """Configure Errands container mock to return items per destination partition key."""
+    """Configure Errands container mock to return items per destination."""
     container = mock_cosmos_manager.get_container("Errands")
 
     def query_items_side_effect(*, query: str, partition_key: str):
@@ -130,9 +129,7 @@ def _setup_inbox_notifications(
         # Default: no unprocessed items
         return _make_async_iterator([])(**kwargs)
 
-    inbox_container.query_items = MagicMock(
-        side_effect=inbox_query_side_effect
-    )
+    inbox_container.query_items = MagicMock(side_effect=inbox_query_side_effect)
 
 
 # ---------------------------------------------------------------------------
@@ -145,15 +142,21 @@ async def test_get_errands_returns_grouped_items(
     errands_app: FastAPI,
     mock_cosmos_manager: MagicMock,
 ) -> None:
-    """GET returns items grouped by destination with display names, sorted by count desc."""
-    _setup_destinations(mock_cosmos_manager, [
-        SAMPLE_DESTINATIONS[0],  # jewel
-        SAMPLE_DESTINATIONS[1],  # cvs
-    ])
-    _setup_destination_items(mock_cosmos_manager, {
-        "jewel": JEWEL_ITEMS,
-        "cvs": CVS_ITEMS,
-    })
+    """GET returns items grouped by destination with display names."""
+    _setup_destinations(
+        mock_cosmos_manager,
+        [
+            SAMPLE_DESTINATIONS[0],  # jewel
+            SAMPLE_DESTINATIONS[1],  # cvs
+        ],
+    )
+    _setup_destination_items(
+        mock_cosmos_manager,
+        {
+            "jewel": JEWEL_ITEMS,
+            "cvs": CVS_ITEMS,
+        },
+    )
     _setup_inbox_notifications(mock_cosmos_manager)
 
     transport = httpx.ASGITransport(app=errands_app)
@@ -190,10 +193,13 @@ async def test_get_errands_empty(
     mock_cosmos_manager: MagicMock,
 ) -> None:
     """GET returns empty destinations list and zero totalCount when no items exist."""
-    _setup_destinations(mock_cosmos_manager, [
-        SAMPLE_DESTINATIONS[0],
-        SAMPLE_DESTINATIONS[1],
-    ])
+    _setup_destinations(
+        mock_cosmos_manager,
+        [
+            SAMPLE_DESTINATIONS[0],
+            SAMPLE_DESTINATIONS[1],
+        ],
+    )
     _setup_destination_items(mock_cosmos_manager, {})
     _setup_inbox_notifications(mock_cosmos_manager)
 
@@ -218,10 +224,13 @@ async def test_get_errands_excludes_empty_destinations(
 ) -> None:
     """GET only returns destination sections that have items."""
     _setup_destinations(mock_cosmos_manager)
-    _setup_destination_items(mock_cosmos_manager, {
-        "jewel": JEWEL_ITEMS,
-        # cvs, pet_store, other have no items
-    })
+    _setup_destination_items(
+        mock_cosmos_manager,
+        {
+            "jewel": JEWEL_ITEMS,
+            # cvs, pet_store, other have no items
+        },
+    )
     _setup_inbox_notifications(mock_cosmos_manager)
 
     transport = httpx.ASGITransport(app=errands_app)
@@ -256,14 +265,20 @@ async def test_get_errands_includes_destination_type(
         "displayName": "Amazon",
         "type": "online",
     }
-    _setup_destinations(mock_cosmos_manager, [
-        SAMPLE_DESTINATIONS[0],  # jewel (physical)
-        online_dest,
-    ])
-    _setup_destination_items(mock_cosmos_manager, {
-        "jewel": JEWEL_ITEMS,
-        "amazon": [{"id": "a1", "name": "USB cable", "destination": "amazon"}],
-    })
+    _setup_destinations(
+        mock_cosmos_manager,
+        [
+            SAMPLE_DESTINATIONS[0],  # jewel (physical)
+            online_dest,
+        ],
+    )
+    _setup_destination_items(
+        mock_cosmos_manager,
+        {
+            "jewel": JEWEL_ITEMS,
+            "amazon": [{"id": "a1", "name": "USB cable", "destination": "amazon"}],
+        },
+    )
     _setup_inbox_notifications(mock_cosmos_manager)
 
     transport = httpx.ASGITransport(app=errands_app)
@@ -276,9 +291,7 @@ async def test_get_errands_includes_destination_type(
     assert response.status_code == 200
     data = response.json()
 
-    types_by_dest = {
-        s["destination"]: s["type"] for s in data["destinations"]
-    }
+    types_by_dest = {s["destination"]: s["type"] for s in data["destinations"]}
     assert types_by_dest["jewel"] == "physical"
     assert types_by_dest["amazon"] == "online"
 
@@ -291,12 +304,20 @@ async def test_get_errands_includes_unrouted_section(
     """GET returns unrouted items as a special 'Needs Routing' section."""
     _setup_destinations(mock_cosmos_manager, [SAMPLE_DESTINATIONS[0]])
     unrouted_items = [
-        {"id": "u1", "name": "mystery item", "destination": "unrouted", "needsRouting": True},
+        {
+            "id": "u1",
+            "name": "mystery item",
+            "destination": "unrouted",
+            "needsRouting": True,
+        },
     ]
-    _setup_destination_items(mock_cosmos_manager, {
-        "jewel": JEWEL_ITEMS,
-        "unrouted": unrouted_items,
-    })
+    _setup_destination_items(
+        mock_cosmos_manager,
+        {
+            "jewel": JEWEL_ITEMS,
+            "unrouted": unrouted_items,
+        },
+    )
     _setup_inbox_notifications(mock_cosmos_manager)
 
     transport = httpx.ASGITransport(app=errands_app)
@@ -358,9 +379,7 @@ async def test_delete_errand_item_not_found(
     """DELETE returns 404 when item does not exist."""
     container = mock_cosmos_manager.get_container("Errands")
     container.delete_item = AsyncMock(
-        side_effect=CosmosResourceNotFoundError(
-            status_code=404, message="Not found"
-        )
+        side_effect=CosmosResourceNotFoundError(status_code=404, message="Not found")
     )
 
     transport = httpx.ASGITransport(app=errands_app)
@@ -417,9 +436,7 @@ async def test_route_errand_item_success(
     # Set up Destinations to validate the slug
     dest_container = mock_cosmos_manager.get_container("Destinations")
     dest_container.query_items = MagicMock(
-        return_value=_make_async_iterator(
-            [{"slug": "jewel"}]
-        )()
+        return_value=_make_async_iterator([{"slug": "jewel"}])()
     )
 
     rules_container = mock_cosmos_manager.get_container("AffinityRules")
@@ -467,9 +484,7 @@ async def test_route_errand_item_not_found(
     """POST /route returns 404 for nonexistent unrouted item."""
     errands_container = mock_cosmos_manager.get_container("Errands")
     errands_container.read_item = AsyncMock(
-        side_effect=CosmosResourceNotFoundError(
-            status_code=404, message="Not found"
-        )
+        side_effect=CosmosResourceNotFoundError(status_code=404, message="Not found")
     )
 
     transport = httpx.ASGITransport(app=errands_app)
@@ -500,9 +515,7 @@ async def test_route_errand_item_without_rule_save(
     # Set up Destinations to validate the slug
     dest_container = mock_cosmos_manager.get_container("Destinations")
     dest_container.query_items = MagicMock(
-        return_value=_make_async_iterator(
-            [{"slug": "cvs"}]
-        )()
+        return_value=_make_async_iterator([{"slug": "cvs"}])()
     )
 
     rules_container = mock_cosmos_manager.get_container("AffinityRules")
@@ -541,9 +554,7 @@ async def test_route_errand_item_invalid_destination(
 
     # No matching destination
     dest_container = mock_cosmos_manager.get_container("Destinations")
-    dest_container.query_items = MagicMock(
-        return_value=_make_async_iterator([])()
-    )
+    dest_container.query_items = MagicMock(return_value=_make_async_iterator([])())
 
     transport = httpx.ASGITransport(app=errands_app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
@@ -570,12 +581,15 @@ async def test_get_errands_returns_admin_notifications(
     """GET returns adminNotifications for completed agent responses."""
     _setup_destinations(mock_cosmos_manager, [SAMPLE_DESTINATIONS[0]])
     _setup_destination_items(mock_cosmos_manager, {"jewel": JEWEL_ITEMS})
-    _setup_inbox_notifications(mock_cosmos_manager, [
-        {
-            "id": "notif-1",
-            "adminAgentResponse": "I created a rule: chicken goes to jewel",
-        },
-    ])
+    _setup_inbox_notifications(
+        mock_cosmos_manager,
+        [
+            {
+                "id": "notif-1",
+                "adminAgentResponse": "I created a rule: chicken goes to jewel",
+            },
+        ],
+    )
 
     transport = httpx.ASGITransport(app=errands_app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
@@ -623,9 +637,7 @@ async def test_dismiss_admin_notification_not_found(
     """POST /dismiss returns 404 when notification inbox item is missing."""
     inbox_container = mock_cosmos_manager.get_container("Inbox")
     inbox_container.delete_item = AsyncMock(
-        side_effect=CosmosResourceNotFoundError(
-            status_code=404, message="Not found"
-        )
+        side_effect=CosmosResourceNotFoundError(status_code=404, message="Not found")
     )
 
     transport = httpx.ASGITransport(app=errands_app)
@@ -641,6 +653,14 @@ async def test_dismiss_admin_notification_not_found(
 # ---------------------------------------------------------------------------
 # Admin Agent processing trigger
 # ---------------------------------------------------------------------------
+
+
+def _close_coroutine(coro):
+    """Close the coroutine to prevent RuntimeWarning."""
+    coro.close()
+    mock_task = MagicMock()
+    mock_task.add_done_callback = MagicMock()
+    return mock_task
 
 
 def _make_inbox_async_iterator(items: list[dict]):
@@ -672,9 +692,7 @@ def _setup_trigger_mocks(
         # Admin trigger query
         return _make_inbox_async_iterator(inbox_items)(**kwargs)
 
-    inbox_container.query_items = MagicMock(
-        side_effect=inbox_query_side_effect
-    )
+    inbox_container.query_items = MagicMock(side_effect=inbox_query_side_effect)
 
 
 @pytest.mark.asyncio
@@ -694,24 +712,18 @@ async def test_get_errands_triggers_processing(
     errands_app.state.admin_agent_tools = [AsyncMock()]
     errands_app.state.background_tasks = set()
 
-    # Patch asyncio.create_task to capture the coroutine
+    # Patch asyncio.create_task to close the coroutine (prevents RuntimeWarning)
     with patch(
-        "second_brain.api.errands.asyncio.create_task"
+        "second_brain.api.errands.asyncio.create_task",
+        side_effect=_close_coroutine,
     ) as mock_create_task:
-        mock_create_task.return_value = MagicMock()
-        mock_create_task.return_value.add_done_callback = (
-            MagicMock()
-        )
-
         transport = httpx.ASGITransport(app=errands_app)
         async with httpx.AsyncClient(
             transport=transport, base_url="http://test"
         ) as client:
             response = await client.get(
                 "/api/errands",
-                headers={
-                    "Authorization": f"Bearer {TEST_API_KEY}"
-                },
+                headers={"Authorization": f"Bearer {TEST_API_KEY}"},
             )
 
     assert response.status_code == 200
@@ -740,22 +752,16 @@ async def test_get_errands_no_processing_when_query_returns_empty(
 
     # Patch asyncio.create_task to verify it is NOT called
     with patch(
-        "second_brain.api.errands.asyncio.create_task"
+        "second_brain.api.errands.asyncio.create_task",
+        side_effect=_close_coroutine,
     ) as mock_create_task:
-        mock_create_task.return_value = MagicMock()
-        mock_create_task.return_value.add_done_callback = (
-            MagicMock()
-        )
-
         transport = httpx.ASGITransport(app=errands_app)
         async with httpx.AsyncClient(
             transport=transport, base_url="http://test"
         ) as client:
             response = await client.get(
                 "/api/errands",
-                headers={
-                    "Authorization": f"Bearer {TEST_API_KEY}"
-                },
+                headers={"Authorization": f"Bearer {TEST_API_KEY}"},
             )
 
     assert response.status_code == 200
@@ -781,9 +787,7 @@ async def test_get_errands_no_trigger_when_no_admin_client(
         delattr(errands_app.state, "admin_client")
 
     transport = httpx.ASGITransport(app=errands_app)
-    async with httpx.AsyncClient(
-        transport=transport, base_url="http://test"
-    ) as client:
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         response = await client.get(
             "/api/errands",
             headers={"Authorization": f"Bearer {TEST_API_KEY}"},

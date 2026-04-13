@@ -20,7 +20,7 @@ Investigation agent is accessible from the phone with a conversational chat inte
 - Conversation starts fresh each time the chat is opened — no persistence across app sessions. Backend thread exists for follow-ups within a session.
 
 ### Dashboard cards
-- 3 cards at the top of the Status screen (above errands/tasks): capture count, success rate, last error
+- 3 cards at the top of the Status screen (above errands/tasks): capture count, success rate, errors (24h)
 - Eval scores card deferred to Phase 21 when eval framework exists — don't show a placeholder
 - Data sourced by calling the investigation agent (system_health query), not a separate endpoint
 - Cards refresh on screen focus (same pattern as errands polling)
@@ -36,7 +36,7 @@ Investigation agent is accessible from the phone with a conversational chat inte
 - Chat is a push screen (like conversation/[threadId]), not a modal or bottom sheet
 - Header title: "Investigate"
 - Header includes a "new chat" icon to reset the conversation without navigating back
-- Last-error dashboard card is tappable — deep-links to chat with a pre-filled query about the most recent error
+- Errors (24h) dashboard card is tappable — deep-links to chat with a pre-filled query about recent errors
 - Other dashboard cards (capture count, success rate) are display-only
 - Text input supports both text and voice (reuse existing voice capture pattern)
 
