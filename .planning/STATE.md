@@ -97,6 +97,7 @@ None.
 - Phase 16.1 inserted after Phase 16: Improve deployment process (URGENT)
 - Phase 16.1 complete: pre-build uv lockfile validation + commit-correlated revision naming (Plan 01) + post-deploy health verification, image SHA check, revision cleanup, deploy summary (Plan 02)
 - Phase 17.3 inserted after Phase 17: Address critical observability gaps (URGENT) -- COMPLETE (Sentry crash reporting verified on device)
+- Phase 17.4 inserted after Phase 17.3: Foundry Observability and Codex Code Review (URGENT) -- Zero visibility into Foundry agent internals; investigation agent hangs are a black box; discovered during 18-04 gap closure (2026-04-13)
 
 ### Blockers/Concerns
 

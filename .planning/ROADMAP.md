@@ -65,6 +65,7 @@ See: .planning/milestones/v3.0-ROADMAP.md
 - [x] **Phase 16: Query Foundation** - LogsQueryClient, workspace-compatible KQL templates, Cosmos containers for eval data (completed 2026-04-05)
 - [x] **Phase 17: Investigation Agent** - Third Foundry agent with parameterized KQL tools and SSE streaming endpoint (completed 2026-04-06)
 - [x] **Phase 17.3: Address Critical Observability Gaps** (INSERTED) - Sentry crash reporting, React error boundaries, ErrorFallback recovery UI (completed 2026-04-11)
+- [ ] **Phase 17.4: Foundry Observability and Codex Code Review** (INSERTED) - AI Foundry agent visibility, SDK diagnostics, code review
 - [x] **Phase 18: Mobile Investigation Chat** - Chat screen, dashboard cards, quick action chips, and error deep-linking (completed 2026-04-12)
 - [ ] **Phase 19: Claude Code MCP Tool** - Standalone MCP server for App Insights queries from Claude Code
 - [ ] **Phase 20: Feedback Collection** - Implicit quality signals, explicit thumbs up/down, golden dataset promotion
@@ -132,6 +133,16 @@ Plans:
 
 Plans:
 - [x] 17.3-01-PLAN.md -- Sentry SDK integration, ErrorFallback component, root layout wrapping
+
+### Phase 17.4: Foundry Observability and Codex Code Review (INSERTED)
+
+**Goal:** [Urgent work - to be planned]
+**Requirements**: TBD
+**Depends on:** Phase 17.3
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 17.4 to break down)
 
 ### Phase 18: Mobile Investigation Chat
 **Goal**: Investigation agent is accessible from the phone with a conversational chat interface and at-a-glance health dashboard
