@@ -1,0 +1,49 @@
+name: Codex Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Fetch base branch for diff
+        run: git fetch origin ${{ github.event.pull_request.base.ref }}
+
+      - name: Generate diff context
+        run: |
+          git diff origin/${{ github.event.pull_request.base.ref }}...HEAD > /tmp/pr-diff.patch
+          echo "## Files changed in this PR:" > /tmp/pr-context.md
+          git diff --name-only origin/${{ github.event.pull_request.base.ref }}...HEAD >> /tmp/pr-context.md
+
+      - uses: openai/codex-action@v1
+        id: codex
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt-file: .github/codex/prompts/review.md
+          sandbox: read-only
+          safety-strategy: drop-sudo
+
+      - uses: actions/github-script@v7
+        if: steps.codex.outputs.final-message != ''
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `## Codex Review\n\n${process.env.REVIEW}`
+            });
+        env:
+          REVIEW: ${{ steps.codex.outputs.final-message }}
