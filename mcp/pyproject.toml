@@ -1,0 +1,15 @@
+[project]
+name = "second-brain-mcp"
+version = "0.1.0"
+description = "MCP server exposing App Insights telemetry tools for Claude Code"
+requires-python = ">=3.12"
+dependencies = [
+    "mcp[cli]",
+    "second-brain-backend",
+]
+
+[tool.uv]
+prerelease = "allow"
+
+[tool.uv.sources]
+second-brain-backend = { path = "../backend", editable = true }
