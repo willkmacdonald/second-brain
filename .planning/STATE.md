@@ -23,11 +23,11 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 ## Current Position
 
 Phase: 17.4 of 22 (Foundry Observability and Codex Code Review) -- IN PROGRESS
-Plan: 1 of 4 in current phase -- COMPLETE
-Status: Plan 17.4-01 complete. Fixed all Codex code review findings and reconciled stale planning docs.
-Last activity: 2026-04-13 -- Plan 17.4-01 executed (ErrorFallback types, recipe DNS tests, errands coroutine leak, doc reconciliation)
+Plan: 2 of 4 in current phase -- COMPLETE
+Status: Plan 17.4-02 complete. Parameterized middleware, active health check, self-healing warmup, 30s timeout.
+Last activity: 2026-04-13 -- Plan 17.4-02 executed (observability hardening with 9 new tests)
 
-Progress: [█████░░░░░░░░░░░░░░░] 25% (Phase 17.4: 1/4 plans complete)
+Progress: [██████████░░░░░░░░░░] 50% (Phase 17.4: 2/4 plans complete)
 
 ## Performance Metrics
 
@@ -90,6 +90,9 @@ v3.0 decisions archived to .planning/milestones/v3.0-ROADMAP.md
 - [Phase 17.4]: ErrorFallback uses error: unknown with instanceof narrowing (Sentry FallbackRender contract)
 - [Phase 17.4]: Recipe tests use autouse DNS mock fixture to prevent live resolution
 - [Phase 17.4]: MOBL-04/MOBL-05 eval items deferred to Phase 21 (not implemented in Phase 18)
+- [Phase 17.4]: Client factory pattern for warmup self-heal (avoids private SDK attr access)
+- [Phase 17.4]: Foundry health cache on app.state (not module global) for test isolation
+- [Phase 17.4]: Investigation timeout reduced to 30s (from 60s) with user-friendly error message
 
 ### Pending Todos
 
@@ -110,5 +113,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-13
-Stopped at: Completed 17.4-01-PLAN.md -- Codex code review fixes and planning doc reconciliation
-Resume action: Execute 17.4-02-PLAN.md (backend agent observability hardening)
+Stopped at: Completed 17.4-02-PLAN.md -- Backend observability hardening (middleware, health, warmup, timeout, tests)
+Resume action: Execute 17.4-03-PLAN.md (Codex CI workflow and review prompt)
