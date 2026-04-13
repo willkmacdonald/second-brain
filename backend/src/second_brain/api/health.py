@@ -66,5 +66,5 @@ async def health_summary(request: Request) -> dict:
     return {
         "captureCount": health.capture_count,
         "successRate": health.success_rate,
-        "errorCount": health.error_count,
+        "errorCount": health.error_count + health.failed_capture_count,
     }

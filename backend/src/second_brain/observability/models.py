@@ -94,6 +94,7 @@ class HealthSummary(BaseModel):
     capture_count: int = 0
     success_rate: float | None = None
     error_count: int = 0
+    failed_capture_count: int = 0
     avg_duration_ms: float | None = None
     admin_processing_count: int = 0
 

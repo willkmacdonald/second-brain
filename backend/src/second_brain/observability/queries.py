@@ -161,10 +161,14 @@ async def query_system_health(
     if capture_count > 0:
         success_rate = round(100.0 * successful / capture_count, 1)
 
+    client_errors = int(row.get("client_error_count", 0) or 0)
+    server_errors = int(row.get("server_error_count", 0) or 0)
+
     return HealthSummary(
         capture_count=capture_count,
         success_rate=success_rate,
         error_count=int(row.get("error_log_count", 0) or 0),
+        failed_capture_count=client_errors + server_errors,
         avg_duration_ms=row.get("avg_duration_ms"),
         admin_processing_count=int(row.get("admin_processing_count", 0) or 0),
     )
