@@ -110,7 +110,8 @@ export default function StatusScreen() {
           let captureCount: number | null = null;
           const captureMatch =
             accumulated.match(/(\d+)\s*captures?/i) ??
-            accumulated.match(/capture\s*count[:\s]+(\d+)/i) ??
+            accumulated.match(/capture\s*count[:\s]*(\d+)/i) ??
+            accumulated.match(/captures?[:\s]*(\d+)/i) ??
             accumulated.match(/processed\s*(\d+)/i) ??
             accumulated.match(/(\d+)\s*(?:items?|recordings?)\s*(?:captured|processed)/i);
           if (captureMatch) {
@@ -132,7 +133,7 @@ export default function StatusScreen() {
           const errorMatch =
             accumulated.match(/Last error:\s*(.+?)(?:\n|$)/i) ??
             accumulated.match(/most recent error[:\s]+(.+?)(?:\n|$)/i) ??
-            accumulated.match(/(?:error|failure)[:\s]+["']?(.+?)["']?(?:\n|$)/i);
+            accumulated.match(/recent error[:\s]+["']?(.+?)["']?(?:\n|$)/i);
           if (errorMatch) {
             const errorText = errorMatch[1].trim();
             if (
