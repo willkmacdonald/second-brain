@@ -143,7 +143,7 @@ Plans:
   3. User can ask follow-up questions in the same conversation thread without losing context
   4. Quick action chips (recent errors, today's captures, system health, last eval results) send pre-filled queries with one tap
   5. Dashboard cards on the Status screen show capture count, success rate, eval scores, and last error at a glance
-**Plans:** 3 plans (2 complete, 1 gap closure)
+**Plans:** 3/3 plans complete
 
 Plans:
 - [x] 18-01-PLAN.md -- Investigation chat screen with SSE streaming, markdown bubbles, quick action chips, and voice input
@@ -214,7 +214,7 @@ Items not yet scheduled into a milestone or phase.
 | 16.1. Improve Deployment Process | 2/2 | Complete    | 2026-04-06 | - |
 | 17. Investigation Agent | 2/2 | Complete    | 2026-04-06 | - |
 | 17.3. Address Critical Observability Gaps | 1/1 | Complete    | 2026-04-12 | - |
-| 18. Mobile Investigation Chat | 2/3 | Gap closure | 2026-04-12 | - |
+| 18. Mobile Investigation Chat | 3/3 | Complete   | 2026-04-13 | - |
 | 19. Claude Code MCP Tool | v3.1 | 0/TBD | Not started | - |
 | 20. Feedback Collection | v3.1 | 0/TBD | Not started | - |
 | 21. Eval Framework | v3.1 | 0/TBD | Not started | - |

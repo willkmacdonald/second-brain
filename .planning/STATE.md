@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Observability & Evals
 status: unknown
-last_updated: "2026-04-12T04:37:50.519Z"
+last_updated: "2026-04-13T03:01:39Z"
 progress:
   total_phases: 14
   completed_phases: 12
-  total_plans: 40
-  completed_plans: 38
+  total_plans: 41
+  completed_plans: 39
 ---
 
 # Project State
@@ -23,11 +23,11 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 ## Current Position
 
 Phase: 18 of 22 (Mobile Investigation Chat) -- COMPLETE
-Plan: 2 of 2 in current phase -- COMPLETE
-Status: Phase 18 complete. All MOBL-01 through MOBL-06 requirements addressed.
-Last activity: 2026-04-12 -- Plan 18-02 executed (dashboard cards + status screen integration)
+Plan: 3 of 3 in current phase -- COMPLETE
+Status: Phase 18 complete. UAT gap closure plan 18-03 fixed voice event leak and Sentry blind spot.
+Last activity: 2026-04-13 -- Plan 18-03 executed (UAT gap closure: voice event guard + Sentry instrumentation)
 
-Progress: [████████████████████] 100% (Phase 18: 2/2 plans complete)
+Progress: [████████████████████] 100% (Phase 18: 3/3 plans complete)
 
 ## Performance Metrics
 
@@ -42,8 +42,8 @@ Progress: [████████████████████] 100% (P
 - Timeline: 2026-02-26 to 2026-03-01 (4 days)
 
 **Velocity (v3.1):**
-- Plans completed: 8
-- Last plan duration: 2min (18-02)
+- Plans completed: 9
+- Last plan duration: 3min (18-03)
 - Timeline: 2026-04-05 to present
 
 *Updated after each plan completion*
@@ -84,6 +84,8 @@ v3.0 decisions archived to .planning/milestones/v3.0-ROADMAP.md
 - [Phase 17.3]: Placeholder values for Sentry org/project/DSN -- user replaces before first EAS build
 - [Phase 18]: Used useMarkdown hook from react-native-marked instead of Markdown component to avoid nested FlatList conflict
 - [Phase 18]: Dashboard metrics parsed from investigation agent prose via regex (no separate backend endpoint)
+- [Phase 18]: isRecordingRef guard prevents cross-screen speech event leaks (ref not state to avoid stale closures)
+- [Phase 18]: Sentry.captureMessage additive alongside console.error (no-op in dev, active in production EAS builds)
 
 ### Pending Todos
 
@@ -102,6 +104,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-04-12
-Stopped at: Completed 18-02-PLAN.md -- Dashboard cards + status screen integration (Phase 18 complete)
-Resume action: Execute Phase 19 or next planned phase
+Last session: 2026-04-13
+Stopped at: Completed 18-03-PLAN.md -- UAT gap closure (voice event guard + Sentry instrumentation)
+Resume action: Re-run UAT to confirm fixes, then proceed to Phase 19
