@@ -10,7 +10,7 @@ Phase 19 builds a standalone MCP server that exposes the existing `second_brain.
 
 After the MCP server is working, the existing `/investigate` skill (which calls the deployed API at `brain.willmacdonald.com`) is migrated to invoke local MCP tools directly -- one fewer network hop, same query capability.
 
-**Primary recommendation:** Use `mcp` SDK v1.27.0 (`from mcp.server.fastmcp import FastMCP`) with the lifespan pattern to initialize `LogsQueryClient` + `DefaultAzureCredential` at startup. Register via `claude mcp add` with `--scope local` pointing at `uv --directory mcp/ run server.py`. The MCP server's `pyproject.toml` declares an editable dependency on `../backend` to get `second_brain.observability` on the import path.
+**Primary recommendation:** Use `mcp` SDK v1.27.0 (`from mcp.server.fastmcp import FastMCP`) with the lifespan pattern to initialize `LogsQueryClient` + `DefaultAzureCredential` at startup. Register via `claude mcp add` with `--scope project` pointing at `uv --directory mcp/ run server.py`. This writes to `.claude/settings.json` (committed to repo). The MCP server's `pyproject.toml` declares an editable dependency on `../backend` to get `second_brain.observability` on the import path.
 
 <user_constraints>
 ## User Constraints (from CONTEXT.md)
@@ -51,7 +51,7 @@ None -- discussion stayed within phase scope
 
 | ID | Description | Research Support |
 |----|-------------|-----------------|
-| MCP-01 | User can query App Insights from Claude Code via MCP tool (trace lookups, failures, health) | FastMCP server with stdio transport wrapping `second_brain.observability` query functions; registered in Claude Code via `claude mcp add --scope local`; lifespan pattern initializes Azure credentials + LogsQueryClient at startup |
+| MCP-01 | User can query App Insights from Claude Code via MCP tool (trace lookups, failures, health) | FastMCP server with stdio transport wrapping `second_brain.observability` query functions; registered in Claude Code via `claude mcp add --scope project` (writes `.claude/settings.json`); lifespan pattern initializes Azure credentials + LogsQueryClient at startup |
 </phase_requirements>
 
 ## Standard Stack
@@ -208,20 +208,18 @@ async def recent_errors(
 ```
 
 ### Pattern 4: Claude Code Registration via `claude mcp add`
-**What:** Register the MCP server with local scope so it auto-starts when Claude Code opens the second-brain project.
+**What:** Register the MCP server with project scope so it auto-starts when Claude Code opens the second-brain project. Project scope writes to `.claude/settings.json` which is committed to the repo.
 **When to use:** One-time setup step.
 **Example:**
 ```bash
 # Register the server (from the second-brain repo root)
-claude mcp add --transport stdio --scope local \
+claude mcp add --transport stdio --scope project \
   --env AZURE_LOG_ANALYTICS_WORKSPACE_ID=$AZURE_LOG_ANALYTICS_WORKSPACE_ID \
   second-brain-telemetry \
   -- uv --directory /Users/willmacdonald/Documents/Code/claude/second-brain/mcp run server.py
 ```
 
-This writes into `~/.claude.json` under the project path. The server auto-starts via stdio when Claude Code opens.
-
-**Important:** The `--scope local` stores config in `~/.claude.json` scoped to this project path, NOT in `.claude/settings.json`. The CONTEXT.md mentions `.claude/settings.json` but Claude Code's actual mechanism for local MCP servers is `~/.claude.json`. The net effect is the same (scoped to this repo, auto-starts).
+**Scope options:** `--scope project` writes to `.claude/settings.json` (committed). `--scope local` writes to `.claude/settings.local.json` (gitignored, machine-specific). `--scope user` writes to `~/.claude.json` (global). We use project scope per CONTEXT.md decision. Note: `.claude/settings.local.json` already exists with permission rules — the MCP config goes in the separate `.claude/settings.json` file.
 
 ### Pattern 5: Skill Migration (Post-MCP)
 **What:** After MCP tools are working, rewrite `.claude/skills/investigate/SKILL.md` to use MCP tool calls instead of `backend/scripts/investigate.py`.
@@ -369,7 +367,7 @@ async def lifespan(server: FastMCP):
 mcp = FastMCP("second-brain-telemetry", lifespan=lifespan)
 
 
-def _get_app(ctx: Context) -> AppContext:
+def _get_app(ctx: Context[ServerSession, AppContext]) -> AppContext:
     """Extract the AppContext from the MCP Context."""
     return ctx.request_context.lifespan_context
 
@@ -428,7 +426,7 @@ async def run_kql(
 ### Claude Code Registration Command
 ```bash
 # From the second-brain repo root directory:
-claude mcp add --transport stdio --scope local \
+claude mcp add --transport stdio --scope project \
   --env AZURE_LOG_ANALYTICS_WORKSPACE_ID=$AZURE_LOG_ANALYTICS_WORKSPACE_ID \
   second-brain-telemetry \
   -- uv --directory "$PWD/mcp" run server.py
