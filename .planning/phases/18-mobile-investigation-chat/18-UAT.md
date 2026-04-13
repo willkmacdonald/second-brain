@@ -1,9 +1,9 @@
 ---
-status: complete
+status: diagnosed
 phase: 18-mobile-investigation-chat
-source: [18-01-SUMMARY.md, 18-02-SUMMARY.md]
+source: [18-01-SUMMARY.md, 18-02-SUMMARY.md, 18-03-SUMMARY.md]
 started: 2026-04-12T05:00:00Z
-updated: 2026-04-12T09:40:00Z
+updated: 2026-04-13T04:50:00Z
 ---
 
 ## Current Test
@@ -41,15 +41,13 @@ expected: Tap the "New" button in the header. The chat clears — all messages d
 result: pass
 
 ### 8. Dashboard Health Cards on Status Screen
-expected: Open the Status screen. Three health metric cards appear near the top: capture count (24h), success rate (%), and last error. Cards show real data or "--" fallback while loading.
-result: issue
-reported: "Cards display correctly but navigating to Status screen triggers console error: Voice capture fallback error: {detail: Unsupported audio format: audio/vnd.wave} from index.tsx:208. Error fires on screen open. Three compounding failures: (1) error is NOT showing in Sentry despite Phase 17.3 integration, (2) error is NOT showing on the Last Error dashboard card, (3) investigation agent cannot see it. The entire observability pipeline is blind to active client-side errors."
-severity: blocker
+expected: Open the Status screen. Three health metric cards appear near the top: capture count (24h), success rate (%), and last error. Cards show real data or "--" fallback while loading. No errors on navigation.
+result: pass (re-verified after 18-03 gap closure)
 
 ### 9. Error Card Deep-Link to Investigation Chat
-expected: On the Status screen, tap the last error card. It navigates to the investigation chat screen with a pre-filled query about the error, which auto-sends and streams a response.
+expected: On the Status screen, tap the last error card. It navigates to the investigation chat screen with a pre-filled query about the error, which auto-sends and the agent provides relevant details about that error.
 result: issue
-reported: "Error card shows 'None' and is not tappable. Active errors exist but are not captured by observability pipeline, so the card never has data to deep-link with."
+reported: "Error card shows an error ('count remained consistent at zero') and deep-links correctly to investigate screen with pre-filled query. But the agent responds 'No errors found in the last 24h' — contradicting the error it just reported on the dashboard. The dashboard health summary and the error deep-link query produce inconsistent results from the same agent."
 severity: blocker
 
 ### 10. Investigate Icon on Status Screen
@@ -59,29 +57,24 @@ result: pass
 ## Summary
 
 total: 10
-passed: 8
-issues: 2
+passed: 9
+issues: 1
 pending: 0
 skipped: 0
 
 ## Gaps
 
-- truth: "Error card deep-links to investigation chat with pre-filled error query"
+- truth: "Error card deep-link query returns consistent results with the dashboard health summary that surfaced the error"
   status: failed
-  reason: "User reported: Error card shows 'None' and is not tappable. Active client-side errors exist but are not captured by observability pipeline, so the card never has data to deep-link with."
+  reason: "User reported: Dashboard health summary mentions an error ('count remained consistent at zero'), card displays it, deep-link sends 'Tell me about this recent error: count remained consistent at zero' to agent, but agent responds 'No errors found in the last 24h'. The dashboard and deep-link both query the same investigation agent but get inconsistent answers."
   severity: blocker
   test: 9
-  root_cause: ""
-  artifacts: []
-  missing: []
-  debug_session: ""
-
-- truth: "Status screen opens without errors"
-  status: failed
-  reason: "User reported: Voice capture fallback error: {detail: Unsupported audio format: audio/vnd.wave} fires on navigation. Three compounding failures: (1) error NOT in Sentry despite Phase 17.3 integration, (2) Last Error dashboard card shows 'None', (3) investigation agent blind to it. Entire observability pipeline fails to capture active client-side errors."
-  severity: blocker
-  test: 8
-  root_cause: ""
-  artifacts: []
-  missing: []
+  root_cause: "Dashboard card asks agent for a free-text health summary, then regex-parses the response to extract an error string. The agent's health summary mentions something it interprets as an error condition (e.g. from usage patterns or eval results), but it's not an actual error in AppExceptions/AppTraces. When the deep-link re-asks about that specific error text via a different query, the agent searches recent_errors tool which queries AppExceptions — finds nothing — and says 'no errors'. The two queries use different tools/data scopes within the same agent."
+  artifacts:
+    - path: "mobile/app/(tabs)/status.tsx"
+      issue: "Lines 97-144: health summary query uses free-text regex parsing to extract error, fragile and inconsistent with structured error lookup"
+    - path: "mobile/app/(tabs)/status.tsx"
+      issue: "Line 450: deep-link sends extracted error text as a new query, but agent can't find it because it came from a different tool's output"
+  missing:
+    - "Dashboard health query and error deep-link must use consistent data — either both use the same structured error data, or the health summary passes through enough context for the deep-link to find the same error"
   debug_session: ""
