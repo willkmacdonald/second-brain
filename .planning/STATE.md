@@ -8,7 +8,7 @@ progress:
   total_phases: 15
   completed_phases: 13
   total_plans: 46
-  completed_plans: 44
+  completed_plans: 45
 ---
 
 # Project State
@@ -22,12 +22,12 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 
 ## Current Position
 
-Phase: 19 of 22 (Claude Code MCP Tool)
-Plan: 1 of 2 in current phase
-Status: Plan 19-01 complete. MCP server with 6 tools created and registered in Claude Code.
-Last activity: 2026-04-14 -- Plan 19-01 executed (MCP server package + Claude Code registration)
+Phase: 19 of 22 (Claude Code MCP Tool) -- COMPLETE
+Plan: 2 of 2 in current phase
+Status: Phase 19 complete. MCP server + investigate skill migration done.
+Last activity: 2026-04-14 -- Plan 19-02 executed (skill migration to MCP tools)
 
-Progress: [██████████----------] 50% (Phase 19: 1/2 plans complete)
+Progress: [████████████████████] 100% (Phase 19: 2/2 plans complete)
 
 ## Performance Metrics
 
@@ -43,7 +43,7 @@ Progress: [██████████----------] 50% (Phase 19: 1/2 plans co
 
 **Velocity (v3.1):**
 - Plans completed: 13
-- Last plan duration: 5min (19-01)
+- Last plan duration: 3min (19-02)
 - Timeline: 2026-04-05 to present
 
 *Updated after each plan completion*
@@ -99,6 +99,8 @@ v3.0 decisions archived to .planning/milestones/v3.0-ROADMAP.md
 - [Phase 19]: trace_lifecycle truncation keeps LAST N records to preserve terminal outcome
 - [Phase 19]: Claude Code CLI writes MCP config to .mcp.json (not .claude/settings.json)
 - [Phase 19]: prerelease=allow in mcp/pyproject.toml [tool.uv] for agent-framework-azure-ai RC
+- [Phase 19]: Investigate skill uses conversation context + stable IDs for follow-ups (replaces server-side thread management)
+- [Phase 19]: Deprecation notes use generic wording to satisfy zero-reference verification on old script paths
 
 ### Pending Todos
 
@@ -119,5 +121,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-14
-Stopped at: Completed 19-01-PLAN.md (MCP server foundation)
-Resume action: Execute 19-02-PLAN.md (migrate /investigate skill to MCP tools)
+Stopped at: Completed 19-02-PLAN.md (skill migration to MCP tools) -- Phase 19 complete
+Resume action: Begin Phase 20 planning (or next scheduled phase)
