@@ -14,13 +14,21 @@ import sys
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import timedelta
+from pathlib import Path
 
-from azure.identity.aio import DefaultAzureCredential
-from azure.monitor.query.aio import LogsQueryClient
-from mcp.server.fastmcp import Context, FastMCP
-from mcp.server.session import ServerSession
+from dotenv import load_dotenv
 
-from second_brain.observability.queries import (
+# Load backend/.env so LOG_ANALYTICS_WORKSPACE_ID (and any future shared vars)
+# come from the same place the backend reads them. Runs at import time, before
+# Azure clients are constructed.
+load_dotenv(Path(__file__).parent.parent / "backend" / ".env")
+
+from azure.identity.aio import DefaultAzureCredential  # noqa: E402
+from azure.monitor.query.aio import LogsQueryClient  # noqa: E402
+from mcp.server.fastmcp import Context, FastMCP  # noqa: E402
+from mcp.server.session import ServerSession  # noqa: E402
+
+from second_brain.observability.queries import (  # noqa: E402
     execute_kql,
     query_admin_audit,
     query_capture_trace,
@@ -76,11 +84,11 @@ class AppContext:
 @asynccontextmanager
 async def lifespan(server: FastMCP):
     """Initialize Azure clients at startup, tear down on shutdown."""
-    workspace_id = os.environ.get("LOG_ANALYTICS_WORKSPACE_ID") or os.environ.get(
-        "AZURE_LOG_ANALYTICS_WORKSPACE_ID", ""
-    )
+    workspace_id = os.environ.get("LOG_ANALYTICS_WORKSPACE_ID", "")
     if not workspace_id:
-        logger.warning("LOG_ANALYTICS_WORKSPACE_ID not set -- tools will return errors")
+        logger.warning(
+            "LOG_ANALYTICS_WORKSPACE_ID not set in backend/.env -- tools will return errors"
+        )
 
     credential = DefaultAzureCredential()
     logs_client = LogsQueryClient(credential=credential)
@@ -122,7 +130,7 @@ def _check_config(app: AppContext) -> dict | None:
     if not app.workspace_id:
         return {
             "error": True,
-            "message": "AZURE_LOG_ANALYTICS_WORKSPACE_ID not configured",
+            "message": "LOG_ANALYTICS_WORKSPACE_ID not set in backend/.env",
             "type": "config_error",
         }
     return None
