@@ -187,6 +187,16 @@ Plans:
 - [ ] 19-01-PLAN.md -- MCP server with 6 telemetry tools (trace_lifecycle, recent_errors, system_health, usage_patterns, admin_audit, run_kql) and Claude Code registration
 - [ ] 19-02-PLAN.md -- Migrate /investigate skill from deployed API to local MCP tools
 
+### Phase 19.1: Address Observability Gap (INSERTED)
+
+**Goal:** Rich AppExceptions detail (OuterMessage, OuterType, InnermostMessage, Details) surfaces through the MCP telemetry tools so severity-3 exceptions are diagnosable instead of appearing as bare class names like "HttpResponseError"
+**Requirements**: (no explicit requirement IDs -- inserted phase discovered during Phase 19 RETEST UAT; implicitly strengthens INV-03)
+**Depends on:** Phase 19
+**Plans:** 1 plan
+
+Plans:
+- [ ] 19.1-01-PLAN.md -- KQL projection fields, Pydantic model extensions, MCP Details truncation, regression tests
+
 ### Phase 20: Feedback Collection
 **Goal**: Quality signals flow into the system automatically from user behavior and explicitly from user feedback
 **Depends on**: Phase 17 (FEED-04 needs investigation agent), Phase 16 (Cosmos containers)
