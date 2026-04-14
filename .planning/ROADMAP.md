@@ -244,7 +244,7 @@ Items not yet scheduled into a milestone or phase.
 | 17.3. Address Critical Observability Gaps | 1/1 | Complete    | 2026-04-12 | - |
 | 17.4. Foundry Observability and Codex Code Review | 4/4 | Complete    | 2026-04-13 | - |
 | 18. Mobile Investigation Chat | 4/4 | Complete   | 2026-04-13 | - |
-| 19. Claude Code MCP Tool | 2/2 | Complete   | 2026-04-14 | - |
+| 19. Claude Code MCP Tool | 2/2 | Complete    | 2026-04-14 | - |
 | 20. Feedback Collection | v3.1 | 0/TBD | Not started | - |
 | 21. Eval Framework | v3.1 | 0/TBD | Not started | - |
 | 22. Self-Monitoring Loop | v3.1 | 0/TBD | Not started | - |
