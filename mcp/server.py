@@ -76,11 +76,11 @@ class AppContext:
 @asynccontextmanager
 async def lifespan(server: FastMCP):
     """Initialize Azure clients at startup, tear down on shutdown."""
-    workspace_id = os.environ.get("AZURE_LOG_ANALYTICS_WORKSPACE_ID", "")
+    workspace_id = os.environ.get("LOG_ANALYTICS_WORKSPACE_ID") or os.environ.get(
+        "AZURE_LOG_ANALYTICS_WORKSPACE_ID", ""
+    )
     if not workspace_id:
-        logger.warning(
-            "AZURE_LOG_ANALYTICS_WORKSPACE_ID not set -- tools will return errors"
-        )
+        logger.warning("LOG_ANALYTICS_WORKSPACE_ID not set -- tools will return errors")
 
     credential = DefaultAzureCredential()
     logs_client = LogsQueryClient(credential=credential)

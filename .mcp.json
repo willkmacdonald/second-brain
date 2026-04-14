@@ -10,6 +10,7 @@
         "server.py"
       ],
       "env": {
+        "LOG_ANALYTICS_WORKSPACE_ID": "${LOG_ANALYTICS_WORKSPACE_ID}",
         "AZURE_LOG_ANALYTICS_WORKSPACE_ID": "${AZURE_LOG_ANALYTICS_WORKSPACE_ID}"
       }
     }
