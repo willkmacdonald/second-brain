@@ -417,130 +417,108 @@ git commit -m "feat(spine): pydantic models for ingest events and responses"
 
 ---
 
-## Task 2: Cosmos containers (Bicep + provisioning)
+## Task 2: Cosmos containers (az CLI provisioning + checked-in script)
+
+**Convention:** This project manages Cosmos container lifecycle with az CLI, not Bicep/IaC (see `.planning/phases/16-query-foundation/16-03-SUMMARY.md` and `.planning/milestones/v3.0-phases/10-data-foundation-and-admin-tools/10-01-PLAN.md`). Task 2 checks in a reproducible provisioning script as the source of truth and runs it once against prod.
 
 **Files:**
-- Create: `infra/cosmos-spine-containers.bicep`
-- Modify: `infra/main.bicep` (or equivalent root Bicep — verify exact path before editing)
+- Create: `infra/spine-cosmos-containers.sh`
 
-- [ ] **Step 1: Locate the existing Cosmos account Bicep**
+**Target Cosmos account / database** (verify before running):
+- Resource group: `shared-services-rg`
+- Account: `shared-services-cosmosdb`
+- Database: `second-brain`
 
-Run: `find infra -name "*.bicep" -type f`
-Expected: list of `.bicep` files. If none, the project uses Azure portal / az CLI directly — in that case skip Bicep and use the az CLI script in Step 3.
+**Container spec:**
 
-- [ ] **Step 2: Create `infra/cosmos-spine-containers.bicep`**
+| Container | Partition key | TTL | Purpose |
+|---|---|---|---|
+| `spine_segment_state` | `/segment_id` | `-1` (never expire; always upserted) | One doc per segment, current status + headline |
+| `spine_events` | `/segment_id` | `1209600` (14 days) | Append-only ingest events (liveness/readiness/workload) |
+| `spine_status_history` | `/segment_id` | `2592000` (30 days) | Append-only status transition records |
+| `spine_correlation` | `/correlation_kind` | `2592000` (30 days) | Per-correlation timelines (capture/thread/request/crud) |
 
-```bicep
-@description('Cosmos DB account name (existing).')
-param cosmosAccountName string
-
-@description('Cosmos DB database name (existing).')
-param databaseName string = 'second-brain'
-
-resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2024-05-15' existing = {
-  name: cosmosAccountName
-}
-
-resource db 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2024-05-15' existing = {
-  parent: cosmos
-  name: databaseName
-}
-
-resource segmentState 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-05-15' = {
-  parent: db
-  name: 'spine_segment_state'
-  properties: {
-    resource: {
-      id: 'spine_segment_state'
-      partitionKey: {
-        paths: ['/segment_id']
-        kind: 'Hash'
-      }
-      defaultTtl: -1  // never expire (always overwritten)
-    }
-  }
-}
-
-resource events 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-05-15' = {
-  parent: db
-  name: 'spine_events'
-  properties: {
-    resource: {
-      id: 'spine_events'
-      partitionKey: {
-        paths: ['/segment_id']
-        kind: 'Hash'
-      }
-      defaultTtl: 1209600  // 14 days
-    }
-  }
-}
-
-resource statusHistory 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-05-15' = {
-  parent: db
-  name: 'spine_status_history'
-  properties: {
-    resource: {
-      id: 'spine_status_history'
-      partitionKey: {
-        paths: ['/segment_id']
-        kind: 'Hash'
-      }
-      defaultTtl: 2592000  // 30 days
-    }
-  }
-}
-
-resource correlation 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-05-15' = {
-  parent: db
-  name: 'spine_correlation'
-  properties: {
-    resource: {
-      id: 'spine_correlation'
-      partitionKey: {
-        paths: ['/correlation_kind']
-        kind: 'Hash'
-      }
-      defaultTtl: 2592000  // 30 days
-    }
-  }
-}
-```
-
-- [ ] **Step 3: Provision the 4 containers (az CLI fallback if no Bicep)**
-
-If the project uses `az` CLI directly, run:
+- [ ] **Step 1: Create `infra/spine-cosmos-containers.sh`**
 
 ```bash
-RG=shared-services-rg
-ACCOUNT=$(az cosmosdb list -g $RG --query "[?contains(name, 'second-brain')].name | [0]" -o tsv)
-DB=second-brain
+#!/usr/bin/env bash
+#
+# Provision the 4 Cosmos SQL containers backing the spine observability layer.
+#
+# This project does not have a checked-in Bicep/IaC pipeline for Cosmos;
+# container lifecycle is managed with az CLI. This script is the source of
+# truth for the spine containers' partition keys and TTLs.
+#
+# Idempotent: re-running against an already-provisioned account will report
+# a 409 Conflict for each existing container. Safe.
+#
+# First provisioned: 2026-04-15 (Phase 1 / spine foundation).
 
-az cosmosdb sql container create -g $RG -a $ACCOUNT -d $DB \
-  --name spine_segment_state --partition-key-path /segment_id --ttl -1
-az cosmosdb sql container create -g $RG -a $ACCOUNT -d $DB \
-  --name spine_events --partition-key-path /segment_id --ttl 1209600
-az cosmosdb sql container create -g $RG -a $ACCOUNT -d $DB \
-  --name spine_status_history --partition-key-path /segment_id --ttl 2592000
-az cosmosdb sql container create -g $RG -a $ACCOUNT -d $DB \
-  --name spine_correlation --partition-key-path /correlation_kind --ttl 2592000
+set -euo pipefail
+
+RG="${RG:-shared-services-rg}"
+ACCOUNT="${ACCOUNT:-shared-services-cosmosdb}"
+DB="${DB:-second-brain}"
+
+echo "Provisioning spine containers in ${ACCOUNT}/${DB} (${RG})..."
+
+# 1. Segment state — one doc per segment, never expires (always upserted).
+az cosmosdb sql container create -g "$RG" -a "$ACCOUNT" -d "$DB" \
+  --name spine_segment_state \
+  --partition-key-path /segment_id \
+  --ttl=-1
+
+# 2. Ingest events — append-only, 14-day retention (1209600 seconds).
+az cosmosdb sql container create -g "$RG" -a "$ACCOUNT" -d "$DB" \
+  --name spine_events \
+  --partition-key-path /segment_id \
+  --ttl=1209600
+
+# 3. Status transition history — append-only, 30-day retention (2592000 seconds).
+az cosmosdb sql container create -g "$RG" -a "$ACCOUNT" -d "$DB" \
+  --name spine_status_history \
+  --partition-key-path /segment_id \
+  --ttl=2592000
+
+# 4. Correlation records — append-only, 30-day retention, keyed on correlation_kind.
+az cosmosdb sql container create -g "$RG" -a "$ACCOUNT" -d "$DB" \
+  --name spine_correlation \
+  --partition-key-path /correlation_kind \
+  --ttl=2592000
+
+echo "Done. Verifying..."
+az cosmosdb sql container list -g "$RG" -a "$ACCOUNT" -d "$DB" \
+  --query "[?starts_with(name, 'spine_')].{name:name, partitionKey:resource.partitionKey.paths[0], ttl:resource.defaultTtl}" \
+  -o table
 ```
 
-Expected output: 4 successful container creations.
+Note: the `--ttl=-1` equals form (not `--ttl -1`) avoids zsh parsing `-1` as a flag argument.
 
-- [ ] **Step 4: Verify containers exist**
+- [ ] **Step 2: Run script with `chmod +x` and execute**
 
 ```bash
-az cosmosdb sql container list -g $RG -a $ACCOUNT -d $DB --query "[?starts_with(name, 'spine_')].name" -o tsv
+chmod +x infra/spine-cosmos-containers.sh
+./infra/spine-cosmos-containers.sh
 ```
 
-Expected: 4 lines — `spine_segment_state`, `spine_events`, `spine_status_history`, `spine_correlation`.
+Expected: 4 create responses (one per container) followed by a 4-row verification table.
 
-- [ ] **Step 5: Commit Bicep**
+- [ ] **Step 3: Verify containers exist with correct config**
 
 ```bash
-git add infra/cosmos-spine-containers.bicep
-git commit -m "infra(spine): bicep for 4 spine cosmos containers"
+az cosmosdb sql container list \
+  -g shared-services-rg -a shared-services-cosmosdb -d second-brain \
+  --query "[?starts_with(name, 'spine_')].{name:name, partitionKey:resource.partitionKey.paths[0], ttl:resource.defaultTtl}" \
+  -o table
+```
+
+Expected 4 rows matching the container spec table above.
+
+- [ ] **Step 4: Commit script**
+
+```bash
+git add infra/spine-cosmos-containers.sh
+git commit -m "infra(spine): provisioning script for 4 cosmos containers"
 ```
 
 ---
