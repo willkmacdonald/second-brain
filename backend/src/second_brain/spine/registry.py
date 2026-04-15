@@ -26,6 +26,22 @@ class EvaluatorConfig:
     def name_or_id(self) -> str:
         return self.display_name or self.segment_id
 
+    def __post_init__(self) -> None:
+        # The evaluator's stale window is liveness_interval_seconds * 2 +
+        # acceptable_lag_seconds. get_recent_events is queried with
+        # workload_window_seconds. If the query window is smaller than the
+        # stale window, a segment can appear stale just because the query
+        # truncated older liveness events — fail fast at config time.
+        stale_window = self.liveness_interval_seconds * 2 + self.acceptable_lag_seconds
+        if self.workload_window_seconds < stale_window:
+            raise ValueError(
+                f"EvaluatorConfig for '{self.segment_id}': "
+                f"workload_window_seconds ({self.workload_window_seconds}) "
+                f"must be >= stale window ({stale_window} = "
+                f"liveness_interval_seconds * 2 + acceptable_lag_seconds) "
+                f"so the query covers the staleness threshold."
+            )
+
 
 class SegmentRegistry:
     """Lookup of EvaluatorConfig by segment_id."""
