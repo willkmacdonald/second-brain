@@ -132,9 +132,9 @@ def test_liveness_event_parses() -> None:
         "timestamp": "2026-04-14T12:00:00Z",
         "payload": {"instance_id": "abc-123"},
     })
-    assert event.event_type == "liveness"
-    assert isinstance(event.payload, LivenessPayload)
-    assert event.payload.instance_id == "abc-123"
+    assert event.root.event_type == "liveness"
+    assert isinstance(event.root.payload, LivenessPayload)
+    assert event.root.payload.instance_id == "abc-123"
 
 
 def test_readiness_event_parses() -> None:
@@ -144,9 +144,9 @@ def test_readiness_event_parses() -> None:
         "timestamp": "2026-04-14T12:00:00Z",
         "payload": {"checks": [{"name": "cosmos", "status": "ok"}]},
     })
-    assert event.event_type == "readiness"
-    assert isinstance(event.payload, ReadinessPayload)
-    assert event.payload.checks[0].name == "cosmos"
+    assert event.root.event_type == "readiness"
+    assert isinstance(event.root.payload, ReadinessPayload)
+    assert event.root.payload.checks[0].name == "cosmos"
 
 
 def test_workload_event_parses() -> None:
@@ -162,10 +162,10 @@ def test_workload_event_parses() -> None:
             "correlation_id": "trace-1",
         },
     })
-    assert event.event_type == "workload"
-    assert isinstance(event.payload, WorkloadPayload)
-    assert event.payload.outcome == "success"
-    assert event.payload.duration_ms == 234
+    assert event.root.event_type == "workload"
+    assert isinstance(event.root.payload, WorkloadPayload)
+    assert event.root.payload.outcome == "success"
+    assert event.root.payload.duration_ms == 234
 
 
 def test_workload_failure_includes_error_class() -> None:
@@ -182,7 +182,7 @@ def test_workload_failure_includes_error_class() -> None:
             "error_class": "HttpResponseError",
         },
     })
-    assert event.payload.error_class == "HttpResponseError"
+    assert event.root.payload.error_class == "HttpResponseError"
 
 
 def test_unknown_event_type_rejected() -> None:
@@ -236,9 +236,9 @@ Create `backend/src/second_brain/spine/models.py`:
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field, RootModel
 
 # ---------------------------------------------------------------------------
 # Ingest event payloads (discriminated by event_type)
@@ -302,33 +302,15 @@ class _WorkloadEvent(BaseModel):
     payload: WorkloadPayload
 
 
-IngestEvent = Annotated[
+class IngestEvent(RootModel[Annotated[
     _LivenessEvent | _ReadinessEvent | _WorkloadEvent,
     Field(discriminator="event_type"),
-]
+]]):
+    """Discriminated ingest event from any segment.
 
-
-# Convenience: instances also exported for type hints
-IngestEventType = _LivenessEvent | _ReadinessEvent | _WorkloadEvent
-
-# Re-export under the IngestEvent name so callers can use it as a type
-# (Pydantic Annotated unions are not classes, so we provide a TypeAdapter
-# pattern below for parsing.)
-from pydantic import TypeAdapter  # noqa: E402
-
-_ingest_event_adapter: TypeAdapter[IngestEventType] = TypeAdapter(IngestEvent)
-
-
-class IngestEventParser:
-    """Adapter wrapper so callers can do IngestEvent.model_validate(d)."""
-
-    @staticmethod
-    def model_validate(data: dict) -> IngestEventType:
-        return _ingest_event_adapter.validate_python(data)
-
-
-# Allow `IngestEvent.model_validate(...)` usage in tests
-IngestEvent = IngestEventParser  # type: ignore[misc, assignment]
+    Callers parse with `IngestEvent.model_validate(d)` and read the concrete
+    variant via `.root` (e.g. `event.root.event_type`, `event.root.payload`).
+    """
 
 
 # ---------------------------------------------------------------------------
@@ -341,8 +323,6 @@ SegmentStatus = Literal["green", "yellow", "red", "stale"]
 
 class RollupInfo(BaseModel):
     """Rollup annotation on a segment status."""
-
-    model_config = ConfigDict(populate_by_name=True)
 
     suppressed: bool
     suppressed_by: str | None
@@ -419,7 +399,7 @@ class SegmentDetailResponse(BaseModel):
     web UI uses to dispatch to the correct renderer.
     """
 
-    data: dict
+    data: dict[str, Any]
     envelope: ResponseEnvelope
 ```
 
@@ -762,7 +742,7 @@ from azure.cosmos.aio import ContainerProxy
 
 from second_brain.spine.models import (
     CorrelationKind,
-    IngestEventType,
+    IngestEvent,
     SegmentStatus,
 )
 
@@ -784,20 +764,21 @@ class SpineRepository:
         self._status_history = status_history_container
         self._correlation = correlation_container
 
-    async def record_event(self, event: IngestEventType) -> None:
+    async def record_event(self, event: IngestEvent) -> None:
         """Append an ingest event and (for workloads with correlation) a correlation record."""
+        inner = event.root  # the concrete _LivenessEvent / _ReadinessEvent / _WorkloadEvent
         body = {
             "id": str(uuid4()),
-            "segment_id": event.segment_id,
-            "event_type": event.event_type,
-            "timestamp": event.timestamp.isoformat(),
-            "payload": event.payload.model_dump(mode="json"),
+            "segment_id": inner.segment_id,
+            "event_type": inner.event_type,
+            "timestamp": inner.timestamp.isoformat(),
+            "payload": inner.payload.model_dump(mode="json"),
             "ingested_at": datetime.now(timezone.utc).isoformat(),
         }
         await self._events.create_item(body=body)
 
-        if event.event_type == "workload":
-            payload = event.payload  # WorkloadPayload
+        if inner.event_type == "workload":
+            payload = inner.payload  # WorkloadPayload
             if payload.correlation_kind and payload.correlation_id:
                 corr_status: SegmentStatus = (
                     "green" if payload.outcome == "success"
@@ -805,11 +786,11 @@ class SpineRepository:
                     else "red"
                 )
                 corr_body = {
-                    "id": f"{payload.correlation_kind}:{payload.correlation_id}:{event.segment_id}:{body['id']}",
+                    "id": f"{payload.correlation_kind}:{payload.correlation_id}:{inner.segment_id}:{body['id']}",
                     "correlation_kind": payload.correlation_kind,
                     "correlation_id": payload.correlation_id,
-                    "segment_id": event.segment_id,
-                    "timestamp": event.timestamp.isoformat(),
+                    "segment_id": inner.segment_id,
+                    "timestamp": inner.timestamp.isoformat(),
                     "status": corr_status,
                     "headline": (
                         f"{payload.operation} {payload.outcome}"
@@ -1913,9 +1894,9 @@ async def test_successful_request_emits_success_workload(app_with_middleware) ->
     assert response.status_code == 200
     repo.record_event.assert_called_once()
     event = repo.record_event.call_args.args[0]
-    assert event.event_type == "workload"
-    assert event.payload.outcome == "success"
-    assert event.payload.operation == "GET /healthy"
+    assert event.root.event_type == "workload"
+    assert event.root.payload.outcome == "success"
+    assert event.root.payload.operation == "GET /healthy"
 
 
 @pytest.mark.asyncio
@@ -1929,8 +1910,8 @@ async def test_failing_request_emits_failure_workload(app_with_middleware) -> No
     # Middleware should still have recorded a failure event before exception propagation
     repo.record_event.assert_called()
     event = repo.record_event.call_args.args[0]
-    assert event.payload.outcome == "failure"
-    assert event.payload.error_class == "RuntimeError"
+    assert event.root.payload.outcome == "failure"
+    assert event.root.payload.error_class == "RuntimeError"
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -1955,7 +1936,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 
-from second_brain.spine.models import _WorkloadEvent, WorkloadPayload
+from second_brain.spine.models import IngestEvent, WorkloadPayload, _WorkloadEvent
 from second_brain.spine.storage import SpineRepository
 
 logger = logging.getLogger(__name__)
@@ -1980,7 +1961,7 @@ class SpineWorkloadMiddleware(BaseHTTPMiddleware):
             response = await call_next(request)
             duration_ms = int((time.perf_counter() - start) * 1000)
             outcome = "success" if response.status_code < 500 else "failure"
-            event = _WorkloadEvent(
+            event = IngestEvent(root=_WorkloadEvent(
                 segment_id=self._segment_id,
                 event_type="workload",
                 timestamp=datetime.now(timezone.utc),
@@ -1992,7 +1973,7 @@ class SpineWorkloadMiddleware(BaseHTTPMiddleware):
                     correlation_id=correlation_id,
                     error_class=None if outcome == "success" else f"HTTP_{response.status_code}",
                 ),
-            )
+            ))
             try:
                 await self._repo.record_event(event)
             except Exception:  # noqa: BLE001 - never let spine break the request
@@ -2000,7 +1981,7 @@ class SpineWorkloadMiddleware(BaseHTTPMiddleware):
             return response
         except Exception as exc:
             duration_ms = int((time.perf_counter() - start) * 1000)
-            event = _WorkloadEvent(
+            event = IngestEvent(root=_WorkloadEvent(
                 segment_id=self._segment_id,
                 event_type="workload",
                 timestamp=datetime.now(timezone.utc),
@@ -2012,7 +1993,7 @@ class SpineWorkloadMiddleware(BaseHTTPMiddleware):
                     correlation_id=correlation_id,
                     error_class=type(exc).__name__,
                 ),
-            )
+            ))
             try:
                 await self._repo.record_event(event)
             except Exception:  # noqa: BLE001
@@ -2449,7 +2430,7 @@ import socket
 from datetime import datetime, timezone
 
 from second_brain.spine.evaluator import StatusEvaluator
-from second_brain.spine.models import _LivenessEvent, LivenessPayload
+from second_brain.spine.models import IngestEvent, LivenessPayload, _LivenessEvent
 from second_brain.spine.registry import SegmentRegistry
 from second_brain.spine.storage import SpineRepository
 
@@ -2499,12 +2480,12 @@ async def liveness_emitter(
     instance_id = socket.gethostname()
     while True:
         try:
-            event = _LivenessEvent(
+            event = IngestEvent(root=_LivenessEvent(
                 segment_id=segment_id,
                 event_type="liveness",
                 timestamp=datetime.now(timezone.utc),
                 payload=LivenessPayload(instance_id=instance_id),
-            )
+            ))
             await repo.record_event(event)
         except Exception:
             logger.warning("Liveness emitter failed", exc_info=True)
