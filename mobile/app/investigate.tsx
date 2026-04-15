@@ -87,14 +87,15 @@ export default function InvestigateScreen() {
     (text: string) => {
       if (!text.trim() || isLoading || !API_KEY) return;
 
+      const ts = Date.now();
       const userMsg: ChatMessage = {
-        id: `user-${Date.now()}`,
+        id: `user-${ts}`,
         role: "user",
         content: text.trim(),
         isStreaming: false,
       };
 
-      const agentMsgId = `agent-${Date.now()}`;
+      const agentMsgId = `agent-${ts}`;
       const agentMsg: ChatMessage = {
         id: agentMsgId,
         role: "agent",
@@ -153,8 +154,14 @@ export default function InvestigateScreen() {
   );
 
   const handleSend = useCallback(() => {
+    // If recording, stop it and prevent the end event from double-submitting
+    if (isRecording) {
+      wasRecordingRef.current = false;
+      stopRecognition();
+      setIsRecording(false);
+    }
     handleSendWithText(inputText);
-  }, [inputText, handleSendWithText]);
+  }, [inputText, handleSendWithText, isRecording]);
 
   // --- Quick action chip handler ---
 
@@ -229,7 +236,11 @@ export default function InvestigateScreen() {
   );
 
   const renderEmpty = useCallback(
-    () => <QuickActionChips onSelect={handleChipSelect} />,
+    () => (
+      <View style={styles.emptyInner}>
+        <QuickActionChips onSelect={handleChipSelect} />
+      </View>
+    ),
     [handleChipSelect],
   );
 
@@ -314,6 +325,9 @@ const styles = StyleSheet.create({
   emptyContainer: {
     flexGrow: 1,
     justifyContent: "center",
+  },
+  emptyInner: {
+    transform: [{ scaleY: -1 }],
   },
   inputBar: {
     flexDirection: "row",

@@ -61,7 +61,13 @@ function AgentMarkdown({ content }: { content: string }) {
     },
   });
 
-  return <View style={styles.markdownContainer}>{elements}</View>;
+  return (
+    <View style={styles.markdownContainer}>
+      {React.Children.map(elements, (child, i) => (
+        <React.Fragment key={`md-${i}`}>{child}</React.Fragment>
+      ))}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
