@@ -985,6 +985,22 @@ class EvaluatorConfig:
     def name_or_id(self) -> str:
         return self.display_name or self.segment_id
 
+    def __post_init__(self) -> None:
+        # The evaluator's stale window is liveness_interval_seconds * 2 +
+        # acceptable_lag_seconds. get_recent_events is queried with
+        # workload_window_seconds. If the query window is smaller than the
+        # stale window, a segment can appear stale just because the query
+        # truncated older liveness events — fail fast at config time.
+        stale_window = self.liveness_interval_seconds * 2 + self.acceptable_lag_seconds
+        if self.workload_window_seconds < stale_window:
+            raise ValueError(
+                f"EvaluatorConfig for '{self.segment_id}': "
+                f"workload_window_seconds ({self.workload_window_seconds}) "
+                f"must be >= stale window ({stale_window} = "
+                f"liveness_interval_seconds * 2 + acceptable_lag_seconds) "
+                f"so the query covers the staleness threshold."
+            )
+
 
 class SegmentRegistry:
     """Lookup of EvaluatorConfig by segment_id."""
@@ -1329,7 +1345,7 @@ class StatusEvaluator:
             return EvaluationResult(
                 segment_id=segment_id,
                 status="red",
-                headline=self._red_headline(inputs),
+                headline=self._red_headline(inputs, cfg),
                 last_event_at=most_recent,
                 freshness_seconds=freshness,
                 evaluator_inputs=inputs,
@@ -1349,7 +1365,7 @@ class StatusEvaluator:
         return EvaluationResult(
             segment_id=segment_id,
             status="green",
-            headline=self._green_headline(inputs),
+            headline=self._green_headline(inputs, cfg),
             last_event_at=most_recent,
             freshness_seconds=freshness,
             evaluator_inputs=inputs,
@@ -1375,26 +1391,44 @@ class StatusEvaluator:
         return False
 
     @staticmethod
-    def _red_headline(inputs: dict) -> str:
-        if inputs.get("consecutive_failures", 0) >= 3:
-            return f"{inputs['consecutive_failures']} consecutive failures"
+    def _red_headline(inputs: dict[str, Any], cfg: EvaluatorConfig) -> str:
+        # Surface the consecutive-failure message only when that threshold was
+        # actually the trigger — compare against cfg, not a hardcoded constant.
+        consec_threshold = cfg.red_thresholds.get("consecutive_failures")
+        consec = inputs.get("consecutive_failures", 0)
+        if isinstance(consec_threshold, (int, float)) and consec >= consec_threshold:
+            return f"{consec} consecutive failures"
         rate_pct = int(inputs.get("workload_failure_rate", 0) * 100)
-        return f"{rate_pct}% failure rate ({inputs['workload_failures']}/{inputs['workload_total']})"
+        fails = inputs["workload_failures"]
+        total = inputs["workload_total"]
+        return f"{rate_pct}% failure rate ({fails}/{total})"
 
     @staticmethod
-    def _yellow_headline(inputs: dict) -> str:
+    def _yellow_headline(inputs: dict[str, Any]) -> str:
         if inputs.get("any_readiness_failed"):
             return "Dependency check failing"
         rate_pct = int(inputs.get("workload_failure_rate", 0) * 100)
-        return f"{rate_pct}% failure rate ({inputs['workload_failures']}/{inputs['workload_total']})"
+        fails = inputs["workload_failures"]
+        total = inputs["workload_total"]
+        return f"{rate_pct}% failure rate ({fails}/{total})"
 
     @staticmethod
-    def _green_headline(inputs: dict) -> str:
+    def _green_headline(inputs: dict[str, Any], cfg: EvaluatorConfig) -> str:
         total = inputs.get("workload_total", 0)
+        window_label = _humanize_window(cfg.workload_window_seconds)
         if total == 0:
             return "Idle (no recent operations)"
-        return f"{total} ops, 0 failures in last 5min"
+        return f"{total} ops, 0 failures in last {window_label}"
+
+
+def _humanize_window(seconds: int) -> str:
+    """Human label for the workload window (e.g. 300 → '5min', 90 → '90s')."""
+    if seconds >= 60 and seconds % 60 == 0:
+        return f"{seconds // 60}min"
+    return f"{seconds}s"
 ```
+
+NOTE: This task also extends `EvaluatorConfig` (from Task 4) with a `__post_init__` invariant asserting `workload_window_seconds >= liveness_interval_seconds * 2 + acceptable_lag_seconds` — otherwise the evaluator's stale check could fire on healthy segments whose liveness events fall outside the query window. The Task 4 plan lists this guard for continuity, but the actual change landed atomically with Task 5 (commit on branch `phase-1-spine-foundation` amended during Task 5 review).
 
 - [ ] **Step 4: Run test to verify it passes**
 
