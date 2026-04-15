@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field, RootModel
 
 # ---------------------------------------------------------------------------
 # Ingest event payloads (discriminated by event_type)
@@ -69,33 +69,19 @@ class _WorkloadEvent(BaseModel):
     payload: WorkloadPayload
 
 
-IngestEvent = Annotated[
-    _LivenessEvent | _ReadinessEvent | _WorkloadEvent,
-    Field(discriminator="event_type"),
-]
+class IngestEvent(
+    RootModel[
+        Annotated[
+            _LivenessEvent | _ReadinessEvent | _WorkloadEvent,
+            Field(discriminator="event_type"),
+        ]
+    ]
+):
+    """Discriminated ingest event from any segment.
 
-
-# Convenience: instances also exported for type hints
-IngestEventType = _LivenessEvent | _ReadinessEvent | _WorkloadEvent
-
-# Re-export under the IngestEvent name so callers can use it as a type
-# (Pydantic Annotated unions are not classes, so we provide a TypeAdapter
-# pattern below for parsing.)
-from pydantic import TypeAdapter  # noqa: E402
-
-_ingest_event_adapter: TypeAdapter[IngestEventType] = TypeAdapter(IngestEvent)
-
-
-class IngestEventParser:
-    """Adapter wrapper so callers can do IngestEvent.model_validate(d)."""
-
-    @staticmethod
-    def model_validate(data: dict) -> IngestEventType:
-        return _ingest_event_adapter.validate_python(data)
-
-
-# Allow `IngestEvent.model_validate(...)` usage in tests
-IngestEvent = IngestEventParser  # type: ignore[misc, assignment]
+    Callers parse with `IngestEvent.model_validate(d)` and read the concrete
+    variant via `.root`.
+    """
 
 
 # ---------------------------------------------------------------------------
@@ -108,8 +94,6 @@ SegmentStatus = Literal["green", "yellow", "red", "stale"]
 
 class RollupInfo(BaseModel):
     """Rollup annotation on a segment status."""
-
-    model_config = ConfigDict(populate_by_name=True)
 
     suppressed: bool
     suppressed_by: str | None
@@ -186,5 +170,5 @@ class SegmentDetailResponse(BaseModel):
     web UI uses to dispatch to the correct renderer.
     """
 
-    data: dict
+    data: dict[str, Any]
     envelope: ResponseEnvelope

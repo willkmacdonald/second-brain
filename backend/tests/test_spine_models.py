@@ -23,9 +23,9 @@ def test_liveness_event_parses() -> None:
             "payload": {"instance_id": "abc-123"},
         }
     )
-    assert event.event_type == "liveness"
-    assert isinstance(event.payload, LivenessPayload)
-    assert event.payload.instance_id == "abc-123"
+    assert event.root.event_type == "liveness"
+    assert isinstance(event.root.payload, LivenessPayload)
+    assert event.root.payload.instance_id == "abc-123"
 
 
 def test_readiness_event_parses() -> None:
@@ -37,9 +37,9 @@ def test_readiness_event_parses() -> None:
             "payload": {"checks": [{"name": "cosmos", "status": "ok"}]},
         }
     )
-    assert event.event_type == "readiness"
-    assert isinstance(event.payload, ReadinessPayload)
-    assert event.payload.checks[0].name == "cosmos"
+    assert event.root.event_type == "readiness"
+    assert isinstance(event.root.payload, ReadinessPayload)
+    assert event.root.payload.checks[0].name == "cosmos"
 
 
 def test_workload_event_parses() -> None:
@@ -57,10 +57,10 @@ def test_workload_event_parses() -> None:
             },
         }
     )
-    assert event.event_type == "workload"
-    assert isinstance(event.payload, WorkloadPayload)
-    assert event.payload.outcome == "success"
-    assert event.payload.duration_ms == 234
+    assert event.root.event_type == "workload"
+    assert isinstance(event.root.payload, WorkloadPayload)
+    assert event.root.payload.outcome == "success"
+    assert event.root.payload.duration_ms == 234
 
 
 def test_workload_failure_includes_error_class() -> None:
@@ -79,7 +79,7 @@ def test_workload_failure_includes_error_class() -> None:
             },
         }
     )
-    assert event.payload.error_class == "HttpResponseError"
+    assert event.root.payload.error_class == "HttpResponseError"
 
 
 def test_unknown_event_type_rejected() -> None:
