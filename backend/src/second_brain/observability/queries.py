@@ -114,6 +114,10 @@ async def query_capture_trace(
                 message=str(row.get("Message", "")),
                 component=row.get("Component"),
                 capture_trace_id=row.get("CaptureTraceId"),
+                outer_message=row.get("OuterMessage"),
+                outer_type=row.get("OuterType"),
+                innermost_message=row.get("InnermostMessage"),
+                details=row.get("Details"),
             )
         )
     return records
@@ -139,6 +143,10 @@ async def query_recent_failures(
                 message=str(row.get("Message", "")),
                 component=row.get("Component"),
                 capture_trace_id=row.get("CaptureTraceId"),
+                outer_message=row.get("OuterMessage"),
+                outer_type=row.get("OuterType"),
+                innermost_message=row.get("InnermostMessage"),
+                details=row.get("Details"),
             )
         )
     return records
@@ -370,6 +378,10 @@ async def query_recent_failures_filtered(
                 message=str(row.get("Message", "")),
                 component=row.get("Component"),
                 capture_trace_id=row.get("CaptureTraceId"),
+                outer_message=row.get("OuterMessage"),
+                outer_type=row.get("OuterType"),
+                innermost_message=row.get("InnermostMessage"),
+                details=row.get("Details"),
             )
         )
 

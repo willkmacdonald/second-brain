@@ -53,7 +53,11 @@ union withsource=SourceTable AppRequests, AppDependencies, AppTraces, AppExcepti
         SourceTable
     ),
     severityLevel = SeverityLevel,
-    Message = coalesce(Message, Name, ExceptionType),
+    Message = coalesce(OuterMessage, Message, InnermostMessage, ExceptionType, Name),
+    OuterMessage,
+    OuterType,
+    InnermostMessage,
+    Details = tostring(Details),
     Component = tostring(Properties.component),
     CaptureTraceId = tostring(Properties.capture_trace_id)
 | order by timestamp asc
@@ -78,7 +82,11 @@ union withsource=SourceTable
         SourceTable
     ),
     severityLevel = SeverityLevel,
-    Message = coalesce(Message, ExceptionType),
+    Message = coalesce(OuterMessage, Message, InnermostMessage, ExceptionType),
+    OuterMessage,
+    OuterType,
+    InnermostMessage,
+    Details = tostring(Details),
     Component = tostring(Properties.component),
     CaptureTraceId = tostring(Properties.capture_trace_id)
 | order by timestamp desc
@@ -214,7 +222,11 @@ let filtered = union withsource=SourceTable
         SourceTable
     ),
     severityLevel = SeverityLevel,
-    Message = coalesce(Message, ExceptionType),
+    Message = coalesce(OuterMessage, Message, InnermostMessage, ExceptionType),
+    OuterMessage,
+    OuterType,
+    InnermostMessage,
+    Details = tostring(Details),
     Component = tostring(Properties.component),
     CaptureTraceId = tostring(Properties.capture_trace_id);
 filtered | summarize total_count = count();

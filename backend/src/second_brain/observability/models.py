@@ -24,16 +24,30 @@ class TraceRecord(BaseModel):
     message: str
     component: str | None = None
     capture_trace_id: str | None = None
+    outer_message: str | None = None
+    outer_type: str | None = None
+    innermost_message: str | None = None
+    details: str | None = None
 
-    @field_validator("component", "capture_trace_id", mode="before")
+    @field_validator(
+        "message",
+        "component",
+        "capture_trace_id",
+        "outer_message",
+        "outer_type",
+        "innermost_message",
+        "details",
+        mode="before",
+    )
     @classmethod
-    def _empty_to_none(cls, v: str | None) -> str | None:
+    def _empty_to_none(cls, v: object) -> object:
         """Normalize empty strings to None.
 
         Same fix as FailureRecord -- applied here for symmetry so
         trace_lifecycle output is consistent with recent_errors.
+        KQL's tostring() on missing dynamic fields returns "" not null.
         """
-        if v is None or (isinstance(v, str) and v.strip() == ""):
+        if isinstance(v, str) and v.strip() == "":
             return None
         return v
 
@@ -47,17 +61,32 @@ class FailureRecord(BaseModel):
     message: str
     component: str | None = None
     capture_trace_id: str | None = None
+    outer_message: str | None = None
+    outer_type: str | None = None
+    innermost_message: str | None = None
+    details: str | None = None
 
-    @field_validator("component", "capture_trace_id", mode="before")
+    @field_validator(
+        "message",
+        "component",
+        "capture_trace_id",
+        "outer_message",
+        "outer_type",
+        "innermost_message",
+        "details",
+        mode="before",
+    )
     @classmethod
-    def _empty_to_none(cls, v: str | None) -> str | None:
+    def _empty_to_none(cls, v: object) -> object:
         """Normalize empty strings to None.
 
         KQL's tostring(Properties.<missing_field>) returns "" not null.
         Without this validator, the agent receives "component": "" and
         renders blank table cells, which users mistake for broken data.
+        AppExceptions fields (OuterMessage, OuterType, etc.) are empty
+        strings on AppTraces rows -- normalize those too.
         """
-        if v is None or (isinstance(v, str) and v.strip() == ""):
+        if isinstance(v, str) and v.strip() == "":
             return None
         return v
 
