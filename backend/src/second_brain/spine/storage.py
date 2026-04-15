@@ -8,6 +8,7 @@ from typing import Any
 from uuid import uuid4
 
 from azure.cosmos.aio import ContainerProxy
+from azure.cosmos.exceptions import CosmosResourceNotFoundError
 
 from second_brain.spine.models import (
     CorrelationKind,
@@ -104,7 +105,8 @@ class SpineRepository:
                 item=segment_id,
                 partition_key=segment_id,
             )
-        except Exception:  # CosmosResourceNotFoundError
+        except CosmosResourceNotFoundError:
+            logger.debug("segment_state not found for segment_id=%s", segment_id)
             return None
 
     async def get_all_segment_states(self) -> list[dict[str, Any]]:

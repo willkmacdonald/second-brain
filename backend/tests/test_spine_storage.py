@@ -4,6 +4,10 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from azure.cosmos.exceptions import (
+    CosmosHttpResponseError,
+    CosmosResourceNotFoundError,
+)
 
 from second_brain.spine.models import (
     IngestEvent,
@@ -130,6 +134,32 @@ async def test_record_status_change_writes_history(
     body = mock_containers["status_history"].create_item.call_args.kwargs["body"]
     assert body["status"] == "red"
     assert body["prev_status"] == "green"
+
+
+@pytest.mark.asyncio
+async def test_get_segment_state_returns_none_when_not_found(
+    repo: SpineRepository, mock_containers: dict[str, AsyncMock]
+) -> None:
+    """Missing segment_state returns None, not a raised exception."""
+    mock_containers[
+        "segment_state"
+    ].read_item.side_effect = CosmosResourceNotFoundError(
+        status_code=404, message="Not found"
+    )
+    result = await repo.get_segment_state("never_seen")
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_get_segment_state_propagates_unexpected_cosmos_errors(
+    repo: SpineRepository, mock_containers: dict[str, AsyncMock]
+) -> None:
+    """Regression: a non-404 Cosmos error must propagate, not return None."""
+    mock_containers["segment_state"].read_item.side_effect = CosmosHttpResponseError(
+        status_code=503, message="Service unavailable"
+    )
+    with pytest.raises(CosmosHttpResponseError):
+        await repo.get_segment_state("backend_api")
 
 
 @pytest.mark.asyncio
