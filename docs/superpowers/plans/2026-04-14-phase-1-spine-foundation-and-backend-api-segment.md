@@ -4065,10 +4065,29 @@ git commit -m "feat(web): segment detail dispatcher and AppInsights renderer"
 
 ## Task 17: Web Dockerfile + Container Apps deployment
 
-**Files:**
+**Files (steady-state CI):**
 - Create: `web/Dockerfile`
 - Create: `web/.dockerignore`
-- Modify: `.github/workflows/deploy.yml` (or equivalent)
+- Create: `.github/workflows/deploy-web.yml`
+
+**Bootstrap (one-time, executed manually before first CI deploy):**
+- `az containerapp create` for `second-brain-spine-web` with managed identity, ingress, and Key Vault secret reference (Step 4a)
+
+**Amendment (2026-04-16):** Original plan had four real defects flagged before dispatch:
+1. Dockerfile's `COPY --from=builder /app/public ./public` would fail because Tasks 13–16 deliberately do not create `web/public/` and Docker errors on missing source paths.
+2. The workflow stub used `secrets.*` for OIDC where the repo standard is `vars.*` (see `.github/workflows/deploy-backend.yml`), and used `az acr build` instead of the project's `docker build --platform linux/amd64 + docker push` pattern. It also lacked the project-standard health/image/traffic checks and revision cleanup.
+3. The plan acknowledged that the Container App needed initial creation but didn't supply the command. First-time deploy would fail with "Container App not found."
+4. Key Vault secret name was unspecified despite a known duplicate (`sb-api-key` vs `second-brain-api-key`). The canonical name is **`second-brain-api-key`** — same secret the backend reads via `config.api_key_secret_name`.
+
+The web app reads `SPINE_API_KEY` from `process.env` (see `web/lib/spine.ts`), so the secret must be injected as an env var at container start time via Container Apps' secret reference syntax. The web app does NOT use the Azure SDK and does NOT need a Key Vault SDK client.
+
+This task is now split into:
+- **Steps 1–3:** Build artifacts (Dockerfile, .dockerignore) + local build verification.
+- **Step 4a:** One-time bootstrap of the Container App. NOT part of every deploy.
+- **Step 4b:** Steady-state CI workflow (`deploy-web.yml`).
+- **Steps 5–6:** Commit and verify.
+
+---
 
 - [ ] **Step 1: Create `web/Dockerfile`**
 
@@ -4090,13 +4109,19 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3001
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
-COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 USER nextjs
 EXPOSE 3001
 CMD ["node", "server.js"]
 ```
+
+Notes on the Dockerfile:
+- Pinned to `node:20-alpine` — Next 14 LTS-aligned. Local Node 25 (developer machine) does NOT bleed into the runtime image.
+- The original plan included `COPY --from=builder /app/public ./public`, which has been REMOVED. `web/public/` does not exist (Tasks 13–16 deliberately skipped it) and Docker errors when COPY's source is missing. Next.js standalone output works fine without `public/`.
+- `output: "standalone"` is set in `web/next.config.mjs` (Task 13), which produces `/app/.next/standalone/server.js` for the `CMD` line.
+- Non-root user (`nextjs:nodejs`) for runtime — security baseline.
+- `EXPOSE 3001` matches the port the standalone server listens on (`PORT=3001`). Container Apps ingress will be configured with `--target-port 3001` in Step 4a.
 
 - [ ] **Step 2: Create `web/.dockerignore`**
 
@@ -4106,71 +4131,303 @@ node_modules
 .git
 .env
 .env.local
+*.tsbuildinfo
 README.md
 ```
+
+`*.tsbuildinfo` added to keep `web/tsconfig.tsbuildinfo` (a TypeScript incremental-build artifact, ~60KB) out of the build context. Without it, the file is shipped into the builder stage and silently ignored — wastes context size, no functional impact, but cleaner to exclude.
 
 - [ ] **Step 3: Build image locally to verify Dockerfile**
 
 ```bash
-cd web && docker build -t spine-web:test .
+cd web && docker build --platform linux/amd64 -t spine-web:test .
 ```
+
+`--platform linux/amd64` matches the backend Dockerfile pattern and matches Container Apps' runtime architecture (avoids a silent arm64 cross-build on Apple Silicon).
 
 Expected: successful build.
 
-- [ ] **Step 4: Wire the deploy workflow**
+If the build fails on `npm ci` because the `package-lock.json` was generated under Node 25 and the build runs under Node 20: STOP and report. The pinned versions in `package.json` are 18.17+-compatible (Next 14 + React 18.3 + TS 5.5), so this should not happen, but Node 25 produced a v3 lockfile that Node 20's npm 10.x reads fine; npm 11 is not present in the official Node 20 image. If this fires, escalate to the controller — do NOT regenerate the lockfile under Node 20 without discussion.
 
-Open `.github/workflows/deploy.yml`. Add a new job `deploy-web` that:
-1. Builds the `web/Dockerfile` and pushes to ACR (`wkmsharedservicesacr`)
-2. Deploys as a new Container App named `second-brain-spine-web`
-3. Sets env vars `SPINE_API_URL` and `SPINE_API_KEY` (from Key Vault reference)
+---
 
-The exact YAML depends on the existing workflow structure. Pattern:
+- [ ] **Step 4a: ONE-TIME BOOTSTRAP — Create Container App + grant Key Vault access**
 
-```yaml
-deploy-web:
-  needs: [deploy-api]
-  runs-on: ubuntu-latest
-  steps:
-    - uses: actions/checkout@v4
-    - uses: azure/login@v2
-      with:
-        client-id: ${{ secrets.AZURE_CLIENT_ID }}
-        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-    - name: Build and push image
-      working-directory: web
-      run: |
-        IMAGE_TAG="${{ github.sha }}"
-        az acr build \
-          --registry wkmsharedservicesacr \
-          --image second-brain-spine-web:$IMAGE_TAG \
-          --image second-brain-spine-web:latest \
-          --file Dockerfile .
-    - name: Deploy Container App
-      run: |
-        IMAGE="wkmsharedservicesacr.azurecr.io/second-brain-spine-web:${{ github.sha }}"
-        az containerapp update \
-          --name second-brain-spine-web \
-          --resource-group shared-services-rg \
-          --image "$IMAGE"
+This step runs ONCE, before the first CI deploy. After this step succeeds, the steady-state CI workflow (Step 4b) takes over. Do NOT run this in CI.
+
+Run the following from a local shell with `az login` complete and `az account set --subscription <id>`:
+
+```bash
+# Variables
+export RG=shared-services-rg
+export APP_NAME=second-brain-spine-web
+export ACR_NAME=wkmsharedservicesacr
+export KV_NAME=wkm-shared-kv
+export KV_SECRET=second-brain-api-key
+export ENV_NAME=$(az containerapp show --name second-brain-api --resource-group $RG --query "properties.managedEnvironmentId" -o tsv | awk -F/ '{print $NF}')
+
+# 1. Create the Container App with a placeholder image so the resource exists
+#    before CI tries to update it. Use the public ACR pull endpoint; ingress
+#    target port 3001 matches the Dockerfile's EXPOSE.
+az containerapp create \
+  --name $APP_NAME \
+  --resource-group $RG \
+  --environment $ENV_NAME \
+  --image mcr.microsoft.com/k8se/quickstart:latest \
+  --target-port 3001 \
+  --ingress external \
+  --system-assigned \
+  --min-replicas 0 \
+  --max-replicas 2 \
+  --cpu 0.5 \
+  --memory 1Gi
+
+# 2. Grant the Container App's system-assigned managed identity permission
+#    to read secrets from Key Vault (Get only — no Set/Delete needed).
+PRINCIPAL_ID=$(az containerapp show --name $APP_NAME --resource-group $RG --query identity.principalId -o tsv)
+KV_ID=$(az keyvault show --name $KV_NAME --query id -o tsv)
+az role assignment create \
+  --assignee-object-id "$PRINCIPAL_ID" \
+  --assignee-principal-type ServicePrincipal \
+  --role "Key Vault Secrets User" \
+  --scope "$KV_ID"
+
+# 3. Wire the Key Vault secret as a Container App secret (key vault reference).
+#    Container Apps fetches the secret value from KV using the managed identity
+#    above, then exposes it to the app via --env-vars secretref:....
+KV_URI=$(az keyvault secret show --vault-name $KV_NAME --name $KV_SECRET --query id -o tsv)
+az containerapp secret set \
+  --name $APP_NAME \
+  --resource-group $RG \
+  --secrets "spine-api-key=keyvaultref:${KV_URI},identityref:system"
+
+# 4. Set the env vars the app reads at runtime. SPINE_API_URL is plaintext
+#    (no secret); SPINE_API_KEY references the Container App secret above.
+az containerapp update \
+  --name $APP_NAME \
+  --resource-group $RG \
+  --set-env-vars \
+    SPINE_API_URL=https://brain.willmacdonald.com \
+    SPINE_API_KEY=secretref:spine-api-key
+
+# 5. Print the ingress URL so it can be saved.
+az containerapp show --name $APP_NAME --resource-group $RG --query "properties.configuration.ingress.fqdn" -o tsv
 ```
 
-If `second-brain-spine-web` Container App doesn't exist yet, create it first with `az containerapp create` referencing the Key Vault secrets.
+After this completes, the Container App exists and is correctly wired but is running the placeholder image. The first run of the CI workflow (Step 4b) will replace it with the real `second-brain-spine-web` image.
+
+If any step fails:
+- "Container app environment not found": confirm `second-brain-api` exists in `shared-services-rg` and re-derive `$ENV_NAME`.
+- "Key Vault Secrets User role not found": the role was renamed in 2024; try `--role "00482a5a-887f-4fb3-b363-3b7fe8e74483"` (its role ID) instead.
+- "secret not found": verify with `az keyvault secret list --vault-name wkm-shared-kv --query "[].name" -o tsv | grep api-key` — canonical name is `second-brain-api-key`.
+
+This bootstrap step is documented here so it can be re-run if the Container App is ever deleted/recreated. It is NOT part of the steady-state CI workflow.
+
+---
+
+- [ ] **Step 4b: Create the steady-state CI workflow `deploy-web.yml`**
+
+Mirror the structure of `.github/workflows/deploy-backend.yml`. Key differences from the backend workflow:
+- Path filter is `web/**` (not `backend/**`)
+- No `uv` install / `uv lock --check` step (web is npm-based; npm validates the lockfile during `docker build`'s `npm ci`)
+- Health URL is the Container App ingress FQDN's root (`/`) — Next.js root route returns 200 if the app boots, no `/health` endpoint
+- Image name is `second-brain-spine-web`
+- Container App name is `second-brain-spine-web`
+
+Create `.github/workflows/deploy-web.yml`:
+
+```yaml
+name: Deploy Web (Spine UI) to Azure Container Apps
+
+on:
+  push:
+    branches: [main]
+    paths: ['web/**', '.github/workflows/deploy-web.yml']
+
+concurrency:
+  group: deploy-web
+  cancel-in-progress: true
+
+permissions:
+  id-token: write   # Required for OIDC (Workload Identity Federation)
+  contents: read
+
+env:
+  ACR_NAME: wkmsharedservicesacr
+  CONTAINER_APP_NAME: second-brain-spine-web
+  RESOURCE_GROUP: shared-services-rg
+  IMAGE_NAME: second-brain-spine-web
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Record pipeline start
+        run: echo "PIPELINE_START=$(date +%s)" >> "$GITHUB_ENV"
+
+      - uses: actions/checkout@v4
+
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Log in to ACR
+        run: az acr login --name ${{ env.ACR_NAME }}
+
+      - name: Build and push image
+        run: |
+          IMAGE_TAG="${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}"
+          echo "IMAGE_TAG=$IMAGE_TAG" >> "$GITHUB_ENV"
+          docker build --platform linux/amd64 -t "$IMAGE_TAG" ./web
+          docker push "$IMAGE_TAG"
+
+      - name: Deploy to Container Apps
+        run: |
+          REVISION_SUFFIX="sha-$(echo ${{ github.sha }} | cut -c1-7)"
+          echo "REVISION_SUFFIX=$REVISION_SUFFIX" >> "$GITHUB_ENV"
+          echo "REVISION_NAME=${{ env.CONTAINER_APP_NAME }}--${REVISION_SUFFIX}" >> "$GITHUB_ENV"
+          az containerapp update \
+            --name ${{ env.CONTAINER_APP_NAME }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --image "${{ env.IMAGE_TAG }}" \
+            --revision-suffix "$REVISION_SUFFIX"
+
+      - name: Verify deployment health
+        run: |
+          INGRESS_FQDN=$(az containerapp show \
+            --name ${{ env.CONTAINER_APP_NAME }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --query "properties.configuration.ingress.fqdn" -o tsv)
+          HEALTH_URL="https://${INGRESS_FQDN}/"
+          echo "HEALTH_URL=$HEALTH_URL" >> "$GITHUB_ENV"
+          MAX_ATTEMPTS=15
+          POLL_INTERVAL=12
+
+          for i in $(seq 1 $MAX_ATTEMPTS); do
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$HEALTH_URL" 2>/dev/null || echo "000")
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "Health check passed on attempt $i (HTTP 200)"
+              echo "HEALTH_STATUS=healthy" >> "$GITHUB_ENV"
+              exit 0
+            fi
+            echo "Attempt $i/$MAX_ATTEMPTS: HTTP $HTTP_CODE"
+            if [ "$i" -eq "$MAX_ATTEMPTS" ]; then
+              echo "::error::Health check failed after $MAX_ATTEMPTS attempts (${MAX_ATTEMPTS}x${POLL_INTERVAL}s)"
+              echo "HEALTH_STATUS=failed" >> "$GITHUB_ENV"
+              exit 1
+            fi
+            sleep $POLL_INTERVAL
+          done
+
+      - name: Verify deployed image
+        run: |
+          DEPLOYED_IMAGE=$(az containerapp revision show \
+            --name ${{ env.CONTAINER_APP_NAME }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --revision "$REVISION_NAME" \
+            --query "properties.template.containers[0].image" \
+            -o tsv)
+
+          if [ "$DEPLOYED_IMAGE" != "$IMAGE_TAG" ]; then
+            echo "::error::Image mismatch! Expected: $IMAGE_TAG, Got: $DEPLOYED_IMAGE"
+            exit 1
+          fi
+          echo "Image verified: $DEPLOYED_IMAGE"
+
+          TRAFFIC_WEIGHT=$(az containerapp ingress traffic show \
+            --name ${{ env.CONTAINER_APP_NAME }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --query "[?revisionName=='$REVISION_NAME'].weight | [0]" \
+            -o tsv 2>/dev/null || echo "unknown")
+
+          echo "TRAFFIC_WEIGHT=$TRAFFIC_WEIGHT" >> "$GITHUB_ENV"
+
+          if [ "$TRAFFIC_WEIGHT" != "100" ]; then
+            echo "::warning::Latest revision traffic weight is ${TRAFFIC_WEIGHT}%, expected 100%"
+          else
+            echo "Traffic weight: 100%"
+          fi
+
+      - name: Cleanup old revisions
+        run: |
+          ACTIVE_REVISIONS=$(az containerapp revision list \
+            --name ${{ env.CONTAINER_APP_NAME }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --query "[?properties.active==\`true\`].name" \
+            -o tsv)
+
+          BEFORE_COUNT=0
+          for rev in $ACTIVE_REVISIONS; do
+            BEFORE_COUNT=$((BEFORE_COUNT + 1))
+          done
+          echo "Active revisions before cleanup: $BEFORE_COUNT"
+
+          DEACTIVATED=0
+          for rev in $ACTIVE_REVISIONS; do
+            if [ "$rev" != "$REVISION_NAME" ]; then
+              echo "Deactivating: $rev"
+              az containerapp revision deactivate \
+                --revision "$rev" \
+                --resource-group ${{ env.RESOURCE_GROUP }} 2>/dev/null || echo "Warning: failed to deactivate $rev"
+              DEACTIVATED=$((DEACTIVATED + 1))
+            fi
+          done
+
+          ACTIVE_COUNT=$((BEFORE_COUNT - DEACTIVATED))
+          echo "ACTIVE_COUNT=$ACTIVE_COUNT" >> "$GITHUB_ENV"
+          echo "Deactivated $DEACTIVATED revision(s), $ACTIVE_COUNT active"
+
+      - name: Deploy summary
+        if: always()
+        run: |
+          PIPELINE_END=$(date +%s)
+          DURATION=$((PIPELINE_END - ${PIPELINE_START:-$PIPELINE_END}))
+
+          SUBSCRIPTION_ID=$(az account show --query id -o tsv 2>/dev/null || echo "unknown")
+          PORTAL_URL="https://portal.azure.com/#@willmacdonald.com/resource/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${{ env.RESOURCE_GROUP }}/providers/Microsoft.App/containerApps/${{ env.CONTAINER_APP_NAME }}/revisionManagement"
+
+          cat >> "$GITHUB_STEP_SUMMARY" << EOF
+          ## Deploy Summary
+
+          | Property | Value |
+          |----------|-------|
+          | Revision | \`${REVISION_NAME:-unknown}\` |
+          | Image | \`${IMAGE_TAG:-unknown}\` |
+          | Health | ${HEALTH_STATUS:-skipped} |
+          | URL | ${HEALTH_URL:-unknown} |
+          | Traffic | ${TRAFFIC_WEIGHT:-unknown}% |
+          | Active Revisions | ${ACTIVE_COUNT:-unknown} |
+          | Duration | ${DURATION}s |
+          | Portal | [View Revisions](${PORTAL_URL}) |
+          EOF
+```
+
+---
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add web/Dockerfile web/.dockerignore .github/workflows/deploy.yml
-git commit -m "infra(web): dockerfile and container apps deployment for spine ui"
+git add web/Dockerfile web/.dockerignore .github/workflows/deploy-web.yml
+git commit -m "infra(web): dockerfile and container apps deploy workflow"
 ```
 
+The bootstrap (Step 4a) is NOT committed — it's a one-time procedural step documented in this plan. If the Container App ever needs recreating, re-run those commands manually.
+
 - [ ] **Step 6: Push and verify deployment**
+
+Before pushing, confirm Step 4a has been executed (Container App `second-brain-spine-web` exists, has system-assigned identity with KV Secrets User role, has the `spine-api-key` secret wired, has env vars set). If 4a was NOT done first, the workflow's `Deploy to Container Apps` step will fail with "Container App not found."
 
 ```bash
 git push
 ```
 
-After CI deploys, hit the new web URL (Container App ingress URL or custom domain) and confirm the status board renders with the `backend_api` tile.
+After CI deploys, hit the URL printed by `Step 4a` (or the workflow's Deploy summary) and confirm:
+1. The status board renders
+2. The `backend_api` tile appears (this proves SPINE_API_URL + SPINE_API_KEY env vars resolved correctly)
+3. Clicking the tile navigates to the segment detail page and renders App Insights data without "No renderer registered" or 401 errors
 
 ---
 
