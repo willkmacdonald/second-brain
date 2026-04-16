@@ -572,6 +572,10 @@ async def query_backend_api_failures(
                 message=str(row.get("Message", "")),
                 component=row.get("Component"),
                 capture_trace_id=row.get("CaptureTraceId"),
+                outer_message=row.get("OuterMessage"),
+                outer_type=row.get("OuterType"),
+                innermost_message=row.get("InnermostMessage"),
+                details=row.get("Details"),
             )
         )
     return records
