@@ -1,4 +1,4 @@
-"""Background tasks: status evaluator loop + container app revision poller."""
+"""Background tasks: status evaluator loop + self-liveness emitter."""
 
 from __future__ import annotations
 
@@ -21,18 +21,23 @@ async def evaluator_loop(
     registry: SegmentRegistry,
     interval_seconds: int = 30,
 ) -> None:
-    """Run the evaluator for every registered segment every N seconds."""
+    """Run the evaluator for every registered segment every N seconds.
+
+    Per-segment isolation: if one segment's tick fails, the remaining segments
+    in the same sweep still run. This is load-bearing for a health monitor.
+    """
     while True:
-        try:
-            for cfg in registry.all():
+        for cfg in registry.all():
+            try:
                 result = await evaluator.evaluate(cfg.segment_id)
                 prev = await repo.get_segment_state(cfg.segment_id)
                 prev_status = prev.get("status") if prev else None
+                now = datetime.now(UTC)
                 await repo.upsert_segment_state(
                     segment_id=cfg.segment_id,
                     status=result.status,
                     headline=result.headline,
-                    last_updated=datetime.now(UTC),
+                    last_updated=now,
                     evaluator_inputs=result.evaluator_inputs,
                 )
                 if prev_status != result.status:
@@ -42,10 +47,14 @@ async def evaluator_loop(
                         prev_status=prev_status,
                         headline=result.headline,
                         evaluator_outputs=result.evaluator_inputs,
-                        timestamp=datetime.now(UTC),
+                        timestamp=now,
                     )
-        except Exception:
-            logger.warning("Evaluator loop iteration failed", exc_info=True)
+            except Exception:
+                logger.warning(
+                    "Evaluator tick failed for segment_id=%s",
+                    cfg.segment_id,
+                    exc_info=True,
+                )
         await asyncio.sleep(interval_seconds)
 
 
@@ -68,5 +77,9 @@ async def liveness_emitter(
             )
             await repo.record_event(event)
         except Exception:
-            logger.warning("Liveness emitter failed", exc_info=True)
+            logger.warning(
+                "Liveness emitter failed for segment_id=%s",
+                segment_id,
+                exc_info=True,
+            )
         await asyncio.sleep(interval_seconds)
