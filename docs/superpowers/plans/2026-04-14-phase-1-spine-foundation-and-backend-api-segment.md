@@ -1990,6 +1990,7 @@ class SpineWorkloadMiddleware(BaseHTTPMiddleware):
             response = await call_next(request)
             duration_ms = int((time.perf_counter() - start) * 1000)
             outcome = "success" if response.status_code < 500 else "failure"
+            correlation_id = self._read_capture_trace_id(request)
             event = IngestEvent(root=_WorkloadEvent(
                 segment_id=self._segment_id,
                 event_type="workload",
@@ -2010,6 +2011,7 @@ class SpineWorkloadMiddleware(BaseHTTPMiddleware):
             return response
         except Exception as exc:
             duration_ms = int((time.perf_counter() - start) * 1000)
+            correlation_id = self._read_capture_trace_id(request)
             event = IngestEvent(root=_WorkloadEvent(
                 segment_id=self._segment_id,
                 event_type="workload",
@@ -2028,17 +2030,100 @@ class SpineWorkloadMiddleware(BaseHTTPMiddleware):
             except Exception:  # noqa: BLE001
                 logger.warning("Failed to record spine workload event", exc_info=True)
             raise
+
+    @staticmethod
+    def _read_capture_trace_id(request: Request) -> str | None:
+        """Resolve the capture trace ID for correlation.
+
+        Precedence (per Task 9 amendment — required to make capture
+        correlation work for native app requests that don't send
+        X-Trace-Id):
+          1. request.state.capture_trace_id  (set by capture handlers
+             after they generate/accept a trace ID — see Task 9 Step 3b)
+          2. X-Trace-Id inbound header       (caller-supplied)
+          3. None                            (uncorrelated)
+        """
+        state_val = getattr(request.state, "capture_trace_id", None)
+        if state_val:
+            return str(state_val)
+        header_val = request.headers.get("x-trace-id")
+        if header_val:
+            return header_val
+        return None
 ```
+
+Note: remove the early `correlation_id = request.headers.get("x-trace-id")` line near the top of `dispatch` — correlation is resolved via `_read_capture_trace_id(request)` *after* `call_next` so that handler-set `request.state.capture_trace_id` is visible. Reading it before `call_next` would observe only the header.
+
+- [ ] **Step 3b (AMENDMENT, load-bearing): Propagate handler-generated capture_trace_id into request.state**
+
+In `backend/src/second_brain/api/capture.py`, four handlers generate a capture trace ID when `X-Trace-Id` is absent:
+
+```python
+capture_trace_id = request.headers.get("X-Trace-Id", str(uuid4()))
+```
+
+At the time of writing (HEAD of main), this pattern appears at approximately lines 209, 266, 313, 381 (the text, voice, follow-up, and capture-voice endpoints). For each occurrence, add the following line immediately after:
+
+```python
+request.state.capture_trace_id = capture_trace_id
+```
+
+Why: the `SpineWorkloadMiddleware` needs a deterministic channel to read the capture trace ID regardless of whether the caller supplied one. Native mobile captures typically do NOT supply `X-Trace-Id`, so without this propagation the middleware emits a workload event with `correlation_id=None` and the resulting `/api/spine/correlation/capture/{id}` timeline is missing its `backend_api` node — which is the single most important correlation the Phase 1 acceptance path requires (Task 19 Step 6).
+
+**Regression test (add to `tests/test_spine_middleware.py`):**
+
+```python
+@pytest.mark.asyncio
+async def test_reads_capture_trace_id_from_request_state_when_header_absent() -> None:
+    """Per Task 9 amendment: handler-set state beats header, header beats None."""
+    repo = AsyncMock()
+    app = FastAPI()
+    app.add_middleware(SpineWorkloadMiddleware, repo=repo, segment_id="backend_api")
+
+    @app.get("/with-state")
+    async def _with_state(request: Request) -> dict:
+        request.state.capture_trace_id = "handler-generated-trace"
+        return {"ok": True}
+
+    from starlette.requests import Request  # local import to keep test self-contained
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        await client.get("/with-state")  # NO X-Trace-Id header
+
+    event = repo.record_event.call_args.args[0]
+    assert event.root.payload.correlation_kind == "capture"
+    assert event.root.payload.correlation_id == "handler-generated-trace"
+
+
+@pytest.mark.asyncio
+async def test_state_takes_precedence_over_header() -> None:
+    repo = AsyncMock()
+    app = FastAPI()
+    app.add_middleware(SpineWorkloadMiddleware, repo=repo, segment_id="backend_api")
+
+    @app.get("/with-both")
+    async def _with_both(request: Request) -> dict:
+        request.state.capture_trace_id = "from-state"
+        return {"ok": True}
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        await client.get("/with-both", headers={"X-Trace-Id": "from-header"})
+
+    event = repo.record_event.call_args.args[0]
+    assert event.root.payload.correlation_id == "from-state"
+```
+
+Why `request.state` and not a `ContextVar`: request.state is request-scoped and survives the handler-to-middleware round trip deterministically. A ContextVar would work but leaks correlation across async tasks if a future contributor reuses the var outside the HTTP request path — exactly the kind of silent coupling a future phase could regress on. Reach for a ContextVar only when the same ID is needed in non-request code paths that don't already get it passed explicitly.
 
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `cd backend && uv run pytest tests/test_spine_middleware.py -v`
-Expected: PASS
+Expected: PASS (4 tests including the two amendment tests).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add backend/src/second_brain/spine/middleware.py backend/tests/test_spine_middleware.py
+git add backend/src/second_brain/spine/middleware.py backend/tests/test_spine_middleware.py backend/src/second_brain/api/capture.py
 git commit -m "feat(spine): fastapi middleware emits per-request workload events"
 ```
 
