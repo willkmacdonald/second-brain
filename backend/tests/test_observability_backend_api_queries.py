@@ -288,11 +288,53 @@ class TestQueryBackendApiFailures:
         assert rec.message == "Unhandled exception"
         assert rec.component == "admin_agent"
         assert rec.capture_trace_id == "trace-xyz"
-        # Fields not populated by this function default to None
+        # Enrichment fields absent from this minimal test row default to None.
+        # See test_enrichment_fields_survive_when_kql_provides_them for the
+        # positive assertion that these fields ARE read when present.
         assert rec.outer_type is None
         assert rec.outer_message is None
         assert rec.innermost_message is None
         assert rec.details is None
+
+    async def test_enrichment_fields_survive_when_kql_provides_them(
+        self, mock_client: AsyncMock
+    ) -> None:
+        """OuterMessage/OuterType/InnermostMessage/Details from KQL reach FailureRecord.
+
+        The BACKEND_API_FAILURES KQL template projects all four enrichment
+        columns. The Python constructor MUST read them — without this, the
+        Task 16 AppInsightsDetail renderer's "Inner cause" and "Stack details"
+        expandable sections are permanently empty on production data.
+        Regression guard for the Task 11.5 mapping omission discovered during
+        Phase 1 Task 16 pre-dispatch review.
+        """
+        rows = [
+            {
+                "timestamp": "2026-04-15T12:00:00Z",
+                "ItemType": "Exception",
+                "severityLevel": 4,
+                "Message": "ValidationError",
+                "Component": "capture_pipeline",
+                "CaptureTraceId": "trace-enrich",
+                "OuterType": "pydantic.ValidationError",
+                "OuterMessage": "1 validation error for CaptureRequest",
+                "InnermostMessage": "field required: text",
+                "Details": "Traceback (most recent call last):\n  File ...",
+            }
+        ]
+        with patch.object(
+            queries,
+            "execute_kql",
+            AsyncMock(return_value=QueryResult(tables=[rows])),
+        ):
+            result = await queries.query_backend_api_failures(mock_client, "ws-id")
+
+        assert len(result) == 1
+        rec = result[0]
+        assert rec.outer_type == "pydantic.ValidationError"
+        assert rec.outer_message == "1 validation error for CaptureRequest"
+        assert rec.innermost_message == "field required: text"
+        assert rec.details == "Traceback (most recent call last):\n  File ..."
 
     async def test_empty_capture_trace_id_normalized_to_none(
         self, mock_client: AsyncMock

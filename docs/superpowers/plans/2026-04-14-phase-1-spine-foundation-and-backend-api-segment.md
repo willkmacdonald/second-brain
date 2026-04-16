@@ -2839,10 +2839,18 @@ async def query_backend_api_failures(
                 message=str(row.get("Message", "")),
                 component=row.get("Component"),
                 capture_trace_id=row.get("CaptureTraceId"),
+                outer_message=row.get("OuterMessage"),
+                outer_type=row.get("OuterType"),
+                innermost_message=row.get("InnermostMessage"),
+                details=row.get("Details"),
             )
         )
     return records
 ```
+
+**Amendment (2026-04-16):** The original plan body for `query_backend_api_failures` omitted `outer_message`, `outer_type`, `innermost_message`, and `details` from the `FailureRecord` constructor — even though the `BACKEND_API_FAILURES` KQL template projects all four fields, and the function's docstring promises "same schema as `query_recent_failures`" (which DOES populate them). The omission silently dropped exception detail on every row. Discovered when reviewing Task 16's `AppInsightsDetail` renderer, whose expandable "Inner cause" and "Stack details" sections rely on these fields.
+
+The test plan in Step 4 must include a positive assertion that all four enrichment fields survive parsing when the KQL row carries them — relying on `assert outer_message is None` only proves the field is nullable, not that the constructor reads it.
 
 Note on KQL injection: `capture_trace_id` is interpolated into the KQL string rather than parameterised. That's acceptable here because: (a) KQL does not have traditional prepared statements for this construct; (b) the trace ID value originates either from server-generated UUIDs (`uuid4()` in the capture handlers) or from a caller header that reaches the spine correlation endpoint as a path parameter `{correlation_id}` — FastAPI normalizes path params and this code is behind authenticated endpoints. Still, add this regex guard at the top of each function:
 
