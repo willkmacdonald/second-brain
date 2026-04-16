@@ -132,9 +132,9 @@ def test_liveness_event_parses() -> None:
         "timestamp": "2026-04-14T12:00:00Z",
         "payload": {"instance_id": "abc-123"},
     })
-    assert event.event_type == "liveness"
-    assert isinstance(event.payload, LivenessPayload)
-    assert event.payload.instance_id == "abc-123"
+    assert event.root.event_type == "liveness"
+    assert isinstance(event.root.payload, LivenessPayload)
+    assert event.root.payload.instance_id == "abc-123"
 
 
 def test_readiness_event_parses() -> None:
@@ -144,9 +144,9 @@ def test_readiness_event_parses() -> None:
         "timestamp": "2026-04-14T12:00:00Z",
         "payload": {"checks": [{"name": "cosmos", "status": "ok"}]},
     })
-    assert event.event_type == "readiness"
-    assert isinstance(event.payload, ReadinessPayload)
-    assert event.payload.checks[0].name == "cosmos"
+    assert event.root.event_type == "readiness"
+    assert isinstance(event.root.payload, ReadinessPayload)
+    assert event.root.payload.checks[0].name == "cosmos"
 
 
 def test_workload_event_parses() -> None:
@@ -162,10 +162,10 @@ def test_workload_event_parses() -> None:
             "correlation_id": "trace-1",
         },
     })
-    assert event.event_type == "workload"
-    assert isinstance(event.payload, WorkloadPayload)
-    assert event.payload.outcome == "success"
-    assert event.payload.duration_ms == 234
+    assert event.root.event_type == "workload"
+    assert isinstance(event.root.payload, WorkloadPayload)
+    assert event.root.payload.outcome == "success"
+    assert event.root.payload.duration_ms == 234
 
 
 def test_workload_failure_includes_error_class() -> None:
@@ -182,7 +182,7 @@ def test_workload_failure_includes_error_class() -> None:
             "error_class": "HttpResponseError",
         },
     })
-    assert event.payload.error_class == "HttpResponseError"
+    assert event.root.payload.error_class == "HttpResponseError"
 
 
 def test_unknown_event_type_rejected() -> None:
@@ -236,9 +236,9 @@ Create `backend/src/second_brain/spine/models.py`:
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field, RootModel
 
 # ---------------------------------------------------------------------------
 # Ingest event payloads (discriminated by event_type)
@@ -302,33 +302,15 @@ class _WorkloadEvent(BaseModel):
     payload: WorkloadPayload
 
 
-IngestEvent = Annotated[
+class IngestEvent(RootModel[Annotated[
     _LivenessEvent | _ReadinessEvent | _WorkloadEvent,
     Field(discriminator="event_type"),
-]
+]]):
+    """Discriminated ingest event from any segment.
 
-
-# Convenience: instances also exported for type hints
-IngestEventType = _LivenessEvent | _ReadinessEvent | _WorkloadEvent
-
-# Re-export under the IngestEvent name so callers can use it as a type
-# (Pydantic Annotated unions are not classes, so we provide a TypeAdapter
-# pattern below for parsing.)
-from pydantic import TypeAdapter  # noqa: E402
-
-_ingest_event_adapter: TypeAdapter[IngestEventType] = TypeAdapter(IngestEvent)
-
-
-class IngestEventParser:
-    """Adapter wrapper so callers can do IngestEvent.model_validate(d)."""
-
-    @staticmethod
-    def model_validate(data: dict) -> IngestEventType:
-        return _ingest_event_adapter.validate_python(data)
-
-
-# Allow `IngestEvent.model_validate(...)` usage in tests
-IngestEvent = IngestEventParser  # type: ignore[misc, assignment]
+    Callers parse with `IngestEvent.model_validate(d)` and read the concrete
+    variant via `.root` (e.g. `event.root.event_type`, `event.root.payload`).
+    """
 
 
 # ---------------------------------------------------------------------------
@@ -341,8 +323,6 @@ SegmentStatus = Literal["green", "yellow", "red", "stale"]
 
 class RollupInfo(BaseModel):
     """Rollup annotation on a segment status."""
-
-    model_config = ConfigDict(populate_by_name=True)
 
     suppressed: bool
     suppressed_by: str | None
@@ -419,7 +399,7 @@ class SegmentDetailResponse(BaseModel):
     web UI uses to dispatch to the correct renderer.
     """
 
-    data: dict
+    data: dict[str, Any]
     envelope: ResponseEnvelope
 ```
 
@@ -437,130 +417,108 @@ git commit -m "feat(spine): pydantic models for ingest events and responses"
 
 ---
 
-## Task 2: Cosmos containers (Bicep + provisioning)
+## Task 2: Cosmos containers (az CLI provisioning + checked-in script)
+
+**Convention:** This project manages Cosmos container lifecycle with az CLI, not Bicep/IaC (see `.planning/phases/16-query-foundation/16-03-SUMMARY.md` and `.planning/milestones/v3.0-phases/10-data-foundation-and-admin-tools/10-01-PLAN.md`). Task 2 checks in a reproducible provisioning script as the source of truth and runs it once against prod.
 
 **Files:**
-- Create: `infra/cosmos-spine-containers.bicep`
-- Modify: `infra/main.bicep` (or equivalent root Bicep — verify exact path before editing)
+- Create: `infra/spine-cosmos-containers.sh`
 
-- [ ] **Step 1: Locate the existing Cosmos account Bicep**
+**Target Cosmos account / database** (verify before running):
+- Resource group: `shared-services-rg`
+- Account: `shared-services-cosmosdb`
+- Database: `second-brain`
 
-Run: `find infra -name "*.bicep" -type f`
-Expected: list of `.bicep` files. If none, the project uses Azure portal / az CLI directly — in that case skip Bicep and use the az CLI script in Step 3.
+**Container spec:**
 
-- [ ] **Step 2: Create `infra/cosmos-spine-containers.bicep`**
+| Container | Partition key | TTL | Purpose |
+|---|---|---|---|
+| `spine_segment_state` | `/segment_id` | `-1` (never expire; always upserted) | One doc per segment, current status + headline |
+| `spine_events` | `/segment_id` | `1209600` (14 days) | Append-only ingest events (liveness/readiness/workload) |
+| `spine_status_history` | `/segment_id` | `2592000` (30 days) | Append-only status transition records |
+| `spine_correlation` | `/correlation_kind` | `2592000` (30 days) | Per-correlation timelines (capture/thread/request/crud) |
 
-```bicep
-@description('Cosmos DB account name (existing).')
-param cosmosAccountName string
-
-@description('Cosmos DB database name (existing).')
-param databaseName string = 'second-brain'
-
-resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2024-05-15' existing = {
-  name: cosmosAccountName
-}
-
-resource db 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2024-05-15' existing = {
-  parent: cosmos
-  name: databaseName
-}
-
-resource segmentState 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-05-15' = {
-  parent: db
-  name: 'spine_segment_state'
-  properties: {
-    resource: {
-      id: 'spine_segment_state'
-      partitionKey: {
-        paths: ['/segment_id']
-        kind: 'Hash'
-      }
-      defaultTtl: -1  // never expire (always overwritten)
-    }
-  }
-}
-
-resource events 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-05-15' = {
-  parent: db
-  name: 'spine_events'
-  properties: {
-    resource: {
-      id: 'spine_events'
-      partitionKey: {
-        paths: ['/segment_id']
-        kind: 'Hash'
-      }
-      defaultTtl: 1209600  // 14 days
-    }
-  }
-}
-
-resource statusHistory 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-05-15' = {
-  parent: db
-  name: 'spine_status_history'
-  properties: {
-    resource: {
-      id: 'spine_status_history'
-      partitionKey: {
-        paths: ['/segment_id']
-        kind: 'Hash'
-      }
-      defaultTtl: 2592000  // 30 days
-    }
-  }
-}
-
-resource correlation 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-05-15' = {
-  parent: db
-  name: 'spine_correlation'
-  properties: {
-    resource: {
-      id: 'spine_correlation'
-      partitionKey: {
-        paths: ['/correlation_kind']
-        kind: 'Hash'
-      }
-      defaultTtl: 2592000  // 30 days
-    }
-  }
-}
-```
-
-- [ ] **Step 3: Provision the 4 containers (az CLI fallback if no Bicep)**
-
-If the project uses `az` CLI directly, run:
+- [ ] **Step 1: Create `infra/spine-cosmos-containers.sh`**
 
 ```bash
-RG=shared-services-rg
-ACCOUNT=$(az cosmosdb list -g $RG --query "[?contains(name, 'second-brain')].name | [0]" -o tsv)
-DB=second-brain
+#!/usr/bin/env bash
+#
+# Provision the 4 Cosmos SQL containers backing the spine observability layer.
+#
+# This project does not have a checked-in Bicep/IaC pipeline for Cosmos;
+# container lifecycle is managed with az CLI. This script is the source of
+# truth for the spine containers' partition keys and TTLs.
+#
+# Idempotent: re-running against an already-provisioned account will report
+# a 409 Conflict for each existing container. Safe.
+#
+# First provisioned: 2026-04-15 (Phase 1 / spine foundation).
 
-az cosmosdb sql container create -g $RG -a $ACCOUNT -d $DB \
-  --name spine_segment_state --partition-key-path /segment_id --ttl -1
-az cosmosdb sql container create -g $RG -a $ACCOUNT -d $DB \
-  --name spine_events --partition-key-path /segment_id --ttl 1209600
-az cosmosdb sql container create -g $RG -a $ACCOUNT -d $DB \
-  --name spine_status_history --partition-key-path /segment_id --ttl 2592000
-az cosmosdb sql container create -g $RG -a $ACCOUNT -d $DB \
-  --name spine_correlation --partition-key-path /correlation_kind --ttl 2592000
+set -euo pipefail
+
+RG="${RG:-shared-services-rg}"
+ACCOUNT="${ACCOUNT:-shared-services-cosmosdb}"
+DB="${DB:-second-brain}"
+
+echo "Provisioning spine containers in ${ACCOUNT}/${DB} (${RG})..."
+
+# 1. Segment state — one doc per segment, never expires (always upserted).
+az cosmosdb sql container create -g "$RG" -a "$ACCOUNT" -d "$DB" \
+  --name spine_segment_state \
+  --partition-key-path /segment_id \
+  --ttl=-1
+
+# 2. Ingest events — append-only, 14-day retention (1209600 seconds).
+az cosmosdb sql container create -g "$RG" -a "$ACCOUNT" -d "$DB" \
+  --name spine_events \
+  --partition-key-path /segment_id \
+  --ttl=1209600
+
+# 3. Status transition history — append-only, 30-day retention (2592000 seconds).
+az cosmosdb sql container create -g "$RG" -a "$ACCOUNT" -d "$DB" \
+  --name spine_status_history \
+  --partition-key-path /segment_id \
+  --ttl=2592000
+
+# 4. Correlation records — append-only, 30-day retention, keyed on correlation_kind.
+az cosmosdb sql container create -g "$RG" -a "$ACCOUNT" -d "$DB" \
+  --name spine_correlation \
+  --partition-key-path /correlation_kind \
+  --ttl=2592000
+
+echo "Done. Verifying..."
+az cosmosdb sql container list -g "$RG" -a "$ACCOUNT" -d "$DB" \
+  --query "[?starts_with(name, 'spine_')].{name:name, partitionKey:resource.partitionKey.paths[0], ttl:resource.defaultTtl}" \
+  -o table
 ```
 
-Expected output: 4 successful container creations.
+Note: the `--ttl=-1` equals form (not `--ttl -1`) avoids zsh parsing `-1` as a flag argument.
 
-- [ ] **Step 4: Verify containers exist**
+- [ ] **Step 2: Run script with `chmod +x` and execute**
 
 ```bash
-az cosmosdb sql container list -g $RG -a $ACCOUNT -d $DB --query "[?starts_with(name, 'spine_')].name" -o tsv
+chmod +x infra/spine-cosmos-containers.sh
+./infra/spine-cosmos-containers.sh
 ```
 
-Expected: 4 lines — `spine_segment_state`, `spine_events`, `spine_status_history`, `spine_correlation`.
+Expected: 4 create responses (one per container) followed by a 4-row verification table.
 
-- [ ] **Step 5: Commit Bicep**
+- [ ] **Step 3: Verify containers exist with correct config**
 
 ```bash
-git add infra/cosmos-spine-containers.bicep
-git commit -m "infra(spine): bicep for 4 spine cosmos containers"
+az cosmosdb sql container list \
+  -g shared-services-rg -a shared-services-cosmosdb -d second-brain \
+  --query "[?starts_with(name, 'spine_')].{name:name, partitionKey:resource.partitionKey.paths[0], ttl:resource.defaultTtl}" \
+  -o table
+```
+
+Expected 4 rows matching the container spec table above.
+
+- [ ] **Step 4: Commit script**
+
+```bash
+git add infra/spine-cosmos-containers.sh
+git commit -m "infra(spine): provisioning script for 4 cosmos containers"
 ```
 
 ---
@@ -762,7 +720,7 @@ from azure.cosmos.aio import ContainerProxy
 
 from second_brain.spine.models import (
     CorrelationKind,
-    IngestEventType,
+    IngestEvent,
     SegmentStatus,
 )
 
@@ -784,20 +742,21 @@ class SpineRepository:
         self._status_history = status_history_container
         self._correlation = correlation_container
 
-    async def record_event(self, event: IngestEventType) -> None:
+    async def record_event(self, event: IngestEvent) -> None:
         """Append an ingest event and (for workloads with correlation) a correlation record."""
+        inner = event.root  # the concrete _LivenessEvent / _ReadinessEvent / _WorkloadEvent
         body = {
             "id": str(uuid4()),
-            "segment_id": event.segment_id,
-            "event_type": event.event_type,
-            "timestamp": event.timestamp.isoformat(),
-            "payload": event.payload.model_dump(mode="json"),
+            "segment_id": inner.segment_id,
+            "event_type": inner.event_type,
+            "timestamp": inner.timestamp.isoformat(),
+            "payload": inner.payload.model_dump(mode="json"),
             "ingested_at": datetime.now(timezone.utc).isoformat(),
         }
         await self._events.create_item(body=body)
 
-        if event.event_type == "workload":
-            payload = event.payload  # WorkloadPayload
+        if inner.event_type == "workload":
+            payload = inner.payload  # WorkloadPayload
             if payload.correlation_kind and payload.correlation_id:
                 corr_status: SegmentStatus = (
                     "green" if payload.outcome == "success"
@@ -805,11 +764,11 @@ class SpineRepository:
                     else "red"
                 )
                 corr_body = {
-                    "id": f"{payload.correlation_kind}:{payload.correlation_id}:{event.segment_id}:{body['id']}",
+                    "id": f"{payload.correlation_kind}:{payload.correlation_id}:{inner.segment_id}:{body['id']}",
                     "correlation_kind": payload.correlation_kind,
                     "correlation_id": payload.correlation_id,
-                    "segment_id": event.segment_id,
-                    "timestamp": event.timestamp.isoformat(),
+                    "segment_id": inner.segment_id,
+                    "timestamp": inner.timestamp.isoformat(),
                     "status": corr_status,
                     "headline": (
                         f"{payload.operation} {payload.outcome}"
@@ -1025,6 +984,22 @@ class EvaluatorConfig:
 
     def name_or_id(self) -> str:
         return self.display_name or self.segment_id
+
+    def __post_init__(self) -> None:
+        # The evaluator's stale window is liveness_interval_seconds * 2 +
+        # acceptable_lag_seconds. get_recent_events is queried with
+        # workload_window_seconds. If the query window is smaller than the
+        # stale window, a segment can appear stale just because the query
+        # truncated older liveness events — fail fast at config time.
+        stale_window = self.liveness_interval_seconds * 2 + self.acceptable_lag_seconds
+        if self.workload_window_seconds < stale_window:
+            raise ValueError(
+                f"EvaluatorConfig for '{self.segment_id}': "
+                f"workload_window_seconds ({self.workload_window_seconds}) "
+                f"must be >= stale window ({stale_window} = "
+                f"liveness_interval_seconds * 2 + acceptable_lag_seconds) "
+                f"so the query covers the staleness threshold."
+            )
 
 
 class SegmentRegistry:
@@ -1370,7 +1345,7 @@ class StatusEvaluator:
             return EvaluationResult(
                 segment_id=segment_id,
                 status="red",
-                headline=self._red_headline(inputs),
+                headline=self._red_headline(inputs, cfg),
                 last_event_at=most_recent,
                 freshness_seconds=freshness,
                 evaluator_inputs=inputs,
@@ -1390,7 +1365,7 @@ class StatusEvaluator:
         return EvaluationResult(
             segment_id=segment_id,
             status="green",
-            headline=self._green_headline(inputs),
+            headline=self._green_headline(inputs, cfg),
             last_event_at=most_recent,
             freshness_seconds=freshness,
             evaluator_inputs=inputs,
@@ -1416,26 +1391,44 @@ class StatusEvaluator:
         return False
 
     @staticmethod
-    def _red_headline(inputs: dict) -> str:
-        if inputs.get("consecutive_failures", 0) >= 3:
-            return f"{inputs['consecutive_failures']} consecutive failures"
+    def _red_headline(inputs: dict[str, Any], cfg: EvaluatorConfig) -> str:
+        # Surface the consecutive-failure message only when that threshold was
+        # actually the trigger — compare against cfg, not a hardcoded constant.
+        consec_threshold = cfg.red_thresholds.get("consecutive_failures")
+        consec = inputs.get("consecutive_failures", 0)
+        if isinstance(consec_threshold, (int, float)) and consec >= consec_threshold:
+            return f"{consec} consecutive failures"
         rate_pct = int(inputs.get("workload_failure_rate", 0) * 100)
-        return f"{rate_pct}% failure rate ({inputs['workload_failures']}/{inputs['workload_total']})"
+        fails = inputs["workload_failures"]
+        total = inputs["workload_total"]
+        return f"{rate_pct}% failure rate ({fails}/{total})"
 
     @staticmethod
-    def _yellow_headline(inputs: dict) -> str:
+    def _yellow_headline(inputs: dict[str, Any]) -> str:
         if inputs.get("any_readiness_failed"):
             return "Dependency check failing"
         rate_pct = int(inputs.get("workload_failure_rate", 0) * 100)
-        return f"{rate_pct}% failure rate ({inputs['workload_failures']}/{inputs['workload_total']})"
+        fails = inputs["workload_failures"]
+        total = inputs["workload_total"]
+        return f"{rate_pct}% failure rate ({fails}/{total})"
 
     @staticmethod
-    def _green_headline(inputs: dict) -> str:
+    def _green_headline(inputs: dict[str, Any], cfg: EvaluatorConfig) -> str:
         total = inputs.get("workload_total", 0)
+        window_label = _humanize_window(cfg.workload_window_seconds)
         if total == 0:
             return "Idle (no recent operations)"
-        return f"{total} ops, 0 failures in last 5min"
+        return f"{total} ops, 0 failures in last {window_label}"
+
+
+def _humanize_window(seconds: int) -> str:
+    """Human label for the workload window (e.g. 300 → '5min', 90 → '90s')."""
+    if seconds >= 60 and seconds % 60 == 0:
+        return f"{seconds // 60}min"
+    return f"{seconds}s"
 ```
+
+NOTE: This task also extends `EvaluatorConfig` (from Task 4) with a `__post_init__` invariant asserting `workload_window_seconds >= liveness_interval_seconds * 2 + acceptable_lag_seconds` — otherwise the evaluator's stale check could fire on healthy segments whose liveness events fall outside the query window. The Task 4 plan lists this guard for continuity, but the actual change landed atomically with Task 5 (commit on branch `phase-1-spine-foundation` amended during Task 5 review).
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -1684,7 +1677,15 @@ Open `backend/src/second_brain/observability/models.py`. Find `FailureRecord` an
     details: str | None = None
 ```
 
-And extend the existing `_empty_to_none` `@field_validator(mode="before")` decorator to include the new field names, e.g.:
+**Also widen the existing `message` field to be nullable:**
+
+```python
+    message: str | None = None
+```
+
+This is required because the next change brings `message` under the `_empty_to_none` validator, and KQL's `coalesce(OuterMessage, Message, InnermostMessage, ExceptionType[, Name])` can legitimately produce an empty string for an exception row where every candidate is null. With `message: str` non-optional, the validator's `"" → None` conversion would raise `ValidationError` and abort the entire query (live-impact regression on `recent_errors` + `trace_lifecycle`). `null` is more honest than `""`; the agent rendering layer is responsible for a `"(no message)"` fallback at render time.
+
+Then extend the existing `_empty_to_none` `@field_validator(mode="before")` decorator to include the new field names, e.g.:
 
 ```python
     @field_validator(
@@ -1698,6 +1699,15 @@ And extend the existing `_empty_to_none` `@field_validator(mode="before")` decor
             return None
         return v
 ```
+
+**Add a round-trip parser test** at `backend/tests/test_observability_models.py` that pins:
+- `FailureRecord(..., message="").message is None` (the new nullable contract)
+- `TraceRecord(..., message="").message is None`
+- Empty values on all 4 new fields normalize to None on both records
+- Non-empty values on all 4 new fields survive the validator
+- `component` / `capture_trace_id` empty→None behaviour from Phase 17.1 is preserved
+
+These tests are what catches the nullable-`message` bug without needing a live App Insights run.
 
 - [ ] **Step 8: Wire new kwargs in `queries.py` parser sites**
 
@@ -1913,9 +1923,9 @@ async def test_successful_request_emits_success_workload(app_with_middleware) ->
     assert response.status_code == 200
     repo.record_event.assert_called_once()
     event = repo.record_event.call_args.args[0]
-    assert event.event_type == "workload"
-    assert event.payload.outcome == "success"
-    assert event.payload.operation == "GET /healthy"
+    assert event.root.event_type == "workload"
+    assert event.root.payload.outcome == "success"
+    assert event.root.payload.operation == "GET /healthy"
 
 
 @pytest.mark.asyncio
@@ -1929,8 +1939,8 @@ async def test_failing_request_emits_failure_workload(app_with_middleware) -> No
     # Middleware should still have recorded a failure event before exception propagation
     repo.record_event.assert_called()
     event = repo.record_event.call_args.args[0]
-    assert event.payload.outcome == "failure"
-    assert event.payload.error_class == "RuntimeError"
+    assert event.root.payload.outcome == "failure"
+    assert event.root.payload.error_class == "RuntimeError"
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -1955,7 +1965,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 
-from second_brain.spine.models import _WorkloadEvent, WorkloadPayload
+from second_brain.spine.models import IngestEvent, WorkloadPayload, _WorkloadEvent
 from second_brain.spine.storage import SpineRepository
 
 logger = logging.getLogger(__name__)
@@ -1980,7 +1990,7 @@ class SpineWorkloadMiddleware(BaseHTTPMiddleware):
             response = await call_next(request)
             duration_ms = int((time.perf_counter() - start) * 1000)
             outcome = "success" if response.status_code < 500 else "failure"
-            event = _WorkloadEvent(
+            event = IngestEvent(root=_WorkloadEvent(
                 segment_id=self._segment_id,
                 event_type="workload",
                 timestamp=datetime.now(timezone.utc),
@@ -1992,7 +2002,7 @@ class SpineWorkloadMiddleware(BaseHTTPMiddleware):
                     correlation_id=correlation_id,
                     error_class=None if outcome == "success" else f"HTTP_{response.status_code}",
                 ),
-            )
+            ))
             try:
                 await self._repo.record_event(event)
             except Exception:  # noqa: BLE001 - never let spine break the request
@@ -2000,7 +2010,7 @@ class SpineWorkloadMiddleware(BaseHTTPMiddleware):
             return response
         except Exception as exc:
             duration_ms = int((time.perf_counter() - start) * 1000)
-            event = _WorkloadEvent(
+            event = IngestEvent(root=_WorkloadEvent(
                 segment_id=self._segment_id,
                 event_type="workload",
                 timestamp=datetime.now(timezone.utc),
@@ -2012,7 +2022,7 @@ class SpineWorkloadMiddleware(BaseHTTPMiddleware):
                     correlation_id=correlation_id,
                     error_class=type(exc).__name__,
                 ),
-            )
+            ))
             try:
                 await self._repo.record_event(event)
             except Exception:  # noqa: BLE001
@@ -2449,7 +2459,7 @@ import socket
 from datetime import datetime, timezone
 
 from second_brain.spine.evaluator import StatusEvaluator
-from second_brain.spine.models import _LivenessEvent, LivenessPayload
+from second_brain.spine.models import IngestEvent, LivenessPayload, _LivenessEvent
 from second_brain.spine.registry import SegmentRegistry
 from second_brain.spine.storage import SpineRepository
 
@@ -2499,12 +2509,12 @@ async def liveness_emitter(
     instance_id = socket.gethostname()
     while True:
         try:
-            event = _LivenessEvent(
+            event = IngestEvent(root=_LivenessEvent(
                 segment_id=segment_id,
                 event_type="liveness",
                 timestamp=datetime.now(timezone.utc),
                 payload=LivenessPayload(instance_id=instance_id),
-            )
+            ))
             await repo.record_event(event)
         except Exception:
             logger.warning("Liveness emitter failed", exc_info=True)
