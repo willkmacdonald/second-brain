@@ -2530,24 +2530,40 @@ git commit -m "feat(spine): http api with status, ingest, correlation, segment e
 
 ---
 
-## Task 11: Background tasks (evaluator loop + Container App revision poller)
+## Task 11: Background tasks (evaluator loop + self-liveness emitter)
 
 **Files:**
 - Create: `backend/src/second_brain/spine/background.py`
+- Create: `backend/tests/test_spine_background.py` (red regression — per-segment isolation in `evaluator_loop`)
 
-- [ ] **Step 1: Implement `background.py`**
+**Design invariant (operational):** The evaluator loop MUST keep reporting on healthy segments even when one segment's evaluation fails. One broken segment must not silently blind the operator to the status of the others during a tick. Encode this as a red regression test before fixing.
 
-Create `backend/src/second_brain/spine/background.py`:
+- [ ] **Step 1: Write red regression test for per-segment isolation**
+
+Create `backend/tests/test_spine_background.py` with a test that proves: if `evaluator.evaluate()` raises for segment A, segments B and C are still upserted and logged in the same tick. The test drives one tick of `evaluator_loop` (run it in a task, `asyncio.sleep(0)` enough to complete the sweep, then cancel), asserts `upsert_segment_state` was called for B and C but not A, and asserts a `logger.warning` was emitted with `segment_id=A` in the log arguments.
+
+This test MUST fail against the plan-verbatim implementation from the prior commit (all-or-nothing try/except around the for-loop).
+
+- [ ] **Step 2: Commit the red test**
+
+```bash
+git add backend/tests/test_spine_background.py
+git commit -m "test(spine): red test for per-segment evaluator loop isolation"
+```
+
+- [ ] **Step 3: Implement/fix `background.py`**
+
+Create (or amend) `backend/src/second_brain/spine/background.py`:
 
 ```python
-"""Background tasks: status evaluator loop + container app revision poller."""
+"""Background tasks: status evaluator loop + self-liveness emitter."""
 
 from __future__ import annotations
 
 import asyncio
 import logging
 import socket
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from second_brain.spine.evaluator import StatusEvaluator
 from second_brain.spine.models import IngestEvent, LivenessPayload, _LivenessEvent
@@ -2563,18 +2579,23 @@ async def evaluator_loop(
     registry: SegmentRegistry,
     interval_seconds: int = 30,
 ) -> None:
-    """Run the evaluator for every registered segment every N seconds."""
+    """Run the evaluator for every registered segment every N seconds.
+
+    Per-segment isolation: if one segment's tick fails, the remaining segments
+    in the same sweep still run. This is load-bearing for a health monitor.
+    """
     while True:
-        try:
-            for cfg in registry.all():
+        for cfg in registry.all():
+            try:
                 result = await evaluator.evaluate(cfg.segment_id)
                 prev = await repo.get_segment_state(cfg.segment_id)
                 prev_status = prev.get("status") if prev else None
+                now = datetime.now(UTC)
                 await repo.upsert_segment_state(
                     segment_id=cfg.segment_id,
                     status=result.status,
                     headline=result.headline,
-                    last_updated=datetime.now(timezone.utc),
+                    last_updated=now,
                     evaluator_inputs=result.evaluator_inputs,
                 )
                 if prev_status != result.status:
@@ -2584,10 +2605,14 @@ async def evaluator_loop(
                         prev_status=prev_status,
                         headline=result.headline,
                         evaluator_outputs=result.evaluator_inputs,
-                        timestamp=datetime.now(timezone.utc),
+                        timestamp=now,
                     )
-        except Exception:
-            logger.warning("Evaluator loop iteration failed", exc_info=True)
+            except Exception:
+                logger.warning(
+                    "Evaluator tick failed for segment_id=%s",
+                    cfg.segment_id,
+                    exc_info=True,
+                )
         await asyncio.sleep(interval_seconds)
 
 
@@ -2600,23 +2625,37 @@ async def liveness_emitter(
     instance_id = socket.gethostname()
     while True:
         try:
-            event = IngestEvent(root=_LivenessEvent(
-                segment_id=segment_id,
-                event_type="liveness",
-                timestamp=datetime.now(timezone.utc),
-                payload=LivenessPayload(instance_id=instance_id),
-            ))
+            event = IngestEvent(
+                root=_LivenessEvent(
+                    segment_id=segment_id,
+                    event_type="liveness",
+                    timestamp=datetime.now(UTC),
+                    payload=LivenessPayload(instance_id=instance_id),
+                )
+            )
             await repo.record_event(event)
         except Exception:
-            logger.warning("Liveness emitter failed", exc_info=True)
+            logger.warning(
+                "Liveness emitter failed for segment_id=%s",
+                segment_id,
+                exc_info=True,
+            )
         await asyncio.sleep(interval_seconds)
 ```
 
-- [ ] **Step 2: Commit (no test — pure orchestration code, validated via integration in Task 12)**
+Note: `asyncio.CancelledError` is a `BaseException` (not `Exception`) in Python 3.8+, so the blanket `except Exception` inside the per-segment body does NOT swallow cancellation. Task 12's `task.cancel(); await task` pattern works correctly.
+
+- [ ] **Step 4: Run the red test and confirm it turns green**
+
+```bash
+cd backend && uv run pytest tests/test_spine_background.py -v
+```
+
+- [ ] **Step 5: Commit the fix**
 
 ```bash
 git add backend/src/second_brain/spine/background.py
-git commit -m "feat(spine): background evaluator loop + liveness emitter"
+git commit -m "fix(spine): per-segment isolation in evaluator_loop + log context"
 ```
 
 ---
