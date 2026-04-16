@@ -4195,7 +4195,15 @@ az role assignment create \
 # 3. Wire the Key Vault secret as a Container App secret (key vault reference).
 #    Container Apps fetches the secret value from KV using the managed identity
 #    above, then exposes it to the app via --env-vars secretref:....
-KV_URI=$(az keyvault secret show --vault-name $KV_NAME --name $KV_SECRET --query id -o tsv)
+#
+#    Use the UNVERSIONED secret URI (no trailing /<version>) so the Container
+#    App always reads the latest version when the secret rotates. The KV_URI
+#    derivation below strips any trailing version path component captured by
+#    az keyvault secret show --query id (which returns the versioned URI).
+#
+#    Verified canonical name (2026-04-16): second-brain-api-key
+#    Unversioned URI: https://wkm-shared-kv.vault.azure.net/secrets/second-brain-api-key
+KV_URI="https://${KV_NAME}.vault.azure.net/secrets/${KV_SECRET}"
 az containerapp secret set \
   --name $APP_NAME \
   --resource-group $RG \
