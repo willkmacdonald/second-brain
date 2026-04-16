@@ -29,7 +29,48 @@ from fastapi import FastAPI
 _az_monitor_otel.configure_azure_monitor = lambda *a, **kw: None  # type: ignore[attr-defined]
 
 from second_brain.main import _wire_spine  # noqa: E402
+from second_brain.main import app as production_app  # noqa: E402
 from second_brain.spine.storage import SpineRepository  # noqa: E402
+
+# ---------------------------------------------------------------------------
+# Production middleware ordering (C1 regression)
+# ---------------------------------------------------------------------------
+
+
+def test_production_app_has_api_key_middleware_outermost() -> None:
+    """C1 regression: APIKeyMiddleware must be the OUTERMOST middleware so
+    auth gates before SpineWorkloadMiddleware observes a request. If spine
+    sits outside auth, 401s from unauthenticated requests still flow through
+    spine and pollute the backend_api workload dataset.
+
+    Starlette's `add_middleware` PREPENDS to `app.user_middleware` — so the
+    LAST-registered call becomes index 0 (outermost, runs first on inbound).
+    For auth to be outermost: APIKeyMiddleware must be registered AFTER
+    SpineWorkloadMiddleware in main.py, which places it at user_middleware[0].
+
+    Red against commit 41ac1a0 where the order was reversed (spine at [0]).
+    """
+    from second_brain.auth import APIKeyMiddleware
+    from second_brain.spine.middleware import SpineWorkloadMiddleware
+
+    stack_classes = [m.cls for m in production_app.user_middleware]
+    assert APIKeyMiddleware in stack_classes, (
+        "APIKeyMiddleware missing from production app"
+    )
+    assert SpineWorkloadMiddleware in stack_classes, (
+        "SpineWorkloadMiddleware missing from production app"
+    )
+    # Index 0 of user_middleware is the OUTERMOST (runs first on inbound).
+    auth_idx = stack_classes.index(APIKeyMiddleware)
+    spine_idx = stack_classes.index(SpineWorkloadMiddleware)
+    assert auth_idx < spine_idx, (
+        "Middleware order wrong: APIKeyMiddleware must be OUTERMOST "
+        "(user_middleware[0]) so auth gates before spine observes. "
+        "Fix by registering SpineWorkloadMiddleware BEFORE APIKeyMiddleware "
+        "in main.py (so APIKeyMiddleware's add_middleware call runs LAST, "
+        f"prepending it to index 0). Got stack (outermost first): {stack_classes}"
+    )
+
 
 # ---------------------------------------------------------------------------
 # Helpers

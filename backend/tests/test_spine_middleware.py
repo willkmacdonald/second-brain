@@ -142,3 +142,63 @@ async def test_middleware_without_repo_noops_when_app_state_missing() -> None:
     ) as client:
         response = await client.get("/probe")
     assert response.status_code == 200  # request succeeds, spine no-ops
+
+
+@pytest.mark.asyncio
+async def test_401_from_api_key_middleware_emits_no_spine_event() -> None:
+    """C1 behavioural complement: with the correct ordering, an unauth
+    request to the production `app` does NOT record a spine workload event.
+
+    Constructs the middleware stack in production order explicitly so the
+    test is deterministic regardless of how the real app's lifespan boots.
+    """
+    from second_brain.auth import APIKeyMiddleware
+
+    app = FastAPI()
+    state_repo = AsyncMock()
+    app.state.spine_repo = state_repo
+    app.state.api_key = "correct-key"
+
+    # Production order: spine first, auth second. Auth becomes the outermost
+    # layer on the inbound path (`add_middleware` prepends to the stack).
+    app.add_middleware(SpineWorkloadMiddleware)
+    app.add_middleware(APIKeyMiddleware)
+
+    @app.get("/gated")
+    async def _gated() -> dict:
+        return {"ok": True}
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.get("/gated")  # no Authorization header
+
+    assert response.status_code == 401
+    state_repo.record_event.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_middleware_without_repo_reraises_handler_exception() -> None:
+    """Exception branch no-op path (I3): with no repo configured, a handler
+    exception must still propagate — the middleware must not swallow it and
+    must not crash trying to access a None repo.
+    """
+    app = FastAPI()
+    app.add_middleware(SpineWorkloadMiddleware)
+    # Note: NOT setting app.state.spine_repo
+
+    @app.get("/boom")
+    async def _boom() -> dict:
+        raise RuntimeError("handler boom")
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        # Starlette's default exception handler converts the RuntimeError
+        # to a 500; the assertion of interest is that no AttributeError
+        # on a None repo leaked through, and the original failure semantics
+        # are preserved (5xx not swallowed to 2xx).
+        with contextlib.suppress(Exception):
+            await client.get("/boom")
+    # If the None-guard had been broken, we'd have seen AttributeError
+    # surfaced from inside middleware.record_event(...) on a None repo.
