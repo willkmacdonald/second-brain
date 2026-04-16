@@ -329,3 +329,56 @@ AppTraces
 | extend DurationSeconds = datetime_diff('second', EndTime, StartTime)
 | order by StartTime desc
 """
+
+# ---------------------------------------------------------------------------
+# Backend API Requests -- AppRequests rows for the backend_api segment
+# ---------------------------------------------------------------------------
+# Parameterised with {capture_trace_filter} via str.format().
+# {capture_trace_filter} is either "" (no filter) or a line like:
+#   | where tostring(Properties.capture_trace_id) == "trace-id-here"
+# Timespan controlled by the query_workspace call.
+
+BACKEND_API_REQUESTS = """\
+AppRequests
+{capture_trace_filter}| project
+    timestamp = TimeGenerated,
+    Name,
+    ResultCode,
+    DurationMs,
+    Success,
+    CaptureTraceId = tostring(Properties.capture_trace_id),
+    OperationId = tostring(OperationId)
+| order by timestamp desc
+| take 200
+"""
+
+
+# ---------------------------------------------------------------------------
+# Backend API Failures -- AppExceptions + severity>=3 AppTraces,
+# optionally filtered to a single capture trace
+# ---------------------------------------------------------------------------
+# Parameterised with {capture_trace_filter} via str.format().
+# Timespan controlled by the query_workspace call.
+
+BACKEND_API_FAILURES = """\
+union withsource=SourceTable
+    (AppTraces | where SeverityLevel >= 3),
+    AppExceptions
+{capture_trace_filter}| project
+    timestamp = TimeGenerated,
+    ItemType = case(
+        SourceTable == "AppTraces", "Log",
+        SourceTable == "AppExceptions", "Exception",
+        SourceTable
+    ),
+    severityLevel = SeverityLevel,
+    Message = coalesce(Message, ExceptionType),
+    Component = tostring(Properties.component),
+    CaptureTraceId = tostring(Properties.capture_trace_id),
+    OuterType = tostring(Properties.outer_type),
+    OuterMessage = tostring(Properties.outer_message),
+    InnermostMessage = tostring(Properties.innermost_message),
+    Details = tostring(Properties.details)
+| order by timestamp desc
+| take 200
+"""

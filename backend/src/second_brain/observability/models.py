@@ -104,6 +104,25 @@ class FailureRecord(BaseModel):
         return self.capture_trace_id[:8]
 
 
+class RequestRecord(BaseModel):
+    """A single row from the backend_api requests query (AppRequests)."""
+
+    timestamp: str
+    name: str  # e.g. "POST /api/capture/text"
+    result_code: str  # HTTP status as string (Azure's native shape)
+    duration_ms: float | None = None
+    success: bool | None = None  # AppRequests.Success
+    capture_trace_id: str | None = None
+    operation_id: str | None = None  # Azure's request-scope correlation
+
+    @field_validator("capture_trace_id", "operation_id", mode="before")
+    @classmethod
+    def _empty_to_none(cls, v: str | None) -> str | None:
+        if v is None or (isinstance(v, str) and v.strip() == ""):
+            return None
+        return v
+
+
 class FailureQueryResult(BaseModel):
     """Result wrapper for recent_failures queries with total count metadata.
 

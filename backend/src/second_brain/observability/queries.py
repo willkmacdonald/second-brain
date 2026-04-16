@@ -1,6 +1,7 @@
 """Async query functions for App Insights via Log Analytics workspace."""
 
 import logging
+import re
 from datetime import timedelta
 
 from azure.monitor.query import LogsQueryStatus
@@ -8,6 +9,8 @@ from azure.monitor.query.aio import LogsQueryClient
 
 from second_brain.observability.kql_templates import (
     ADMIN_AUDIT_LOG,
+    BACKEND_API_FAILURES,
+    BACKEND_API_REQUESTS,
     CAPTURE_TRACE,
     LATEST_CAPTURE_TRACE_ID,
     RECENT_FAILURES,
@@ -25,6 +28,7 @@ from second_brain.observability.models import (
     FailureRecord,
     HealthSummary,
     QueryResult,
+    RequestRecord,
     TraceRecord,
     UsagePatternRecord,
 )
@@ -470,3 +474,104 @@ def _parse_kql_duration(kql_duration: str) -> timedelta:
         return result
     logger.warning("Unknown KQL duration '%s', defaulting to 24h", kql_duration)
     return timedelta(hours=24)
+
+
+# ---------------------------------------------------------------------------
+# Backend API detail query primitives (Task 11.5)
+# ---------------------------------------------------------------------------
+
+# Validates capture_trace_id before embedding it in KQL to prevent injection.
+# Allows UUIDs, hex strings, and dash-separated identifiers.
+_TRACE_ID_RE = re.compile(r"^[A-Za-z0-9\-]+$")
+
+
+async def query_backend_api_requests(
+    client: LogsQueryClient,
+    workspace_id: str,
+    time_range_seconds: int = 3600,
+    capture_trace_id: str | None = None,
+) -> list[RequestRecord]:
+    """Return AppRequests rows for the backend_api segment.
+
+    When `capture_trace_id` is provided, filters to that single trace.
+    Otherwise returns the most recent 200 requests in the time window.
+    """
+    if capture_trace_id is not None and not _TRACE_ID_RE.match(capture_trace_id):
+        raise ValueError(f"Invalid capture_trace_id: {capture_trace_id!r}")
+
+    trace_filter = (
+        f'| where tostring(Properties.capture_trace_id) == "{capture_trace_id}"\n'
+        if capture_trace_id
+        else ""
+    )
+    query = BACKEND_API_REQUESTS.format(capture_trace_filter=trace_filter)
+    result = await execute_kql(
+        client,
+        workspace_id,
+        query,
+        timespan=timedelta(seconds=time_range_seconds),
+    )
+
+    if not result.tables or not result.tables[0]:
+        return []
+
+    records: list[RequestRecord] = []
+    for row in result.tables[0]:
+        records.append(
+            RequestRecord(
+                timestamp=str(row.get("timestamp", "")),
+                name=str(row.get("Name", "")),
+                result_code=str(row.get("ResultCode", "")),
+                duration_ms=row.get("DurationMs"),
+                success=row.get("Success"),
+                capture_trace_id=row.get("CaptureTraceId"),
+                operation_id=row.get("OperationId"),
+            )
+        )
+    return records
+
+
+async def query_backend_api_failures(
+    client: LogsQueryClient,
+    workspace_id: str,
+    time_range_seconds: int = 3600,
+    capture_trace_id: str | None = None,
+) -> list[FailureRecord]:
+    """Return AppExceptions + severity>=3 AppTraces for the backend_api segment.
+
+    When `capture_trace_id` is provided, filters to that single trace.
+    Otherwise returns the most recent 200 failures in the time window.
+    Native-shape rows (same schema as `query_recent_failures`).
+    """
+    if capture_trace_id is not None and not _TRACE_ID_RE.match(capture_trace_id):
+        raise ValueError(f"Invalid capture_trace_id: {capture_trace_id!r}")
+
+    trace_filter = (
+        f'| where tostring(Properties.capture_trace_id) == "{capture_trace_id}"\n'
+        if capture_trace_id
+        else ""
+    )
+    query = BACKEND_API_FAILURES.format(capture_trace_filter=trace_filter)
+    result = await execute_kql(
+        client,
+        workspace_id,
+        query,
+        timespan=timedelta(seconds=time_range_seconds),
+    )
+
+    if not result.tables or not result.tables[0]:
+        return []
+
+    records: list[FailureRecord] = []
+    for row in result.tables[0]:
+        records.append(
+            FailureRecord(
+                timestamp=str(row.get("timestamp", "")),
+                item_type=str(row.get("ItemType", "")),
+                severity_level=row.get("severityLevel"),
+                message=str(row.get("Message", "")),
+                component=row.get("Component"),
+                capture_trace_id=row.get("CaptureTraceId"),
+            )
+        )
+    return records
