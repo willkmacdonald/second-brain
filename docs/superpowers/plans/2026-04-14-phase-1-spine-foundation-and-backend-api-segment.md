@@ -3866,6 +3866,10 @@ git commit -m "feat(web): status board with auto-refresh and suppression toggle"
 - Create: `web/components/SegmentDetailHeader.tsx`
 - Create: `web/components/renderers/AppInsightsDetail.tsx`
 
+**Amendment (2026-04-16):** Two corrections to `AppInsightsDetail.tsx` after code review caught real defects on the first pass.
+1. **`duration_ms` is nullable on the wire.** `RequestRecord.duration_ms` is typed `float | None` on the backend (Pydantic model). The renderer's TS interface declared it as `number` and the table cell rendered `{r.duration_ms}ms`, which displays as bare `ms` (no number) when `duration_ms` is `null`. Updated the interface to `number | null` and added an explicit `"—"` fallback in the cell.
+2. **Defensive null guards on `app_exceptions` / `app_requests`.** If either array is absent on the wire (future adapter misregistration, partial response), `data.app_exceptions.length` throws `TypeError`. Added cheap default-to-`[]` guards at the top of the renderer. The current `BackendApiAdapter` always populates both, so this is forward-compatibility, not a current bug.
+
 - [ ] **Step 1: Create dispatcher page**
 
 `web/app/segment/[id]/page.tsx`:
@@ -3963,21 +3967,24 @@ interface AppInsightsData {
   app_requests: Array<{
     timestamp: string;
     name: string;
-    duration_ms: number;
+    duration_ms: number | null;
     result_code: string;
   }>;
 }
 
 export function AppInsightsDetail({ data }: { data: AppInsightsData }) {
+  const exceptions = data.app_exceptions ?? [];
+  const requests = data.app_requests ?? [];
+
   return (
     <div>
       <section>
-        <h2>Recent exceptions ({data.app_exceptions.length})</h2>
-        {data.app_exceptions.length === 0 ? (
+        <h2>Recent exceptions ({exceptions.length})</h2>
+        {exceptions.length === 0 ? (
           <p style={{ color: "#888" }}>No recent exceptions.</p>
         ) : (
           <ul style={{ listStyle: "none", padding: 0 }}>
-            {data.app_exceptions.map((e, i) => (
+            {exceptions.map((e, i) => (
               <li key={i} style={{ background: "#1a2028", padding: 12, marginBottom: 8, borderRadius: 6 }}>
                 <div style={{ fontSize: 12, color: "#888" }}>
                   {new Date(e.timestamp).toLocaleString()} · {e.component ?? "—"}
@@ -4006,8 +4013,8 @@ export function AppInsightsDetail({ data }: { data: AppInsightsData }) {
         )}
       </section>
       <section style={{ marginTop: 32 }}>
-        <h2>Recent requests ({data.app_requests.length})</h2>
-        {data.app_requests.length === 0 ? (
+        <h2>Recent requests ({requests.length})</h2>
+        {requests.length === 0 ? (
           <p style={{ color: "#888" }}>No recent requests.</p>
         ) : (
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
@@ -4020,11 +4027,13 @@ export function AppInsightsDetail({ data }: { data: AppInsightsData }) {
               </tr>
             </thead>
             <tbody>
-              {data.app_requests.map((r, i) => (
+              {requests.map((r, i) => (
                 <tr key={i} style={{ borderBottom: "1px solid #1a2028" }}>
                   <td style={{ padding: 8, color: "#888" }}>{new Date(r.timestamp).toLocaleTimeString()}</td>
                   <td style={{ padding: 8 }}>{r.name}</td>
-                  <td style={{ padding: 8, textAlign: "right" }}>{r.duration_ms}ms</td>
+                  <td style={{ padding: 8, textAlign: "right" }}>
+                    {r.duration_ms != null ? `${r.duration_ms}ms` : "—"}
+                  </td>
                   <td style={{ padding: 8, textAlign: "right" }}>{r.result_code}</td>
                 </tr>
               ))}
