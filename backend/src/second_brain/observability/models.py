@@ -21,7 +21,7 @@ class TraceRecord(BaseModel):
     timestamp: str
     item_type: str
     severity_level: int | None = None
-    message: str
+    message: str | None = None
     component: str | None = None
     capture_trace_id: str | None = None
     outer_message: str | None = None
@@ -58,7 +58,7 @@ class FailureRecord(BaseModel):
     timestamp: str
     item_type: str
     severity_level: int | None = None
-    message: str
+    message: str | None = None
     component: str | None = None
     capture_trace_id: str | None = None
     outer_message: str | None = None
