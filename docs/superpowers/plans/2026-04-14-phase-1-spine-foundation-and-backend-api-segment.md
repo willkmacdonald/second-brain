@@ -3540,6 +3540,12 @@ Verify before committing: `git status` must show clean working tree after the co
 - Create: `web/lib/spine.ts`
 - Create: `web/lib/types.ts`
 
+**Amendment (2026-04-16):** The original Step 2 had `web/lib/spine.ts` validate `SPINE_API_URL` / `SPINE_API_KEY` at MODULE TOP-LEVEL with the comment "Throw at build time / first request — not silently." This was discovered to break Next 14's `next build` during Task 17 dispatch: Next's "Collecting page data" phase imports every page module (including `force-dynamic` ones), which triggers the module-level throw because env vars are not present at build time. The build aborts with `Failed to collect page data for /segment/[id]`.
+
+The fix is to defer validation to FIRST FETCH inside `spineFetch`. Build-time imports succeed (no env access at module load), and the operational signal is preserved because the workflow's post-deploy health check polls the root page within ~30s — which calls `spine.status()`, which triggers `spineFetch`, which throws the clear "env vars are required" error if misconfigured. The deploy fails the health gate, not silently boots a broken app.
+
+The amended Step 2 source (verbatim) is shown below; the only changes are: (a) remove the module-level `if (!BASE || !KEY) throw ...` guard, (b) add an inline guard at the top of `spineFetch` with the same message and a comment explaining why it's deferred.
+
 - [ ] **Step 1: Create `web/lib/types.ts`**
 
 ```typescript
@@ -3615,15 +3621,17 @@ import type {
   CorrelationKind,
 } from "./types";
 
-const BASE = process.env.SPINE_API_URL;
-const KEY = process.env.SPINE_API_KEY;
-
-if (!BASE || !KEY) {
-  // Throw at build time / first request — not silently
-  throw new Error("SPINE_API_URL and SPINE_API_KEY env vars are required");
-}
-
 async function spineFetch<T>(path: string): Promise<T> {
+  // Validate lazily — module-level throw breaks next build's "Collecting page
+  // data" pass, which imports page modules even on force-dynamic routes.
+  // The post-deploy health check polls the root page within ~30s of a deploy,
+  // so a misconfigured Container App still fails the deploy gate, not silently.
+  const BASE = process.env.SPINE_API_URL;
+  const KEY = process.env.SPINE_API_KEY;
+  if (!BASE || !KEY) {
+    throw new Error("SPINE_API_URL and SPINE_API_KEY env vars are required");
+  }
+
   const res = await fetch(`${BASE}${path}`, {
     headers: { Authorization: `Bearer ${KEY}` },
     cache: "no-store",
@@ -4146,6 +4154,8 @@ cd web && docker build --platform linux/amd64 -t spine-web:test .
 `--platform linux/amd64` matches the backend Dockerfile pattern and matches Container Apps' runtime architecture (avoids a silent arm64 cross-build on Apple Silicon).
 
 Expected: successful build.
+
+The build does NOT receive `SPINE_API_URL` / `SPINE_API_KEY` at build time. This is intentional: Task 14's amended `web/lib/spine.ts` validates env vars lazily inside `spineFetch`, so module imports during `next build`'s "Collecting page data" pass succeed without env wiring. The values are injected at runtime by Container Apps via `secretref:` (Step 4a). Do NOT add Docker `ARG`/`ENV` placeholders for these — they would mask source-level semantic mismatches behind build plumbing.
 
 If the build fails on `npm ci` because the `package-lock.json` was generated under Node 25 and the build runs under Node 20: STOP and report. The pinned versions in `package.json` are 18.17+-compatible (Next 14 + React 18.3 + TS 5.5), so this should not happen, but Node 25 produced a v3 lockfile that Node 20's npm 10.x reads fine; npm 11 is not present in the official Node 20 image. If this fires, escalate to the controller — do NOT regenerate the lockfile under Node 20 without discussion.
 
