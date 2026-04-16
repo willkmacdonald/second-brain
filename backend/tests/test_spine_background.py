@@ -102,7 +102,7 @@ async def test_per_segment_isolation_on_evaluator_failure(caplog):
         "Expected at least one WARNING log entry for the failing segment"
     )
     segment_named = any(
-        "segment_id=a" in r.getMessage() or (r.args and "a" in r.args)
+        "segment_id=a" in r.getMessage() and r.args and "a" in r.args
         for r in warning_records
     )
     messages = [r.getMessage() for r in warning_records]
