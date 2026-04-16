@@ -1753,6 +1753,12 @@ git commit -m "feat(observability): project AppExceptions native fields (absorbs
 - Create: `backend/src/second_brain/spine/adapters/backend_api.py`
 - Test: `backend/tests/test_spine_backend_api_adapter.py`
 
+> **AMENDMENT (2026-04-15)**: The adapter accepts two injectable async fetchers — `failures_fetcher` and `requests_fetcher` — each of which MUST be a focused query primitive returning native App Insights row shapes. The adapter is pure orchestration/composition; it does NOT own query logic.
+>
+> The Phase 1 acceptance path (Task 19 Step 5) requires the `/api/spine/segment/backend_api` response to carry `data.schema == "azure_monitor_app_insights"` with `app_exceptions` (AppExceptions rows) and `app_requests` (AppRequests rows). Stuffing mixed trace rows from `query_capture_trace` into `app_requests` would violate the native-shape contract locked in the Phase 1 spec ("Backend API → AppInsightsDetail renderer backed by AppExceptions + AppRequests"). The timeline query is NOT an AppRequests detail query.
+>
+> Task 11.5 (inserted below Task 11) adds the two focused primitives — `query_backend_api_failures()` and `query_backend_api_requests()` — that Task 12 binds into the adapter. Task 8's adapter contract does NOT change. Do not modify Task 8 retrospectively; the new primitives slot into the existing injection points.
+
 - [ ] **Step 1: Write the failing test**
 
 Create `backend/tests/test_spine_backend_api_adapter.py`:
@@ -1990,6 +1996,7 @@ class SpineWorkloadMiddleware(BaseHTTPMiddleware):
             response = await call_next(request)
             duration_ms = int((time.perf_counter() - start) * 1000)
             outcome = "success" if response.status_code < 500 else "failure"
+            correlation_id = self._read_capture_trace_id(request)
             event = IngestEvent(root=_WorkloadEvent(
                 segment_id=self._segment_id,
                 event_type="workload",
@@ -2010,6 +2017,7 @@ class SpineWorkloadMiddleware(BaseHTTPMiddleware):
             return response
         except Exception as exc:
             duration_ms = int((time.perf_counter() - start) * 1000)
+            correlation_id = self._read_capture_trace_id(request)
             event = IngestEvent(root=_WorkloadEvent(
                 segment_id=self._segment_id,
                 event_type="workload",
@@ -2028,17 +2036,100 @@ class SpineWorkloadMiddleware(BaseHTTPMiddleware):
             except Exception:  # noqa: BLE001
                 logger.warning("Failed to record spine workload event", exc_info=True)
             raise
+
+    @staticmethod
+    def _read_capture_trace_id(request: Request) -> str | None:
+        """Resolve the capture trace ID for correlation.
+
+        Precedence (per Task 9 amendment — required to make capture
+        correlation work for native app requests that don't send
+        X-Trace-Id):
+          1. request.state.capture_trace_id  (set by capture handlers
+             after they generate/accept a trace ID — see Task 9 Step 3b)
+          2. X-Trace-Id inbound header       (caller-supplied)
+          3. None                            (uncorrelated)
+        """
+        state_val = getattr(request.state, "capture_trace_id", None)
+        if state_val:
+            return str(state_val)
+        header_val = request.headers.get("x-trace-id")
+        if header_val:
+            return header_val
+        return None
 ```
+
+Note: remove the early `correlation_id = request.headers.get("x-trace-id")` line near the top of `dispatch` — correlation is resolved via `_read_capture_trace_id(request)` *after* `call_next` so that handler-set `request.state.capture_trace_id` is visible. Reading it before `call_next` would observe only the header.
+
+- [ ] **Step 3b (AMENDMENT, load-bearing): Propagate handler-generated capture_trace_id into request.state**
+
+In `backend/src/second_brain/api/capture.py`, four handlers generate a capture trace ID when `X-Trace-Id` is absent:
+
+```python
+capture_trace_id = request.headers.get("X-Trace-Id", str(uuid4()))
+```
+
+At the time of writing (HEAD of main), this pattern appears at approximately lines 209, 266, 313, 381 (the text, voice, follow-up, and capture-voice endpoints). For each occurrence, add the following line immediately after:
+
+```python
+request.state.capture_trace_id = capture_trace_id
+```
+
+Why: the `SpineWorkloadMiddleware` needs a deterministic channel to read the capture trace ID regardless of whether the caller supplied one. Native mobile captures typically do NOT supply `X-Trace-Id`, so without this propagation the middleware emits a workload event with `correlation_id=None` and the resulting `/api/spine/correlation/capture/{id}` timeline is missing its `backend_api` node — which is the single most important correlation the Phase 1 acceptance path requires (Task 19 Step 6).
+
+**Regression test (add to `tests/test_spine_middleware.py`):**
+
+```python
+@pytest.mark.asyncio
+async def test_reads_capture_trace_id_from_request_state_when_header_absent() -> None:
+    """Per Task 9 amendment: handler-set state beats header, header beats None."""
+    repo = AsyncMock()
+    app = FastAPI()
+    app.add_middleware(SpineWorkloadMiddleware, repo=repo, segment_id="backend_api")
+
+    @app.get("/with-state")
+    async def _with_state(request: Request) -> dict:
+        request.state.capture_trace_id = "handler-generated-trace"
+        return {"ok": True}
+
+    from starlette.requests import Request  # local import to keep test self-contained
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        await client.get("/with-state")  # NO X-Trace-Id header
+
+    event = repo.record_event.call_args.args[0]
+    assert event.root.payload.correlation_kind == "capture"
+    assert event.root.payload.correlation_id == "handler-generated-trace"
+
+
+@pytest.mark.asyncio
+async def test_state_takes_precedence_over_header() -> None:
+    repo = AsyncMock()
+    app = FastAPI()
+    app.add_middleware(SpineWorkloadMiddleware, repo=repo, segment_id="backend_api")
+
+    @app.get("/with-both")
+    async def _with_both(request: Request) -> dict:
+        request.state.capture_trace_id = "from-state"
+        return {"ok": True}
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        await client.get("/with-both", headers={"X-Trace-Id": "from-header"})
+
+    event = repo.record_event.call_args.args[0]
+    assert event.root.payload.correlation_id == "from-state"
+```
+
+Why `request.state` and not a `ContextVar`: request.state is request-scoped and survives the handler-to-middleware round trip deterministically. A ContextVar would work but leaks correlation across async tasks if a future contributor reuses the var outside the HTTP request path — exactly the kind of silent coupling a future phase could regress on. Reach for a ContextVar only when the same ID is needed in non-request code paths that don't already get it passed explicitly.
 
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `cd backend && uv run pytest tests/test_spine_middleware.py -v`
-Expected: PASS
+Expected: PASS (4 tests including the two amendment tests).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add backend/src/second_brain/spine/middleware.py backend/tests/test_spine_middleware.py
+git add backend/src/second_brain/spine/middleware.py backend/tests/test_spine_middleware.py backend/src/second_brain/api/capture.py
 git commit -m "feat(spine): fastapi middleware emits per-request workload events"
 ```
 
@@ -2530,6 +2621,229 @@ git commit -m "feat(spine): background evaluator loop + liveness emitter"
 
 ---
 
+## Task 11.5: Backend API detail query primitives
+
+**Files:**
+- Modify: `backend/src/second_brain/observability/kql_templates.py` (add 2 new templates)
+- Modify: `backend/src/second_brain/observability/queries.py` (add 2 new functions)
+- Modify: `backend/src/second_brain/observability/models.py` (add `RequestRecord`)
+- Test: `backend/tests/test_observability_backend_api_queries.py`
+
+**Why this task exists:** Task 8's adapter contract needs two focused fetchers that return native App Insights row shapes. `query_capture_trace()` is a timeline query that returns mixed rows across 4 tables — it is NOT an AppRequests detail query and must not be stuffed into `app_requests`. `query_recent_failures()` is close to what we need for `app_exceptions` but doesn't support a `capture_trace_id` filter and doesn't expose a configurable time window. Task 11.5 adds the two focused primitives so Task 12 can wire them in cleanly.
+
+- [ ] **Step 1: Add `RequestRecord` model**
+
+In `backend/src/second_brain/observability/models.py`:
+
+```python
+class RequestRecord(BaseModel):
+    """A single row from the backend_api requests query (AppRequests)."""
+
+    timestamp: str
+    name: str                        # e.g. "POST /api/capture/text"
+    result_code: str                 # HTTP status as string (Azure's native shape)
+    duration_ms: float | None = None
+    success: bool | None = None      # AppRequests.Success
+    capture_trace_id: str | None = None
+    operation_id: str | None = None  # Azure's request-scope correlation
+
+    @field_validator("capture_trace_id", "operation_id", mode="before")
+    @classmethod
+    def _empty_to_none(cls, v: str | None) -> str | None:
+        if v is None or (isinstance(v, str) and v.strip() == ""):
+            return None
+        return v
+```
+
+- [ ] **Step 2: Add two KQL templates**
+
+In `backend/src/second_brain/observability/kql_templates.py`:
+
+```python
+# ---------------------------------------------------------------------------
+# Backend API Requests -- AppRequests rows for the backend_api segment
+# ---------------------------------------------------------------------------
+# Parameterised with {capture_trace_filter} via str.format().
+# {capture_trace_filter} is either "" (no filter) or a line like:
+#   | where tostring(Properties.capture_trace_id) == "trace-id-here"
+# Timespan controlled by the query_workspace call.
+
+BACKEND_API_REQUESTS = """\
+AppRequests
+{capture_trace_filter}| project
+    timestamp = TimeGenerated,
+    Name,
+    ResultCode,
+    DurationMs,
+    Success,
+    CaptureTraceId = tostring(Properties.capture_trace_id),
+    OperationId = tostring(OperationId)
+| order by timestamp desc
+| take 200
+"""
+
+
+# ---------------------------------------------------------------------------
+# Backend API Failures -- AppExceptions + severity>=3 AppTraces,
+# optionally filtered to a single capture trace
+# ---------------------------------------------------------------------------
+# Parameterised with {capture_trace_filter} via str.format().
+# Timespan controlled by the query_workspace call.
+
+BACKEND_API_FAILURES = """\
+union withsource=SourceTable
+    (AppTraces | where SeverityLevel >= 3),
+    AppExceptions
+{capture_trace_filter}| project
+    timestamp = TimeGenerated,
+    ItemType = case(
+        SourceTable == "AppTraces", "Log",
+        SourceTable == "AppExceptions", "Exception",
+        SourceTable
+    ),
+    severityLevel = SeverityLevel,
+    Message = coalesce(Message, ExceptionType),
+    Component = tostring(Properties.component),
+    CaptureTraceId = tostring(Properties.capture_trace_id),
+    OuterType = tostring(Properties.outer_type),
+    OuterMessage = tostring(Properties.outer_message),
+    InnermostMessage = tostring(Properties.innermost_message),
+    Details = tostring(Properties.details)
+| order by timestamp desc
+| take 200
+"""
+```
+
+- [ ] **Step 3: Add two query functions**
+
+In `backend/src/second_brain/observability/queries.py`, import the new templates and add:
+
+```python
+async def query_backend_api_requests(
+    client: LogsQueryClient,
+    workspace_id: str,
+    time_range_seconds: int = 3600,
+    capture_trace_id: str | None = None,
+) -> list[RequestRecord]:
+    """Return AppRequests rows for the backend_api segment.
+
+    When `capture_trace_id` is provided, filters to that single trace.
+    Otherwise returns the most recent 200 requests in the time window.
+    """
+    trace_filter = (
+        f'| where tostring(Properties.capture_trace_id) == "{capture_trace_id}"\n'
+        if capture_trace_id
+        else ""
+    )
+    query = BACKEND_API_REQUESTS.format(capture_trace_filter=trace_filter)
+    result = await execute_kql(
+        client,
+        workspace_id,
+        query,
+        timespan=timedelta(seconds=time_range_seconds),
+    )
+
+    if not result.tables or not result.tables[0]:
+        return []
+
+    records: list[RequestRecord] = []
+    for row in result.tables[0]:
+        records.append(
+            RequestRecord(
+                timestamp=str(row.get("timestamp", "")),
+                name=str(row.get("Name", "")),
+                result_code=str(row.get("ResultCode", "")),
+                duration_ms=row.get("DurationMs"),
+                success=row.get("Success"),
+                capture_trace_id=row.get("CaptureTraceId"),
+                operation_id=row.get("OperationId"),
+            )
+        )
+    return records
+
+
+async def query_backend_api_failures(
+    client: LogsQueryClient,
+    workspace_id: str,
+    time_range_seconds: int = 3600,
+    capture_trace_id: str | None = None,
+) -> list[FailureRecord]:
+    """Return AppExceptions + severity>=3 AppTraces for the backend_api segment.
+
+    When `capture_trace_id` is provided, filters to that single trace.
+    Otherwise returns the most recent 200 failures in the time window.
+    Native-shape rows (same schema as `query_recent_failures`).
+    """
+    trace_filter = (
+        f'| where tostring(Properties.capture_trace_id) == "{capture_trace_id}"\n'
+        if capture_trace_id
+        else ""
+    )
+    query = BACKEND_API_FAILURES.format(capture_trace_filter=trace_filter)
+    result = await execute_kql(
+        client,
+        workspace_id,
+        query,
+        timespan=timedelta(seconds=time_range_seconds),
+    )
+
+    if not result.tables or not result.tables[0]:
+        return []
+
+    records: list[FailureRecord] = []
+    for row in result.tables[0]:
+        records.append(
+            FailureRecord(
+                timestamp=str(row.get("timestamp", "")),
+                item_type=str(row.get("ItemType", "")),
+                severity_level=row.get("severityLevel"),
+                message=str(row.get("Message", "")),
+                component=row.get("Component"),
+                capture_trace_id=row.get("CaptureTraceId"),
+            )
+        )
+    return records
+```
+
+Note on KQL injection: `capture_trace_id` is interpolated into the KQL string rather than parameterised. That's acceptable here because: (a) KQL does not have traditional prepared statements for this construct; (b) the trace ID value originates either from server-generated UUIDs (`uuid4()` in the capture handlers) or from a caller header that reaches the spine correlation endpoint as a path parameter `{correlation_id}` — FastAPI normalizes path params and this code is behind authenticated endpoints. Still, add this regex guard at the top of each function:
+
+```python
+import re
+
+_TRACE_ID_RE = re.compile(r"^[A-Za-z0-9\-]+$")
+
+# ... inside each function, before building trace_filter:
+if capture_trace_id is not None and not _TRACE_ID_RE.match(capture_trace_id):
+    raise ValueError(f"Invalid capture_trace_id: {capture_trace_id!r}")
+```
+
+Hoist `_TRACE_ID_RE` to module level so both functions share it.
+
+- [ ] **Step 4: Write and run tests**
+
+Create `backend/tests/test_observability_backend_api_queries.py`. Write tests with `AsyncMock` for `LogsQueryClient` that:
+  1. `query_backend_api_requests()` with no filter issues a query containing `AppRequests` and no `capture_trace_id` filter line; returns typed `RequestRecord` objects.
+  2. `query_backend_api_requests(capture_trace_id="abc-123")` includes the filter line with the trace ID quoted exactly once.
+  3. `query_backend_api_requests(capture_trace_id="x; drop table y")` raises `ValueError` (the regex guard).
+  4. `query_backend_api_failures()` with no filter returns both exception and trace rows parsed into `FailureRecord`.
+  5. `query_backend_api_failures(capture_trace_id="abc-123")` filters correctly.
+  6. Empty result table returns `[]`.
+
+Run: `cd backend && uv run pytest tests/test_observability_backend_api_queries.py -v`
+Expected: all tests green.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add backend/src/second_brain/observability/kql_templates.py \
+        backend/src/second_brain/observability/queries.py \
+        backend/src/second_brain/observability/models.py \
+        backend/tests/test_observability_backend_api_queries.py
+git commit -m "feat(observability): backend_api detail query primitives"
+```
+
+---
+
 ## Task 12: Wire spine into FastAPI app lifespan
 
 **Files:**
@@ -2538,16 +2852,19 @@ git commit -m "feat(spine): background evaluator loop + liveness emitter"
 - [ ] **Step 1: Read existing `main.py` lifespan**
 
 ```bash
-grep -n "lifespan\|lifespan(" backend/src/second_brain/main.py | head -10
+grep -n "^async def lifespan\|@asynccontextmanager\|lifespan=" backend/src/second_brain/main.py
 ```
 
-Identify the lifespan async context manager — that's where Cosmos clients are typically initialized.
+Identify the lifespan async context manager — that's where Cosmos clients and Log Analytics clients are typically initialized. Also locate where `app.state.api_key` is set (Key Vault fetch) so spine wiring happens *after* it.
 
 - [ ] **Step 2: Add spine wiring to lifespan**
 
-In `main.py`, inside the `lifespan` function (after Cosmos clients are created), add:
+In `main.py`, inside the `lifespan` function (after Cosmos + LogsQueryClient are created, after the API key is loaded into `app.state.api_key`), add:
 
 ```python
+import asyncio
+from functools import partial
+
 from second_brain.spine.adapters.backend_api import BackendApiAdapter
 from second_brain.spine.adapters.registry import AdapterRegistry
 from second_brain.spine.api import build_spine_router
@@ -2558,8 +2875,8 @@ from second_brain.spine.middleware import SpineWorkloadMiddleware
 from second_brain.spine.registry import get_default_registry
 from second_brain.spine.storage import SpineRepository
 from second_brain.observability.queries import (
-    fetch_recent_failures,  # adjust to actual exported names
-    fetch_capture_trace,
+    query_backend_api_failures,
+    query_backend_api_requests,
 )
 
 # Inside lifespan(), after cosmos_client is set up:
@@ -2573,9 +2890,27 @@ spine_repo = SpineRepository(
 spine_registry = get_default_registry()
 spine_evaluator = StatusEvaluator(repo=spine_repo, registry=spine_registry)
 
+# Bind the Log Analytics client + workspace to the query functions so the
+# adapter sees the (time_range_seconds=, capture_trace_id=) signature it
+# expects. functools.partial is cleaner than a lambda and preserves the
+# query function's signature for stack-traces/profilers.
+logs_client = app.state.logs_query_client  # or however it's exposed today
+workspace_id = settings.log_analytics_workspace_id
+
+failures_fetcher = partial(
+    query_backend_api_failures,
+    logs_client,
+    workspace_id,
+)
+requests_fetcher = partial(
+    query_backend_api_requests,
+    logs_client,
+    workspace_id,
+)
+
 backend_api_adapter = BackendApiAdapter(
-    failures_fetcher=lambda **kw: fetch_recent_failures(**kw),  # bind your existing fetchers
-    requests_fetcher=lambda **kw: fetch_capture_trace(**kw),
+    failures_fetcher=failures_fetcher,
+    requests_fetcher=requests_fetcher,
     native_url="https://portal.azure.com/#blade/AppInsightsExtension",
 )
 adapter_registry = AdapterRegistry([backend_api_adapter])
@@ -2612,7 +2947,22 @@ evaluator_task.cancel()
 liveness_task.cancel()
 ```
 
-Adjust the `fetch_recent_failures` / `fetch_capture_trace` imports to match the actual function names exported from `second_brain.observability.queries`. If they take different kwargs, write thin wrapper lambdas to match the adapter's expected `**kwargs` shape.
+The `functools.partial` form binds the Log Analytics client + workspace ID up front, leaving the adapter's expected `(time_range_seconds=, capture_trace_id=)` kwargs free for the adapter to pass. No lambdas or kwarg-renaming needed because Task 11.5's primitives are defined against exactly that adapter contract.
+
+**Router mount order matters.** Mount the spine router *before* `app.add_middleware(SpineWorkloadMiddleware, ...)` so the middleware observes spine requests too (useful for debugging but not critical). More importantly, make sure `APIKeyMiddleware` (the primary auth middleware) is already registered; the spine's own `spine_auth` dependency double-checks auth per-route but the middleware is the real gate.
+
+**Background task cancellation.** The shutdown block must `await` the cancelled tasks so exceptions surface and pending Cosmos writes drain:
+
+```python
+# On shutdown (replace the bare .cancel() calls):
+for task in (evaluator_task, liveness_task):
+    task.cancel()
+for task in (evaluator_task, liveness_task):
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
+```
 
 - [ ] **Step 3: Run all backend tests**
 
