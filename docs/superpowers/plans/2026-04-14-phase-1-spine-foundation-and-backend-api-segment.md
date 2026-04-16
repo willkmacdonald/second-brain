@@ -4615,13 +4615,18 @@ import { SpineStatusTile } from "../../components/SpineStatusTile";
 
 Place it where you want — near the existing health cards from Phase 18 makes sense.
 
-- [ ] **Step 5: Add `EXPO_PUBLIC_SPINE_WEB_URL` to `mobile/.env`**
+- [ ] **Step 5: Add `EXPO_PUBLIC_SPINE_WEB_URL` to `mobile/.env.example`**
 
-```bash
-echo 'EXPO_PUBLIC_SPINE_WEB_URL=https://<your-spine-web-url>' >> mobile/.env.local.example
+**Amendment (2026-04-16):** Pre-dispatch check found the repo uses `mobile/.env.example` (tracked, committed) as the canonical example file — NOT `.env.local.example` as the original plan body said. There is no `.env.local.example` file in the repo and no convention for one. Append to the existing example file instead.
+
+Append the following two lines to `mobile/.env.example`:
+
+```
+# Web spine ingress URL (Container App from Task 17 bootstrap) — leave blank to disable deep link
+EXPO_PUBLIC_SPINE_WEB_URL=https://your-spine-web-url
 ```
 
-The actual `.env.local` (gitignored) needs the real URL.
+The actual `mobile/.env` (gitignored) needs the real URL once the Task 17 bootstrap has run and the Container App's FQDN is known. Until then, leave `mobile/.env`'s value empty — the tile will render but be non-pressable (see `handlePress` guard).
 
 - [ ] **Step 6: Type-check + commit**
 
