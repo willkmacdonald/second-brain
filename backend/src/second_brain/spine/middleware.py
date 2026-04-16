@@ -29,14 +29,12 @@ class SpineWorkloadMiddleware(BaseHTTPMiddleware):
     ) -> Response:
         start = time.perf_counter()
         operation = f"{request.method} {request.url.path}"
-        # ContextVar for capture_trace_id is set elsewhere in the codebase;
-        # we read whichever request header carries it for the workload payload.
-        correlation_id = request.headers.get("x-trace-id")
 
         try:
             response = await call_next(request)
             duration_ms = int((time.perf_counter() - start) * 1000)
             outcome = "success" if response.status_code < 500 else "failure"
+            correlation_id = self._read_capture_trace_id(request)
             event = _WorkloadEvent(
                 segment_id=self._segment_id,
                 event_type="workload",
@@ -60,6 +58,7 @@ class SpineWorkloadMiddleware(BaseHTTPMiddleware):
             return response
         except Exception as exc:
             duration_ms = int((time.perf_counter() - start) * 1000)
+            correlation_id = self._read_capture_trace_id(request)
             event = _WorkloadEvent(
                 segment_id=self._segment_id,
                 event_type="workload",
@@ -79,3 +78,23 @@ class SpineWorkloadMiddleware(BaseHTTPMiddleware):
             except Exception:  # noqa: BLE001
                 logger.warning("Failed to record spine workload event", exc_info=True)
             raise
+
+    @staticmethod
+    def _read_capture_trace_id(request: Request) -> str | None:
+        """Resolve the capture trace ID for correlation.
+
+        Precedence (per Task 9 amendment — required to make capture
+        correlation work for native app requests that don't send
+        X-Trace-Id):
+          1. request.state.capture_trace_id  (set by capture handlers
+             after they generate/accept a trace ID — see Task 9 Step 3b)
+          2. X-Trace-Id inbound header       (caller-supplied)
+          3. None                            (uncorrelated)
+        """
+        state_val = getattr(request.state, "capture_trace_id", None)
+        if state_val:
+            return str(state_val)
+        header_val = request.headers.get("x-trace-id")
+        if header_val:
+            return header_val
+        return None
