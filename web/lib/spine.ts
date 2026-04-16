@@ -10,15 +10,17 @@ import type {
   CorrelationKind,
 } from "./types";
 
-const BASE = process.env.SPINE_API_URL;
-const KEY = process.env.SPINE_API_KEY;
-
-if (!BASE || !KEY) {
-  // Throw at build time / first request — not silently
-  throw new Error("SPINE_API_URL and SPINE_API_KEY env vars are required");
-}
-
 async function spineFetch<T>(path: string): Promise<T> {
+  // Validate lazily — module-level throw breaks next build's "Collecting page
+  // data" pass, which imports page modules even on force-dynamic routes.
+  // The post-deploy health check polls the root page within ~30s of a deploy,
+  // so a misconfigured Container App still fails the deploy gate, not silently.
+  const BASE = process.env.SPINE_API_URL;
+  const KEY = process.env.SPINE_API_KEY;
+  if (!BASE || !KEY) {
+    throw new Error("SPINE_API_URL and SPINE_API_KEY env vars are required");
+  }
+
   const res = await fetch(`${BASE}${path}`, {
     headers: { Authorization: `Bearer ${KEY}` },
     cache: "no-store",
