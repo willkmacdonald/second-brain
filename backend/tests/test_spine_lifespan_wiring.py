@@ -171,3 +171,39 @@ async def test_wire_spine_shutdown_cancels_tasks_cleanly(settings_stub) -> None:
     # Both tasks done after cancellation
     assert evaluator_task.done()
     assert liveness_task.done()
+
+
+async def test_wire_spine_partial_failure_leaves_no_stale_state(
+    settings_stub, monkeypatch
+) -> None:
+    """I1 + I2: if wiring fails AFTER tasks are created (e.g. build_spine_router
+    raises), the `except` block must cancel in-flight tasks, null both
+    app.state.spine_repo and app.state.spine_adapter_registry, and leave no
+    spine routes mounted.
+
+    Injection site: monkeypatch second_brain.spine.api.build_spine_router to
+    raise. That's the module _wire_spine imports-from (deferred); patching
+    there is seen by the fresh import inside _wire_spine.
+    """
+    app = FastAPI()
+    app.state.cosmos_manager = _fake_cosmos_manager_with_containers()
+    app.state.logs_client = AsyncMock()
+
+    import second_brain.spine.api as spine_api_mod
+
+    def _boom(*a, **kw):
+        raise RuntimeError("simulated build_spine_router failure")
+
+    monkeypatch.setattr(spine_api_mod, "build_spine_router", _boom)
+
+    evaluator_task, liveness_task = await _wire_spine(app, settings_stub)
+
+    # Tuple returned as (None, None) after except-block reset
+    assert evaluator_task is None
+    assert liveness_task is None
+    # Both state hooks explicitly nulled
+    assert app.state.spine_repo is None
+    assert app.state.spine_adapter_registry is None
+    # No spine routes mounted, because include_router now runs AFTER task
+    # creation and the boom happens mid-include.
+    assert not any(getattr(r, "path", "").startswith("/api/spine") for r in app.routes)

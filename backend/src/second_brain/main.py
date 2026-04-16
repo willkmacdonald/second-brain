@@ -157,6 +157,16 @@ async def _wire_spine(
         # Expose for test visibility (matches app.state.spine_repo convention).
         app.state.spine_adapter_registry = adapter_registry
 
+        # Create background tasks BEFORE mounting the router so that a
+        # failure in task creation cannot leave routes mounted against a
+        # repo that the `except` below resets to None (I2 fix).
+        spine_evaluator_task = asyncio.create_task(
+            evaluator_loop(spine_evaluator, spine_repo, spine_registry)
+        )
+        spine_liveness_task = asyncio.create_task(
+            liveness_emitter(spine_repo, segment_id="backend_api")
+        )
+
         # Router inclusion inside lifespan is an intentional exception to
         # this file's module-scope-registration convention, because the
         # router needs lifespan-constructed dependencies. Safe before
@@ -170,18 +180,17 @@ async def _wire_spine(
                 auth_dependency=spine_auth,
             )
         )
-
-        spine_evaluator_task = asyncio.create_task(
-            evaluator_loop(spine_evaluator, spine_repo, spine_registry)
-        )
-        spine_liveness_task = asyncio.create_task(
-            liveness_emitter(spine_repo, segment_id="backend_api")
-        )
         logger.info("Spine lifespan wiring complete")
     except Exception:
         logger.warning("Spine wiring failed -- spine unavailable", exc_info=True)
         # Defensive: clear any partial state so callers see a clean "not wired".
+        # Cancel any tasks that were successfully created before the failure
+        # so we don't leak background work referencing a nulled repo.
+        for _task in (spine_evaluator_task, spine_liveness_task):
+            if _task is not None:
+                _task.cancel()
         app.state.spine_repo = None
+        app.state.spine_adapter_registry = None  # I1 fix — was leaking.
         spine_evaluator_task = None
         spine_liveness_task = None
 
@@ -651,14 +660,20 @@ app = FastAPI(
     openapi_url=_openapi_url,
 )
 
+# Middleware ordering (load-bearing): `add_middleware` PREPENDS to the
+# internal stack, so the LAST-registered middleware ends up at
+# `app.user_middleware[0]` — the OUTERMOST layer, which runs FIRST on
+# the inbound path. APIKeyMiddleware must therefore be registered LAST
+# so unauthenticated requests are 401'd before SpineWorkloadMiddleware
+# observes them (otherwise unauth traffic pollutes the backend_api
+# workload dataset).
+#
+# Spine workload middleware: reads repo from app.state.spine_repo at
+# dispatch time (set by lifespan). No-op when spine wiring was skipped.
+app.add_middleware(SpineWorkloadMiddleware)
+
 # API key auth middleware -- reads app.state.api_key lazily (set by lifespan)
 app.add_middleware(APIKeyMiddleware)
-
-# Spine workload middleware: reads repo from app.state.spine_repo at dispatch
-# time (set by lifespan). No-op when spine wiring was skipped.
-# Registered AFTER APIKeyMiddleware so spine runs inside auth (Starlette wraps
-# in reverse registration order -- later registrations run first on the inbound path).
-app.add_middleware(SpineWorkloadMiddleware)
 
 # Include routers
 app.include_router(health_router)
