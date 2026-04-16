@@ -102,3 +102,43 @@ async def test_state_takes_precedence_over_header() -> None:
 
     event = repo.record_event.call_args.args[0]
     assert event.root.payload.correlation_id == "from-state"
+
+
+@pytest.mark.asyncio
+async def test_middleware_without_repo_reads_app_state_spine_repo() -> None:
+    """Module-scope contract: construct without repo, resolve from app.state."""
+    app = FastAPI()
+    app.add_middleware(SpineWorkloadMiddleware)  # no repo kwarg
+
+    state_repo = AsyncMock()
+    app.state.spine_repo = state_repo
+
+    @app.get("/probe")
+    async def _probe() -> dict:
+        return {"ok": True}
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.get("/probe")
+    assert response.status_code == 200
+
+    state_repo.record_event.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_middleware_without_repo_noops_when_app_state_missing() -> None:
+    """Cosmos-unavailable path: no repo on app.state → middleware silently no-ops."""
+    app = FastAPI()
+    app.add_middleware(SpineWorkloadMiddleware)
+    # Note: NOT setting app.state.spine_repo
+
+    @app.get("/probe")
+    async def _probe() -> dict:
+        return {"ok": True}
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.get("/probe")
+    assert response.status_code == 200  # request succeeds, spine no-ops

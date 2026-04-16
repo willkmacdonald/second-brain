@@ -19,10 +19,27 @@ logger = logging.getLogger(__name__)
 class SpineWorkloadMiddleware(BaseHTTPMiddleware):
     """Records a workload event per request (success/failure + duration)."""
 
-    def __init__(self, app, repo: SpineRepository, segment_id: str) -> None:
+    def __init__(
+        self,
+        app,
+        repo: SpineRepository | None = None,
+        segment_id: str = "backend_api",
+    ) -> None:
         super().__init__(app)
         self._repo = repo
         self._segment_id = segment_id
+
+    def _resolve_repo(self, request: Request) -> SpineRepository | None:
+        """Return self._repo, then app.state.spine_repo, then None.
+
+        Module-scope middleware registration (the project convention) can't
+        receive lifespan-constructed dependencies directly, so fall back to
+        app.state. When the repo is absent entirely (lifespan skipped spine
+        wiring because cosmos_manager was None), silently no-op.
+        """
+        if self._repo is not None:
+            return self._repo
+        return getattr(request.app.state, "spine_repo", None)
 
     async def dispatch(
         self, request: Request, call_next: RequestResponseEndpoint
@@ -51,8 +68,11 @@ class SpineWorkloadMiddleware(BaseHTTPMiddleware):
                 ),
             )
             ingest_event = IngestEvent(root=event)
+            repo = self._resolve_repo(request)
+            if repo is None:
+                return response
             try:
-                await self._repo.record_event(ingest_event)
+                await repo.record_event(ingest_event)
             except Exception:  # noqa: BLE001 - never let spine break the request
                 logger.warning("Failed to record spine workload event", exc_info=True)
             return response
@@ -73,8 +93,11 @@ class SpineWorkloadMiddleware(BaseHTTPMiddleware):
                 ),
             )
             ingest_event = IngestEvent(root=event)
+            repo = self._resolve_repo(request)
+            if repo is None:
+                raise
             try:
-                await self._repo.record_event(ingest_event)
+                await repo.record_event(ingest_event)
             except Exception:  # noqa: BLE001
                 logger.warning("Failed to record spine workload event", exc_info=True)
             raise
