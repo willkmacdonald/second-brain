@@ -1677,7 +1677,15 @@ Open `backend/src/second_brain/observability/models.py`. Find `FailureRecord` an
     details: str | None = None
 ```
 
-And extend the existing `_empty_to_none` `@field_validator(mode="before")` decorator to include the new field names, e.g.:
+**Also widen the existing `message` field to be nullable:**
+
+```python
+    message: str | None = None
+```
+
+This is required because the next change brings `message` under the `_empty_to_none` validator, and KQL's `coalesce(OuterMessage, Message, InnermostMessage, ExceptionType[, Name])` can legitimately produce an empty string for an exception row where every candidate is null. With `message: str` non-optional, the validator's `"" → None` conversion would raise `ValidationError` and abort the entire query (live-impact regression on `recent_errors` + `trace_lifecycle`). `null` is more honest than `""`; the agent rendering layer is responsible for a `"(no message)"` fallback at render time.
+
+Then extend the existing `_empty_to_none` `@field_validator(mode="before")` decorator to include the new field names, e.g.:
 
 ```python
     @field_validator(
@@ -1691,6 +1699,15 @@ And extend the existing `_empty_to_none` `@field_validator(mode="before")` decor
             return None
         return v
 ```
+
+**Add a round-trip parser test** at `backend/tests/test_observability_models.py` that pins:
+- `FailureRecord(..., message="").message is None` (the new nullable contract)
+- `TraceRecord(..., message="").message is None`
+- Empty values on all 4 new fields normalize to None on both records
+- Non-empty values on all 4 new fields survive the validator
+- `component` / `capture_trace_id` empty→None behaviour from Phase 17.1 is preserved
+
+These tests are what catches the nullable-`message` bug without needing a live App Insights run.
 
 - [ ] **Step 8: Wire new kwargs in `queries.py` parser sites**
 
