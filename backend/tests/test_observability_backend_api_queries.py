@@ -113,6 +113,15 @@ class TestQueryBackendApiRequests:
                 mock_client, "ws-id", capture_trace_id="x; drop table y"
             )
 
+    async def test_trailing_newline_rejected_by_fullmatch(
+        self, mock_client: AsyncMock
+    ) -> None:
+        """Guard uses re.fullmatch so a trailing \\n does not slip past $."""
+        with pytest.raises(ValueError, match="Invalid capture_trace_id"):
+            await queries.query_backend_api_requests(
+                mock_client, "ws-id", capture_trace_id="abc-123\n"
+            )
+
     async def test_returns_typed_request_records(self, mock_client: AsyncMock) -> None:
         """Rows are parsed into RequestRecord with correct field mapping."""
         rows = [
@@ -229,6 +238,15 @@ class TestQueryBackendApiFailures:
         with pytest.raises(ValueError, match="Invalid capture_trace_id"):
             await queries.query_backend_api_failures(
                 mock_client, "ws-id", capture_trace_id="x; drop table y"
+            )
+
+    async def test_trailing_newline_rejected_by_fullmatch(
+        self, mock_client: AsyncMock
+    ) -> None:
+        """Guard uses re.fullmatch so a trailing \\n does not slip past $."""
+        with pytest.raises(ValueError, match="Invalid capture_trace_id"):
+            await queries.query_backend_api_failures(
+                mock_client, "ws-id", capture_trace_id="abc-123\n"
             )
 
     async def test_empty_result_returns_empty_list(

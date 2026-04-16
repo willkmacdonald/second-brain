@@ -496,7 +496,7 @@ async def query_backend_api_requests(
     When `capture_trace_id` is provided, filters to that single trace.
     Otherwise returns the most recent 200 requests in the time window.
     """
-    if capture_trace_id is not None and not _TRACE_ID_RE.match(capture_trace_id):
+    if capture_trace_id is not None and not _TRACE_ID_RE.fullmatch(capture_trace_id):
         raise ValueError(f"Invalid capture_trace_id: {capture_trace_id!r}")
 
     trace_filter = (
@@ -543,7 +543,7 @@ async def query_backend_api_failures(
     Otherwise returns the most recent 200 failures in the time window.
     Native-shape rows (same schema as `query_recent_failures`).
     """
-    if capture_trace_id is not None and not _TRACE_ID_RE.match(capture_trace_id):
+    if capture_trace_id is not None and not _TRACE_ID_RE.fullmatch(capture_trace_id):
         raise ValueError(f"Invalid capture_trace_id: {capture_trace_id!r}")
 
     trace_filter = (
