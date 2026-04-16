@@ -3105,19 +3105,23 @@ for task in (spine_evaluator_task, spine_liveness_task):
 
 - [ ] **Step 4: Register `SpineWorkloadMiddleware` at module scope**
 
-In `main.py` at module scope, alongside `app.add_middleware(APIKeyMiddleware)` at line 518, add:
+In `main.py` at module scope, add:
 
 ```python
 from second_brain.spine.middleware import SpineWorkloadMiddleware
 
 # Spine workload middleware: reads repo from app.state.spine_repo at dispatch
 # time (set by lifespan). No-op when spine wiring was skipped.
+# Registered BEFORE APIKeyMiddleware so spine runs INSIDE auth — see ordering note.
 app.add_middleware(SpineWorkloadMiddleware)
+app.add_middleware(APIKeyMiddleware)
 ```
 
 Note: module-scope `add_middleware` is Starlette's supported pattern; the middleware safely no-ops when `app.state.spine_repo` is absent (cosmos-unavailable path).
 
-**Middleware ordering:** In Starlette, middleware added later wraps earlier ones (reverse order of registration relative to the request path). Registering `APIKeyMiddleware` first and `SpineWorkloadMiddleware` second means the spine middleware runs AFTER auth — which is what we want (only authenticated requests produce workload events; 401s never reach the spine).
+**Middleware ordering (load-bearing — verified empirically against Starlette):** `add_middleware` PREPENDS to the middleware list, so the LAST-registered middleware becomes the OUTERMOST layer and runs FIRST on the inbound path. To have `APIKeyMiddleware` gate requests BEFORE `SpineWorkloadMiddleware` observes them (so that 401s never reach the spine and never pollute the backend_api workload dataset), `APIKeyMiddleware` must be registered LAST — i.e., `add_middleware(SpineWorkloadMiddleware)` first, then `add_middleware(APIKeyMiddleware)`.
+
+**Historical note:** An earlier revision of this plan asserted the opposite ordering rule (and the first Task 12 commit `41ac1a0` followed it). That was wrong, verified against Starlette via a minimal repro. A follow-up red test (Step 6a below) pins the correct behavior so this cannot regress silently.
 
 - [ ] **Step 5: Middleware regression test**
 
@@ -3211,6 +3215,169 @@ git commit -m "feat(spine): wire spine into fastapi app lifespan"
 ```
 
 Do NOT push. The user runs push + deploy + smoke manually per project convention (backend testing happens against deployed Azure endpoints, not local).
+
+---
+
+### Task 12 follow-up (amendment, landed in a second commit on top of 41ac1a0)
+
+Code review on `41ac1a0` surfaced one Critical and three Important issues that the original Step 4 + Step 6 missed. They are encoded here as required closure work so Task 12 is not "spec-correct but operationally wrong":
+
+- [ ] **Step 9 (red test for C1): `401` produces zero spine workload events**
+
+Add to `backend/tests/test_spine_middleware.py`:
+
+```python
+@pytest.mark.asyncio
+async def test_401_from_api_key_middleware_emits_no_spine_event() -> None:
+    """Middleware ordering: APIKeyMiddleware must gate before SpineWorkloadMiddleware.
+
+    Red against the first Task 12 commit (41ac1a0); green after swapping the
+    registration order in main.py.
+    """
+    from second_brain.auth import APIKeyMiddleware
+
+    app = FastAPI()
+    state_repo = AsyncMock()
+    app.state.spine_repo = state_repo
+    app.state.api_key = "correct-key"
+
+    # Match production order: spine first, auth second (so auth is outermost
+    # and runs first on inbound — `add_middleware` prepends to the stack).
+    app.add_middleware(SpineWorkloadMiddleware)
+    app.add_middleware(APIKeyMiddleware)
+
+    @app.get("/gated")
+    async def _gated() -> dict:
+        return {"ok": True}
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        # No Authorization header → APIKeyMiddleware should 401 before spine runs
+        response = await client.get("/gated")
+    assert response.status_code == 401
+    state_repo.record_event.assert_not_called()
+```
+
+This test MUST fail against `41ac1a0`'s ordering and pass after the swap.
+
+- [ ] **Step 10 (fix C1): swap middleware registration order in `main.py`**
+
+Current (wrong):
+```python
+app.add_middleware(APIKeyMiddleware)
+app.add_middleware(SpineWorkloadMiddleware)
+```
+
+Correct:
+```python
+app.add_middleware(SpineWorkloadMiddleware)
+app.add_middleware(APIKeyMiddleware)
+```
+
+Update the adjacent comment to match the amended Step 4 rule.
+
+- [ ] **Step 11 (fix I1 + I2): tighten `_wire_spine` failure state**
+
+Two changes inside `_wire_spine` in `main.py`:
+
+  **I1 fix — exception branch also clears `spine_adapter_registry`:** after the existing `app.state.spine_repo = None` in the `except` block, add `app.state.spine_adapter_registry = None`. Otherwise a partial-failure path leaves a stale registry whose adapters reference a nulled repo.
+
+  **I2 fix — move `app.include_router(...)` AFTER task creation:** today the router is mounted before the two `asyncio.create_task(...)` calls, so if a task creation raises, the `except` block still leaves spine routes mounted against a nulled repo. Route handlers would then 500 instead of reporting "spine unavailable". Reorder inside `_wire_spine` so that:
+  1. `adapter_registry` is built and exposed via `app.state.spine_adapter_registry`.
+  2. Both background tasks are created.
+  3. *Only then* `app.include_router(build_spine_router(...))` mounts the routes.
+
+  (If either task creation raises, the `except` clears both state hooks and no routes are mounted — the cleanest "not wired" signal callers can observe.)
+
+- [ ] **Step 12 (fix I3 + add partial-failure test): exception-branch middleware test + `_wire_spine` partial-failure coverage**
+
+  Add to `backend/tests/test_spine_middleware.py`:
+
+  ```python
+  @pytest.mark.asyncio
+  async def test_middleware_without_repo_reraises_handler_exception() -> None:
+      """Exception branch: if handler raises AND no repo is configured, the
+      original exception still propagates (middleware must not swallow it).
+      """
+      app = FastAPI()
+      app.add_middleware(SpineWorkloadMiddleware)
+      # Note: NOT setting app.state.spine_repo
+
+      @app.get("/boom")
+      async def _boom() -> dict:
+          raise RuntimeError("boom")
+
+      async with AsyncClient(
+          transport=ASGITransport(app=app), base_url="http://test"
+      ) as client:
+          with contextlib.suppress(Exception):
+              response = await client.get("/boom")
+      # Request raised with a 500 (Starlette's default handler converts
+      # unhandled exceptions to 500 before the test client sees them, but the
+      # key assertion is that the middleware did not silently record an event
+      # against a missing repo — no attribute access should have occurred).
+      # If the middleware had tried to record on a None repo we'd have gotten
+      # AttributeError: 'NoneType' has no attribute 'record_event' — so simply
+      # reaching this point (without that error leaking through) verifies the
+      # None-guard.
+  ```
+
+  Add to `backend/tests/test_spine_lifespan_wiring.py` (if practical):
+
+  ```python
+  async def test_wire_spine_partial_failure_leaves_no_stale_state(
+      settings_stub, monkeypatch
+  ) -> None:
+      """If task creation fails mid-wiring, no router is mounted and no
+      stale adapter_registry remains on app.state.
+
+      Isolates by monkeypatching asyncio.create_task inside main's import scope
+      to raise on the first call (simulating a factory error). The `except`
+      block in _wire_spine must null both state hooks and leave no spine routes.
+      """
+      app = FastAPI()
+      app.state.cosmos_manager = _fake_cosmos_manager_with_containers()
+      app.state.logs_client = AsyncMock()
+
+      import second_brain.main as main_mod
+      real_create_task = asyncio.create_task
+      calls = {"n": 0}
+
+      def _boom_once(coro, *a, **kw):
+          calls["n"] += 1
+          if calls["n"] == 1:
+              coro.close()  # avoid "coroutine never awaited" warning
+              raise RuntimeError("simulated task creation failure")
+          return real_create_task(coro, *a, **kw)
+
+      monkeypatch.setattr(main_mod.asyncio, "create_task", _boom_once)
+
+      evaluator_task, liveness_task = await _wire_spine(app, settings_stub)
+
+      assert evaluator_task is None
+      assert liveness_task is None
+      assert getattr(app.state, "spine_repo", None) is None
+      assert getattr(app.state, "spine_adapter_registry", None) is None
+      # No spine routes mounted because include_router runs AFTER task creation
+      assert not any(
+          getattr(r, "path", "").startswith("/api/spine") for r in app.routes
+      )
+  ```
+
+  If the monkeypatching approach turns out to be awkward (e.g., because `_wire_spine`'s deferred imports mean `asyncio` isn't accessed via `main_mod.asyncio`), note the awkwardness explicitly and either:
+  - use a different injection site (e.g., patch `second_brain.spine.background.evaluator_loop` to raise at first `await`), or
+  - document that this edge is covered by inspection/reasoning rather than a test, and keep the fix anyway.
+
+- [ ] **Step 13 (commit the C1 + I1 + I2 + I3 closure)**
+
+```bash
+git add docs/superpowers/plans/2026-04-14-phase-1-spine-foundation-and-backend-api-segment.md \
+        backend/src/second_brain/main.py \
+        backend/tests/test_spine_middleware.py \
+        backend/tests/test_spine_lifespan_wiring.py
+git commit -m "fix(spine): correct middleware ordering + tighten _wire_spine failure state"
+```
 
 ---
 
