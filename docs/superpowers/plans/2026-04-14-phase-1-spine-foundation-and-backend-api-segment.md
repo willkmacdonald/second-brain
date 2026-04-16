@@ -2886,152 +2886,331 @@ git commit -m "feat(observability): backend_api detail query primitives"
 ## Task 12: Wire spine into FastAPI app lifespan
 
 **Files:**
-- Modify: `backend/src/second_brain/main.py`
+- Modify: `backend/src/second_brain/db/cosmos.py` (extend `CONTAINER_NAMES` with 4 spine containers)
+- Modify: `backend/src/second_brain/spine/middleware.py` (make `repo` optional; fall back to `request.app.state.spine_repo`)
+- Modify: `backend/src/second_brain/main.py` (lifespan wiring + module-scope middleware registration)
+- Modify: `backend/tests/test_spine_middleware.py` (regression test: middleware reads repo from `app.state` when constructed without one)
+- Create: `backend/tests/test_spine_lifespan_wiring.py` (integration tests for the three behavioral edges listed in Step 1)
 
-- [ ] **Step 1: Read existing `main.py` lifespan**
+**Interface reconciliation (discovered during Task 12 pre-dispatch, amended from plan's original Step 2 snippet):**
 
-```bash
-grep -n "^async def lifespan\|@asynccontextmanager\|lifespan=" backend/src/second_brain/main.py
-```
+The original Task 12 snippet used symbol names that don't match the merged code. Corrections (load-bearing):
+- `BackendApiAdapter(native_url=...)` → **`native_url_template=...`** (adapters/backend_api.py:23).
+- `app.state.logs_query_client` → **`app.state.logs_client`** (main.py:122).
+- `cosmos_client.get_database_client(...).get_container_client(...)` → **`app.state.cosmos_manager.get_container(...)`**. This app routes ALL Cosmos access through `CosmosManager`, which enforces a container-name whitelist (`CONTAINER_NAMES` in `db/cosmos.py`). Do not bypass. Widen the whitelist.
+- Middleware registration **must happen at module scope** in `main.py` (matching `APIKeyMiddleware` at line 518), NOT inside `lifespan`. Starlette does not support adding middleware after startup, and this project's convention is module-scope registration before the app serves requests. Make the middleware construct-with-no-repo and read `request.app.state.spine_repo` per dispatch (matching the pattern `spine_auth` already uses for `app.state.api_key`).
+- **Router inclusion stays inside lifespan** because `build_spine_router` needs lifespan-constructed dependencies (`spine_repo`, `spine_evaluator`, `adapter_registry`, `spine_registry`). FastAPI allows `app.include_router` before the first request (which `yield` guarantees). Leave a comment explaining the exception.
+- Both `app.state.cosmos_manager` and `app.state.logs_client` can be `None` after non-fatal init failures (see main.py:116, 131). Spine wiring must degrade gracefully:
+  - `cosmos_manager is None` → skip spine wiring entirely (log a warning).
+  - `logs_client is None` → wire spine WITHOUT the Backend API adapter. The `/api/spine/segment/backend_api` route already returns a clean "no adapter" response when `AdapterRegistry.has()` returns False, so this is survivable.
 
-Identify the lifespan async context manager — that's where Cosmos clients and Log Analytics clients are typically initialized. Also locate where `app.state.api_key` is set (Key Vault fetch) so spine wiring happens *after* it.
+- [ ] **Step 1: Add the 4 spine containers to the `CosmosManager` whitelist**
 
-- [ ] **Step 2: Add spine wiring to lifespan**
-
-In `main.py`, inside the `lifespan` function (after Cosmos + LogsQueryClient are created, after the API key is loaded into `app.state.api_key`), add:
-
-```python
-import asyncio
-from functools import partial
-
-from second_brain.spine.adapters.backend_api import BackendApiAdapter
-from second_brain.spine.adapters.registry import AdapterRegistry
-from second_brain.spine.api import build_spine_router
-from second_brain.spine.auth import spine_auth
-from second_brain.spine.background import evaluator_loop, liveness_emitter
-from second_brain.spine.evaluator import StatusEvaluator
-from second_brain.spine.middleware import SpineWorkloadMiddleware
-from second_brain.spine.registry import get_default_registry
-from second_brain.spine.storage import SpineRepository
-from second_brain.observability.queries import (
-    query_backend_api_failures,
-    query_backend_api_requests,
-)
-
-# Inside lifespan(), after cosmos_client is set up:
-db = cosmos_client.get_database_client("second-brain")
-spine_repo = SpineRepository(
-    events_container=db.get_container_client("spine_events"),
-    segment_state_container=db.get_container_client("spine_segment_state"),
-    status_history_container=db.get_container_client("spine_status_history"),
-    correlation_container=db.get_container_client("spine_correlation"),
-)
-spine_registry = get_default_registry()
-spine_evaluator = StatusEvaluator(repo=spine_repo, registry=spine_registry)
-
-# Bind the Log Analytics client + workspace to the query functions so the
-# adapter sees the (time_range_seconds=, capture_trace_id=) signature it
-# expects. functools.partial is cleaner than a lambda and preserves the
-# query function's signature for stack-traces/profilers.
-logs_client = app.state.logs_query_client  # or however it's exposed today
-workspace_id = settings.log_analytics_workspace_id
-
-failures_fetcher = partial(
-    query_backend_api_failures,
-    logs_client,
-    workspace_id,
-)
-requests_fetcher = partial(
-    query_backend_api_requests,
-    logs_client,
-    workspace_id,
-)
-
-backend_api_adapter = BackendApiAdapter(
-    failures_fetcher=failures_fetcher,
-    requests_fetcher=requests_fetcher,
-    native_url="https://portal.azure.com/#blade/AppInsightsExtension",
-)
-adapter_registry = AdapterRegistry([backend_api_adapter])
-
-app.state.spine_repo = spine_repo
-
-evaluator_task = asyncio.create_task(
-    evaluator_loop(spine_evaluator, spine_repo, spine_registry)
-)
-liveness_task = asyncio.create_task(
-    liveness_emitter(spine_repo, segment_id="backend_api")
-)
-
-# Mount the router
-app.include_router(build_spine_router(
-    repo=spine_repo,
-    evaluator=spine_evaluator,
-    adapter_registry=adapter_registry,
-    segment_registry=spine_registry,
-    auth_dependency=spine_auth,
-))
-
-# Attach workload middleware
-app.add_middleware(
-    SpineWorkloadMiddleware,
-    repo=spine_repo,
-    segment_id="backend_api",
-)
-
-yield  # ... lifespan continues
-
-# On shutdown:
-evaluator_task.cancel()
-liveness_task.cancel()
-```
-
-The `functools.partial` form binds the Log Analytics client + workspace ID up front, leaving the adapter's expected `(time_range_seconds=, capture_trace_id=)` kwargs free for the adapter to pass. No lambdas or kwarg-renaming needed because Task 11.5's primitives are defined against exactly that adapter contract.
-
-**Router mount order matters.** Mount the spine router *before* `app.add_middleware(SpineWorkloadMiddleware, ...)` so the middleware observes spine requests too (useful for debugging but not critical). More importantly, make sure `APIKeyMiddleware` (the primary auth middleware) is already registered; the spine's own `spine_auth` dependency double-checks auth per-route but the middleware is the real gate.
-
-**Background task cancellation.** The shutdown block must `await` the cancelled tasks so exceptions surface and pending Cosmos writes drain:
+In `backend/src/second_brain/db/cosmos.py`, append to `CONTAINER_NAMES`:
 
 ```python
-# On shutdown (replace the bare .cancel() calls):
-for task in (evaluator_task, liveness_task):
+CONTAINER_NAMES: list[str] = [
+    "Inbox",
+    "People",
+    "Projects",
+    "Ideas",
+    "Admin",
+    "Errands",
+    "Tasks",
+    "Destinations",
+    "AffinityRules",
+    "Feedback",
+    "EvalResults",
+    "GoldenDataset",
+    # Spine containers (Phase 1 — provisioned by infra/spine-cosmos-containers.sh)
+    "spine_events",
+    "spine_segment_state",
+    "spine_status_history",
+    "spine_correlation",
+]
+```
+
+`CosmosManager.initialize()` will idempotently fetch container handles for these at app startup (existing loop at `cosmos.py:65-66`). No new access path; no bypass of `CosmosManager._client`.
+
+- [ ] **Step 2: Make `SpineWorkloadMiddleware.repo` optional**
+
+In `backend/src/second_brain/spine/middleware.py`, change the constructor signature:
+
+```python
+def __init__(
+    self,
+    app,
+    repo: SpineRepository | None = None,
+    segment_id: str = "backend_api",
+) -> None:
+    super().__init__(app)
+    self._repo = repo
+    self._segment_id = segment_id
+```
+
+And add a helper used by `dispatch` in both branches to resolve the repo lazily:
+
+```python
+def _resolve_repo(self, request: Request) -> SpineRepository | None:
+    """Return self._repo if set at construction, else app.state.spine_repo, else None.
+
+    Module-scope middleware registration (the project convention) can't
+    receive lifespan-constructed dependencies directly, so fall back to
+    app.state. When the repo is absent entirely (lifespan skipped spine
+    wiring because cosmos_manager was None), silently no-op.
+    """
+    if self._repo is not None:
+        return self._repo
+    return getattr(request.app.state, "spine_repo", None)
+```
+
+Replace `self._repo.record_event(ingest_event)` in both the success and exception branches with:
+
+```python
+repo = self._resolve_repo(request)
+if repo is None:
+    return response  # (or `raise` in the except branch)
+try:
+    await repo.record_event(ingest_event)
+except Exception:  # noqa: BLE001 - never let spine break the request
+    logger.warning("Failed to record spine workload event", exc_info=True)
+```
+
+Existing tests in `test_spine_middleware.py` pass `repo=AsyncMock()` explicitly, so they continue to work. Add one new regression test asserting that when the middleware is constructed WITHOUT `repo`, it reads `repo` from `app.state.spine_repo` on dispatch (see Step 5).
+
+- [ ] **Step 3: Add spine lifespan wiring in `main.py`**
+
+Inside the existing `async def lifespan(app: FastAPI)` (`main.py:74`), after the LogsQueryClient block at line 131 and after the `app.state.settings = settings` line at 397, add a new block **before** the `yield` at line 476:
+
+```python
+# --- Spine wiring (non-fatal on component failures) ---
+spine_evaluator_task = None
+spine_liveness_task = None
+try:
+    if app.state.cosmos_manager is None:
+        logger.warning("Spine wiring skipped: cosmos_manager unavailable")
+    else:
+        from functools import partial
+
+        from second_brain.observability.queries import (
+            query_backend_api_failures,
+            query_backend_api_requests,
+        )
+        from second_brain.spine.adapters.backend_api import BackendApiAdapter
+        from second_brain.spine.adapters.registry import AdapterRegistry
+        from second_brain.spine.api import build_spine_router
+        from second_brain.spine.auth import spine_auth
+        from second_brain.spine.background import (
+            evaluator_loop,
+            liveness_emitter,
+        )
+        from second_brain.spine.evaluator import StatusEvaluator
+        from second_brain.spine.registry import get_default_registry
+        from second_brain.spine.storage import SpineRepository
+
+        cosmos_mgr_for_spine = app.state.cosmos_manager
+        spine_repo = SpineRepository(
+            events_container=cosmos_mgr_for_spine.get_container("spine_events"),
+            segment_state_container=cosmos_mgr_for_spine.get_container(
+                "spine_segment_state"
+            ),
+            status_history_container=cosmos_mgr_for_spine.get_container(
+                "spine_status_history"
+            ),
+            correlation_container=cosmos_mgr_for_spine.get_container(
+                "spine_correlation"
+            ),
+        )
+        app.state.spine_repo = spine_repo
+
+        spine_registry = get_default_registry()
+        spine_evaluator = StatusEvaluator(repo=spine_repo, registry=spine_registry)
+
+        # The backend_api adapter requires the LogsQueryClient; if init
+        # earlier was non-fatal-failed, ship spine without the adapter
+        # (status/ingest/correlation endpoints still work).
+        adapters: list = []
+        if app.state.logs_client is not None and settings.log_analytics_workspace_id:
+            failures_fetcher = partial(
+                query_backend_api_failures,
+                app.state.logs_client,
+                settings.log_analytics_workspace_id,
+            )
+            requests_fetcher = partial(
+                query_backend_api_requests,
+                app.state.logs_client,
+                settings.log_analytics_workspace_id,
+            )
+            adapters.append(
+                BackendApiAdapter(
+                    failures_fetcher=failures_fetcher,
+                    requests_fetcher=requests_fetcher,
+                    native_url_template=(
+                        "https://portal.azure.com/#blade/AppInsightsExtension"
+                    ),
+                )
+            )
+            logger.info("Spine BackendApiAdapter wired")
+        else:
+            logger.warning(
+                "Spine wired without BackendApiAdapter: logs_client unavailable"
+            )
+
+        adapter_registry = AdapterRegistry(adapters)
+
+        # Router inclusion inside lifespan is an intentional exception to
+        # this file's module-scope-registration convention, because the
+        # router needs lifespan-constructed dependencies. Safe before
+        # the `yield` -- the app has not yet served its first request.
+        app.include_router(
+            build_spine_router(
+                repo=spine_repo,
+                evaluator=spine_evaluator,
+                adapter_registry=adapter_registry,
+                segment_registry=spine_registry,
+                auth_dependency=spine_auth,
+            )
+        )
+
+        spine_evaluator_task = asyncio.create_task(
+            evaluator_loop(spine_evaluator, spine_repo, spine_registry)
+        )
+        spine_liveness_task = asyncio.create_task(
+            liveness_emitter(spine_repo, segment_id="backend_api")
+        )
+        logger.info("Spine lifespan wiring complete")
+except Exception:
+    logger.warning("Spine wiring failed -- spine unavailable", exc_info=True)
+    # Defensive: clear any partial state so callers see a clean "not wired".
+    app.state.spine_repo = None
+    spine_evaluator_task = None
+    spine_liveness_task = None
+```
+
+At the shutdown block (after `yield`, around `main.py:479-497`), alongside the existing warmup-task cancellation, add:
+
+```python
+for task in (spine_evaluator_task, spine_liveness_task):
+    if task is None:
+        continue
     task.cancel()
-for task in (evaluator_task, liveness_task):
+for task in (spine_evaluator_task, spine_liveness_task):
+    if task is None:
+        continue
     try:
         await task
     except asyncio.CancelledError:
         pass
 ```
 
-- [ ] **Step 3: Run all backend tests**
+- [ ] **Step 4: Register `SpineWorkloadMiddleware` at module scope**
 
-```bash
-cd backend && uv run pytest -x
+In `main.py` at module scope, alongside `app.add_middleware(APIKeyMiddleware)` at line 518, add:
+
+```python
+from second_brain.spine.middleware import SpineWorkloadMiddleware
+
+# Spine workload middleware: reads repo from app.state.spine_repo at dispatch
+# time (set by lifespan). No-op when spine wiring was skipped.
+app.add_middleware(SpineWorkloadMiddleware)
 ```
 
-Expected: All tests pass.
+Note: module-scope `add_middleware` is Starlette's supported pattern; the middleware safely no-ops when `app.state.spine_repo` is absent (cosmos-unavailable path).
 
-- [ ] **Step 4: Smoke test the backend (deploy to dev or check CI)**
+**Middleware ordering:** In Starlette, middleware added later wraps earlier ones (reverse order of registration relative to the request path). Registering `APIKeyMiddleware` first and `SpineWorkloadMiddleware` second means the spine middleware runs AFTER auth — which is what we want (only authenticated requests produce workload events; 401s never reach the spine).
 
-Push branch and verify CI builds and passes. Per project conventions: do NOT run backend locally; merge to main triggers deploy.
+- [ ] **Step 5: Middleware regression test**
+
+Add to `backend/tests/test_spine_middleware.py`:
+
+```python
+@pytest.mark.asyncio
+async def test_middleware_without_repo_reads_app_state_spine_repo() -> None:
+    """Module-scope registration contract: construct without repo, resolve from app.state."""
+    app = FastAPI()
+    app.add_middleware(SpineWorkloadMiddleware)  # no repo kwarg
+
+    state_repo = AsyncMock()
+    app.state.spine_repo = state_repo
+
+    @app.get("/probe")
+    async def _probe() -> dict:
+        return {"ok": True}
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.get("/probe")
+    assert response.status_code == 200
+
+    state_repo.record_event.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_middleware_without_repo_noops_when_app_state_missing() -> None:
+    """Cosmos-unavailable path: no repo on app.state → middleware silently no-ops."""
+    app = FastAPI()
+    app.add_middleware(SpineWorkloadMiddleware)
+    # Note: NOT setting app.state.spine_repo
+
+    @app.get("/probe")
+    async def _probe() -> dict:
+        return {"ok": True}
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.get("/probe")
+    assert response.status_code == 200  # request succeeds, spine no-ops
+```
+
+- [ ] **Step 6: Lifespan wiring integration tests**
+
+Create `backend/tests/test_spine_lifespan_wiring.py` with tests that import `lifespan` from `second_brain.main` and exercise the three behavioral edges:
+
+1. **Cosmos-unavailable skip**: `app.state.cosmos_manager = None` → `app.state.spine_repo` ends as `None`; no spine router mounted; background tasks are None; shutdown does not raise.
+2. **Logs-unavailable degradation**: `cosmos_manager` present, `logs_client = None` → `spine_repo` set; spine router mounted; `AdapterRegistry.has("backend_api")` is False.
+3. **Full happy path**: both present → `spine_repo` set; router mounted; `AdapterRegistry.has("backend_api")` is True; background tasks created.
+4. **Shutdown cancels tasks cleanly** without raising even when tasks were created (use `asyncio.sleep(0)` after yield so the tasks enter their loop, then let shutdown cancel+await).
+
+Approach hint: the full `lifespan` boots a lot of non-spine state (Foundry, Cosmos, Playwright, etc.). Write these tests by constructing a fresh `FastAPI()`, monkeypatching the pieces we don't care about, and invoking the spine block directly — OR extract the spine-wiring block into a small helper function `async def _wire_spine(app, settings)` that lifespan calls, and test that helper in isolation. The helper approach is cleaner; use it. Name the helper `_wire_spine` (private, underscore-prefixed; lives in `main.py` adjacent to `lifespan`).
+
+The helper signature:
+
+```python
+async def _wire_spine(
+    app: FastAPI,
+    settings: Settings,
+) -> tuple[asyncio.Task | None, asyncio.Task | None]:
+    """Wire spine into app lifespan. Returns (evaluator_task, liveness_task).
+
+    Both tuple members are None when spine wiring is skipped or fails.
+    Sets app.state.spine_repo (or None on skip/failure).
+    """
+```
+
+Then `lifespan` calls `spine_evaluator_task, spine_liveness_task = await _wire_spine(app, settings)`. The tests then construct a minimal `FastAPI()`, stub `app.state.cosmos_manager`/`app.state.logs_client`/`app.state.api_key`, and call `_wire_spine` directly.
+
+- [ ] **Step 7: Run all backend tests**
 
 ```bash
-git add backend/src/second_brain/main.py
+cd backend && uv run pytest --tb=short
+```
+
+Expected: all green (no regressions). The pass count grows by the number of new tests (Step 5: +2, Step 6: at least 4).
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add backend/src/second_brain/db/cosmos.py \
+        backend/src/second_brain/spine/middleware.py \
+        backend/src/second_brain/main.py \
+        backend/tests/test_spine_middleware.py \
+        backend/tests/test_spine_lifespan_wiring.py
 git commit -m "feat(spine): wire spine into fastapi app lifespan"
-git push
 ```
 
-Verify via `mcp__second-brain-telemetry__system_health` after deploy that the Container App is healthy.
-
-- [ ] **Step 5: Verify spine endpoint reachable post-deploy**
-
-Run via Bash:
-
-```bash
-curl -sS -H "Authorization: Bearer ${API_KEY}" https://brain.willmacdonald.com/api/spine/status | jq '.envelope.generated_at'
-```
-
-Expected: a recent ISO timestamp; `segments` array contains `backend_api` and `container_app` entries.
+Do NOT push. The user runs push + deploy + smoke manually per project convention (backend testing happens against deployed Azure endpoints, not local).
 
 ---
 
