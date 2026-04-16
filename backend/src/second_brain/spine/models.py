@@ -7,6 +7,10 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, RootModel
 
+STALE_FRESHNESS_SECONDS = 999_999
+"""Sentinel freshness value meaning 'no data available' — used in status responses."""
+
+
 # ---------------------------------------------------------------------------
 # Ingest event payloads (discriminated by event_type)
 # ---------------------------------------------------------------------------
@@ -172,3 +176,8 @@ class SegmentDetailResponse(BaseModel):
 
     data: dict[str, Any]
     envelope: ResponseEnvelope
+
+
+def parse_cosmos_ts(s: str) -> datetime:
+    """Parse an ISO timestamp returned by Cosmos (tolerates 'Z' suffix)."""
+    return datetime.fromisoformat(s.replace("Z", "+00:00"))

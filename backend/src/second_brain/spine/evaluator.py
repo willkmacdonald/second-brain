@@ -14,7 +14,11 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
-from second_brain.spine.models import SegmentStatus
+from second_brain.spine.models import (
+    STALE_FRESHNESS_SECONDS,
+    SegmentStatus,
+    parse_cosmos_ts,
+)
 from second_brain.spine.registry import EvaluatorConfig, SegmentRegistry
 from second_brain.spine.storage import SpineRepository
 
@@ -55,17 +59,21 @@ class StatusEvaluator:
 
         # Compute freshness from most recent event of any type
         most_recent = max(
-            (self._parse_ts(e["timestamp"]) for e in events),
+            (parse_cosmos_ts(e["timestamp"]) for e in events),
             default=None,
         )
         now = self._now()
-        freshness = int((now - most_recent).total_seconds()) if most_recent else 999_999
+        freshness = (
+            int((now - most_recent).total_seconds())
+            if most_recent
+            else STALE_FRESHNESS_SECONDS
+        )
 
         # Stale check (precedes all other status logic)
         stale_window = cfg.liveness_interval_seconds * 2 + cfg.acceptable_lag_seconds
         liveness_events = [e for e in events if e["event_type"] == "liveness"]
         most_recent_liveness = max(
-            (self._parse_ts(e["timestamp"]) for e in liveness_events),
+            (parse_cosmos_ts(e["timestamp"]) for e in liveness_events),
             default=None,
         )
         if (
@@ -143,11 +151,6 @@ class StatusEvaluator:
             freshness_seconds=freshness,
             evaluator_inputs=inputs,
         )
-
-    @staticmethod
-    def _parse_ts(s: str) -> datetime:
-        # Cosmos returns ISO with Z or +00:00; both work with fromisoformat in 3.11+
-        return datetime.fromisoformat(s.replace("Z", "+00:00"))
 
     @staticmethod
     def _exceeds(thresholds: dict[str, Any], inputs: dict[str, Any]) -> bool:
