@@ -75,19 +75,22 @@ logger = logging.getLogger(__name__)
 async def _wire_spine(
     app: FastAPI,
     settings,
-) -> tuple[asyncio.Task | None, asyncio.Task | None]:
-    """Wire spine into app lifespan. Returns (evaluator_task, liveness_task).
+) -> tuple[asyncio.Task | None, list[asyncio.Task]]:
+    """Wire spine into app lifespan. Returns (evaluator_task, liveness_tasks).
 
-    Both tuple members are None when spine wiring is skipped or fails.
+    evaluator_task is None when spine wiring is skipped or fails.
+    liveness_tasks is empty when spine wiring is skipped or fails.
     Sets app.state.spine_repo (or None on skip/failure).
     """
     from functools import partial
 
     from second_brain.observability.queries import (
+        fetch_agent_runs,
         query_backend_api_failures,
         query_backend_api_requests,
     )
     from second_brain.spine.adapters.backend_api import BackendApiAdapter
+    from second_brain.spine.adapters.foundry_agent import FoundryAgentAdapter
     from second_brain.spine.adapters.registry import AdapterRegistry
     from second_brain.spine.api import build_spine_router
     from second_brain.spine.auth import spine_auth
@@ -97,13 +100,13 @@ async def _wire_spine(
     from second_brain.spine.storage import SpineRepository
 
     spine_evaluator_task: asyncio.Task | None = None
-    spine_liveness_task: asyncio.Task | None = None
+    spine_liveness_tasks: list[asyncio.Task] = []
 
     try:
         if app.state.cosmos_manager is None:
             logger.warning("Spine wiring skipped: cosmos_manager unavailable")
             app.state.spine_repo = None
-            return None, None
+            return None, []
 
         cosmos_mgr_for_spine = app.state.cosmos_manager
         spine_repo = SpineRepository(
@@ -148,13 +151,51 @@ async def _wire_spine(
                 )
             )
             logger.info("Spine BackendApiAdapter wired")
-        else:
-            logger.warning(
-                "Spine wired without BackendApiAdapter: logs_client unavailable"
+
+            # Phase 2: Foundry agent adapters (reuse same logs client)
+            spans_fetcher = partial(
+                fetch_agent_runs,
+                app.state.logs_client,
+                settings.log_analytics_workspace_id,
             )
+            agent_segments = [
+                (
+                    "classifier",
+                    getattr(app.state, "classifier_agent_id", None),
+                    "Classifier",
+                ),
+                (
+                    "admin",
+                    getattr(app.state, "admin_agent_id", None),
+                    "Admin Agent",
+                ),
+                (
+                    "investigation",
+                    getattr(app.state, "investigation_agent_id", None),
+                    "Investigation Agent",
+                ),
+            ]
+            for seg_id, agent_id, agent_name in agent_segments:
+                if agent_id:
+                    adapters.append(
+                        FoundryAgentAdapter(
+                            segment_id=seg_id,
+                            agent_id=agent_id,
+                            agent_name=agent_name,
+                            spans_fetcher=spans_fetcher,
+                            native_url_template=(
+                                f"https://ai.azure.com/build/agents/{agent_id}"
+                            ),
+                        )
+                    )
+            logger.info(
+                "Spine Foundry agent adapters wired: %d",
+                len(adapters) - 1,
+            )
+        else:
+            logger.warning("Spine wired without adapters: logs_client unavailable")
 
         adapter_registry = AdapterRegistry(adapters)
-        # Expose for test visibility (matches app.state.spine_repo convention).
         app.state.spine_adapter_registry = adapter_registry
 
         # Create background tasks BEFORE mounting the router so that a
@@ -163,14 +204,20 @@ async def _wire_spine(
         spine_evaluator_task = asyncio.create_task(
             evaluator_loop(spine_evaluator, spine_repo, spine_registry)
         )
-        spine_liveness_task = asyncio.create_task(
-            liveness_emitter(spine_repo, segment_id="backend_api")
+        # Liveness emitters for all registered segments
+        for seg_cfg in spine_registry.all():
+            if seg_cfg.segment_id == "container_app":
+                continue
+            spine_liveness_tasks.append(
+                asyncio.create_task(
+                    liveness_emitter(spine_repo, segment_id=seg_cfg.segment_id)
+                )
+            )
+        logger.info(
+            "Spine liveness emitters started: %d",
+            len(spine_liveness_tasks),
         )
 
-        # Router inclusion inside lifespan is an intentional exception to
-        # this file's module-scope-registration convention, because the
-        # router needs lifespan-constructed dependencies. Safe before
-        # the `yield` -- the app has not yet served its first request.
         app.include_router(
             build_spine_router(
                 repo=spine_repo,
@@ -183,18 +230,15 @@ async def _wire_spine(
         logger.info("Spine lifespan wiring complete")
     except Exception:
         logger.warning("Spine wiring failed -- spine unavailable", exc_info=True)
-        # Defensive: clear any partial state so callers see a clean "not wired".
-        # Cancel any tasks that were successfully created before the failure
-        # so we don't leak background work referencing a nulled repo.
-        for _task in (spine_evaluator_task, spine_liveness_task):
+        for _task in [spine_evaluator_task, *spine_liveness_tasks]:
             if _task is not None:
                 _task.cancel()
         app.state.spine_repo = None
-        app.state.spine_adapter_registry = None  # I1 fix — was leaking.
+        app.state.spine_adapter_registry = None
         spine_evaluator_task = None
-        spine_liveness_task = None
+        spine_liveness_tasks = []
 
-    return spine_evaluator_task, spine_liveness_task
+    return spine_evaluator_task, spine_liveness_tasks
 
 
 # ---------------------------------------------------------------------------
@@ -529,7 +573,7 @@ async def lifespan(app: FastAPI):
         app.state.settings = settings
 
         # --- Spine wiring (non-fatal on component failures) ---
-        spine_evaluator_task, spine_liveness_task = await _wire_spine(app, settings)
+        spine_evaluator_task, spine_liveness_tasks = await _wire_spine(app, settings)
 
         # --- Agent warm-up background task ---
         warmup_task = None
@@ -615,15 +659,14 @@ async def lifespan(app: FastAPI):
             warmup_task.cancel()
 
         # Cancel spine background tasks
-        for task in (spine_evaluator_task, spine_liveness_task):
-            if task is None:
-                continue
-            task.cancel()
-        for task in (spine_evaluator_task, spine_liveness_task):
-            if task is None:
-                continue
-            with contextlib.suppress(asyncio.CancelledError):
-                await task
+        all_spine_tasks = [spine_evaluator_task, *spine_liveness_tasks]
+        for task in all_spine_tasks:
+            if task is not None:
+                task.cancel()
+        for task in all_spine_tasks:
+            if task is not None:
+                with contextlib.suppress(asyncio.CancelledError):
+                    await task
 
         if getattr(app.state, "browser", None) is not None:
             await app.state.browser.close()

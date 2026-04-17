@@ -99,10 +99,10 @@ async def test_wire_spine_skipped_when_cosmos_manager_none(settings_stub) -> Non
     app.state.cosmos_manager = None
     app.state.logs_client = AsyncMock()
 
-    evaluator_task, liveness_task = await _wire_spine(app, settings_stub)
+    evaluator_task, liveness_tasks = await _wire_spine(app, settings_stub)
 
     assert evaluator_task is None
-    assert liveness_task is None
+    assert liveness_tasks == []
     assert getattr(app.state, "spine_repo", None) is None
     # No spine routes mounted
     assert not any(getattr(r, "path", "").startswith("/api/spine") for r in app.routes)
@@ -116,17 +116,17 @@ async def test_wire_spine_without_logs_client_omits_backend_api_adapter(
     app.state.cosmos_manager = _fake_cosmos_manager_with_containers()
     app.state.logs_client = None  # logs unavailable
 
-    evaluator_task, liveness_task = await _wire_spine(app, settings_stub)
+    evaluator_task, liveness_tasks = await _wire_spine(app, settings_stub)
     try:
         assert isinstance(evaluator_task, asyncio.Task)
-        assert isinstance(liveness_task, asyncio.Task)
+        assert len(liveness_tasks) > 0
         assert isinstance(app.state.spine_repo, SpineRepository)
         # BackendApiAdapter not wired because logs_client is None
         assert not app.state.spine_adapter_registry.has("backend_api")
         # Spine router is still mounted
         assert any(getattr(r, "path", "").startswith("/api/spine") for r in app.routes)
     finally:
-        for t in (evaluator_task, liveness_task):
+        for t in [evaluator_task, *liveness_tasks]:
             t.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await t
@@ -138,16 +138,17 @@ async def test_wire_spine_full_happy_path(settings_stub) -> None:
     app.state.cosmos_manager = _fake_cosmos_manager_with_containers()
     app.state.logs_client = AsyncMock()
 
-    evaluator_task, liveness_task = await _wire_spine(app, settings_stub)
+    evaluator_task, liveness_tasks = await _wire_spine(app, settings_stub)
     try:
         assert isinstance(evaluator_task, asyncio.Task)
-        assert isinstance(liveness_task, asyncio.Task)
+        # 4 liveness emitters: backend_api + classifier + admin + investigation
+        assert len(liveness_tasks) == 4
         assert isinstance(app.state.spine_repo, SpineRepository)
         assert app.state.spine_adapter_registry.has("backend_api")
         # Spine router mounted
         assert any(getattr(r, "path", "").startswith("/api/spine") for r in app.routes)
     finally:
-        for t in (evaluator_task, liveness_task):
+        for t in [evaluator_task, *liveness_tasks]:
             t.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await t
@@ -159,18 +160,19 @@ async def test_wire_spine_shutdown_cancels_tasks_cleanly(settings_stub) -> None:
     app.state.cosmos_manager = _fake_cosmos_manager_with_containers()
     app.state.logs_client = AsyncMock()
 
-    evaluator_task, liveness_task = await _wire_spine(app, settings_stub)
+    evaluator_task, liveness_tasks = await _wire_spine(app, settings_stub)
     # Let the tasks enter their loop at least once
     await asyncio.sleep(0)
 
-    for t in (evaluator_task, liveness_task):
+    all_tasks = [evaluator_task, *liveness_tasks]
+    for t in all_tasks:
         t.cancel()
-    for t in (evaluator_task, liveness_task):
+    for t in all_tasks:
         with contextlib.suppress(asyncio.CancelledError):
             await t
-    # Both tasks done after cancellation
+    # All tasks done after cancellation
     assert evaluator_task.done()
-    assert liveness_task.done()
+    assert all(t.done() for t in liveness_tasks)
 
 
 async def test_wire_spine_partial_failure_leaves_no_stale_state(
@@ -196,14 +198,10 @@ async def test_wire_spine_partial_failure_leaves_no_stale_state(
 
     monkeypatch.setattr(spine_api_mod, "build_spine_router", _boom)
 
-    evaluator_task, liveness_task = await _wire_spine(app, settings_stub)
+    evaluator_task, liveness_tasks = await _wire_spine(app, settings_stub)
 
-    # Tuple returned as (None, None) after except-block reset
     assert evaluator_task is None
-    assert liveness_task is None
-    # Both state hooks explicitly nulled
+    assert liveness_tasks == []
     assert app.state.spine_repo is None
     assert app.state.spine_adapter_registry is None
-    # No spine routes mounted, because include_router now runs AFTER task
-    # creation and the boom happens mid-include.
     assert not any(getattr(r, "path", "").startswith("/api/spine") for r in app.routes)
