@@ -11,6 +11,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from second_brain.spine.stream_wrapper import spine_stream_wrapper
 from second_brain.streaming.investigation_adapter import (
     stream_investigation,
 )
@@ -80,8 +81,19 @@ async def investigate(
         rate_limiter=rate_limiter,
     )
 
+    spine_repo = getattr(request.app.state, "spine_repo", None)
+    stream = generator
+    if spine_repo:
+        stream = spine_stream_wrapper(
+            stream,
+            repo=spine_repo,
+            segment_id="investigation",
+            operation="answer_question",
+            thread_id=body.thread_id,
+        )
+
     return StreamingResponse(
-        generator,
+        stream,
         media_type="text/event-stream",
         headers=SSE_HEADERS,
     )
