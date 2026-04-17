@@ -5,6 +5,7 @@ and tostring(Details) instead of dropping them in coalesce(Message, ExceptionTyp
 """
 
 from second_brain.observability.kql_templates import (
+    AGENT_RUNS,
     CAPTURE_TRACE,
     RECENT_FAILURES,
     RECENT_FAILURES_FILTERED,
@@ -62,3 +63,15 @@ def test_no_resultcode_projection_on_appexceptions() -> None:
                     "ResultCode must not project alongside "
                     f"AppExceptions fields: {stripped}"
                 )
+
+
+def test_agent_runs_template_filters_compose() -> None:
+    rendered = AGENT_RUNS.format(
+        agent_filter='| where tostring(Properties.agent_id) == "asst_1"',
+        capture_filter="",
+        thread_filter='| where tostring(Properties.foundry_thread_id) == "thr-1"',
+        limit=20,
+    )
+    assert "asst_1" in rendered
+    assert "thr-1" in rendered
+    assert "Properties.foundry_thread_id" in rendered

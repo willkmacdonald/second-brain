@@ -360,6 +360,36 @@ AppRequests
 # Parameterised with {capture_trace_filter} via str.format().
 # Timespan controlled by the query_workspace call.
 
+# ---------------------------------------------------------------------------
+# Agent Runs by agent_id (Phase 2: Foundry-agent adapter)
+# ---------------------------------------------------------------------------
+# Returns recent agent_run spans with optional capture_trace_id and thread_id
+# filters. {agent_filter}, {capture_filter}, {thread_filter} are KQL conjuncts.
+# {limit} is the row limit (default 20).
+
+AGENT_RUNS = """\
+AppDependencies
+| where Name endswith "_agent_run"
+{agent_filter}
+{capture_filter}
+{thread_filter}
+| project
+    timestamp = TimeGenerated,
+    name = Name,
+    duration_ms = DurationMs,
+    success = Success,
+    result_code = ResultCode,
+    agent_id = tostring(Properties.agent_id),
+    agent_name = tostring(Properties.agent_name),
+    run_id = tostring(Properties.run_id),
+    thread_id = tostring(Properties.foundry_thread_id),
+    capture_trace_id = tostring(Properties.capture_trace_id),
+    operation_id = OperationId
+| order by timestamp desc
+| take {limit}
+"""
+
+
 BACKEND_API_FAILURES = """\
 union withsource=SourceTable
     (AppTraces | where SeverityLevel >= 3),

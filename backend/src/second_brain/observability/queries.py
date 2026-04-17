@@ -9,6 +9,7 @@ from azure.monitor.query.aio import LogsQueryClient
 
 from second_brain.observability.kql_templates import (
     ADMIN_AUDIT_LOG,
+    AGENT_RUNS,
     BACKEND_API_FAILURES,
     BACKEND_API_REQUESTS,
     CAPTURE_TRACE,
@@ -579,3 +580,56 @@ async def query_backend_api_failures(
             )
         )
     return records
+
+
+# ---------------------------------------------------------------------------
+# Agent runs query (Phase 2: Foundry-agent adapter)
+# ---------------------------------------------------------------------------
+
+
+async def fetch_agent_runs(
+    client: LogsQueryClient,
+    workspace_id: str,
+    agent_id: str,
+    time_range_seconds: int = 3600,
+    capture_trace_id: str | None = None,
+    thread_id: str | None = None,
+    limit: int = 20,
+) -> list[dict]:
+    """Fetch recent agent_run spans, optionally filtered by capture or thread."""
+    if agent_id and not _TRACE_ID_RE.fullmatch(agent_id):
+        raise ValueError(f"Invalid agent_id: {agent_id!r}")
+    if capture_trace_id is not None and not _TRACE_ID_RE.fullmatch(capture_trace_id):
+        raise ValueError(f"Invalid capture_trace_id: {capture_trace_id!r}")
+    if thread_id is not None and not _TRACE_ID_RE.fullmatch(thread_id):
+        raise ValueError(f"Invalid thread_id: {thread_id!r}")
+
+    agent_filter = f'| where tostring(Properties.agent_id) == "{agent_id}"'
+    capture_filter = (
+        f'| where tostring(Properties.capture_trace_id) == "{capture_trace_id}"'
+        if capture_trace_id
+        else ""
+    )
+    thread_filter = (
+        f'| where tostring(Properties.foundry_thread_id) == "{thread_id}"'
+        if thread_id
+        else ""
+    )
+    query = AGENT_RUNS.format(
+        agent_filter=agent_filter,
+        capture_filter=capture_filter,
+        thread_filter=thread_filter,
+        limit=limit,
+    )
+    result = await execute_kql(
+        client,
+        workspace_id,
+        query,
+        timespan=timedelta(seconds=time_range_seconds),
+        server_timeout=30,
+    )
+
+    if not result.tables or not result.tables[0]:
+        return []
+
+    return result.tables[0]
