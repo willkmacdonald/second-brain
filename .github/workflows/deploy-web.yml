@@ -1,0 +1,166 @@
+name: Deploy Web (Spine UI) to Azure Container Apps
+
+on:
+  push:
+    branches: [main]
+    paths: ['web/**', '.github/workflows/deploy-web.yml']
+
+concurrency:
+  group: deploy-web
+  cancel-in-progress: true
+
+permissions:
+  id-token: write   # Required for OIDC (Workload Identity Federation)
+  contents: read
+
+env:
+  ACR_NAME: wkmsharedservicesacr
+  CONTAINER_APP_NAME: second-brain-spine-web
+  RESOURCE_GROUP: shared-services-rg
+  IMAGE_NAME: second-brain-spine-web
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Record pipeline start
+        run: echo "PIPELINE_START=$(date +%s)" >> "$GITHUB_ENV"
+
+      - uses: actions/checkout@v4
+
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Log in to ACR
+        run: az acr login --name ${{ env.ACR_NAME }}
+
+      - name: Build and push image
+        run: |
+          IMAGE_TAG="${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}"
+          echo "IMAGE_TAG=$IMAGE_TAG" >> "$GITHUB_ENV"
+          docker build --platform linux/amd64 -t "$IMAGE_TAG" ./web
+          docker push "$IMAGE_TAG"
+
+      - name: Deploy to Container Apps
+        run: |
+          REVISION_SUFFIX="sha-$(echo ${{ github.sha }} | cut -c1-7)"
+          echo "REVISION_SUFFIX=$REVISION_SUFFIX" >> "$GITHUB_ENV"
+          echo "REVISION_NAME=${{ env.CONTAINER_APP_NAME }}--${REVISION_SUFFIX}" >> "$GITHUB_ENV"
+          az containerapp update \
+            --name ${{ env.CONTAINER_APP_NAME }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --image "${{ env.IMAGE_TAG }}" \
+            --revision-suffix "$REVISION_SUFFIX"
+
+      - name: Verify deployment health
+        run: |
+          INGRESS_FQDN=$(az containerapp show \
+            --name ${{ env.CONTAINER_APP_NAME }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --query "properties.configuration.ingress.fqdn" -o tsv)
+          HEALTH_URL="https://${INGRESS_FQDN}/"
+          echo "HEALTH_URL=$HEALTH_URL" >> "$GITHUB_ENV"
+          MAX_ATTEMPTS=15
+          POLL_INTERVAL=12
+
+          for i in $(seq 1 $MAX_ATTEMPTS); do
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$HEALTH_URL" 2>/dev/null || echo "000")
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "Health check passed on attempt $i (HTTP 200)"
+              echo "HEALTH_STATUS=healthy" >> "$GITHUB_ENV"
+              exit 0
+            fi
+            echo "Attempt $i/$MAX_ATTEMPTS: HTTP $HTTP_CODE"
+            if [ "$i" -eq "$MAX_ATTEMPTS" ]; then
+              echo "::error::Health check failed after $MAX_ATTEMPTS attempts (${MAX_ATTEMPTS}x${POLL_INTERVAL}s)"
+              echo "HEALTH_STATUS=failed" >> "$GITHUB_ENV"
+              exit 1
+            fi
+            sleep $POLL_INTERVAL
+          done
+
+      - name: Verify deployed image
+        run: |
+          DEPLOYED_IMAGE=$(az containerapp revision show \
+            --name ${{ env.CONTAINER_APP_NAME }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --revision "$REVISION_NAME" \
+            --query "properties.template.containers[0].image" \
+            -o tsv)
+
+          if [ "$DEPLOYED_IMAGE" != "$IMAGE_TAG" ]; then
+            echo "::error::Image mismatch! Expected: $IMAGE_TAG, Got: $DEPLOYED_IMAGE"
+            exit 1
+          fi
+          echo "Image verified: $DEPLOYED_IMAGE"
+
+          TRAFFIC_WEIGHT=$(az containerapp ingress traffic show \
+            --name ${{ env.CONTAINER_APP_NAME }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --query "[?revisionName=='$REVISION_NAME'].weight | [0]" \
+            -o tsv 2>/dev/null || echo "unknown")
+
+          echo "TRAFFIC_WEIGHT=$TRAFFIC_WEIGHT" >> "$GITHUB_ENV"
+
+          if [ "$TRAFFIC_WEIGHT" != "100" ]; then
+            echo "::warning::Latest revision traffic weight is ${TRAFFIC_WEIGHT}%, expected 100%"
+          else
+            echo "Traffic weight: 100%"
+          fi
+
+      - name: Cleanup old revisions
+        run: |
+          ACTIVE_REVISIONS=$(az containerapp revision list \
+            --name ${{ env.CONTAINER_APP_NAME }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --query "[?properties.active==\`true\`].name" \
+            -o tsv)
+
+          BEFORE_COUNT=0
+          for rev in $ACTIVE_REVISIONS; do
+            BEFORE_COUNT=$((BEFORE_COUNT + 1))
+          done
+          echo "Active revisions before cleanup: $BEFORE_COUNT"
+
+          DEACTIVATED=0
+          for rev in $ACTIVE_REVISIONS; do
+            if [ "$rev" != "$REVISION_NAME" ]; then
+              echo "Deactivating: $rev"
+              az containerapp revision deactivate \
+                --revision "$rev" \
+                --resource-group ${{ env.RESOURCE_GROUP }} 2>/dev/null || echo "Warning: failed to deactivate $rev"
+              DEACTIVATED=$((DEACTIVATED + 1))
+            fi
+          done
+
+          ACTIVE_COUNT=$((BEFORE_COUNT - DEACTIVATED))
+          echo "ACTIVE_COUNT=$ACTIVE_COUNT" >> "$GITHUB_ENV"
+          echo "Deactivated $DEACTIVATED revision(s), $ACTIVE_COUNT active"
+
+      - name: Deploy summary
+        if: always()
+        run: |
+          PIPELINE_END=$(date +%s)
+          DURATION=$((PIPELINE_END - ${PIPELINE_START:-$PIPELINE_END}))
+
+          SUBSCRIPTION_ID=$(az account show --query id -o tsv 2>/dev/null || echo "unknown")
+          PORTAL_URL="https://portal.azure.com/#@willmacdonald.com/resource/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${{ env.RESOURCE_GROUP }}/providers/Microsoft.App/containerApps/${{ env.CONTAINER_APP_NAME }}/revisionManagement"
+
+          cat >> "$GITHUB_STEP_SUMMARY" << EOF
+          ## Deploy Summary
+
+          | Property | Value |
+          |----------|-------|
+          | Revision | \`${REVISION_NAME:-unknown}\` |
+          | Image | \`${IMAGE_TAG:-unknown}\` |
+          | Health | ${HEALTH_STATUS:-skipped} |
+          | URL | ${HEALTH_URL:-unknown} |
+          | Traffic | ${TRAFFIC_WEIGHT:-unknown}% |
+          | Active Revisions | ${ACTIVE_COUNT:-unknown} |
+          | Duration | ${DURATION}s |
+          | Portal | [View Revisions](${PORTAL_URL}) |
+          EOF

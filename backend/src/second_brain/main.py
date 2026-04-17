@@ -1,6 +1,7 @@
 """FastAPI app with inbox API, health check, and Cosmos DB persistence."""
 
 import asyncio
+import contextlib
 import logging
 from collections.abc import Callable
 from contextlib import asynccontextmanager
@@ -52,6 +53,7 @@ from second_brain.config import get_settings  # noqa: E402
 from second_brain.db.blob_storage import BlobStorageManager  # noqa: E402
 from second_brain.db.cosmos import CosmosManager  # noqa: E402
 from second_brain.observability.client import close_logs_client, create_logs_client  # noqa: E402
+from second_brain.spine.middleware import SpineWorkloadMiddleware  # noqa: E402
 from playwright.async_api import async_playwright  # noqa: E402
 
 from second_brain.streaming.investigation_adapter import SoftRateLimiter  # noqa: E402
@@ -63,6 +65,136 @@ from second_brain.tools.transcription import TranscriptionTools  # noqa: E402
 from second_brain.warmup import agent_warmup_loop  # noqa: E402
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Spine lifespan helper
+# ---------------------------------------------------------------------------
+
+
+async def _wire_spine(
+    app: FastAPI,
+    settings,
+) -> tuple[asyncio.Task | None, asyncio.Task | None]:
+    """Wire spine into app lifespan. Returns (evaluator_task, liveness_task).
+
+    Both tuple members are None when spine wiring is skipped or fails.
+    Sets app.state.spine_repo (or None on skip/failure).
+    """
+    from functools import partial
+
+    from second_brain.observability.queries import (
+        query_backend_api_failures,
+        query_backend_api_requests,
+    )
+    from second_brain.spine.adapters.backend_api import BackendApiAdapter
+    from second_brain.spine.adapters.registry import AdapterRegistry
+    from second_brain.spine.api import build_spine_router
+    from second_brain.spine.auth import spine_auth
+    from second_brain.spine.background import evaluator_loop, liveness_emitter
+    from second_brain.spine.evaluator import StatusEvaluator
+    from second_brain.spine.registry import get_default_registry
+    from second_brain.spine.storage import SpineRepository
+
+    spine_evaluator_task: asyncio.Task | None = None
+    spine_liveness_task: asyncio.Task | None = None
+
+    try:
+        if app.state.cosmos_manager is None:
+            logger.warning("Spine wiring skipped: cosmos_manager unavailable")
+            app.state.spine_repo = None
+            return None, None
+
+        cosmos_mgr_for_spine = app.state.cosmos_manager
+        spine_repo = SpineRepository(
+            events_container=cosmos_mgr_for_spine.get_container("spine_events"),
+            segment_state_container=cosmos_mgr_for_spine.get_container(
+                "spine_segment_state"
+            ),
+            status_history_container=cosmos_mgr_for_spine.get_container(
+                "spine_status_history"
+            ),
+            correlation_container=cosmos_mgr_for_spine.get_container(
+                "spine_correlation"
+            ),
+        )
+        app.state.spine_repo = spine_repo
+
+        spine_registry = get_default_registry()
+        spine_evaluator = StatusEvaluator(repo=spine_repo, registry=spine_registry)
+
+        # The backend_api adapter requires the LogsQueryClient; if init
+        # earlier was non-fatal-failed, ship spine without the adapter
+        # (status/ingest/correlation endpoints still work).
+        adapters: list = []
+        if app.state.logs_client is not None and settings.log_analytics_workspace_id:
+            failures_fetcher = partial(
+                query_backend_api_failures,
+                app.state.logs_client,
+                settings.log_analytics_workspace_id,
+            )
+            requests_fetcher = partial(
+                query_backend_api_requests,
+                app.state.logs_client,
+                settings.log_analytics_workspace_id,
+            )
+            adapters.append(
+                BackendApiAdapter(
+                    failures_fetcher=failures_fetcher,
+                    requests_fetcher=requests_fetcher,
+                    native_url_template=(
+                        "https://portal.azure.com/#blade/AppInsightsExtension"
+                    ),
+                )
+            )
+            logger.info("Spine BackendApiAdapter wired")
+        else:
+            logger.warning(
+                "Spine wired without BackendApiAdapter: logs_client unavailable"
+            )
+
+        adapter_registry = AdapterRegistry(adapters)
+        # Expose for test visibility (matches app.state.spine_repo convention).
+        app.state.spine_adapter_registry = adapter_registry
+
+        # Create background tasks BEFORE mounting the router so that a
+        # failure in task creation cannot leave routes mounted against a
+        # repo that the `except` below resets to None (I2 fix).
+        spine_evaluator_task = asyncio.create_task(
+            evaluator_loop(spine_evaluator, spine_repo, spine_registry)
+        )
+        spine_liveness_task = asyncio.create_task(
+            liveness_emitter(spine_repo, segment_id="backend_api")
+        )
+
+        # Router inclusion inside lifespan is an intentional exception to
+        # this file's module-scope-registration convention, because the
+        # router needs lifespan-constructed dependencies. Safe before
+        # the `yield` -- the app has not yet served its first request.
+        app.include_router(
+            build_spine_router(
+                repo=spine_repo,
+                evaluator=spine_evaluator,
+                adapter_registry=adapter_registry,
+                segment_registry=spine_registry,
+                auth_dependency=spine_auth,
+            )
+        )
+        logger.info("Spine lifespan wiring complete")
+    except Exception:
+        logger.warning("Spine wiring failed -- spine unavailable", exc_info=True)
+        # Defensive: clear any partial state so callers see a clean "not wired".
+        # Cancel any tasks that were successfully created before the failure
+        # so we don't leak background work referencing a nulled repo.
+        for _task in (spine_evaluator_task, spine_liveness_task):
+            if _task is not None:
+                _task.cancel()
+        app.state.spine_repo = None
+        app.state.spine_adapter_registry = None  # I1 fix — was leaking.
+        spine_evaluator_task = None
+        spine_liveness_task = None
+
+    return spine_evaluator_task, spine_liveness_task
 
 
 # ---------------------------------------------------------------------------
@@ -396,6 +528,9 @@ async def lifespan(app: FastAPI):
 
         app.state.settings = settings
 
+        # --- Spine wiring (non-fatal on component failures) ---
+        spine_evaluator_task, spine_liveness_task = await _wire_spine(app, settings)
+
         # --- Agent warm-up background task ---
         warmup_task = None
         if settings.agent_warmup_enabled:
@@ -479,6 +614,17 @@ async def lifespan(app: FastAPI):
         if warmup_task is not None:
             warmup_task.cancel()
 
+        # Cancel spine background tasks
+        for task in (spine_evaluator_task, spine_liveness_task):
+            if task is None:
+                continue
+            task.cancel()
+        for task in (spine_evaluator_task, spine_liveness_task):
+            if task is None:
+                continue
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
+
         if getattr(app.state, "browser", None) is not None:
             await app.state.browser.close()
         if getattr(app.state, "playwright", None) is not None:
@@ -513,6 +659,18 @@ app = FastAPI(
     docs_url=_docs_url,
     openapi_url=_openapi_url,
 )
+
+# Middleware ordering (load-bearing): `add_middleware` PREPENDS to the
+# internal stack, so the LAST-registered middleware ends up at
+# `app.user_middleware[0]` — the OUTERMOST layer, which runs FIRST on
+# the inbound path. APIKeyMiddleware must therefore be registered LAST
+# so unauthenticated requests are 401'd before SpineWorkloadMiddleware
+# observes them (otherwise unauth traffic pollutes the backend_api
+# workload dataset).
+#
+# Spine workload middleware: reads repo from app.state.spine_repo at
+# dispatch time (set by lifespan). No-op when spine wiring was skipped.
+app.add_middleware(SpineWorkloadMiddleware)
 
 # API key auth middleware -- reads app.state.api_key lazily (set by lifespan)
 app.add_middleware(APIKeyMiddleware)

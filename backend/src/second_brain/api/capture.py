@@ -207,6 +207,7 @@ async def capture(request: Request, body: TextCaptureBody) -> StreamingResponse:
     thread_id = body.thread_id or f"thread-{uuid4()}"
     run_id = body.run_id or f"run-{uuid4()}"
     capture_trace_id = request.headers.get("X-Trace-Id", str(uuid4()))
+    request.state.capture_trace_id = capture_trace_id
     log_extra = _capture_extra(capture_trace_id)
 
     capture_source = request.headers.get("X-Capture-Source")
@@ -264,6 +265,7 @@ async def capture_voice(
     thread_id = f"thread-{uuid4()}"
     run_id = f"run-{uuid4()}"
     capture_trace_id = request.headers.get("X-Trace-Id", str(uuid4()))
+    request.state.capture_trace_id = capture_trace_id
     log_extra = _capture_extra(capture_trace_id)
 
     async def stream_with_cleanup_and_persistence():
@@ -311,6 +313,7 @@ async def follow_up(request: Request, body: FollowUpBody) -> StreamingResponse:
     cosmos_manager = request.app.state.cosmos_manager
     inbox_container = cosmos_manager.get_container("Inbox")
     capture_trace_id = request.headers.get("X-Trace-Id", str(uuid4()))
+    request.state.capture_trace_id = capture_trace_id
 
     # Look up the original inbox item to get the Foundry thread ID
     try:
@@ -379,6 +382,7 @@ async def follow_up_voice(
     audio_bytes = await _validate_and_read_audio(file)
     blob_url = await blob_manager.upload_audio(audio_bytes=audio_bytes)
     capture_trace_id = request.headers.get("X-Trace-Id", str(uuid4()))
+    request.state.capture_trace_id = capture_trace_id
     log_extra = _capture_extra(capture_trace_id)
 
     # Transcribe from in-memory bytes (no blob re-download)

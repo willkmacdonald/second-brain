@@ -2530,24 +2530,40 @@ git commit -m "feat(spine): http api with status, ingest, correlation, segment e
 
 ---
 
-## Task 11: Background tasks (evaluator loop + Container App revision poller)
+## Task 11: Background tasks (evaluator loop + self-liveness emitter)
 
 **Files:**
 - Create: `backend/src/second_brain/spine/background.py`
+- Create: `backend/tests/test_spine_background.py` (red regression — per-segment isolation in `evaluator_loop`)
 
-- [ ] **Step 1: Implement `background.py`**
+**Design invariant (operational):** The evaluator loop MUST keep reporting on healthy segments even when one segment's evaluation fails. One broken segment must not silently blind the operator to the status of the others during a tick. Encode this as a red regression test before fixing.
 
-Create `backend/src/second_brain/spine/background.py`:
+- [ ] **Step 1: Write red regression test for per-segment isolation**
+
+Create `backend/tests/test_spine_background.py` with a test that proves: if `evaluator.evaluate()` raises for segment A, segments B and C are still upserted and logged in the same tick. The test drives one tick of `evaluator_loop` (run it in a task, `asyncio.sleep(0)` enough to complete the sweep, then cancel), asserts `upsert_segment_state` was called for B and C but not A, and asserts a `logger.warning` was emitted with `segment_id=A` in the log arguments.
+
+This test MUST fail against the plan-verbatim implementation from the prior commit (all-or-nothing try/except around the for-loop).
+
+- [ ] **Step 2: Commit the red test**
+
+```bash
+git add backend/tests/test_spine_background.py
+git commit -m "test(spine): red test for per-segment evaluator loop isolation"
+```
+
+- [ ] **Step 3: Implement/fix `background.py`**
+
+Create (or amend) `backend/src/second_brain/spine/background.py`:
 
 ```python
-"""Background tasks: status evaluator loop + container app revision poller."""
+"""Background tasks: status evaluator loop + self-liveness emitter."""
 
 from __future__ import annotations
 
 import asyncio
 import logging
 import socket
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from second_brain.spine.evaluator import StatusEvaluator
 from second_brain.spine.models import IngestEvent, LivenessPayload, _LivenessEvent
@@ -2563,18 +2579,23 @@ async def evaluator_loop(
     registry: SegmentRegistry,
     interval_seconds: int = 30,
 ) -> None:
-    """Run the evaluator for every registered segment every N seconds."""
+    """Run the evaluator for every registered segment every N seconds.
+
+    Per-segment isolation: if one segment's tick fails, the remaining segments
+    in the same sweep still run. This is load-bearing for a health monitor.
+    """
     while True:
-        try:
-            for cfg in registry.all():
+        for cfg in registry.all():
+            try:
                 result = await evaluator.evaluate(cfg.segment_id)
                 prev = await repo.get_segment_state(cfg.segment_id)
                 prev_status = prev.get("status") if prev else None
+                now = datetime.now(UTC)
                 await repo.upsert_segment_state(
                     segment_id=cfg.segment_id,
                     status=result.status,
                     headline=result.headline,
-                    last_updated=datetime.now(timezone.utc),
+                    last_updated=now,
                     evaluator_inputs=result.evaluator_inputs,
                 )
                 if prev_status != result.status:
@@ -2584,10 +2605,14 @@ async def evaluator_loop(
                         prev_status=prev_status,
                         headline=result.headline,
                         evaluator_outputs=result.evaluator_inputs,
-                        timestamp=datetime.now(timezone.utc),
+                        timestamp=now,
                     )
-        except Exception:
-            logger.warning("Evaluator loop iteration failed", exc_info=True)
+            except Exception:
+                logger.warning(
+                    "Evaluator tick failed for segment_id=%s",
+                    cfg.segment_id,
+                    exc_info=True,
+                )
         await asyncio.sleep(interval_seconds)
 
 
@@ -2600,23 +2625,37 @@ async def liveness_emitter(
     instance_id = socket.gethostname()
     while True:
         try:
-            event = IngestEvent(root=_LivenessEvent(
-                segment_id=segment_id,
-                event_type="liveness",
-                timestamp=datetime.now(timezone.utc),
-                payload=LivenessPayload(instance_id=instance_id),
-            ))
+            event = IngestEvent(
+                root=_LivenessEvent(
+                    segment_id=segment_id,
+                    event_type="liveness",
+                    timestamp=datetime.now(UTC),
+                    payload=LivenessPayload(instance_id=instance_id),
+                )
+            )
             await repo.record_event(event)
         except Exception:
-            logger.warning("Liveness emitter failed", exc_info=True)
+            logger.warning(
+                "Liveness emitter failed for segment_id=%s",
+                segment_id,
+                exc_info=True,
+            )
         await asyncio.sleep(interval_seconds)
 ```
 
-- [ ] **Step 2: Commit (no test — pure orchestration code, validated via integration in Task 12)**
+Note: `asyncio.CancelledError` is a `BaseException` (not `Exception`) in Python 3.8+, so the blanket `except Exception` inside the per-segment body does NOT swallow cancellation. Task 12's `task.cancel(); await task` pattern works correctly.
+
+- [ ] **Step 4: Run the red test and confirm it turns green**
+
+```bash
+cd backend && uv run pytest tests/test_spine_background.py -v
+```
+
+- [ ] **Step 5: Commit the fix**
 
 ```bash
 git add backend/src/second_brain/spine/background.py
-git commit -m "feat(spine): background evaluator loop + liveness emitter"
+git commit -m "fix(spine): per-segment isolation in evaluator_loop + log context"
 ```
 
 ---
@@ -2800,10 +2839,18 @@ async def query_backend_api_failures(
                 message=str(row.get("Message", "")),
                 component=row.get("Component"),
                 capture_trace_id=row.get("CaptureTraceId"),
+                outer_message=row.get("OuterMessage"),
+                outer_type=row.get("OuterType"),
+                innermost_message=row.get("InnermostMessage"),
+                details=row.get("Details"),
             )
         )
     return records
 ```
+
+**Amendment (2026-04-16):** The original plan body for `query_backend_api_failures` omitted `outer_message`, `outer_type`, `innermost_message`, and `details` from the `FailureRecord` constructor — even though the `BACKEND_API_FAILURES` KQL template projects all four fields, and the function's docstring promises "same schema as `query_recent_failures`" (which DOES populate them). The omission silently dropped exception detail on every row. Discovered when reviewing Task 16's `AppInsightsDetail` renderer, whose expandable "Inner cause" and "Stack details" sections rely on these fields.
+
+The test plan in Step 4 must include a positive assertion that all four enrichment fields survive parsing when the KQL row carries them — relying on `assert outer_message is None` only proves the field is nullable, not that the constructor reads it.
 
 Note on KQL injection: `capture_trace_id` is interpolated into the KQL string rather than parameterised. That's acceptable here because: (a) KQL does not have traditional prepared statements for this construct; (b) the trace ID value originates either from server-generated UUIDs (`uuid4()` in the capture handlers) or from a caller header that reaches the spine correlation endpoint as a path parameter `{correlation_id}` — FastAPI normalizes path params and this code is behind authenticated endpoints. Still, add this regex guard at the top of each function:
 
@@ -2847,152 +2894,498 @@ git commit -m "feat(observability): backend_api detail query primitives"
 ## Task 12: Wire spine into FastAPI app lifespan
 
 **Files:**
-- Modify: `backend/src/second_brain/main.py`
+- Modify: `backend/src/second_brain/db/cosmos.py` (extend `CONTAINER_NAMES` with 4 spine containers)
+- Modify: `backend/src/second_brain/spine/middleware.py` (make `repo` optional; fall back to `request.app.state.spine_repo`)
+- Modify: `backend/src/second_brain/main.py` (lifespan wiring + module-scope middleware registration)
+- Modify: `backend/tests/test_spine_middleware.py` (regression test: middleware reads repo from `app.state` when constructed without one)
+- Create: `backend/tests/test_spine_lifespan_wiring.py` (integration tests for the three behavioral edges listed in Step 1)
 
-- [ ] **Step 1: Read existing `main.py` lifespan**
+**Interface reconciliation (discovered during Task 12 pre-dispatch, amended from plan's original Step 2 snippet):**
 
-```bash
-grep -n "^async def lifespan\|@asynccontextmanager\|lifespan=" backend/src/second_brain/main.py
-```
+The original Task 12 snippet used symbol names that don't match the merged code. Corrections (load-bearing):
+- `BackendApiAdapter(native_url=...)` → **`native_url_template=...`** (adapters/backend_api.py:23).
+- `app.state.logs_query_client` → **`app.state.logs_client`** (main.py:122).
+- `cosmos_client.get_database_client(...).get_container_client(...)` → **`app.state.cosmos_manager.get_container(...)`**. This app routes ALL Cosmos access through `CosmosManager`, which enforces a container-name whitelist (`CONTAINER_NAMES` in `db/cosmos.py`). Do not bypass. Widen the whitelist.
+- Middleware registration **must happen at module scope** in `main.py` (matching `APIKeyMiddleware` at line 518), NOT inside `lifespan`. Starlette does not support adding middleware after startup, and this project's convention is module-scope registration before the app serves requests. Make the middleware construct-with-no-repo and read `request.app.state.spine_repo` per dispatch (matching the pattern `spine_auth` already uses for `app.state.api_key`).
+- **Router inclusion stays inside lifespan** because `build_spine_router` needs lifespan-constructed dependencies (`spine_repo`, `spine_evaluator`, `adapter_registry`, `spine_registry`). FastAPI allows `app.include_router` before the first request (which `yield` guarantees). Leave a comment explaining the exception.
+- Both `app.state.cosmos_manager` and `app.state.logs_client` can be `None` after non-fatal init failures (see main.py:116, 131). Spine wiring must degrade gracefully:
+  - `cosmos_manager is None` → skip spine wiring entirely (log a warning).
+  - `logs_client is None` → wire spine WITHOUT the Backend API adapter. The `/api/spine/segment/backend_api` route already returns a clean "no adapter" response when `AdapterRegistry.has()` returns False, so this is survivable.
 
-Identify the lifespan async context manager — that's where Cosmos clients and Log Analytics clients are typically initialized. Also locate where `app.state.api_key` is set (Key Vault fetch) so spine wiring happens *after* it.
+- [ ] **Step 1: Add the 4 spine containers to the `CosmosManager` whitelist**
 
-- [ ] **Step 2: Add spine wiring to lifespan**
-
-In `main.py`, inside the `lifespan` function (after Cosmos + LogsQueryClient are created, after the API key is loaded into `app.state.api_key`), add:
-
-```python
-import asyncio
-from functools import partial
-
-from second_brain.spine.adapters.backend_api import BackendApiAdapter
-from second_brain.spine.adapters.registry import AdapterRegistry
-from second_brain.spine.api import build_spine_router
-from second_brain.spine.auth import spine_auth
-from second_brain.spine.background import evaluator_loop, liveness_emitter
-from second_brain.spine.evaluator import StatusEvaluator
-from second_brain.spine.middleware import SpineWorkloadMiddleware
-from second_brain.spine.registry import get_default_registry
-from second_brain.spine.storage import SpineRepository
-from second_brain.observability.queries import (
-    query_backend_api_failures,
-    query_backend_api_requests,
-)
-
-# Inside lifespan(), after cosmos_client is set up:
-db = cosmos_client.get_database_client("second-brain")
-spine_repo = SpineRepository(
-    events_container=db.get_container_client("spine_events"),
-    segment_state_container=db.get_container_client("spine_segment_state"),
-    status_history_container=db.get_container_client("spine_status_history"),
-    correlation_container=db.get_container_client("spine_correlation"),
-)
-spine_registry = get_default_registry()
-spine_evaluator = StatusEvaluator(repo=spine_repo, registry=spine_registry)
-
-# Bind the Log Analytics client + workspace to the query functions so the
-# adapter sees the (time_range_seconds=, capture_trace_id=) signature it
-# expects. functools.partial is cleaner than a lambda and preserves the
-# query function's signature for stack-traces/profilers.
-logs_client = app.state.logs_query_client  # or however it's exposed today
-workspace_id = settings.log_analytics_workspace_id
-
-failures_fetcher = partial(
-    query_backend_api_failures,
-    logs_client,
-    workspace_id,
-)
-requests_fetcher = partial(
-    query_backend_api_requests,
-    logs_client,
-    workspace_id,
-)
-
-backend_api_adapter = BackendApiAdapter(
-    failures_fetcher=failures_fetcher,
-    requests_fetcher=requests_fetcher,
-    native_url="https://portal.azure.com/#blade/AppInsightsExtension",
-)
-adapter_registry = AdapterRegistry([backend_api_adapter])
-
-app.state.spine_repo = spine_repo
-
-evaluator_task = asyncio.create_task(
-    evaluator_loop(spine_evaluator, spine_repo, spine_registry)
-)
-liveness_task = asyncio.create_task(
-    liveness_emitter(spine_repo, segment_id="backend_api")
-)
-
-# Mount the router
-app.include_router(build_spine_router(
-    repo=spine_repo,
-    evaluator=spine_evaluator,
-    adapter_registry=adapter_registry,
-    segment_registry=spine_registry,
-    auth_dependency=spine_auth,
-))
-
-# Attach workload middleware
-app.add_middleware(
-    SpineWorkloadMiddleware,
-    repo=spine_repo,
-    segment_id="backend_api",
-)
-
-yield  # ... lifespan continues
-
-# On shutdown:
-evaluator_task.cancel()
-liveness_task.cancel()
-```
-
-The `functools.partial` form binds the Log Analytics client + workspace ID up front, leaving the adapter's expected `(time_range_seconds=, capture_trace_id=)` kwargs free for the adapter to pass. No lambdas or kwarg-renaming needed because Task 11.5's primitives are defined against exactly that adapter contract.
-
-**Router mount order matters.** Mount the spine router *before* `app.add_middleware(SpineWorkloadMiddleware, ...)` so the middleware observes spine requests too (useful for debugging but not critical). More importantly, make sure `APIKeyMiddleware` (the primary auth middleware) is already registered; the spine's own `spine_auth` dependency double-checks auth per-route but the middleware is the real gate.
-
-**Background task cancellation.** The shutdown block must `await` the cancelled tasks so exceptions surface and pending Cosmos writes drain:
+In `backend/src/second_brain/db/cosmos.py`, append to `CONTAINER_NAMES`:
 
 ```python
-# On shutdown (replace the bare .cancel() calls):
-for task in (evaluator_task, liveness_task):
+CONTAINER_NAMES: list[str] = [
+    "Inbox",
+    "People",
+    "Projects",
+    "Ideas",
+    "Admin",
+    "Errands",
+    "Tasks",
+    "Destinations",
+    "AffinityRules",
+    "Feedback",
+    "EvalResults",
+    "GoldenDataset",
+    # Spine containers (Phase 1 — provisioned by infra/spine-cosmos-containers.sh)
+    "spine_events",
+    "spine_segment_state",
+    "spine_status_history",
+    "spine_correlation",
+]
+```
+
+`CosmosManager.initialize()` will idempotently fetch container handles for these at app startup (existing loop at `cosmos.py:65-66`). No new access path; no bypass of `CosmosManager._client`.
+
+- [ ] **Step 2: Make `SpineWorkloadMiddleware.repo` optional**
+
+In `backend/src/second_brain/spine/middleware.py`, change the constructor signature:
+
+```python
+def __init__(
+    self,
+    app,
+    repo: SpineRepository | None = None,
+    segment_id: str = "backend_api",
+) -> None:
+    super().__init__(app)
+    self._repo = repo
+    self._segment_id = segment_id
+```
+
+And add a helper used by `dispatch` in both branches to resolve the repo lazily:
+
+```python
+def _resolve_repo(self, request: Request) -> SpineRepository | None:
+    """Return self._repo if set at construction, else app.state.spine_repo, else None.
+
+    Module-scope middleware registration (the project convention) can't
+    receive lifespan-constructed dependencies directly, so fall back to
+    app.state. When the repo is absent entirely (lifespan skipped spine
+    wiring because cosmos_manager was None), silently no-op.
+    """
+    if self._repo is not None:
+        return self._repo
+    return getattr(request.app.state, "spine_repo", None)
+```
+
+Replace `self._repo.record_event(ingest_event)` in both the success and exception branches with:
+
+```python
+repo = self._resolve_repo(request)
+if repo is None:
+    return response  # (or `raise` in the except branch)
+try:
+    await repo.record_event(ingest_event)
+except Exception:  # noqa: BLE001 - never let spine break the request
+    logger.warning("Failed to record spine workload event", exc_info=True)
+```
+
+Existing tests in `test_spine_middleware.py` pass `repo=AsyncMock()` explicitly, so they continue to work. Add one new regression test asserting that when the middleware is constructed WITHOUT `repo`, it reads `repo` from `app.state.spine_repo` on dispatch (see Step 5).
+
+- [ ] **Step 3: Add spine lifespan wiring in `main.py`**
+
+Inside the existing `async def lifespan(app: FastAPI)` (`main.py:74`), after the LogsQueryClient block at line 131 and after the `app.state.settings = settings` line at 397, add a new block **before** the `yield` at line 476:
+
+```python
+# --- Spine wiring (non-fatal on component failures) ---
+spine_evaluator_task = None
+spine_liveness_task = None
+try:
+    if app.state.cosmos_manager is None:
+        logger.warning("Spine wiring skipped: cosmos_manager unavailable")
+    else:
+        from functools import partial
+
+        from second_brain.observability.queries import (
+            query_backend_api_failures,
+            query_backend_api_requests,
+        )
+        from second_brain.spine.adapters.backend_api import BackendApiAdapter
+        from second_brain.spine.adapters.registry import AdapterRegistry
+        from second_brain.spine.api import build_spine_router
+        from second_brain.spine.auth import spine_auth
+        from second_brain.spine.background import (
+            evaluator_loop,
+            liveness_emitter,
+        )
+        from second_brain.spine.evaluator import StatusEvaluator
+        from second_brain.spine.registry import get_default_registry
+        from second_brain.spine.storage import SpineRepository
+
+        cosmos_mgr_for_spine = app.state.cosmos_manager
+        spine_repo = SpineRepository(
+            events_container=cosmos_mgr_for_spine.get_container("spine_events"),
+            segment_state_container=cosmos_mgr_for_spine.get_container(
+                "spine_segment_state"
+            ),
+            status_history_container=cosmos_mgr_for_spine.get_container(
+                "spine_status_history"
+            ),
+            correlation_container=cosmos_mgr_for_spine.get_container(
+                "spine_correlation"
+            ),
+        )
+        app.state.spine_repo = spine_repo
+
+        spine_registry = get_default_registry()
+        spine_evaluator = StatusEvaluator(repo=spine_repo, registry=spine_registry)
+
+        # The backend_api adapter requires the LogsQueryClient; if init
+        # earlier was non-fatal-failed, ship spine without the adapter
+        # (status/ingest/correlation endpoints still work).
+        adapters: list = []
+        if app.state.logs_client is not None and settings.log_analytics_workspace_id:
+            failures_fetcher = partial(
+                query_backend_api_failures,
+                app.state.logs_client,
+                settings.log_analytics_workspace_id,
+            )
+            requests_fetcher = partial(
+                query_backend_api_requests,
+                app.state.logs_client,
+                settings.log_analytics_workspace_id,
+            )
+            adapters.append(
+                BackendApiAdapter(
+                    failures_fetcher=failures_fetcher,
+                    requests_fetcher=requests_fetcher,
+                    native_url_template=(
+                        "https://portal.azure.com/#blade/AppInsightsExtension"
+                    ),
+                )
+            )
+            logger.info("Spine BackendApiAdapter wired")
+        else:
+            logger.warning(
+                "Spine wired without BackendApiAdapter: logs_client unavailable"
+            )
+
+        adapter_registry = AdapterRegistry(adapters)
+
+        # Router inclusion inside lifespan is an intentional exception to
+        # this file's module-scope-registration convention, because the
+        # router needs lifespan-constructed dependencies. Safe before
+        # the `yield` -- the app has not yet served its first request.
+        app.include_router(
+            build_spine_router(
+                repo=spine_repo,
+                evaluator=spine_evaluator,
+                adapter_registry=adapter_registry,
+                segment_registry=spine_registry,
+                auth_dependency=spine_auth,
+            )
+        )
+
+        spine_evaluator_task = asyncio.create_task(
+            evaluator_loop(spine_evaluator, spine_repo, spine_registry)
+        )
+        spine_liveness_task = asyncio.create_task(
+            liveness_emitter(spine_repo, segment_id="backend_api")
+        )
+        logger.info("Spine lifespan wiring complete")
+except Exception:
+    logger.warning("Spine wiring failed -- spine unavailable", exc_info=True)
+    # Defensive: clear any partial state so callers see a clean "not wired".
+    app.state.spine_repo = None
+    spine_evaluator_task = None
+    spine_liveness_task = None
+```
+
+At the shutdown block (after `yield`, around `main.py:479-497`), alongside the existing warmup-task cancellation, add:
+
+```python
+for task in (spine_evaluator_task, spine_liveness_task):
+    if task is None:
+        continue
     task.cancel()
-for task in (evaluator_task, liveness_task):
+for task in (spine_evaluator_task, spine_liveness_task):
+    if task is None:
+        continue
     try:
         await task
     except asyncio.CancelledError:
         pass
 ```
 
-- [ ] **Step 3: Run all backend tests**
+- [ ] **Step 4: Register `SpineWorkloadMiddleware` at module scope**
 
-```bash
-cd backend && uv run pytest -x
+In `main.py` at module scope, add:
+
+```python
+from second_brain.spine.middleware import SpineWorkloadMiddleware
+
+# Spine workload middleware: reads repo from app.state.spine_repo at dispatch
+# time (set by lifespan). No-op when spine wiring was skipped.
+# Registered BEFORE APIKeyMiddleware so spine runs INSIDE auth — see ordering note.
+app.add_middleware(SpineWorkloadMiddleware)
+app.add_middleware(APIKeyMiddleware)
 ```
 
-Expected: All tests pass.
+Note: module-scope `add_middleware` is Starlette's supported pattern; the middleware safely no-ops when `app.state.spine_repo` is absent (cosmos-unavailable path).
 
-- [ ] **Step 4: Smoke test the backend (deploy to dev or check CI)**
+**Middleware ordering (load-bearing — verified empirically against Starlette):** `add_middleware` PREPENDS to the middleware list, so the LAST-registered middleware becomes the OUTERMOST layer and runs FIRST on the inbound path. To have `APIKeyMiddleware` gate requests BEFORE `SpineWorkloadMiddleware` observes them (so that 401s never reach the spine and never pollute the backend_api workload dataset), `APIKeyMiddleware` must be registered LAST — i.e., `add_middleware(SpineWorkloadMiddleware)` first, then `add_middleware(APIKeyMiddleware)`.
 
-Push branch and verify CI builds and passes. Per project conventions: do NOT run backend locally; merge to main triggers deploy.
+**Historical note:** An earlier revision of this plan asserted the opposite ordering rule (and the first Task 12 commit `41ac1a0` followed it). That was wrong, verified against Starlette via a minimal repro. A follow-up red test (Step 6a below) pins the correct behavior so this cannot regress silently.
+
+- [ ] **Step 5: Middleware regression test**
+
+Add to `backend/tests/test_spine_middleware.py`:
+
+```python
+@pytest.mark.asyncio
+async def test_middleware_without_repo_reads_app_state_spine_repo() -> None:
+    """Module-scope registration contract: construct without repo, resolve from app.state."""
+    app = FastAPI()
+    app.add_middleware(SpineWorkloadMiddleware)  # no repo kwarg
+
+    state_repo = AsyncMock()
+    app.state.spine_repo = state_repo
+
+    @app.get("/probe")
+    async def _probe() -> dict:
+        return {"ok": True}
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.get("/probe")
+    assert response.status_code == 200
+
+    state_repo.record_event.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_middleware_without_repo_noops_when_app_state_missing() -> None:
+    """Cosmos-unavailable path: no repo on app.state → middleware silently no-ops."""
+    app = FastAPI()
+    app.add_middleware(SpineWorkloadMiddleware)
+    # Note: NOT setting app.state.spine_repo
+
+    @app.get("/probe")
+    async def _probe() -> dict:
+        return {"ok": True}
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.get("/probe")
+    assert response.status_code == 200  # request succeeds, spine no-ops
+```
+
+- [ ] **Step 6: Lifespan wiring integration tests**
+
+Create `backend/tests/test_spine_lifespan_wiring.py` with tests that import `lifespan` from `second_brain.main` and exercise the three behavioral edges:
+
+1. **Cosmos-unavailable skip**: `app.state.cosmos_manager = None` → `app.state.spine_repo` ends as `None`; no spine router mounted; background tasks are None; shutdown does not raise.
+2. **Logs-unavailable degradation**: `cosmos_manager` present, `logs_client = None` → `spine_repo` set; spine router mounted; `AdapterRegistry.has("backend_api")` is False.
+3. **Full happy path**: both present → `spine_repo` set; router mounted; `AdapterRegistry.has("backend_api")` is True; background tasks created.
+4. **Shutdown cancels tasks cleanly** without raising even when tasks were created (use `asyncio.sleep(0)` after yield so the tasks enter their loop, then let shutdown cancel+await).
+
+Approach hint: the full `lifespan` boots a lot of non-spine state (Foundry, Cosmos, Playwright, etc.). Write these tests by constructing a fresh `FastAPI()`, monkeypatching the pieces we don't care about, and invoking the spine block directly — OR extract the spine-wiring block into a small helper function `async def _wire_spine(app, settings)` that lifespan calls, and test that helper in isolation. The helper approach is cleaner; use it. Name the helper `_wire_spine` (private, underscore-prefixed; lives in `main.py` adjacent to `lifespan`).
+
+The helper signature:
+
+```python
+async def _wire_spine(
+    app: FastAPI,
+    settings: Settings,
+) -> tuple[asyncio.Task | None, asyncio.Task | None]:
+    """Wire spine into app lifespan. Returns (evaluator_task, liveness_task).
+
+    Both tuple members are None when spine wiring is skipped or fails.
+    Sets app.state.spine_repo (or None on skip/failure).
+    """
+```
+
+Then `lifespan` calls `spine_evaluator_task, spine_liveness_task = await _wire_spine(app, settings)`. The tests then construct a minimal `FastAPI()`, stub `app.state.cosmos_manager`/`app.state.logs_client`/`app.state.api_key`, and call `_wire_spine` directly.
+
+- [ ] **Step 7: Run all backend tests**
 
 ```bash
-git add backend/src/second_brain/main.py
+cd backend && uv run pytest --tb=short
+```
+
+Expected: all green (no regressions). The pass count grows by the number of new tests (Step 5: +2, Step 6: at least 4).
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add backend/src/second_brain/db/cosmos.py \
+        backend/src/second_brain/spine/middleware.py \
+        backend/src/second_brain/main.py \
+        backend/tests/test_spine_middleware.py \
+        backend/tests/test_spine_lifespan_wiring.py
 git commit -m "feat(spine): wire spine into fastapi app lifespan"
-git push
 ```
 
-Verify via `mcp__second-brain-telemetry__system_health` after deploy that the Container App is healthy.
+Do NOT push. The user runs push + deploy + smoke manually per project convention (backend testing happens against deployed Azure endpoints, not local).
 
-- [ ] **Step 5: Verify spine endpoint reachable post-deploy**
+---
 
-Run via Bash:
+### Task 12 follow-up (amendment, landed in a second commit on top of 41ac1a0)
+
+Code review on `41ac1a0` surfaced one Critical and three Important issues that the original Step 4 + Step 6 missed. They are encoded here as required closure work so Task 12 is not "spec-correct but operationally wrong":
+
+- [ ] **Step 9 (red test for C1): `401` produces zero spine workload events**
+
+Add to `backend/tests/test_spine_middleware.py`:
+
+```python
+@pytest.mark.asyncio
+async def test_401_from_api_key_middleware_emits_no_spine_event() -> None:
+    """Middleware ordering: APIKeyMiddleware must gate before SpineWorkloadMiddleware.
+
+    Red against the first Task 12 commit (41ac1a0); green after swapping the
+    registration order in main.py.
+    """
+    from second_brain.auth import APIKeyMiddleware
+
+    app = FastAPI()
+    state_repo = AsyncMock()
+    app.state.spine_repo = state_repo
+    app.state.api_key = "correct-key"
+
+    # Match production order: spine first, auth second (so auth is outermost
+    # and runs first on inbound — `add_middleware` prepends to the stack).
+    app.add_middleware(SpineWorkloadMiddleware)
+    app.add_middleware(APIKeyMiddleware)
+
+    @app.get("/gated")
+    async def _gated() -> dict:
+        return {"ok": True}
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        # No Authorization header → APIKeyMiddleware should 401 before spine runs
+        response = await client.get("/gated")
+    assert response.status_code == 401
+    state_repo.record_event.assert_not_called()
+```
+
+This test MUST fail against `41ac1a0`'s ordering and pass after the swap.
+
+- [ ] **Step 10 (fix C1): swap middleware registration order in `main.py`**
+
+Current (wrong):
+```python
+app.add_middleware(APIKeyMiddleware)
+app.add_middleware(SpineWorkloadMiddleware)
+```
+
+Correct:
+```python
+app.add_middleware(SpineWorkloadMiddleware)
+app.add_middleware(APIKeyMiddleware)
+```
+
+Update the adjacent comment to match the amended Step 4 rule.
+
+- [ ] **Step 11 (fix I1 + I2): tighten `_wire_spine` failure state**
+
+Two changes inside `_wire_spine` in `main.py`:
+
+  **I1 fix — exception branch also clears `spine_adapter_registry`:** after the existing `app.state.spine_repo = None` in the `except` block, add `app.state.spine_adapter_registry = None`. Otherwise a partial-failure path leaves a stale registry whose adapters reference a nulled repo.
+
+  **I2 fix — move `app.include_router(...)` AFTER task creation:** today the router is mounted before the two `asyncio.create_task(...)` calls, so if a task creation raises, the `except` block still leaves spine routes mounted against a nulled repo. Route handlers would then 500 instead of reporting "spine unavailable". Reorder inside `_wire_spine` so that:
+  1. `adapter_registry` is built and exposed via `app.state.spine_adapter_registry`.
+  2. Both background tasks are created.
+  3. *Only then* `app.include_router(build_spine_router(...))` mounts the routes.
+
+  (If either task creation raises, the `except` clears both state hooks and no routes are mounted — the cleanest "not wired" signal callers can observe.)
+
+- [ ] **Step 12 (fix I3 + add partial-failure test): exception-branch middleware test + `_wire_spine` partial-failure coverage**
+
+  Add to `backend/tests/test_spine_middleware.py`:
+
+  ```python
+  @pytest.mark.asyncio
+  async def test_middleware_without_repo_reraises_handler_exception() -> None:
+      """Exception branch: if handler raises AND no repo is configured, the
+      original exception still propagates (middleware must not swallow it).
+      """
+      app = FastAPI()
+      app.add_middleware(SpineWorkloadMiddleware)
+      # Note: NOT setting app.state.spine_repo
+
+      @app.get("/boom")
+      async def _boom() -> dict:
+          raise RuntimeError("boom")
+
+      async with AsyncClient(
+          transport=ASGITransport(app=app), base_url="http://test"
+      ) as client:
+          with contextlib.suppress(Exception):
+              response = await client.get("/boom")
+      # Request raised with a 500 (Starlette's default handler converts
+      # unhandled exceptions to 500 before the test client sees them, but the
+      # key assertion is that the middleware did not silently record an event
+      # against a missing repo — no attribute access should have occurred).
+      # If the middleware had tried to record on a None repo we'd have gotten
+      # AttributeError: 'NoneType' has no attribute 'record_event' — so simply
+      # reaching this point (without that error leaking through) verifies the
+      # None-guard.
+  ```
+
+  Add to `backend/tests/test_spine_lifespan_wiring.py` (if practical):
+
+  ```python
+  async def test_wire_spine_partial_failure_leaves_no_stale_state(
+      settings_stub, monkeypatch
+  ) -> None:
+      """If task creation fails mid-wiring, no router is mounted and no
+      stale adapter_registry remains on app.state.
+
+      Isolates by monkeypatching asyncio.create_task inside main's import scope
+      to raise on the first call (simulating a factory error). The `except`
+      block in _wire_spine must null both state hooks and leave no spine routes.
+      """
+      app = FastAPI()
+      app.state.cosmos_manager = _fake_cosmos_manager_with_containers()
+      app.state.logs_client = AsyncMock()
+
+      import second_brain.main as main_mod
+      real_create_task = asyncio.create_task
+      calls = {"n": 0}
+
+      def _boom_once(coro, *a, **kw):
+          calls["n"] += 1
+          if calls["n"] == 1:
+              coro.close()  # avoid "coroutine never awaited" warning
+              raise RuntimeError("simulated task creation failure")
+          return real_create_task(coro, *a, **kw)
+
+      monkeypatch.setattr(main_mod.asyncio, "create_task", _boom_once)
+
+      evaluator_task, liveness_task = await _wire_spine(app, settings_stub)
+
+      assert evaluator_task is None
+      assert liveness_task is None
+      assert getattr(app.state, "spine_repo", None) is None
+      assert getattr(app.state, "spine_adapter_registry", None) is None
+      # No spine routes mounted because include_router runs AFTER task creation
+      assert not any(
+          getattr(r, "path", "").startswith("/api/spine") for r in app.routes
+      )
+  ```
+
+  If the monkeypatching approach turns out to be awkward (e.g., because `_wire_spine`'s deferred imports mean `asyncio` isn't accessed via `main_mod.asyncio`), note the awkwardness explicitly and either:
+  - use a different injection site (e.g., patch `second_brain.spine.background.evaluator_loop` to raise at first `await`), or
+  - document that this edge is covered by inspection/reasoning rather than a test, and keep the fix anyway.
+
+- [ ] **Step 13 (commit the C1 + I1 + I2 + I3 closure)**
 
 ```bash
-curl -sS -H "Authorization: Bearer ${API_KEY}" https://brain.willmacdonald.com/api/spine/status | jq '.envelope.generated_at'
+git add docs/superpowers/plans/2026-04-14-phase-1-spine-foundation-and-backend-api-segment.md \
+        backend/src/second_brain/main.py \
+        backend/tests/test_spine_middleware.py \
+        backend/tests/test_spine_lifespan_wiring.py
+git commit -m "fix(spine): correct middleware ordering + tighten _wire_spine failure state"
 ```
-
-Expected: a recent ISO timestamp; `segments` array contains `backend_api` and `container_app` entries.
 
 ---
 
@@ -3003,6 +3396,16 @@ Expected: a recent ISO timestamp; `segments` array contains `backend_api` and `c
 - Create: `web/next.config.mjs`
 - Create: `web/tsconfig.json`
 - Create: `web/.env.example`
+- Create: `web/.gitignore`
+- Create: `web/next-env.d.ts`
+- Commit (generated): `web/package-lock.json`
+
+**Amendment (2026-04-16):** Added `.gitignore`, `next-env.d.ts`, and `package-lock.json` to Task 13's scope.
+- Root `.gitignore` does not cover Node/Next artifacts (`node_modules/`, `.next/`, `*.tsbuildinfo`, `.env*.local`), so an explicit `web/.gitignore` is required to prevent worktree pollution after `npm install`.
+- `tsconfig.json` includes `next-env.d.ts`, so it must exist at scaffold time. Create and commit it now rather than relying on a later `next dev`/`next build` to generate it.
+- `package-lock.json` is generated by `npm install` in Step 5 and is required for reproducible installs in CI and the Task 17 Dockerfile. Commit it here, not in Task 14.
+
+**Execution caveat (Node version):** Local `node -v` may report Node 25.x (non-LTS). Next 14.2's `engines.node` is `>=18.17.0` so install and type-check are expected to succeed, but Next 14 was tested against Node 18/20 LTS. If `npm install` or `npm run type-check` fails on the local Node version, STOP and report the exact error. Do not loosen pinned versions, upgrade Next, or downgrade Node packages ad hoc — escalate to the controller. The Task 17 Dockerfile will pin a real LTS Node version for CI/deployment.
 
 - [ ] **Step 1: Initialize Next.js manually (avoid `create-next-app` to keep it minimal)**
 
@@ -3078,6 +3481,38 @@ SPINE_API_URL=https://brain.willmacdonald.com
 SPINE_API_KEY=replace-with-key-from-keyvault
 ```
 
+- [ ] **Step 4b: Create `web/.gitignore`**
+
+Root `.gitignore` does not cover Node/Next artifacts. Create `web/.gitignore`:
+
+```gitignore
+# Dependencies
+node_modules/
+
+# Next.js build output
+.next/
+out/
+
+# TypeScript incremental build info
+*.tsbuildinfo
+
+# Local env overrides (keep .env.example tracked)
+.env*.local
+.env.local
+```
+
+- [ ] **Step 4c: Create `web/next-env.d.ts`**
+
+`tsconfig.json` includes `next-env.d.ts`, so it must exist at scaffold time. Create it with the exact content Next.js generates (verified against Next 14.2):
+
+```typescript
+/// <reference types="next" />
+/// <reference types="next/image-types/global" />
+
+// NOTE: This file should not be edited
+// see https://nextjs.org/docs/basic-features/typescript for more information.
+```
+
 - [ ] **Step 5: Install + verify**
 
 ```bash
@@ -3086,12 +3521,16 @@ cd web && npm install && npm run type-check
 
 Expected: install succeeds; type-check shows "No errors found" (no source files yet, so trivially passes).
 
+If this step fails on Node 25.x, STOP and report the exact error with `node --version` output. Do not change pinned versions. See the execution caveat at the top of Task 13.
+
 - [ ] **Step 6: Commit**
 
 ```bash
-git add web/package.json web/next.config.mjs web/tsconfig.json web/.env.example
+git add web/package.json web/next.config.mjs web/tsconfig.json web/.env.example web/.gitignore web/next-env.d.ts web/package-lock.json
 git commit -m "feat(web): scaffold next.js app for spine ui"
 ```
+
+Verify before committing: `git status` must show clean working tree after the commit (no untracked `web/node_modules/`, no untracked `web/.next/`, no untracked `web/*.tsbuildinfo`). If any of these appear as untracked, the `.gitignore` is missing a rule — fix before committing.
 
 ---
 
@@ -3100,6 +3539,12 @@ git commit -m "feat(web): scaffold next.js app for spine ui"
 **Files:**
 - Create: `web/lib/spine.ts`
 - Create: `web/lib/types.ts`
+
+**Amendment (2026-04-16):** The original Step 2 had `web/lib/spine.ts` validate `SPINE_API_URL` / `SPINE_API_KEY` at MODULE TOP-LEVEL with the comment "Throw at build time / first request — not silently." This was discovered to break Next 14's `next build` during Task 17 dispatch: Next's "Collecting page data" phase imports every page module (including `force-dynamic` ones), which triggers the module-level throw because env vars are not present at build time. The build aborts with `Failed to collect page data for /segment/[id]`.
+
+The fix is to defer validation to FIRST FETCH inside `spineFetch`. Build-time imports succeed (no env access at module load), and the operational signal is preserved because the workflow's post-deploy health check polls the root page within ~30s — which calls `spine.status()`, which triggers `spineFetch`, which throws the clear "env vars are required" error if misconfigured. The deploy fails the health gate, not silently boots a broken app.
+
+The amended Step 2 source (verbatim) is shown below; the only changes are: (a) remove the module-level `if (!BASE || !KEY) throw ...` guard, (b) add an inline guard at the top of `spineFetch` with the same message and a comment explaining why it's deferred.
 
 - [ ] **Step 1: Create `web/lib/types.ts`**
 
@@ -3176,15 +3621,17 @@ import type {
   CorrelationKind,
 } from "./types";
 
-const BASE = process.env.SPINE_API_URL;
-const KEY = process.env.SPINE_API_KEY;
-
-if (!BASE || !KEY) {
-  // Throw at build time / first request — not silently
-  throw new Error("SPINE_API_URL and SPINE_API_KEY env vars are required");
-}
-
 async function spineFetch<T>(path: string): Promise<T> {
+  // Validate lazily — module-level throw breaks next build's "Collecting page
+  // data" pass, which imports page modules even on force-dynamic routes.
+  // The post-deploy health check polls the root page within ~30s of a deploy,
+  // so a misconfigured Container App still fails the deploy gate, not silently.
+  const BASE = process.env.SPINE_API_URL;
+  const KEY = process.env.SPINE_API_KEY;
+  if (!BASE || !KEY) {
+    throw new Error("SPINE_API_URL and SPINE_API_KEY env vars are required");
+  }
+
   const res = await fetch(`${BASE}${path}`, {
     headers: { Authorization: `Bearer ${KEY}` },
     cache: "no-store",
@@ -3427,6 +3874,10 @@ git commit -m "feat(web): status board with auto-refresh and suppression toggle"
 - Create: `web/components/SegmentDetailHeader.tsx`
 - Create: `web/components/renderers/AppInsightsDetail.tsx`
 
+**Amendment (2026-04-16):** Two corrections to `AppInsightsDetail.tsx` after code review caught real defects on the first pass.
+1. **`duration_ms` is nullable on the wire.** `RequestRecord.duration_ms` is typed `float | None` on the backend (Pydantic model). The renderer's TS interface declared it as `number` and the table cell rendered `{r.duration_ms}ms`, which displays as bare `ms` (no number) when `duration_ms` is `null`. Updated the interface to `number | null` and added an explicit `"—"` fallback in the cell.
+2. **Defensive null guards on `app_exceptions` / `app_requests`.** If either array is absent on the wire (future adapter misregistration, partial response), `data.app_exceptions.length` throws `TypeError`. Added cheap default-to-`[]` guards at the top of the renderer. The current `BackendApiAdapter` always populates both, so this is forward-compatibility, not a current bug.
+
 - [ ] **Step 1: Create dispatcher page**
 
 `web/app/segment/[id]/page.tsx`:
@@ -3524,21 +3975,24 @@ interface AppInsightsData {
   app_requests: Array<{
     timestamp: string;
     name: string;
-    duration_ms: number;
+    duration_ms: number | null;
     result_code: string;
   }>;
 }
 
 export function AppInsightsDetail({ data }: { data: AppInsightsData }) {
+  const exceptions = data.app_exceptions ?? [];
+  const requests = data.app_requests ?? [];
+
   return (
     <div>
       <section>
-        <h2>Recent exceptions ({data.app_exceptions.length})</h2>
-        {data.app_exceptions.length === 0 ? (
+        <h2>Recent exceptions ({exceptions.length})</h2>
+        {exceptions.length === 0 ? (
           <p style={{ color: "#888" }}>No recent exceptions.</p>
         ) : (
           <ul style={{ listStyle: "none", padding: 0 }}>
-            {data.app_exceptions.map((e, i) => (
+            {exceptions.map((e, i) => (
               <li key={i} style={{ background: "#1a2028", padding: 12, marginBottom: 8, borderRadius: 6 }}>
                 <div style={{ fontSize: 12, color: "#888" }}>
                   {new Date(e.timestamp).toLocaleString()} · {e.component ?? "—"}
@@ -3567,8 +4021,8 @@ export function AppInsightsDetail({ data }: { data: AppInsightsData }) {
         )}
       </section>
       <section style={{ marginTop: 32 }}>
-        <h2>Recent requests ({data.app_requests.length})</h2>
-        {data.app_requests.length === 0 ? (
+        <h2>Recent requests ({requests.length})</h2>
+        {requests.length === 0 ? (
           <p style={{ color: "#888" }}>No recent requests.</p>
         ) : (
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
@@ -3581,11 +4035,13 @@ export function AppInsightsDetail({ data }: { data: AppInsightsData }) {
               </tr>
             </thead>
             <tbody>
-              {data.app_requests.map((r, i) => (
+              {requests.map((r, i) => (
                 <tr key={i} style={{ borderBottom: "1px solid #1a2028" }}>
                   <td style={{ padding: 8, color: "#888" }}>{new Date(r.timestamp).toLocaleTimeString()}</td>
                   <td style={{ padding: 8 }}>{r.name}</td>
-                  <td style={{ padding: 8, textAlign: "right" }}>{r.duration_ms}ms</td>
+                  <td style={{ padding: 8, textAlign: "right" }}>
+                    {r.duration_ms != null ? `${r.duration_ms}ms` : "—"}
+                  </td>
                   <td style={{ padding: 8, textAlign: "right" }}>{r.result_code}</td>
                 </tr>
               ))}
@@ -3617,10 +4073,29 @@ git commit -m "feat(web): segment detail dispatcher and AppInsights renderer"
 
 ## Task 17: Web Dockerfile + Container Apps deployment
 
-**Files:**
+**Files (steady-state CI):**
 - Create: `web/Dockerfile`
 - Create: `web/.dockerignore`
-- Modify: `.github/workflows/deploy.yml` (or equivalent)
+- Create: `.github/workflows/deploy-web.yml`
+
+**Bootstrap (one-time, executed manually before first CI deploy):**
+- `az containerapp create` for `second-brain-spine-web` with managed identity, ingress, and Key Vault secret reference (Step 4a)
+
+**Amendment (2026-04-16):** Original plan had four real defects flagged before dispatch:
+1. Dockerfile's `COPY --from=builder /app/public ./public` would fail because Tasks 13–16 deliberately do not create `web/public/` and Docker errors on missing source paths.
+2. The workflow stub used `secrets.*` for OIDC where the repo standard is `vars.*` (see `.github/workflows/deploy-backend.yml`), and used `az acr build` instead of the project's `docker build --platform linux/amd64 + docker push` pattern. It also lacked the project-standard health/image/traffic checks and revision cleanup.
+3. The plan acknowledged that the Container App needed initial creation but didn't supply the command. First-time deploy would fail with "Container App not found."
+4. Key Vault secret name was unspecified despite a known duplicate (`sb-api-key` vs `second-brain-api-key`). The canonical name is **`second-brain-api-key`** — same secret the backend reads via `config.api_key_secret_name`.
+
+The web app reads `SPINE_API_KEY` from `process.env` (see `web/lib/spine.ts`), so the secret must be injected as an env var at container start time via Container Apps' secret reference syntax. The web app does NOT use the Azure SDK and does NOT need a Key Vault SDK client.
+
+This task is now split into:
+- **Steps 1–3:** Build artifacts (Dockerfile, .dockerignore) + local build verification.
+- **Step 4a:** One-time bootstrap of the Container App. NOT part of every deploy.
+- **Step 4b:** Steady-state CI workflow (`deploy-web.yml`).
+- **Steps 5–6:** Commit and verify.
+
+---
 
 - [ ] **Step 1: Create `web/Dockerfile`**
 
@@ -3642,13 +4117,19 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3001
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
-COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 USER nextjs
 EXPOSE 3001
 CMD ["node", "server.js"]
 ```
+
+Notes on the Dockerfile:
+- Pinned to `node:20-alpine` — Next 14 LTS-aligned. Local Node 25 (developer machine) does NOT bleed into the runtime image.
+- The original plan included `COPY --from=builder /app/public ./public`, which has been REMOVED. `web/public/` does not exist (Tasks 13–16 deliberately skipped it) and Docker errors when COPY's source is missing. Next.js standalone output works fine without `public/`.
+- `output: "standalone"` is set in `web/next.config.mjs` (Task 13), which produces `/app/.next/standalone/server.js` for the `CMD` line.
+- Non-root user (`nextjs:nodejs`) for runtime — security baseline.
+- `EXPOSE 3001` matches the port the standalone server listens on (`PORT=3001`). Container Apps ingress will be configured with `--target-port 3001` in Step 4a.
 
 - [ ] **Step 2: Create `web/.dockerignore`**
 
@@ -3658,71 +4139,313 @@ node_modules
 .git
 .env
 .env.local
+*.tsbuildinfo
 README.md
 ```
+
+`*.tsbuildinfo` added to keep `web/tsconfig.tsbuildinfo` (a TypeScript incremental-build artifact, ~60KB) out of the build context. Without it, the file is shipped into the builder stage and silently ignored — wastes context size, no functional impact, but cleaner to exclude.
 
 - [ ] **Step 3: Build image locally to verify Dockerfile**
 
 ```bash
-cd web && docker build -t spine-web:test .
+cd web && docker build --platform linux/amd64 -t spine-web:test .
 ```
+
+`--platform linux/amd64` matches the backend Dockerfile pattern and matches Container Apps' runtime architecture (avoids a silent arm64 cross-build on Apple Silicon).
 
 Expected: successful build.
 
-- [ ] **Step 4: Wire the deploy workflow**
+The build does NOT receive `SPINE_API_URL` / `SPINE_API_KEY` at build time. This is intentional: Task 14's amended `web/lib/spine.ts` validates env vars lazily inside `spineFetch`, so module imports during `next build`'s "Collecting page data" pass succeed without env wiring. The values are injected at runtime by Container Apps via `secretref:` (Step 4a). Do NOT add Docker `ARG`/`ENV` placeholders for these — they would mask source-level semantic mismatches behind build plumbing.
 
-Open `.github/workflows/deploy.yml`. Add a new job `deploy-web` that:
-1. Builds the `web/Dockerfile` and pushes to ACR (`wkmsharedservicesacr`)
-2. Deploys as a new Container App named `second-brain-spine-web`
-3. Sets env vars `SPINE_API_URL` and `SPINE_API_KEY` (from Key Vault reference)
+If the build fails on `npm ci` because the `package-lock.json` was generated under Node 25 and the build runs under Node 20: STOP and report. The pinned versions in `package.json` are 18.17+-compatible (Next 14 + React 18.3 + TS 5.5), so this should not happen, but Node 25 produced a v3 lockfile that Node 20's npm 10.x reads fine; npm 11 is not present in the official Node 20 image. If this fires, escalate to the controller — do NOT regenerate the lockfile under Node 20 without discussion.
 
-The exact YAML depends on the existing workflow structure. Pattern:
+---
 
-```yaml
-deploy-web:
-  needs: [deploy-api]
-  runs-on: ubuntu-latest
-  steps:
-    - uses: actions/checkout@v4
-    - uses: azure/login@v2
-      with:
-        client-id: ${{ secrets.AZURE_CLIENT_ID }}
-        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-    - name: Build and push image
-      working-directory: web
-      run: |
-        IMAGE_TAG="${{ github.sha }}"
-        az acr build \
-          --registry wkmsharedservicesacr \
-          --image second-brain-spine-web:$IMAGE_TAG \
-          --image second-brain-spine-web:latest \
-          --file Dockerfile .
-    - name: Deploy Container App
-      run: |
-        IMAGE="wkmsharedservicesacr.azurecr.io/second-brain-spine-web:${{ github.sha }}"
-        az containerapp update \
-          --name second-brain-spine-web \
-          --resource-group shared-services-rg \
-          --image "$IMAGE"
+- [ ] **Step 4a: ONE-TIME BOOTSTRAP — Create Container App + grant Key Vault access**
+
+This step runs ONCE, before the first CI deploy. After this step succeeds, the steady-state CI workflow (Step 4b) takes over. Do NOT run this in CI.
+
+Run the following from a local shell with `az login` complete and `az account set --subscription <id>`:
+
+```bash
+# Variables
+export RG=shared-services-rg
+export APP_NAME=second-brain-spine-web
+export ACR_NAME=wkmsharedservicesacr
+export KV_NAME=wkm-shared-kv
+export KV_SECRET=second-brain-api-key
+export ENV_NAME=$(az containerapp show --name second-brain-api --resource-group $RG --query "properties.managedEnvironmentId" -o tsv | awk -F/ '{print $NF}')
+
+# 1. Create the Container App with a placeholder image so the resource exists
+#    before CI tries to update it. Use the public ACR pull endpoint; ingress
+#    target port 3001 matches the Dockerfile's EXPOSE.
+az containerapp create \
+  --name $APP_NAME \
+  --resource-group $RG \
+  --environment $ENV_NAME \
+  --image mcr.microsoft.com/k8se/quickstart:latest \
+  --target-port 3001 \
+  --ingress external \
+  --system-assigned \
+  --min-replicas 0 \
+  --max-replicas 2 \
+  --cpu 0.5 \
+  --memory 1Gi
+
+# 2. Grant the Container App's system-assigned managed identity permission
+#    to read secrets from Key Vault (Get only — no Set/Delete needed).
+PRINCIPAL_ID=$(az containerapp show --name $APP_NAME --resource-group $RG --query identity.principalId -o tsv)
+KV_ID=$(az keyvault show --name $KV_NAME --query id -o tsv)
+az role assignment create \
+  --assignee-object-id "$PRINCIPAL_ID" \
+  --assignee-principal-type ServicePrincipal \
+  --role "Key Vault Secrets User" \
+  --scope "$KV_ID"
+
+# 3. Wire the Key Vault secret as a Container App secret (key vault reference).
+#    Container Apps fetches the secret value from KV using the managed identity
+#    above, then exposes it to the app via --env-vars secretref:....
+#
+#    Use the UNVERSIONED secret URI (no trailing /<version>) so the Container
+#    App always reads the latest version when the secret rotates. The KV_URI
+#    derivation below strips any trailing version path component captured by
+#    az keyvault secret show --query id (which returns the versioned URI).
+#
+#    Verified canonical name (2026-04-16): second-brain-api-key
+#    Unversioned URI: https://wkm-shared-kv.vault.azure.net/secrets/second-brain-api-key
+KV_URI="https://${KV_NAME}.vault.azure.net/secrets/${KV_SECRET}"
+az containerapp secret set \
+  --name $APP_NAME \
+  --resource-group $RG \
+  --secrets "spine-api-key=keyvaultref:${KV_URI},identityref:system"
+
+# 4. Set the env vars the app reads at runtime. SPINE_API_URL is plaintext
+#    (no secret); SPINE_API_KEY references the Container App secret above.
+az containerapp update \
+  --name $APP_NAME \
+  --resource-group $RG \
+  --set-env-vars \
+    SPINE_API_URL=https://brain.willmacdonald.com \
+    SPINE_API_KEY=secretref:spine-api-key
+
+# 5. Print the ingress URL so it can be saved.
+az containerapp show --name $APP_NAME --resource-group $RG --query "properties.configuration.ingress.fqdn" -o tsv
 ```
 
-If `second-brain-spine-web` Container App doesn't exist yet, create it first with `az containerapp create` referencing the Key Vault secrets.
+After this completes, the Container App exists and is correctly wired but is running the placeholder image. The first run of the CI workflow (Step 4b) will replace it with the real `second-brain-spine-web` image.
+
+If any step fails:
+- "Container app environment not found": confirm `second-brain-api` exists in `shared-services-rg` and re-derive `$ENV_NAME`.
+- "Key Vault Secrets User role not found": the role was renamed in 2024; try `--role "00482a5a-887f-4fb3-b363-3b7fe8e74483"` (its role ID) instead.
+- "secret not found": verify with `az keyvault secret list --vault-name wkm-shared-kv --query "[].name" -o tsv | grep api-key` — canonical name is `second-brain-api-key`.
+
+This bootstrap step is documented here so it can be re-run if the Container App is ever deleted/recreated. It is NOT part of the steady-state CI workflow.
+
+---
+
+- [ ] **Step 4b: Create the steady-state CI workflow `deploy-web.yml`**
+
+Mirror the structure of `.github/workflows/deploy-backend.yml`. Key differences from the backend workflow:
+- Path filter is `web/**` (not `backend/**`)
+- No `uv` install / `uv lock --check` step (web is npm-based; npm validates the lockfile during `docker build`'s `npm ci`)
+- Health URL is the Container App ingress FQDN's root (`/`) — Next.js root route returns 200 if the app boots, no `/health` endpoint
+- Image name is `second-brain-spine-web`
+- Container App name is `second-brain-spine-web`
+
+Create `.github/workflows/deploy-web.yml`:
+
+```yaml
+name: Deploy Web (Spine UI) to Azure Container Apps
+
+on:
+  push:
+    branches: [main]
+    paths: ['web/**', '.github/workflows/deploy-web.yml']
+
+concurrency:
+  group: deploy-web
+  cancel-in-progress: true
+
+permissions:
+  id-token: write   # Required for OIDC (Workload Identity Federation)
+  contents: read
+
+env:
+  ACR_NAME: wkmsharedservicesacr
+  CONTAINER_APP_NAME: second-brain-spine-web
+  RESOURCE_GROUP: shared-services-rg
+  IMAGE_NAME: second-brain-spine-web
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Record pipeline start
+        run: echo "PIPELINE_START=$(date +%s)" >> "$GITHUB_ENV"
+
+      - uses: actions/checkout@v4
+
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Log in to ACR
+        run: az acr login --name ${{ env.ACR_NAME }}
+
+      - name: Build and push image
+        run: |
+          IMAGE_TAG="${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}"
+          echo "IMAGE_TAG=$IMAGE_TAG" >> "$GITHUB_ENV"
+          docker build --platform linux/amd64 -t "$IMAGE_TAG" ./web
+          docker push "$IMAGE_TAG"
+
+      - name: Deploy to Container Apps
+        run: |
+          REVISION_SUFFIX="sha-$(echo ${{ github.sha }} | cut -c1-7)"
+          echo "REVISION_SUFFIX=$REVISION_SUFFIX" >> "$GITHUB_ENV"
+          echo "REVISION_NAME=${{ env.CONTAINER_APP_NAME }}--${REVISION_SUFFIX}" >> "$GITHUB_ENV"
+          az containerapp update \
+            --name ${{ env.CONTAINER_APP_NAME }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --image "${{ env.IMAGE_TAG }}" \
+            --revision-suffix "$REVISION_SUFFIX"
+
+      - name: Verify deployment health
+        run: |
+          INGRESS_FQDN=$(az containerapp show \
+            --name ${{ env.CONTAINER_APP_NAME }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --query "properties.configuration.ingress.fqdn" -o tsv)
+          HEALTH_URL="https://${INGRESS_FQDN}/"
+          echo "HEALTH_URL=$HEALTH_URL" >> "$GITHUB_ENV"
+          MAX_ATTEMPTS=15
+          POLL_INTERVAL=12
+
+          for i in $(seq 1 $MAX_ATTEMPTS); do
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$HEALTH_URL" 2>/dev/null || echo "000")
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "Health check passed on attempt $i (HTTP 200)"
+              echo "HEALTH_STATUS=healthy" >> "$GITHUB_ENV"
+              exit 0
+            fi
+            echo "Attempt $i/$MAX_ATTEMPTS: HTTP $HTTP_CODE"
+            if [ "$i" -eq "$MAX_ATTEMPTS" ]; then
+              echo "::error::Health check failed after $MAX_ATTEMPTS attempts (${MAX_ATTEMPTS}x${POLL_INTERVAL}s)"
+              echo "HEALTH_STATUS=failed" >> "$GITHUB_ENV"
+              exit 1
+            fi
+            sleep $POLL_INTERVAL
+          done
+
+      - name: Verify deployed image
+        run: |
+          DEPLOYED_IMAGE=$(az containerapp revision show \
+            --name ${{ env.CONTAINER_APP_NAME }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --revision "$REVISION_NAME" \
+            --query "properties.template.containers[0].image" \
+            -o tsv)
+
+          if [ "$DEPLOYED_IMAGE" != "$IMAGE_TAG" ]; then
+            echo "::error::Image mismatch! Expected: $IMAGE_TAG, Got: $DEPLOYED_IMAGE"
+            exit 1
+          fi
+          echo "Image verified: $DEPLOYED_IMAGE"
+
+          TRAFFIC_WEIGHT=$(az containerapp ingress traffic show \
+            --name ${{ env.CONTAINER_APP_NAME }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --query "[?revisionName=='$REVISION_NAME'].weight | [0]" \
+            -o tsv 2>/dev/null || echo "unknown")
+
+          echo "TRAFFIC_WEIGHT=$TRAFFIC_WEIGHT" >> "$GITHUB_ENV"
+
+          if [ "$TRAFFIC_WEIGHT" != "100" ]; then
+            echo "::warning::Latest revision traffic weight is ${TRAFFIC_WEIGHT}%, expected 100%"
+          else
+            echo "Traffic weight: 100%"
+          fi
+
+      - name: Cleanup old revisions
+        run: |
+          ACTIVE_REVISIONS=$(az containerapp revision list \
+            --name ${{ env.CONTAINER_APP_NAME }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --query "[?properties.active==\`true\`].name" \
+            -o tsv)
+
+          BEFORE_COUNT=0
+          for rev in $ACTIVE_REVISIONS; do
+            BEFORE_COUNT=$((BEFORE_COUNT + 1))
+          done
+          echo "Active revisions before cleanup: $BEFORE_COUNT"
+
+          DEACTIVATED=0
+          for rev in $ACTIVE_REVISIONS; do
+            if [ "$rev" != "$REVISION_NAME" ]; then
+              echo "Deactivating: $rev"
+              az containerapp revision deactivate \
+                --revision "$rev" \
+                --resource-group ${{ env.RESOURCE_GROUP }} 2>/dev/null || echo "Warning: failed to deactivate $rev"
+              DEACTIVATED=$((DEACTIVATED + 1))
+            fi
+          done
+
+          ACTIVE_COUNT=$((BEFORE_COUNT - DEACTIVATED))
+          echo "ACTIVE_COUNT=$ACTIVE_COUNT" >> "$GITHUB_ENV"
+          echo "Deactivated $DEACTIVATED revision(s), $ACTIVE_COUNT active"
+
+      - name: Deploy summary
+        if: always()
+        run: |
+          PIPELINE_END=$(date +%s)
+          DURATION=$((PIPELINE_END - ${PIPELINE_START:-$PIPELINE_END}))
+
+          SUBSCRIPTION_ID=$(az account show --query id -o tsv 2>/dev/null || echo "unknown")
+          PORTAL_URL="https://portal.azure.com/#@willmacdonald.com/resource/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${{ env.RESOURCE_GROUP }}/providers/Microsoft.App/containerApps/${{ env.CONTAINER_APP_NAME }}/revisionManagement"
+
+          cat >> "$GITHUB_STEP_SUMMARY" << EOF
+          ## Deploy Summary
+
+          | Property | Value |
+          |----------|-------|
+          | Revision | \`${REVISION_NAME:-unknown}\` |
+          | Image | \`${IMAGE_TAG:-unknown}\` |
+          | Health | ${HEALTH_STATUS:-skipped} |
+          | URL | ${HEALTH_URL:-unknown} |
+          | Traffic | ${TRAFFIC_WEIGHT:-unknown}% |
+          | Active Revisions | ${ACTIVE_COUNT:-unknown} |
+          | Duration | ${DURATION}s |
+          | Portal | [View Revisions](${PORTAL_URL}) |
+          EOF
+```
+
+---
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add web/Dockerfile web/.dockerignore .github/workflows/deploy.yml
-git commit -m "infra(web): dockerfile and container apps deployment for spine ui"
+git add web/Dockerfile web/.dockerignore .github/workflows/deploy-web.yml
+git commit -m "infra(web): dockerfile and container apps deploy workflow"
 ```
 
+The bootstrap (Step 4a) is NOT committed — it's a one-time procedural step documented in this plan. If the Container App ever needs recreating, re-run those commands manually.
+
 - [ ] **Step 6: Push and verify deployment**
+
+Before pushing, confirm Step 4a has been executed (Container App `second-brain-spine-web` exists, has system-assigned identity with KV Secrets User role, has the `spine-api-key` secret wired, has env vars set). If 4a was NOT done first, the workflow's `Deploy to Container Apps` step will fail with "Container App not found."
 
 ```bash
 git push
 ```
 
-After CI deploys, hit the new web URL (Container App ingress URL or custom domain) and confirm the status board renders with the `backend_api` tile.
+After CI deploys, hit the URL printed by `Step 4a` (or the workflow's Deploy summary) and confirm:
+1. The status board renders
+2. The `backend_api` tile appears (this proves SPINE_API_URL + SPINE_API_KEY env vars resolved correctly)
+3. Clicking the tile navigates to the segment detail page and renders App Insights data without "No renderer registered" or 401 errors
 
 ---
 
@@ -3892,13 +4615,18 @@ import { SpineStatusTile } from "../../components/SpineStatusTile";
 
 Place it where you want — near the existing health cards from Phase 18 makes sense.
 
-- [ ] **Step 5: Add `EXPO_PUBLIC_SPINE_WEB_URL` to `mobile/.env`**
+- [ ] **Step 5: Add `EXPO_PUBLIC_SPINE_WEB_URL` to `mobile/.env.example`**
 
-```bash
-echo 'EXPO_PUBLIC_SPINE_WEB_URL=https://<your-spine-web-url>' >> mobile/.env.local.example
+**Amendment (2026-04-16):** Pre-dispatch check found the repo uses `mobile/.env.example` (tracked, committed) as the canonical example file — NOT `.env.local.example` as the original plan body said. There is no `.env.local.example` file in the repo and no convention for one. Append to the existing example file instead.
+
+Append the following two lines to `mobile/.env.example`:
+
+```
+# Web spine ingress URL (Container App from Task 17 bootstrap) — leave blank to disable deep link
+EXPO_PUBLIC_SPINE_WEB_URL=https://your-spine-web-url
 ```
 
-The actual `.env.local` (gitignored) needs the real URL.
+The actual `mobile/.env` (gitignored) needs the real URL once the Task 17 bootstrap has run and the Container App's FQDN is known. Until then, leave `mobile/.env`'s value empty — the tile will render but be non-pressable (see `handlePress` guard).
 
 - [ ] **Step 6: Type-check + commit**
 

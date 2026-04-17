@@ -27,6 +27,11 @@ CONTAINER_NAMES: list[str] = [
     "Feedback",
     "EvalResults",
     "GoldenDataset",
+    # Spine containers (Phase 1 — provisioned by infra/spine-cosmos-containers.sh)
+    "spine_events",
+    "spine_segment_state",
+    "spine_status_history",
+    "spine_correlation",
 ]
 
 

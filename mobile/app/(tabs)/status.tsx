@@ -18,6 +18,7 @@ import {
   DashboardCards,
   type DashboardData,
 } from "../../components/DashboardCards";
+import { SpineStatusTile } from "../../components/SpineStatusTile";
 
 
 interface ErrandItem {
@@ -408,6 +409,7 @@ export default function StatusScreen() {
                 });
               }}
             />
+            <SpineStatusTile segmentId="backend_api" />
             {adminNotifications.map((n) => (
               <View key={n.inboxItemId} style={styles.notificationBanner}>
                 <Text style={styles.notificationText}>{n.message}</Text>
