@@ -166,9 +166,7 @@ async def get_errands(request: Request) -> ErrandsResponse:
     # Side effect: trigger Admin Agent processing for unprocessed items
     processing_count = 0
     try:
-        admin_client = getattr(
-            request.app.state, "admin_client", None
-        )
+        admin_client = getattr(request.app.state, "admin_client", None)
         if admin_client is not None:
             inbox_container = cosmos_manager.get_container("Inbox")
             query = (
@@ -193,31 +191,26 @@ async def get_errands(request: Request) -> ErrandsResponse:
                 unprocessed.append(item)
 
             # Filter out items already being processed in-flight
-            in_flight: set = getattr(
-                request.app.state, "admin_processing_ids", set()
-            )
-            new_items = [
-                i for i in unprocessed if i["id"] not in in_flight
-            ]
+            in_flight: set = getattr(request.app.state, "admin_processing_ids", set())
+            new_items = [i for i in unprocessed if i["id"] not in in_flight]
 
             if new_items:
                 processing_count = len(new_items)
-                admin_tools = getattr(
-                    request.app.state, "admin_agent_tools", []
-                )
-                bg_tasks: set = getattr(
-                    request.app.state, "background_tasks", set()
-                )
+                admin_tools = getattr(request.app.state, "admin_agent_tools", [])
+                bg_tasks: set = getattr(request.app.state, "background_tasks", set())
 
                 # Mark items as in-flight before creating tasks
                 new_ids = {i["id"] for i in new_items}
                 in_flight.update(new_ids)
 
                 def _cleanup_in_flight(
-                    _task, ids=new_ids, inflight=in_flight,
+                    _task,
+                    ids=new_ids,
+                    inflight=in_flight,
                 ):
                     inflight.difference_update(ids)
 
+                spine_repo = getattr(request.app.state, "spine_repo", None)
                 if len(new_items) == 1:
                     task = asyncio.create_task(
                         process_admin_capture(
@@ -225,9 +218,8 @@ async def get_errands(request: Request) -> ErrandsResponse:
                             admin_tools=admin_tools,
                             cosmos_manager=cosmos_manager,
                             inbox_item_id=new_items[0]["id"],
-                            raw_text=new_items[0].get(
-                                "rawText", ""
-                            ),
+                            raw_text=new_items[0].get("rawText", ""),
+                            spine_repo=spine_repo,
                         )
                     )
                 else:
@@ -239,20 +231,18 @@ async def get_errands(request: Request) -> ErrandsResponse:
                             admin_items=[
                                 {
                                     "inbox_item_id": i["id"],
-                                    "raw_text": i.get(
-                                        "rawText", ""
-                                    ),
+                                    "raw_text": i.get("rawText", ""),
                                 }
                                 for i in new_items
                             ],
+                            spine_repo=spine_repo,
                         )
                     )
                 bg_tasks.add(task)
                 task.add_done_callback(bg_tasks.discard)
                 task.add_done_callback(_cleanup_in_flight)
                 logger.info(
-                    "Triggered Admin Agent processing for "
-                    "%d item(s)",
+                    "Triggered Admin Agent processing for %d item(s)",
                     processing_count,
                 )
             elif unprocessed:
@@ -367,9 +357,7 @@ async def route_errand_item(
 
     # Read the unrouted item
     try:
-        item = await container.read_item(
-            item=item_id, partition_key="unrouted"
-        )
+        item = await container.read_item(item=item_id, partition_key="unrouted")
     except CosmosResourceNotFoundError as exc:
         raise HTTPException(
             status_code=404,
@@ -379,7 +367,7 @@ async def route_errand_item(
     # Validate destination exists
     dest_container = cosmos_manager.get_container("Destinations")
     dest_exists = False
-    async for doc in dest_container.query_items(
+    async for _doc in dest_container.query_items(
         query="SELECT c.slug FROM c WHERE c.slug = @slug",
         parameters=[{"name": "@slug", "value": body.destinationSlug}],
         partition_key="will",
@@ -416,9 +404,7 @@ async def route_errand_item(
             ruleType="item",
             autoSaved=True,
         )
-        await rules_container.create_item(
-            body=rule.model_dump(mode="json")
-        )
+        await rules_container.create_item(body=rule.model_dump(mode="json"))
 
     logger.info(
         "Routed errand item %s ('%s') to %s (rule saved: %s)",
@@ -455,9 +441,7 @@ async def dismiss_admin_notification(
     inbox_container = cosmos_manager.get_container("Inbox")
 
     try:
-        await inbox_container.delete_item(
-            item=inbox_item_id, partition_key="will"
-        )
+        await inbox_container.delete_item(item=inbox_item_id, partition_key="will")
     except CosmosResourceNotFoundError as exc:
         raise HTTPException(
             status_code=404,

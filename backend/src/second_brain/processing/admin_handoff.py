@@ -9,6 +9,7 @@ Failed items remain with adminProcessingStatus = 'failed' for retry.
 
 import asyncio
 import logging
+import time
 
 from agent_framework import ChatOptions, Message
 from agent_framework.azure import AzureAIAgentClient
@@ -16,6 +17,8 @@ from azure.cosmos.exceptions import CosmosResourceNotFoundError
 from opentelemetry import trace
 
 from second_brain.db.cosmos import CosmosManager
+from second_brain.spine.agent_emitter import emit_agent_workload
+from second_brain.spine.storage import SpineRepository
 from second_brain.tools.admin import build_routing_context
 
 logger = logging.getLogger(__name__)
@@ -84,10 +87,7 @@ def _response_needs_delivery(response_text: str | None) -> bool:
     ]
     # If the response is ONLY chatty filler (no real content), skip it
     lines = [ln.strip() for ln in text_lower.split("\n") if ln.strip()]
-    if all(
-        any(skip in line for skip in skip_patterns)
-        for line in lines
-    ):
+    if all(any(skip in line for skip in skip_patterns) for line in lines):
         return False
 
     # Only deliver responses about rule/destination management or questions
@@ -139,6 +139,7 @@ async def process_admin_capture(
     inbox_item_id: str,
     raw_text: str,
     capture_trace_id: str = "",
+    spine_repo: SpineRepository | None = None,
 ) -> None:
     """Process an Admin-classified capture in the background.
 
@@ -161,11 +162,16 @@ async def process_admin_capture(
         cosmos_manager: CosmosManager for inbox status updates.
         inbox_item_id: The Cosmos inbox document ID to update after processing.
         raw_text: The user's original capture text to send to the Admin Agent.
-        capture_trace_id: Trace ID from the originating capture for end-to-end filtering.
+        capture_trace_id: Trace ID from the originating capture.
     """
     with tracer.start_as_current_span("admin_agent_process") as span:
         span.set_attribute("admin.inbox_item_id", inbox_item_id)
         span.set_attribute("admin.raw_text_length", len(raw_text))
+
+        # Spine workload tracking
+        _spine_start = time.perf_counter()
+        _spine_outcome = "success"
+        _spine_error_class: str | None = None
 
         # Defensive initialization: ensure variables are bound even if the
         # first try block raises before assignment.
@@ -201,9 +207,7 @@ async def process_admin_capture(
             # Build routing context (destinations + rules)
             try:
                 routing_context = await build_routing_context(cosmos_manager)
-                enriched_text = (
-                    f"{routing_context}\n\n---\nUser capture: {raw_text}"
-                )
+                enriched_text = f"{routing_context}\n\n---\nUser capture: {raw_text}"
             except Exception as ctx_exc:
                 logger.warning(
                     "Failed to build routing context for %s: %s. "
@@ -275,18 +279,14 @@ async def process_admin_capture(
                 )
                 retry_messages = [Message(role="user", text=retry_prompt)]
 
-                pre_output_count_2 = _count_output_tool_invocations(
-                    admin_tools
-                )
+                pre_output_count_2 = _count_output_tool_invocations(admin_tools)
 
                 async with asyncio.timeout(60):
                     response = await admin_client.get_response(
                         messages=retry_messages, options=options
                     )
 
-                post_output_count_2 = _count_output_tool_invocations(
-                    admin_tools
-                )
+                post_output_count_2 = _count_output_tool_invocations(admin_tools)
                 output_tool_called = post_output_count_2 > pre_output_count_2
 
                 if not output_tool_called:
@@ -297,9 +297,7 @@ async def process_admin_capture(
                         extra=log_extra,
                     )
                     span.set_attribute("admin.outcome", "no_output_tool")
-                    await _mark_inbox_failed(
-                        inbox_container, inbox_item_id, span
-                    )
+                    await _mark_inbox_failed(inbox_container, inbox_item_id, span)
                     return
 
                 span.set_attribute("admin.outcome", "retry_succeeded")
@@ -318,8 +316,7 @@ async def process_admin_capture(
                     doc["adminAgentResponse"] = response_text
                     await inbox_container.upsert_item(body=doc)
                     logger.info(
-                        "Stored admin response for delivery on inbox "
-                        "item %s",
+                        "Stored admin response for delivery on inbox item %s",
                         inbox_item_id,
                         extra=log_extra,
                     )
@@ -345,8 +342,7 @@ async def process_admin_capture(
                 except CosmosResourceNotFoundError:
                     # User may have swipe-deleted while processing
                     logger.info(
-                        "Inbox item %s already deleted "
-                        "(user may have removed it)",
+                        "Inbox item %s already deleted (user may have removed it)",
                         inbox_item_id,
                         extra=log_extra,
                     )
@@ -368,6 +364,8 @@ async def process_admin_capture(
             )
 
         except Exception as exc:
+            _spine_outcome = "failure"
+            _spine_error_class = type(exc).__name__
             span.record_exception(exc)
             span.set_attribute("admin.outcome", "failed")
             logger.error(
@@ -381,6 +379,20 @@ async def process_admin_capture(
             # Update inbox item status to failed (only if container was resolved)
             if inbox_container is not None:
                 await _mark_inbox_failed(inbox_container, inbox_item_id, span)
+        finally:
+            if spine_repo:
+                _duration = int((time.perf_counter() - _spine_start) * 1000)
+                await emit_agent_workload(
+                    repo=spine_repo,
+                    segment_id="admin",
+                    operation="process_capture",
+                    outcome=_spine_outcome,
+                    duration_ms=_duration,
+                    capture_trace_id=capture_trace_id or None,
+                    run_id=None,
+                    thread_id=None,
+                    error_class=_spine_error_class,
+                )
 
 
 async def process_admin_captures_batch(
@@ -389,6 +401,7 @@ async def process_admin_captures_batch(
     cosmos_manager: CosmosManager,
     admin_items: list[dict],
     capture_trace_id: str = "",
+    spine_repo: SpineRepository | None = None,
 ) -> None:
     """Process multiple Admin-classified items from a multi-split capture.
 
@@ -404,6 +417,7 @@ async def process_admin_captures_batch(
         cosmos_manager: CosmosManager for inbox status updates.
         admin_items: List of dicts with "inbox_item_id" and "raw_text" keys.
         capture_trace_id: Trace ID from the originating capture.
+        spine_repo: Optional SpineRepository for workload emission.
     """
     with tracer.start_as_current_span("admin_agent_batch_process") as span:
         span.set_attribute("admin.batch_size", len(admin_items))
@@ -416,4 +430,5 @@ async def process_admin_captures_batch(
                 inbox_item_id=item["inbox_item_id"],
                 raw_text=item["raw_text"],
                 capture_trace_id=capture_trace_id,
+                spine_repo=spine_repo,
             )
