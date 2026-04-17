@@ -18,6 +18,7 @@ from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from second_brain.spine.stream_wrapper import spine_stream_wrapper
 from second_brain.streaming.adapter import (
     stream_follow_up_capture,
     stream_text_capture,
@@ -229,8 +230,22 @@ async def capture(request: Request, body: TextCaptureBody) -> StreamingResponse:
         capture_trace_id=capture_trace_id,
     )
 
+    spine_repo = getattr(request.app.state, "spine_repo", None)
+    stream = _stream_with_thread_id_persistence(
+        generator, cosmos_manager, capture_trace_id
+    )
+    if spine_repo:
+        stream = spine_stream_wrapper(
+            stream,
+            repo=spine_repo,
+            segment_id="classifier",
+            operation="classify_text",
+            capture_trace_id=capture_trace_id,
+            run_id=run_id,
+        )
+
     return StreamingResponse(
-        _stream_with_thread_id_persistence(generator, cosmos_manager, capture_trace_id),
+        stream,
         media_type="text/event-stream",
         headers=SSE_HEADERS,
     )
@@ -294,8 +309,20 @@ async def capture_voice(
                     extra=log_extra,
                 )
 
+    spine_repo = getattr(request.app.state, "spine_repo", None)
+    stream = stream_with_cleanup_and_persistence()
+    if spine_repo:
+        stream = spine_stream_wrapper(
+            stream,
+            repo=spine_repo,
+            segment_id="classifier",
+            operation="classify_voice",
+            capture_trace_id=capture_trace_id,
+            run_id=run_id,
+        )
+
     return StreamingResponse(
-        stream_with_cleanup_and_persistence(),
+        stream,
         media_type="text/event-stream",
         headers=SSE_HEADERS,
     )
@@ -349,10 +376,23 @@ async def follow_up(request: Request, body: FollowUpBody) -> StreamingResponse:
         capture_trace_id=capture_trace_id,
     )
 
+    spine_repo = getattr(request.app.state, "spine_repo", None)
+    stream = _stream_with_follow_up_context(
+        generator, body.inbox_item_id, cosmos_manager, capture_trace_id
+    )
+    if spine_repo:
+        stream = spine_stream_wrapper(
+            stream,
+            repo=spine_repo,
+            segment_id="classifier",
+            operation="classify_follow_up",
+            capture_trace_id=capture_trace_id,
+            run_id=run_id,
+            thread_id=foundry_thread_id,
+        )
+
     return StreamingResponse(
-        _stream_with_follow_up_context(
-            generator, body.inbox_item_id, cosmos_manager, capture_trace_id
-        ),
+        stream,
         media_type="text/event-stream",
         headers=SSE_HEADERS,
     )
@@ -456,8 +496,21 @@ async def follow_up_voice(
                     extra=log_extra,
                 )
 
+    spine_repo = getattr(request.app.state, "spine_repo", None)
+    stream = stream_with_cleanup()
+    if spine_repo:
+        stream = spine_stream_wrapper(
+            stream,
+            repo=spine_repo,
+            segment_id="classifier",
+            operation="classify_follow_up_voice",
+            capture_trace_id=capture_trace_id,
+            run_id=run_id,
+            thread_id=foundry_thread_id,
+        )
+
     return StreamingResponse(
-        stream_with_cleanup(),
+        stream,
         media_type="text/event-stream",
         headers=SSE_HEADERS,
     )
