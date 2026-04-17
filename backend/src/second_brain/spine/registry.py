@@ -58,10 +58,10 @@ class SegmentRegistry:
 
 
 def get_default_registry() -> SegmentRegistry:
-    """Default segment configs for Phase 1.
+    """Default segment configs.
 
-    Future phases extend this list. The container_app rollup node is
-    included because it powers host_segment suppression.
+    The container_app rollup node is included because it powers
+    host_segment suppression.
     """
     return SegmentRegistry(
         [
@@ -73,6 +73,51 @@ def get_default_registry() -> SegmentRegistry:
                 workload_window_seconds=300,
                 yellow_thresholds={
                     "workload_failure_rate": 0.10,
+                    "any_readiness_failed": True,
+                },
+                red_thresholds={
+                    "workload_failure_rate": 0.50,
+                    "consecutive_failures": 3,
+                },
+            ),
+            EvaluatorConfig(
+                segment_id="classifier",
+                display_name="Classifier",
+                liveness_interval_seconds=30,
+                host_segment="container_app",
+                workload_window_seconds=300,
+                yellow_thresholds={
+                    "workload_failure_rate": 0.20,
+                    "any_readiness_failed": True,
+                },
+                red_thresholds={
+                    "workload_failure_rate": 0.50,
+                    "consecutive_failures": 3,
+                },
+            ),
+            EvaluatorConfig(
+                segment_id="admin",
+                display_name="Admin Agent",
+                liveness_interval_seconds=30,
+                host_segment="container_app",
+                workload_window_seconds=300,
+                yellow_thresholds={
+                    "workload_failure_rate": 0.20,
+                    "any_readiness_failed": True,
+                },
+                red_thresholds={
+                    "workload_failure_rate": 0.50,
+                    "consecutive_failures": 3,
+                },
+            ),
+            EvaluatorConfig(
+                segment_id="investigation",
+                display_name="Investigation Agent",
+                liveness_interval_seconds=30,
+                host_segment="container_app",
+                workload_window_seconds=300,
+                yellow_thresholds={
+                    "workload_failure_rate": 0.20,
                     "any_readiness_failed": True,
                 },
                 red_thresholds={
