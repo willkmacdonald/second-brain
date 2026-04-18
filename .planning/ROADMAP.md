@@ -221,7 +221,14 @@ Plans:
 
 **Why this phase is one unit:** Fixing emitters without a ledger leaves the new data invisible. Building a ledger without fixing emitters leaves the ledger incomplete. Both have to ship together for the system to become operationally useful.
 
-**Plans:** TBD (planner breakdown)
+**Plans:** 5 plans
+
+Plans:
+- [ ] 19.2-01-PLAN.md — Investigation spike memo: per-segment emit/correlation audit against deployed, memo gates Plan 02 scope
+- [ ] 19.2-02-PLAN.md — Emitter and correlation-tagging fixes driven by the memo (scope bounded by memo recommendations)
+- [ ] 19.2-03-PLAN.md — Backend ledger read API: /api/spine/ledger/segment/{id} + /api/spine/ledger/correlation/{kind}/{id} + enriched models
+- [ ] 19.2-04-PLAN.md — Web segment page ledger-first section (LedgerSection component, types, spine client methods, segment page rewire)
+- [ ] 19.2-05-PLAN.md — Web transaction page rewrite: consume transactionPath endpoint, render explicit gap callouts (missing_required, unexpected, present_optional)
 
 ### Phase 20: Feedback Collection
 **Goal**: Quality signals flow into the system automatically from user behavior and explicitly from user feedback
