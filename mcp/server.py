@@ -26,6 +26,7 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent.parent / "backend" / ".env")
 
 from azure.identity.aio import DefaultAzureCredential  # noqa: E402
+from azure.keyvault.secrets.aio import SecretClient  # noqa: E402
 from azure.monitor.query.aio import LogsQueryClient  # noqa: E402
 from mcp.server.fastmcp import Context, FastMCP  # noqa: E402
 from mcp.server.session import ServerSession  # noqa: E402
@@ -71,7 +72,12 @@ ALLOWED_GROUP_BY = frozenset({"day", "hour", "bucket", "destination"})
 # ---------------------------------------------------------------------------
 
 SPINE_BASE_URL = os.environ.get("SPINE_BASE_URL", "https://brain.willmacdonald.com")
-SPINE_API_KEY = os.environ.get("SPINE_API_KEY", "")
+KEY_VAULT_URL = os.environ.get("KEY_VAULT_URL", "")
+API_KEY_SECRET_NAME = os.environ.get("API_KEY_SECRET_NAME", "second-brain-api-key")
+
+# Populated at lifespan startup from Key Vault. Mutable holder so async setup
+# can fill it before any tool call runs.
+_SPINE_API_KEY: dict[str, str] = {"value": ""}
 
 
 async def _spine_call(
@@ -86,7 +92,7 @@ async def _spine_call(
         resp = await client.get(
             f"{SPINE_BASE_URL}{path}",
             params=params,
-            headers={"Authorization": f"Bearer {SPINE_API_KEY}"},
+            headers={"Authorization": f"Bearer {_SPINE_API_KEY['value']}"},
             timeout=30.0,
         )
         resp.raise_for_status()
@@ -99,7 +105,7 @@ async def _spine_post(path: str, json_body: dict[str, Any]) -> dict[str, Any]:
         resp = await client.post(
             f"{SPINE_BASE_URL}{path}",
             json=json_body,
-            headers={"Authorization": f"Bearer {SPINE_API_KEY}"},
+            headers={"Authorization": f"Bearer {_SPINE_API_KEY['value']}"},
             timeout=60.0,
         )
         resp.raise_for_status()
@@ -268,6 +274,26 @@ async def lifespan(server: FastMCP):
 
     credential = DefaultAzureCredential()
     logs_client = LogsQueryClient(credential=credential)
+
+    if KEY_VAULT_URL:
+        kv_client = SecretClient(vault_url=KEY_VAULT_URL, credential=credential)
+        try:
+            secret = await kv_client.get_secret(API_KEY_SECRET_NAME)
+            _SPINE_API_KEY["value"] = secret.value or ""
+            logger.info(
+                "Spine API key fetched from Key Vault (%s)", API_KEY_SECRET_NAME
+            )
+        except Exception as e:
+            logger.warning(
+                "Could not fetch spine API key from Key Vault: %s -- "
+                "audit_correlation will return 401",
+                e,
+            )
+        finally:
+            await kv_client.close()
+    else:
+        logger.warning("KEY_VAULT_URL not set -- audit_correlation will return 401")
+
     logger.info(
         "MCP server started (workspace_id=%s)",
         workspace_id[:8] + "..." if workspace_id else "UNSET",
