@@ -1,0 +1,65 @@
+name: MCP Parity Check
+
+on:
+  schedule:
+    - cron: '0 8 * * *'  # daily at 08:00 UTC
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: write  # needed to push parity history
+
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - uses: astral-sh/setup-uv@v3
+        with:
+          version: 0.5.4
+
+      - name: Install backend + MCP deps
+        run: |
+          cd backend && uv sync --no-dev
+          cd ../mcp && uv sync
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Get spine API key
+        id: kv
+        run: |
+          KEY=$(az keyvault secret show --vault-name wkm-shared-kv --name SECOND-BRAIN-API-KEY --query value -o tsv)
+          echo "::add-mask::$KEY"
+          echo "key=$KEY" >> $GITHUB_OUTPUT
+
+      - name: Run parity check
+        env:
+          SPINE_BASE_URL: https://brain.willmacdonald.com
+          SPINE_API_KEY: ${{ steps.kv.outputs.key }}
+        run: |
+          cd mcp && uv run python parity_check.py | tee parity_report.json
+
+      - name: Upload parity report
+        uses: actions/upload-artifact@v4
+        with:
+          name: parity-report-${{ github.run_id }}
+          path: mcp/parity_report.json
+
+      - name: Append to parity history
+        run: |
+          mkdir -p .planning/mcp_parity_history
+          cp mcp/parity_report.json ".planning/mcp_parity_history/$(date -u +%Y-%m-%d).json"
+          git config user.email "actions@github.com"
+          git config user.name "github-actions"
+          git add .planning/mcp_parity_history/
+          git commit -m "chore(mcp-parity): nightly report $(date -u +%Y-%m-%d)" || true
+          git push || true
