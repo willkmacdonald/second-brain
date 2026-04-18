@@ -65,3 +65,12 @@ def test_get_expected_chain_returns_chain():
 
 def test_required_segments_helper():
     assert required_segments("crud") == ["mobile_ui", "backend_api", "cosmos"]
+
+
+def test_required_segments_excludes_optional():
+    """Capture has optional segments; helper must filter them out."""
+    assert required_segments("capture") == [
+        "mobile_capture",
+        "backend_api",
+        "classifier",
+    ]

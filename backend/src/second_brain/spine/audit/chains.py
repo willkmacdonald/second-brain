@@ -7,6 +7,7 @@ When adding a new segment or routing path, update EXPECTED_CHAINS here.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import get_args
 
 from second_brain.spine.models import CorrelationKind
 
@@ -43,6 +44,11 @@ EXPECTED_CHAINS: dict[CorrelationKind, list[ExpectedSegment]] = {
         ExpectedSegment("cosmos", required=True),
     ],
 }
+
+_EXPECTED_KINDS: frozenset[str] = frozenset(get_args(CorrelationKind))
+assert set(EXPECTED_CHAINS) == _EXPECTED_KINDS, (
+    f"EXPECTED_CHAINS is missing kinds: {_EXPECTED_KINDS - set(EXPECTED_CHAINS)}"
+)
 
 
 def get_expected_chain(kind: CorrelationKind) -> list[ExpectedSegment]:
