@@ -488,10 +488,9 @@ def _instrumentation_warning(
     # instrumentation issue.
     appeared_everywhere = set(required_and_queryable)
     for trace in traces:
-        appeared_everywhere &= set(
-            trace.present_optional
-            + [s for s in required_and_queryable if s not in trace.missing_required]
-        )
+        appeared_everywhere &= {
+            s for s in required_and_queryable if s not in trace.missing_required
+        }
 
     silent_segments: list[str] = []
     for seg in sorted(appeared_everywhere):
