@@ -31,6 +31,11 @@ class Settings(BaseSettings):
     key_vault_url: str = ""
     api_key_secret_name: str = "second-brain-api-key"
 
+    # Sentry (mobile error tracking -- used by spine Sentry adapter)
+    sentry_auth_token: str = ""
+    sentry_org: str = ""
+    sentry_project_mobile: str = ""
+
     # Azure Blob Storage (voice recordings -- kept for future use)
     blob_storage_url: str = ""
 
