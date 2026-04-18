@@ -175,3 +175,39 @@ class SpineRepository:
             results.append(item)
         results.sort(key=lambda r: r["timestamp"])
         return results
+
+    async def get_recent_correlation_ids(
+        self,
+        kind: CorrelationKind,
+        time_range_seconds: int,
+        limit: int,
+    ) -> list[str]:
+        """Return up to `limit` most-recent unique correlation_ids of `kind`.
+
+        Sorted newest-first. Deduplicated across segments (the same
+        correlation_id appears once per (correlation_id, segment_id) tuple in
+        the underlying container).
+        """
+        cutoff = (datetime.now(UTC) - timedelta(seconds=time_range_seconds)).isoformat()
+
+        # Pull rows newest-first; dedupe in Python (Cosmos GROUP BY is restricted
+        # in cross-partition queries and we already constrain the result with TTL).
+        seen: dict[str, str] = {}
+        async for item in self._correlation.query_items(
+            query=(
+                "SELECT c.correlation_id, c.timestamp FROM c"
+                " WHERE c.correlation_kind = @kind AND c.timestamp >= @cutoff"
+                " ORDER BY c.timestamp DESC"
+            ),
+            parameters=[
+                {"name": "@kind", "value": kind},
+                {"name": "@cutoff", "value": cutoff},
+            ],
+        ):
+            cid = item["correlation_id"]
+            if cid not in seen:
+                seen[cid] = item["timestamp"]
+            if len(seen) >= limit:
+                break
+
+        return list(seen.keys())
