@@ -23,12 +23,11 @@ from typing import Any
 from second_brain.spine.audit.chains import EXPECTED_CHAINS
 from second_brain.spine.audit.models import (
     AuditReport,
-    AuditSummary,
     Misattribution,
     OrphanReport,
     TimeWindow,
     TraceAudit,
-    roll_up_report_verdict,
+    build_summary,
     roll_up_trace_verdict,
 )
 from second_brain.spine.audit.native_lookup import NativeLookup
@@ -224,7 +223,7 @@ class CorrelationAuditor:
             sample_size_returned=len(traces),
             time_range_seconds=time_range_seconds,
             traces=traces,
-            summary=_build_summary(traces),
+            summary=build_summary(traces),
             instrumentation_warning=None,
         )
 
@@ -256,47 +255,6 @@ def _headline_for_trace(
     if misattributions:
         return f"{len(misattributions)} non-outcome misattribution(s)"
     return "all expected segments present, no discrepancies"
-
-
-def _build_summary(traces: list[TraceAudit]) -> AuditSummary:
-    clean = sum(1 for t in traces if t.verdict == "clean")
-    warn = sum(1 for t in traces if t.verdict == "warn")
-    broken = sum(1 for t in traces if t.verdict == "broken")
-
-    missing: dict[str, int] = {}
-    misattr: dict[str, int] = {}
-    orphan_segs: dict[str, int] = {}
-    for t in traces:
-        for seg in t.missing_required:
-            missing[seg] = missing.get(seg, 0) + 1
-        for m in t.misattributions:
-            misattr[m.segment_id] = misattr.get(m.segment_id, 0) + 1
-        for o in t.orphans:
-            orphan_segs[o.segment_id] = orphan_segs.get(o.segment_id, 0) + 1
-
-    overall = roll_up_report_verdict(traces)
-    headline = _summary_headline(overall, broken, warn, len(traces))
-
-    return AuditSummary(
-        clean_count=clean,
-        warn_count=warn,
-        broken_count=broken,
-        segments_with_missing_required=missing,
-        segments_with_misattribution=misattr,
-        segments_with_orphans=orphan_segs,
-        overall_verdict=overall,
-        headline=headline,
-    )
-
-
-def _summary_headline(overall: str, broken: int, warn: int, total: int) -> str:
-    if total == 0:
-        return "no traces sampled"
-    if overall == "broken":
-        return f"{broken} of {total} traces broken"
-    if overall == "warn":
-        return f"{warn} of {total} traces have warnings"
-    return f"all {total} traces clean"
 
 
 def _check_misattribution(

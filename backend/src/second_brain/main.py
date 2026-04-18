@@ -350,8 +350,6 @@ async def _wire_spine(
             len(spine_liveness_tasks),
         )
 
-        from functools import partial as _partial
-
         from second_brain.observability.queries import (
             fetch_audit_cosmos_diagnostics_for_correlation,
             fetch_audit_exceptions_for_correlation,
@@ -362,17 +360,17 @@ async def _wire_spine(
 
         if app.state.logs_client is not None and settings.log_analytics_workspace_id:
             audit_lookup = NativeLookup(
-                spans_fetcher=_partial(
+                spans_fetcher=partial(
                     fetch_audit_spans_for_correlation,
                     app.state.logs_client,
                     settings.log_analytics_workspace_id,
                 ),
-                exceptions_fetcher=_partial(
+                exceptions_fetcher=partial(
                     fetch_audit_exceptions_for_correlation,
                     app.state.logs_client,
                     settings.log_analytics_workspace_id,
                 ),
-                cosmos_fetcher=_partial(
+                cosmos_fetcher=partial(
                     fetch_audit_cosmos_diagnostics_for_correlation,
                     app.state.logs_client,
                     settings.log_analytics_workspace_id,

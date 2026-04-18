@@ -102,7 +102,11 @@ async def test_audit_endpoint_single_id_calls_auditor_audit():
         )
 
     assert r.status_code == 200
-    auditor.audit.assert_called_once()
+    auditor.audit.assert_called_once_with(
+        kind="capture",
+        correlation_id="abc-1",
+        time_range_seconds=86400,
+    )
     auditor.audit_sample.assert_not_called()
     body = r.json()
     assert body["sample_size_returned"] == 1
@@ -145,7 +149,11 @@ async def test_audit_endpoint_sample_mode_calls_audit_sample():
         )
 
     assert r.status_code == 200
-    auditor.audit_sample.assert_called_once()
+    auditor.audit_sample.assert_called_once_with(
+        kind="capture",
+        sample_size=5,
+        time_range_seconds=86400,
+    )
     auditor.audit.assert_not_called()
 
 

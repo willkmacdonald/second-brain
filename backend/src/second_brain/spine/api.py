@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from second_brain.spine.adapters.registry import AdapterRegistry
-from second_brain.spine.audit.models import AuditReport
+from second_brain.spine.audit.models import AuditReport, build_summary
 from second_brain.spine.audit.walker import CorrelationAuditor
 from second_brain.spine.evaluator import StatusEvaluator
 from second_brain.spine.models import (
@@ -218,9 +218,7 @@ def build_spine_router(
                 correlation_id=req.correlation_id,
                 time_range_seconds=req.time_range_seconds,
             )
-            from second_brain.spine.audit.walker import _build_summary
-
-            summary = _build_summary([trace])
+            summary = build_summary([trace])
             return AuditReport(
                 correlation_kind=req.correlation_kind,
                 sample_size_requested=1,
