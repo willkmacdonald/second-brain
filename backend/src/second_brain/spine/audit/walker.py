@@ -125,6 +125,9 @@ class CorrelationAuditor:
             correlation_id, time_range_seconds=time_range_seconds
         )
 
+        # Cache workload events per segment so Check 2 and Check 3 share one
+        # Cosmos read per (segment, trace) instead of two.
+        workload_by_segment: dict[str, list[dict[str, Any]]] = {}
         misattributions: list[Misattribution] = []
         for segment_id in segments_seen.keys() & chain_ids:
             workload_events = await self._workload_events_for(
@@ -132,6 +135,7 @@ class CorrelationAuditor:
                 correlation_id=correlation_id,
                 time_range_seconds=time_range_seconds,
             )
+            workload_by_segment[segment_id] = workload_events
             misattributions.extend(
                 _check_misattribution(
                     segment_id=segment_id,
@@ -144,12 +148,7 @@ class CorrelationAuditor:
 
         # ---- Check 3: bounded under-reporting (orphans) ----
         orphans: list[OrphanReport] = []
-        for segment_id in segments_seen.keys() & chain_ids:
-            workload_events = await self._workload_events_for(
-                segment_id=segment_id,
-                correlation_id=correlation_id,
-                time_range_seconds=time_range_seconds,
-            )
+        for segment_id, workload_events in workload_by_segment.items():
             orphan_report = _detect_orphans(
                 segment_id=segment_id,
                 workload_events=workload_events,
@@ -429,6 +428,17 @@ def _detect_orphans(
 
     Orphans are spans tagged with this trace's correlation_id whose Name is not
     plausibly covered by any spine workload event for this segment.
+
+    Matching note: this checks `span_name in spine_ops_blob` (reverse of
+    Check 2's `spine_op in native_names`). That direction creates a known
+    false-negative class — decorated span Names like "POST /api/capture 200"
+    will not match a spine ops blob containing the bare "POST /api/capture",
+    so real orphans get under-reported. Acceptable per spec's "best-effort,
+    not authoritative" framing — surface in the report, let the agent judge.
+
+    Cosmos segment always returns None: cosmos diagnostics live in
+    AzureDiagnostics rows, not App Insights spans, so the Component filter
+    yields nothing. Cosmos orphan detection is out of scope for v1.
     """
     seg_spans = [
         s for s in spans if str(s.get("Component", "")).lower() == segment_id.lower()
