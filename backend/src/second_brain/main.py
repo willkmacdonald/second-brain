@@ -192,6 +192,27 @@ async def _wire_spine(
                 "Spine Foundry agent adapters wired: %d",
                 len(adapters) - 1,
             )
+
+            # Phase 3: Cosmos diagnostic logs adapter
+            from second_brain.observability.queries import (
+                fetch_cosmos_diagnostics,
+            )
+            from second_brain.spine.adapters.cosmos import CosmosAdapter
+
+            cosmos_diag_fetcher = partial(
+                fetch_cosmos_diagnostics,
+                app.state.logs_client,
+                settings.log_analytics_workspace_id,
+            )
+            adapters.append(
+                CosmosAdapter(
+                    diagnostics_fetcher=cosmos_diag_fetcher,
+                    native_url=(
+                        "https://portal.azure.com/#blade/Microsoft_Azure_DocumentDB"
+                    ),
+                )
+            )
+            logger.info("Spine CosmosAdapter wired")
         else:
             logger.warning("Spine wired without adapters: logs_client unavailable")
 
@@ -469,7 +490,10 @@ async def lifespan(app: FastAPI):
                 app.state.playwright = pw
                 app.state.browser = browser
 
-                recipe_tools = RecipeTools(browser=browser)
+                recipe_tools = RecipeTools(
+                    browser=browser,
+                    spine_repo=getattr(app.state, "spine_repo", None),
+                )
                 app.state.recipe_tools = recipe_tools
                 app.state.admin_agent_tools.append(recipe_tools.fetch_recipe_url)
 
