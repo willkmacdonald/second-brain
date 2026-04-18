@@ -481,9 +481,10 @@ def _parse_kql_duration(kql_duration: str) -> timedelta:
 # Backend API detail query primitives (Task 11.5)
 # ---------------------------------------------------------------------------
 
-# Validates capture_trace_id before embedding it in KQL to prevent injection.
-# Allows UUIDs, hex strings, and dash-separated identifiers.
-_TRACE_ID_RE = re.compile(r"^[A-Za-z0-9\-]+$")
+# Validates IDs before embedding in KQL to prevent injection.
+# Allows UUIDs, hex strings, dash-separated identifiers, and
+# Foundry agent IDs (asst_xxx format with underscores).
+_TRACE_ID_RE = re.compile(r"^[A-Za-z0-9\-_]+$")
 
 
 async def query_backend_api_requests(
