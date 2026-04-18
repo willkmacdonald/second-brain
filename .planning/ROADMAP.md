@@ -197,6 +197,32 @@ Plans:
 Plans:
 - [x] 19.1-01-PLAN.md -- KQL projection fields, Pydantic model extensions, MCP Details truncation, regression tests (absorbed into commit e1254a1, shipped 2026-04-14)
 
+### Phase 19.2: Transaction-First Spine (INSERTED)
+
+**Goal:** When something goes wrong, the operator workflow should be: (1) start at the segment board and answer "where is the platform breaking down?", (2) drill into a segment and answer "what transactions touched this segment, and what happened or failed to happen?", (3) drill into one transaction and see the full path across segments, (4) only then drill into native diagnostics. Today the product jumps too early to native infrastructure telemetry — segment pages mostly show GETs, Reads, Queries, and health noise instead of the user-flow evidence needed to diagnose a failed transaction. This phase keeps heartbeat and status, but changes the primary drill-down model: the first drill-down becomes transactional, native telemetry becomes supporting diagnostic evidence.
+
+**Requirements:** (no explicit requirement IDs — inserted phase discovered 2026-04-18 when web status board showed 8 of 9 segments as "Idle (no recent operations)" despite agents running; strengthens observability posture established in Phase 19.1)
+
+**Depends on:** Phase 19.1
+
+**Scope:**
+- Investigation spike: reproduce one real capture end-to-end; verify which segments are actually writing workload events into `spine_events`; confirm where correlation is missing or incomplete; produce a short memo distinguishing broken emitters vs. segments that are native/pull by design vs. native telemetry that lacks correlation tags.
+- Transaction ledger read model: API read paths for recent transaction events by segment; API read paths for a full event stream by correlation id; include stage, timestamp, duration, outcome, correlation id, and a small payload summary.
+- Segment page redesign: keep current health summary at top; add ledger-first section listing recent transactions that touched the segment; show missing expected stages where possible; move native telemetry below the ledger as diagnostics.
+- Transaction page: show full cross-segment path for one correlation id; make gaps explicit (e.g. "backend_api seen, classifier missing").
+- Native diagnostics: preserve heartbeat, infra errors, mobile errors, App Insights, Cosmos, Sentry detail as the next drill-down after the transaction path, not the first one.
+
+**Acceptance Criteria:**
+1. A broken capture can be diagnosed from the web UI without starting in App Insights or Cosmos.
+2. From the status board, an operator can identify the segment most likely failing.
+3. From that segment page, the operator can see recent correlated transactions, not just infrastructure-shaped rows.
+4. From a transaction page, the operator can see every segment that touched the flow AND every expected segment that did not.
+5. Native telemetry remains available as evidence for root cause analysis.
+
+**Why this phase is one unit:** Fixing emitters without a ledger leaves the new data invisible. Building a ledger without fixing emitters leaves the ledger incomplete. Both have to ship together for the system to become operationally useful.
+
+**Plans:** TBD (planner breakdown)
+
 ### Phase 20: Feedback Collection
 **Goal**: Quality signals flow into the system automatically from user behavior and explicitly from user feedback
 **Depends on**: Phase 17 (FEED-04 needs investigation agent), Phase 16 (Cosmos containers)
