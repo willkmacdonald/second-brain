@@ -171,3 +171,43 @@ async def test_timespan_passed_to_client():
     )
     timespan = client.query_workspace.call_args.kwargs["timespan"]
     assert timespan == timedelta(seconds=600)
+
+
+@pytest.mark.asyncio
+async def test_fetch_audit_spans_rejects_invalid_correlation_id():
+    """Validation guard against KQL injection via the correlation_id parameter."""
+    client = AsyncMock()
+    with pytest.raises(ValueError, match="Invalid correlation_id"):
+        await fetch_audit_spans_for_correlation(
+            client,
+            workspace_id="ws-123",
+            correlation_id='abc"; AppRequests | take 1; //',  # injection attempt
+            time_range_seconds=3600,
+        )
+    client.query_workspace.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_fetch_audit_exceptions_rejects_invalid_correlation_id():
+    client = AsyncMock()
+    with pytest.raises(ValueError, match="Invalid correlation_id"):
+        await fetch_audit_exceptions_for_correlation(
+            client,
+            workspace_id="ws-123",
+            correlation_id="abc def",  # space is invalid
+            time_range_seconds=3600,
+        )
+    client.query_workspace.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_fetch_audit_cosmos_rejects_invalid_correlation_id():
+    client = AsyncMock()
+    with pytest.raises(ValueError, match="Invalid correlation_id"):
+        await fetch_audit_cosmos_diagnostics_for_correlation(
+            client,
+            workspace_id="ws-123",
+            correlation_id="abc/def",  # slash is invalid
+            time_range_seconds=3600,
+        )
+    client.query_workspace.assert_not_called()

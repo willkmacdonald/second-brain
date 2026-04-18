@@ -10,6 +10,9 @@ from azure.monitor.query.aio import LogsQueryClient
 from second_brain.observability.kql_templates import (
     ADMIN_AUDIT_LOG,
     AGENT_RUNS,
+    AUDIT_COSMOS_BY_CORRELATION,
+    AUDIT_EXCEPTIONS_BY_CORRELATION,
+    AUDIT_SPANS_BY_CORRELATION,
     BACKEND_API_FAILURES,
     BACKEND_API_REQUESTS,
     CAPTURE_TRACE,
@@ -690,7 +693,8 @@ async def fetch_audit_spans_for_correlation(
     time_range_seconds: int,
 ) -> list[dict]:
     """Return App Insights AppRequests + AppDependencies tagged with correlation_id."""
-    from second_brain.observability.kql_templates import AUDIT_SPANS_BY_CORRELATION
+    if not _TRACE_ID_RE.fullmatch(correlation_id):
+        raise ValueError(f"Invalid correlation_id: {correlation_id!r}")
 
     query = AUDIT_SPANS_BY_CORRELATION.format(correlation_id=correlation_id)
     result = await execute_kql(
@@ -711,9 +715,8 @@ async def fetch_audit_exceptions_for_correlation(
     time_range_seconds: int,
 ) -> list[dict]:
     """Return App Insights AppExceptions tagged with correlation_id."""
-    from second_brain.observability.kql_templates import (
-        AUDIT_EXCEPTIONS_BY_CORRELATION,
-    )
+    if not _TRACE_ID_RE.fullmatch(correlation_id):
+        raise ValueError(f"Invalid correlation_id: {correlation_id!r}")
 
     query = AUDIT_EXCEPTIONS_BY_CORRELATION.format(correlation_id=correlation_id)
     result = await execute_kql(
@@ -734,7 +737,8 @@ async def fetch_audit_cosmos_diagnostics_for_correlation(
     time_range_seconds: int,
 ) -> list[dict]:
     """Return Cosmos diagnostic-log rows whose activityId_g matches correlation_id."""
-    from second_brain.observability.kql_templates import AUDIT_COSMOS_BY_CORRELATION
+    if not _TRACE_ID_RE.fullmatch(correlation_id):
+        raise ValueError(f"Invalid correlation_id: {correlation_id!r}")
 
     query = AUDIT_COSMOS_BY_CORRELATION.format(correlation_id=correlation_id)
     result = await execute_kql(
