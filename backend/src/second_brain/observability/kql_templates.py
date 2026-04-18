@@ -431,7 +431,6 @@ CDBDataPlaneRequests
     request_charge = RequestCharge,
     request_length = RequestLength,
     response_length = ResponseLength,
-    partition_key_range_id = PartitionKeyRangeId,
     client_request_id = clientRequestId_g,
     collection_name = CollectionName
 | order by timestamp desc

@@ -6,7 +6,6 @@ interface CosmosLog {
   request_charge: number;
   request_length: number;
   response_length: number;
-  partition_key_range_id: string;
   client_request_id: string;
   collection_name: string;
 }
