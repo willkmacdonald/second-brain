@@ -168,6 +168,22 @@ async def _wire_spine(
             )
             logger.info("Spine ExternalServicesAdapter wired")
 
+            # Container App rollup adapter (same App Insights queries)
+            from second_brain.spine.adapters.container_app import (
+                ContainerAppAdapter,
+            )
+
+            adapters.append(
+                ContainerAppAdapter(
+                    failures_fetcher=failures_fetcher,
+                    requests_fetcher=requests_fetcher,
+                    native_url_template=(
+                        "https://portal.azure.com/#blade/AppInsightsExtension"
+                    ),
+                )
+            )
+            logger.info("Spine ContainerAppAdapter wired")
+
             # Phase 2: Foundry agent adapters (reuse same logs client)
             spans_fetcher = partial(
                 fetch_agent_runs,
