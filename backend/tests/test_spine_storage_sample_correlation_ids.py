@@ -101,3 +101,31 @@ async def test_query_uses_kind_and_cutoff():
     parameters = {p["name"]: p["value"] for p in call.kwargs["parameters"]}
     assert parameters["@kind"] == "thread"
     assert "@cutoff" in parameters
+
+
+@pytest.mark.asyncio
+async def test_zero_limit_returns_empty_without_querying():
+    """limit<=0 short-circuits — no Cosmos call, returns []."""
+    correlation = MagicMock()
+    correlation.query_items = MagicMock(return_value=_async_iter([]))
+
+    repo = SpineRepository(
+        events_container=MagicMock(),
+        segment_state_container=MagicMock(),
+        status_history_container=MagicMock(),
+        correlation_container=correlation,
+    )
+
+    assert (
+        await repo.get_recent_correlation_ids(
+            kind="capture", time_range_seconds=86400, limit=0
+        )
+        == []
+    )
+    assert (
+        await repo.get_recent_correlation_ids(
+            kind="capture", time_range_seconds=86400, limit=-1
+        )
+        == []
+    )
+    correlation.query_items.assert_not_called()

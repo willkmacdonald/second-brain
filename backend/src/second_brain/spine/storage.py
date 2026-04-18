@@ -188,6 +188,9 @@ class SpineRepository:
         correlation_id appears once per (correlation_id, segment_id) tuple in
         the underlying container).
         """
+        if limit <= 0:
+            return []
+
         cutoff = (datetime.now(UTC) - timedelta(seconds=time_range_seconds)).isoformat()
 
         # Pull rows newest-first; dedupe in Python (Cosmos GROUP BY is restricted
