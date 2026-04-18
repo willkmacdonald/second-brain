@@ -199,10 +199,20 @@ async def _wire_spine(
             )
             from second_brain.spine.adapters.cosmos import CosmosAdapter
 
-            cosmos_ws = (
-                settings.cosmos_diagnostics_workspace_id
-                or settings.log_analytics_workspace_id
-            )
+            cosmos_ws = settings.cosmos_diagnostics_workspace_id
+            if cosmos_ws:
+                logger.info(
+                    "Cosmos diagnostics using dedicated workspace: %s",
+                    cosmos_ws,
+                )
+            else:
+                cosmos_ws = settings.log_analytics_workspace_id
+                logger.warning(
+                    "COSMOS_DIAGNOSTICS_WORKSPACE_ID not set — "
+                    "falling back to App Insights workspace. "
+                    "Cosmos diagnostic logs may not be available "
+                    "if routed to a different workspace.",
+                )
             cosmos_diag_fetcher = partial(
                 fetch_cosmos_diagnostics,
                 app.state.logs_client,
