@@ -15,7 +15,9 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import timedelta
 from pathlib import Path
+from typing import Any
 
+import httpx
 from dotenv import load_dotenv
 
 # Load backend/.env so LOG_ANALYTICS_WORKSPACE_ID (and any future shared vars)
@@ -65,6 +67,233 @@ TIME_RANGE_MAP: dict[str, tuple[str, timedelta]] = {
 RESULT_LIMIT = 20  # Higher than agent's 10 -- Claude Code has more screen space
 
 ALLOWED_GROUP_BY = frozenset({"day", "hour", "bucket", "destination"})
+
+
+# ---------------------------------------------------------------------------
+# Spine client + feature flag helpers
+# ---------------------------------------------------------------------------
+
+SPINE_BASE_URL = os.environ.get("SPINE_BASE_URL", "https://brain.willmacdonald.com")
+SPINE_API_KEY = os.environ.get("SPINE_API_KEY", "")
+
+
+def _spine_enabled_for(tool: str) -> bool:
+    """Per-tool feature flag -- enables spine path during parity period.
+
+    Set MCP_SPINE_<TOOL_NAME>=on (or 'true' / '1') in the environment to
+    activate the spine path for a specific tool. All tools default to off
+    so the legacy App Insights path is used unless explicitly opted in.
+    """
+    flag = os.environ.get(f"MCP_SPINE_{tool.upper()}", "off").lower()
+    return flag in {"on", "true", "1"}
+
+
+async def _spine_call(
+    path: str, params: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    """Call the spine API and return the JSON response.
+
+    Raises httpx.HTTPStatusError on non-2xx responses so callers can catch
+    and surface a structured error dict.
+    """
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(
+            f"{SPINE_BASE_URL}{path}",
+            params=params,
+            headers={"Authorization": f"Bearer {SPINE_API_KEY}"},
+            timeout=30.0,
+        )
+        resp.raise_for_status()
+        return resp.json()  # type: ignore[no-any-return]
+
+
+def _time_range_to_seconds(time_range: str) -> int:
+    """Convert a TIME_RANGE_MAP key to an integer number of seconds.
+
+    Falls back to 3600 (1h) for unknown keys so callers never pass 0 to the
+    spine API (a falsy guard that was a known footgun in Phase 1 web work).
+    """
+    entry = TIME_RANGE_MAP.get(time_range)
+    if entry is None:
+        return 3600
+    _, td = entry
+    return max(1, int(td.total_seconds()))
+
+
+# ---------------------------------------------------------------------------
+# Spine response transformers
+# ---------------------------------------------------------------------------
+
+
+def _transform_recent_errors_from_spine(
+    spine_data: dict[str, Any],
+    time_range: str,
+    component: str | None,
+) -> dict[str, Any]:
+    """Project a spine backend_api segment detail into the recent_errors shape.
+
+    The spine response has:
+      data.app_exceptions: list of raw App Insights exception dicts
+
+    We project this into the same envelope that the legacy path returns so
+    callers see a consistent shape regardless of which path was used.
+    """
+    data = spine_data.get("data", {})
+    exceptions: list[dict[str, Any]] = data.get("app_exceptions", [])
+
+    # Apply optional component filter (spine returns all; legacy filtered at query time)
+    if component:
+        exceptions = [
+            e
+            for e in exceptions
+            if component.lower() in str(e.get("component", "")).lower()
+            or component.lower()
+            in str(e.get("properties", {}).get("component", "")).lower()
+        ]
+
+    truncated = len(exceptions) > RESULT_LIMIT
+    errors_slice = exceptions[:RESULT_LIMIT]
+
+    return {
+        "total_count": len(exceptions),
+        "returned_count": len(errors_slice),
+        "truncated": truncated,
+        "time_range": time_range,
+        "component_filter": component,
+        "errors": errors_slice,
+        "source": "spine",
+    }
+
+
+def _transform_system_health_from_spine(
+    spine_data: dict[str, Any],
+) -> dict[str, Any]:
+    """Project a spine /status response into an approximate system_health shape.
+
+    The legacy path returns a rich EnhancedHealthSummary model with latency
+    percentiles and trend data. The spine /status endpoint exposes per-segment
+    traffic light statuses instead. During the parity window this approximate
+    projection is intentional -- the goal is structural parity, not value parity
+    (the parity runner normalises ephemeral fields before comparing shapes).
+    """
+    segments: list[dict[str, Any]] = spine_data.get("segments", [])
+    envelope: dict[str, Any] = spine_data.get("envelope", {})
+
+    # Summarise traffic light counts
+    status_counts: dict[str, int] = {"green": 0, "yellow": 0, "red": 0, "stale": 0}
+    segment_summaries = []
+    for seg in segments:
+        status = seg.get("status", "stale")
+        status_counts[status] = status_counts.get(status, 0) + 1
+        segment_summaries.append(
+            {
+                "id": seg.get("id"),
+                "name": seg.get("name"),
+                "status": status,
+                "headline": seg.get("headline", ""),
+                "freshness_seconds": seg.get("freshness_seconds"),
+            }
+        )
+
+    overall = (
+        "red"
+        if status_counts["red"] > 0
+        else "yellow"
+        if status_counts["yellow"] > 0
+        else "green"
+        if status_counts["green"] > 0
+        else "stale"
+    )
+
+    return {
+        "overall_status": overall,
+        "status_counts": status_counts,
+        "segments": segment_summaries,
+        "freshness_seconds": envelope.get("freshness_seconds"),
+        "source": "spine",
+    }
+
+
+def _transform_trace_lifecycle_from_spine(
+    spine_data: dict[str, Any],
+    trace_id: str,
+) -> dict[str, Any]:
+    """Project a spine correlation response into the trace_lifecycle shape.
+
+    The spine /correlation/capture/{id} endpoint returns a list of CorrelationEvent
+    records (one per segment that saw the trace). The legacy path returns raw App
+    Insights log entries ordered by time.
+    """
+    events_raw: list[dict[str, Any]] = spine_data.get("events", [])
+
+    # Map spine CorrelationEvent fields → legacy TraceEvent-compatible dict
+    events = [
+        {
+            "timestamp": e.get("timestamp"),
+            "segment_id": e.get("segment_id"),
+            "status": e.get("status"),
+            "message": e.get("headline", ""),
+            # Legacy fields that spine doesn't provide -- filled with sentinels
+            "severity": None,
+            "component": e.get("segment_id"),
+            "trace_id": trace_id,
+        }
+        for e in events_raw
+    ]
+
+    total_events = len(events)
+    truncated = total_events > RESULT_LIMIT
+    events_slice = events[-RESULT_LIMIT:] if truncated else events
+
+    return {
+        "events": events_slice,
+        "total_events": total_events,
+        "truncated": truncated,
+        "note": (
+            f"Kept last {RESULT_LIMIT} events to preserve terminal outcome"
+            if truncated
+            else None
+        ),
+        "source": "spine",
+    }
+
+
+def _transform_admin_audit_from_spine(
+    spine_data: dict[str, Any],
+) -> dict[str, Any]:
+    """Project a spine admin segment detail into the admin_audit shape.
+
+    The admin segment uses FoundryAgentAdapter which returns:
+      data.agent_runs: list of agent run span dicts
+
+    Legacy admin_audit returns AuditRecord model dicts with timestamp, operation,
+    outcome, duration_ms, etc. We project the available span fields into that shape.
+    """
+    data = spine_data.get("data", {})
+    agent_runs: list[dict[str, Any]] = data.get("agent_runs", [])
+
+    events = [
+        {
+            "timestamp": run.get("timestamp"),
+            "operation": run.get("operation", run.get("name", "unknown")),
+            "outcome": run.get("outcome", run.get("status", "unknown")),
+            "duration_ms": run.get("duration_ms", run.get("durationMs")),
+            "agent_id": run.get("agent_id"),
+            "thread_id": run.get("thread_id"),
+            "run_id": run.get("run_id"),
+        }
+        for run in agent_runs
+    ]
+
+    total_events = len(events)
+    truncated = total_events > RESULT_LIMIT
+
+    return {
+        "events": events[:RESULT_LIMIT],
+        "total_events": total_events,
+        "truncated": truncated,
+        "source": "spine",
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -156,6 +385,41 @@ async def trace_lifecycle(
         trace_id: Capture trace ID (UUID). Pass null to trace the most
             recent capture.
     """
+    if _spine_enabled_for("trace_lifecycle"):
+        try:
+            # Spine requires a concrete trace_id -- fall back to legacy for the
+            # "latest capture" lookup because the spine correlation endpoint does
+            # not expose a "give me the most recent" query.
+            if not trace_id:
+                app = _get_app(ctx)
+                if err := _check_config(app):
+                    return err
+                trace_id = await query_latest_capture_trace_id(
+                    app.logs_client, app.workspace_id
+                )
+                if not trace_id:
+                    return {
+                        "error": True,
+                        "message": "No recent captures found in the last 24 hours",
+                        "type": "no_data",
+                    }
+
+            spine_data = await _spine_call(f"/api/spine/correlation/capture/{trace_id}")
+            return _transform_trace_lifecycle_from_spine(spine_data, trace_id)
+
+        except Exception as exc:
+            logger.error("trace_lifecycle (spine) failed: %s", exc, exc_info=True)
+            return {"error": True, "message": str(exc), "type": type(exc).__name__}
+
+    # Legacy path
+    return await _legacy_trace_lifecycle(trace_id, ctx)
+
+
+async def _legacy_trace_lifecycle(
+    trace_id: str | None,
+    ctx: Context[ServerSession, AppContext],
+) -> dict:
+    """Original App Insights implementation of trace_lifecycle."""
     app = _get_app(ctx)
     if err := _check_config(app):
         return err
@@ -226,6 +490,30 @@ async def recent_errors(
         component: Filter by component name (e.g., 'classifier',
             'admin_agent'). Pass null for all components.
     """
+    if _spine_enabled_for("recent_errors"):
+        try:
+            seconds = _time_range_to_seconds(time_range)
+            spine_data = await _spine_call(
+                "/api/spine/segment/backend_api",
+                params={"time_range_seconds": seconds},
+            )
+            return _transform_recent_errors_from_spine(
+                spine_data, time_range, component
+            )
+        except Exception as exc:
+            logger.error("recent_errors (spine) failed: %s", exc, exc_info=True)
+            return {"error": True, "message": str(exc), "type": type(exc).__name__}
+
+    # Legacy path
+    return await _legacy_recent_errors(time_range, component, ctx)
+
+
+async def _legacy_recent_errors(
+    time_range: str,
+    component: str | None,
+    ctx: Context[ServerSession, AppContext],
+) -> dict:
+    """Original App Insights implementation of recent_errors."""
     app = _get_app(ctx)
     if err := _check_config(app):
         return err
@@ -272,6 +560,23 @@ async def system_health(
     Args:
         time_range: Time range to query: '1h', '6h', '24h', '3d', or '7d'.
     """
+    if _spine_enabled_for("system_health"):
+        try:
+            spine_data = await _spine_call("/api/spine/status")
+            return _transform_system_health_from_spine(spine_data)
+        except Exception as exc:
+            logger.error("system_health (spine) failed: %s", exc, exc_info=True)
+            return {"error": True, "message": str(exc), "type": type(exc).__name__}
+
+    # Legacy path
+    return await _legacy_system_health(time_range, ctx)
+
+
+async def _legacy_system_health(
+    time_range: str,
+    ctx: Context[ServerSession, AppContext],
+) -> dict:
+    """Original App Insights implementation of system_health."""
     app = _get_app(ctx)
     if err := _check_config(app):
         return err
@@ -294,6 +599,9 @@ async def system_health(
 
 # ---------------------------------------------------------------------------
 # Tool 4: usage_patterns
+# NOTE: Legacy-only. Spine does not expose usage groupings (by day/hour/bucket/
+# destination). This tool will remain on the App Insights direct-query path
+# permanently unless the spine gains a dedicated usage aggregation endpoint.
 # ---------------------------------------------------------------------------
 
 
@@ -358,6 +666,22 @@ async def admin_audit(
 
     Shows processing events, successes, and failures.
     """
+    if _spine_enabled_for("admin_audit"):
+        try:
+            spine_data = await _spine_call("/api/spine/segment/admin")
+            return _transform_admin_audit_from_spine(spine_data)
+        except Exception as exc:
+            logger.error("admin_audit (spine) failed: %s", exc, exc_info=True)
+            return {"error": True, "message": str(exc), "type": type(exc).__name__}
+
+    # Legacy path
+    return await _legacy_admin_audit(ctx)
+
+
+async def _legacy_admin_audit(
+    ctx: Context[ServerSession, AppContext],
+) -> dict:
+    """Original App Insights implementation of admin_audit."""
     app = _get_app(ctx)
     if err := _check_config(app):
         return err
@@ -380,6 +704,8 @@ async def admin_audit(
 
 # ---------------------------------------------------------------------------
 # Tool 6: run_kql
+# NOTE: Legacy-only permanently. Raw KQL has no spine equivalent -- the spine
+# system is a structured overlay on top of App Insights, not a query proxy.
 # ---------------------------------------------------------------------------
 
 
