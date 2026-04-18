@@ -18,6 +18,7 @@ from opentelemetry import trace
 
 from second_brain.db.cosmos import CosmosManager
 from second_brain.spine.agent_emitter import emit_agent_workload
+from second_brain.spine.cosmos_request_id import trace_headers
 from second_brain.spine.storage import SpineRepository
 from second_brain.tools.admin import build_routing_context
 
@@ -116,12 +117,16 @@ async def _mark_inbox_failed(
     inbox_container,
     inbox_item_id: str,
     span,
+    capture_trace_id: str = "",
 ) -> None:
     """Set adminProcessingStatus='failed' on an inbox item (best-effort)."""
+    th = trace_headers(capture_trace_id or None)
     try:
-        doc = await inbox_container.read_item(item=inbox_item_id, partition_key="will")
+        doc = await inbox_container.read_item(
+            item=inbox_item_id, partition_key="will", **th
+        )
         doc["adminProcessingStatus"] = "failed"
-        await inbox_container.upsert_item(body=doc)
+        await inbox_container.upsert_item(body=doc, **th)
     except Exception as update_exc:
         if span:
             span.record_exception(update_exc)
@@ -179,10 +184,11 @@ async def process_admin_capture(
         log_extra: dict = {"component": "admin_agent"}
 
         # Set status to pending immediately
+        th = trace_headers(capture_trace_id or None)
         try:
             inbox_container = cosmos_manager.get_container("Inbox")
             doc = await inbox_container.read_item(
-                item=inbox_item_id, partition_key="will"
+                item=inbox_item_id, partition_key="will", **th
             )
             # Resolve trace ID: prefer inbox doc field, fall back to parameter
             trace_id = doc.get("captureTraceId", capture_trace_id or "unknown")
@@ -192,7 +198,7 @@ async def process_admin_capture(
                 "component": "admin_agent",
             }
             doc["adminProcessingStatus"] = "pending"
-            await inbox_container.upsert_item(body=doc)
+            await inbox_container.upsert_item(body=doc, **th)
         except Exception as exc:
             span.record_exception(exc)
             logger.error(
@@ -249,7 +255,9 @@ async def process_admin_capture(
                     extra=log_extra,
                 )
                 span.set_attribute("admin.outcome", "no_tool_call")
-                await _mark_inbox_failed(inbox_container, inbox_item_id, span)
+                await _mark_inbox_failed(
+                    inbox_container, inbox_item_id, span, capture_trace_id
+                )
                 return
 
             if not output_tool_called:
@@ -297,7 +305,9 @@ async def process_admin_capture(
                         extra=log_extra,
                     )
                     span.set_attribute("admin.outcome", "no_output_tool")
-                    await _mark_inbox_failed(inbox_container, inbox_item_id, span)
+                    await _mark_inbox_failed(
+                        inbox_container, inbox_item_id, span, capture_trace_id
+                    )
                     return
 
                 span.set_attribute("admin.outcome", "retry_succeeded")
@@ -310,11 +320,11 @@ async def process_admin_capture(
                 # keep the inbox item with response attached
                 try:
                     doc = await inbox_container.read_item(
-                        item=inbox_item_id, partition_key="will"
+                        item=inbox_item_id, partition_key="will", **th
                     )
                     doc["adminProcessingStatus"] = "completed"
                     doc["adminAgentResponse"] = response_text
-                    await inbox_container.upsert_item(body=doc)
+                    await inbox_container.upsert_item(body=doc, **th)
                     logger.info(
                         "Stored admin response for delivery on inbox item %s",
                         inbox_item_id,
@@ -332,7 +342,7 @@ async def process_admin_capture(
                 # Simple confirmation -- delete the inbox item
                 try:
                     await inbox_container.delete_item(
-                        item=inbox_item_id, partition_key="will"
+                        item=inbox_item_id, partition_key="will", **th
                     )
                     logger.info(
                         "Deleted processed inbox item %s",
@@ -378,7 +388,9 @@ async def process_admin_capture(
 
             # Update inbox item status to failed (only if container was resolved)
             if inbox_container is not None:
-                await _mark_inbox_failed(inbox_container, inbox_item_id, span)
+                await _mark_inbox_failed(
+                    inbox_container, inbox_item_id, span, capture_trace_id
+                )
         finally:
             if spine_repo:
                 _duration = int((time.perf_counter() - _spine_start) * 1000)

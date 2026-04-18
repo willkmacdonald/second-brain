@@ -22,6 +22,7 @@ from second_brain.models.documents import (
     ClassificationMeta,
     InboxDocument,
 )
+from second_brain.spine.cosmos_request_id import trace_headers
 
 logger = logging.getLogger(__name__)
 
@@ -132,7 +133,10 @@ class ClassifierTools:
             return await self._write_to_cosmos(text, bucket, confidence, status, title)
         except Exception as exc:
             logger.warning("file_capture Cosmos write failed: %s", exc, extra=log_extra)
-            return {"error": "cosmos_write_failed", "detail": "Failed to save classification"}
+            return {
+                "error": "cosmos_write_failed",
+                "detail": "Failed to save classification",
+            }
 
     async def _write_to_cosmos(
         self,
@@ -154,6 +158,7 @@ class ClassifierTools:
         trace_id = capture_trace_id_var.get()
         inbox_container = self._manager.get_container("Inbox")
         log_extra: dict = {"capture_trace_id": trace_id, "component": "classifier"}
+        th = trace_headers(trace_id)
 
         # --- Follow-up mode: update existing inbox doc in-place ---
         if existing_inbox_id is not None:
@@ -185,7 +190,7 @@ class ClassifierTools:
             doc_body = inbox_doc.model_dump(mode="json")
             if trace_id:
                 doc_body["captureTraceId"] = trace_id
-            await inbox_container.create_item(body=doc_body)
+            await inbox_container.create_item(body=doc_body, **th)
 
             logger.info(
                 "Filed as misunderstood: %s",
@@ -219,7 +224,7 @@ class ClassifierTools:
         doc_body = inbox_doc.model_dump(mode="json")
         if trace_id:
             doc_body["captureTraceId"] = trace_id
-        await inbox_container.create_item(body=doc_body)
+        await inbox_container.create_item(body=doc_body, **th)
 
         # Create bucket document
         model_class = CONTAINER_MODELS[bucket]
@@ -237,7 +242,9 @@ class ClassifierTools:
         bucket_doc = model_class(**kwargs)
 
         target_container = self._manager.get_container(bucket)
-        await target_container.create_item(body=bucket_doc.model_dump(mode="json"))
+        await target_container.create_item(
+            body=bucket_doc.model_dump(mode="json"), **th
+        )
 
         logger.info(
             "Filed to %s (%.2f, status=%s): %s",
@@ -269,16 +276,17 @@ class ClassifierTools:
         now = datetime.now(UTC).isoformat()
         trace_id = capture_trace_id_var.get()
         log_extra: dict = {"capture_trace_id": trace_id, "component": "classifier"}
+        th = trace_headers(trace_id)
 
         if status == "misunderstood":
             # Still misunderstood after follow-up: update existing doc in-place
             existing_doc = await inbox_container.read_item(
-                item=existing_inbox_id, partition_key="will"
+                item=existing_inbox_id, partition_key="will", **th
             )
             existing_doc["title"] = title
             existing_doc["clarificationText"] = text
             existing_doc["updatedAt"] = now
-            await inbox_container.upsert_item(body=existing_doc)
+            await inbox_container.upsert_item(body=existing_doc, **th)
 
             logger.info(
                 "Follow-up still misunderstood, updated in-place: %s",
@@ -294,7 +302,7 @@ class ClassifierTools:
         # Classified or pending: update existing inbox doc with classification,
         # preserve original rawText, store follow-up as clarificationText
         existing_doc = await inbox_container.read_item(
-            item=existing_inbox_id, partition_key="will"
+            item=existing_inbox_id, partition_key="will", **th
         )
 
         bucket_doc_id = str(uuid4())
@@ -315,7 +323,7 @@ class ClassifierTools:
         existing_doc["clarificationText"] = text
         existing_doc["title"] = title
         existing_doc["updatedAt"] = now
-        await inbox_container.upsert_item(body=existing_doc)
+        await inbox_container.upsert_item(body=existing_doc, **th)
 
         # Create NEW bucket doc pointing to the original inbox ID
         original_raw_text = existing_doc.get("rawText", text)
@@ -334,7 +342,9 @@ class ClassifierTools:
         bucket_doc = model_class(**kwargs)
 
         target_container = self._manager.get_container(bucket)
-        await target_container.create_item(body=bucket_doc.model_dump(mode="json"))
+        await target_container.create_item(
+            body=bucket_doc.model_dump(mode="json"), **th
+        )
 
         logger.info(
             "Follow-up filed to %s (%.2f, status=%s) in-place on %s: %s",

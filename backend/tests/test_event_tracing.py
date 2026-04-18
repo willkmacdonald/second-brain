@@ -15,7 +15,6 @@ adapter's call_id pairing logic runs end-to-end. No real Azure calls are made.
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
 from agent_framework import Content
 
 from second_brain.processing.admin_handoff import process_admin_capture
@@ -24,7 +23,6 @@ from second_brain.streaming.adapter import (
     stream_voice_capture,
 )
 from second_brain.tools.classification import ClassifierTools, capture_trace_id_var
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -47,8 +45,7 @@ def _make_mock_stream(contents_sequence: list[list[Content]], conversation_id="c
     class MockStream:
         def __init__(self):
             self._updates = [
-                MockUpdate(contents, conversation_id)
-                for contents in contents_sequence
+                MockUpdate(contents, conversation_id) for contents in contents_sequence
             ]
 
         def __aiter__(self):
@@ -75,33 +72,37 @@ def _text_classify_stream(
     item_id: str = "inbox-trace-1",
 ):
     """Simulate a Classifier agent that calls file_capture once."""
-    return _make_mock_stream([
-        # Update 1: function_call
+    return _make_mock_stream(
         [
-            Content.from_function_call(
-                "call-fc-1",
-                "file_capture",
-                arguments={
-                    "text": "Add milk to the grocery list",
-                    "bucket": bucket,
-                    "confidence": confidence,
-                    "status": status,
-                    "title": "Grocery list",
-                },
-            ),
-        ],
-        # Update 2: function_result
-        [
-            Content.from_function_result(
-                "call-fc-1",
-                result=json.dumps({
-                    "bucket": bucket,
-                    "confidence": confidence,
-                    "item_id": item_id,
-                }),
-            ),
-        ],
-    ])
+            # Update 1: function_call
+            [
+                Content.from_function_call(
+                    "call-fc-1",
+                    "file_capture",
+                    arguments={
+                        "text": "Add milk to the grocery list",
+                        "bucket": bucket,
+                        "confidence": confidence,
+                        "status": status,
+                        "title": "Grocery list",
+                    },
+                ),
+            ],
+            # Update 2: function_result
+            [
+                Content.from_function_result(
+                    "call-fc-1",
+                    result=json.dumps(
+                        {
+                            "bucket": bucket,
+                            "confidence": confidence,
+                            "item_id": item_id,
+                        }
+                    ),
+                ),
+            ],
+        ]
+    )
 
 
 def _voice_classify_stream(
@@ -111,48 +112,52 @@ def _voice_classify_stream(
     item_id: str = "inbox-voice-1",
 ):
     """Simulate a Classifier agent that calls transcribe_audio then file_capture."""
-    return _make_mock_stream([
-        # Update 1: transcribe_audio call
+    return _make_mock_stream(
         [
-            Content.from_function_call(
-                "call-ta-1",
-                "transcribe_audio",
-                arguments={"blob_url": "https://blob/audio.m4a"},
-            ),
-        ],
-        # Update 2: transcribe_audio result
-        [
-            Content.from_function_result(
-                "call-ta-1",
-                result=json.dumps({"raw": "Pick up eggs from the store"}),
-            ),
-        ],
-        # Update 3: file_capture call
-        [
-            Content.from_function_call(
-                "call-fc-1",
-                "file_capture",
-                arguments={
-                    "text": "Pick up eggs from the store",
-                    "bucket": bucket,
-                    "confidence": confidence,
-                    "status": status,
-                    "title": "Eggs errand",
-                },
-            ),
-        ],
-        # Update 4: file_capture result
-        [
-            Content.from_function_result(
-                "call-fc-1",
-                result=json.dumps({
-                    "bucket": bucket,
-                    "confidence": confidence,
-                    "item_id": item_id,
-                }),
-            ),
-        ],
-    ])
+            # Update 1: transcribe_audio call
+            [
+                Content.from_function_call(
+                    "call-ta-1",
+                    "transcribe_audio",
+                    arguments={"blob_url": "https://blob/audio.m4a"},
+                ),
+            ],
+            # Update 2: transcribe_audio result
+            [
+                Content.from_function_result(
+                    "call-ta-1",
+                    result=json.dumps({"raw": "Pick up eggs from the store"}),
+                ),
+            ],
+            # Update 3: file_capture call
+            [
+                Content.from_function_call(
+                    "call-fc-1",
+                    "file_capture",
+                    arguments={
+                        "text": "Pick up eggs from the store",
+                        "bucket": bucket,
+                        "confidence": confidence,
+                        "status": status,
+                        "title": "Eggs errand",
+                    },
+                ),
+            ],
+            # Update 4: file_capture result
+            [
+                Content.from_function_result(
+                    "call-fc-1",
+                    result=json.dumps(
+                        {
+                            "bucket": bucket,
+                            "confidence": confidence,
+                            "item_id": item_id,
+                        }
+                    ),
+                ),
+            ],
+        ]
+    )
 
 
 def _parse_sse_events(raw_events: list[str]) -> list[dict]:
@@ -405,9 +410,7 @@ class TestVoiceCaptureTracePropagation:
 class TestClassifierToolTracePropagation:
     """file_capture reads capture_trace_id_var and writes captureTraceId to Cosmos."""
 
-    async def test_file_capture_writes_trace_id_to_inbox_doc(
-        self, mock_cosmos_manager
-    ):
+    async def test_file_capture_writes_trace_id_to_inbox_doc(self, mock_cosmos_manager):
         """Cosmos inbox document includes captureTraceId from ContextVar."""
         tools = ClassifierTools(mock_cosmos_manager, classification_threshold=0.6)
 
@@ -418,7 +421,7 @@ class TestClassifierToolTracePropagation:
             inbox_container = mock_cosmos_manager.get_container("Inbox")
             created_docs = []
             inbox_container.create_item = AsyncMock(
-                side_effect=lambda body: created_docs.append(body)
+                side_effect=lambda body, **kw: created_docs.append(body)
             )
 
             # Also mock the bucket container
@@ -453,10 +456,10 @@ class TestClassifierToolTracePropagation:
             inbox_container = mock_cosmos_manager.get_container("Inbox")
             created_docs = []
             inbox_container.create_item = AsyncMock(
-                side_effect=lambda body: created_docs.append(body)
+                side_effect=lambda body, **kw: created_docs.append(body)
             )
 
-            result = await tools.file_capture(
+            await tools.file_capture(
                 text="mumble mumble",
                 bucket="Ideas",
                 confidence=0.3,
@@ -479,7 +482,7 @@ class TestClassifierToolTracePropagation:
             inbox_container = mock_cosmos_manager.get_container("Inbox")
             created_docs = []
             inbox_container.create_item = AsyncMock(
-                side_effect=lambda body: created_docs.append(body)
+                side_effect=lambda body, **kw: created_docs.append(body)
             )
             admin_container = mock_cosmos_manager.get_container("Admin")
             admin_container.create_item = AsyncMock()
@@ -557,9 +560,7 @@ class TestAdminHandoffTracePropagation:
         # Should use the trace ID from the inbox doc, not the fallback
         assert span_attrs.get("capture.trace_id") == TRACE_ID
 
-    async def test_admin_falls_back_to_parameter_trace_id(
-        self, mock_cosmos_manager
-    ):
+    async def test_admin_falls_back_to_parameter_trace_id(self, mock_cosmos_manager):
         """When inbox doc lacks captureTraceId, falls back to the parameter."""
         inbox_container = mock_cosmos_manager.get_container("Inbox")
         inbox_doc = {
@@ -676,9 +677,7 @@ class TestFullPipelineTracePropagation:
             "captureTraceId": TRACE_ID,
             "adminProcessingStatus": None,
         }
-        inbox_container.read_item = AsyncMock(
-            return_value=inbox_doc_for_admin.copy()
-        )
+        inbox_container.read_item = AsyncMock(return_value=inbox_doc_for_admin.copy())
 
         admin_tool = _make_mock_tool("add_errand_items", invocation_count=0)
         admin_client = AsyncMock()
@@ -870,14 +869,16 @@ class TestTraceIdSurvivesErrors:
         """When agent skips file_capture, safety net writes captureTraceId."""
         client = MagicMock()
         # Agent returns no tool calls -- just text reasoning
-        client.get_response.return_value = _make_mock_stream([
-            [MagicMock(type="text", text="I'm not sure what to do")],
-        ])
+        client.get_response.return_value = _make_mock_stream(
+            [
+                [MagicMock(type="text", text="I'm not sure what to do")],
+            ]
+        )
 
         inbox_container = mock_cosmos_manager.get_container("Inbox")
         created_docs = []
         inbox_container.create_item = AsyncMock(
-            side_effect=lambda body: created_docs.append(body)
+            side_effect=lambda body, **kw: created_docs.append(body)
         )
 
         events = []
