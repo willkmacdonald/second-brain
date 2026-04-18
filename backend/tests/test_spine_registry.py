@@ -13,7 +13,7 @@ def test_default_registry_includes_backend_api() -> None:
     cfg = registry.get("backend_api")
     assert cfg.segment_id == "backend_api"
     assert cfg.host_segment == "container_app"
-    assert cfg.liveness_interval_seconds == 30
+    assert cfg.liveness_interval_seconds == 60
 
 
 def test_default_registry_includes_container_app_rollup_node() -> None:

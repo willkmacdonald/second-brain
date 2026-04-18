@@ -68,7 +68,7 @@ def get_default_registry() -> SegmentRegistry:
             EvaluatorConfig(
                 segment_id="backend_api",
                 display_name="Backend API",
-                liveness_interval_seconds=30,
+                liveness_interval_seconds=60,
                 host_segment="container_app",
                 workload_window_seconds=300,
                 yellow_thresholds={
@@ -83,9 +83,9 @@ def get_default_registry() -> SegmentRegistry:
             EvaluatorConfig(
                 segment_id="classifier",
                 display_name="Classifier",
-                liveness_interval_seconds=30,
+                liveness_interval_seconds=300,
                 host_segment="container_app",
-                workload_window_seconds=300,
+                workload_window_seconds=900,
                 yellow_thresholds={
                     "workload_failure_rate": 0.20,
                     "any_readiness_failed": True,
@@ -98,9 +98,9 @@ def get_default_registry() -> SegmentRegistry:
             EvaluatorConfig(
                 segment_id="admin",
                 display_name="Admin Agent",
-                liveness_interval_seconds=30,
+                liveness_interval_seconds=300,
                 host_segment="container_app",
-                workload_window_seconds=300,
+                workload_window_seconds=900,
                 yellow_thresholds={
                     "workload_failure_rate": 0.20,
                     "any_readiness_failed": True,
@@ -113,9 +113,9 @@ def get_default_registry() -> SegmentRegistry:
             EvaluatorConfig(
                 segment_id="investigation",
                 display_name="Investigation Agent",
-                liveness_interval_seconds=30,
+                liveness_interval_seconds=300,
                 host_segment="container_app",
-                workload_window_seconds=300,
+                workload_window_seconds=900,
                 yellow_thresholds={
                     "workload_failure_rate": 0.20,
                     "any_readiness_failed": True,
@@ -128,9 +128,9 @@ def get_default_registry() -> SegmentRegistry:
             EvaluatorConfig(
                 segment_id="cosmos",
                 display_name="Cosmos DB",
-                liveness_interval_seconds=120,
+                liveness_interval_seconds=300,
                 host_segment=None,
-                workload_window_seconds=900,
+                workload_window_seconds=1500,
                 acceptable_lag_seconds=600,
                 yellow_thresholds={
                     "workload_failure_rate": 0.05,
@@ -185,9 +185,9 @@ def get_default_registry() -> SegmentRegistry:
             EvaluatorConfig(
                 segment_id="container_app",
                 display_name="Container App",
-                liveness_interval_seconds=60,
+                liveness_interval_seconds=300,
                 host_segment=None,
-                workload_window_seconds=300,
+                workload_window_seconds=900,
             ),
         ]
     )
