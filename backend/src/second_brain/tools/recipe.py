@@ -8,12 +8,17 @@ Three-tier fetch strategy:
 Returns extracted text for LLM-based classification and ingredient extraction.
 """
 
+from __future__ import annotations
+
+import contextlib
 import ipaddress
 import json
 import logging
 import re
 import socket
-from typing import Annotated
+import time
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Annotated
 from urllib.parse import urlparse, urlunparse
 
 import httpx
@@ -21,6 +26,11 @@ from agent_framework import tool
 from bs4 import BeautifulSoup
 from playwright.async_api import Browser, Route
 from pydantic import Field
+
+from second_brain.spine.models import WorkloadPayload, _WorkloadEvent
+
+if TYPE_CHECKING:
+    from second_brain.spine.storage import SpineRepository
 
 logger = logging.getLogger(__name__)
 
@@ -66,9 +76,7 @@ def _is_safe_url(url: str) -> bool:
 
     # Resolve hostname and check all IPs
     try:
-        addr_infos = socket.getaddrinfo(
-            hostname, None, proto=socket.IPPROTO_TCP
-        )
+        addr_infos = socket.getaddrinfo(hostname, None, proto=socket.IPPROTO_TCP)
     except socket.gaierror:
         return False
 
@@ -83,17 +91,20 @@ def _is_safe_url(url: str) -> bool:
 class RecipeTools:
     """URL fetching tools bound to a Playwright Browser instance."""
 
-    def __init__(self, browser: Browser) -> None:
+    def __init__(
+        self,
+        browser: Browser,
+        spine_repo: SpineRepository | None = None,
+    ) -> None:
         self._browser = browser
+        self._spine_repo = spine_repo
 
     @tool(approval_mode="never_require")
     async def fetch_recipe_url(
         self,
         url: Annotated[
             str,
-            Field(
-                description="The webpage URL to fetch and extract content from"
-            ),
+            Field(description="The webpage URL to fetch and extract content from"),
         ],
     ) -> str:
         """Fetch a webpage and extract its content.
@@ -113,8 +124,14 @@ class RecipeTools:
             logger.warning("Blocked SSRF attempt: %s", url)
             return f"Error: URL '{url}' is not allowed (internal/private)."
 
+        start = time.perf_counter()
+        tier_used = "none"
+        outcome = "failure"
+
         # Tier 1: Jina Reader (bypasses Cloudflare/bot protection)
         text = await self._fetch_jina(url)
+        if text and len(text) >= MIN_CONTENT_LENGTH:
+            tier_used = "jina"
 
         # Tier 2: Simple HTTP if Jina failed
         html = ""
@@ -122,6 +139,8 @@ class RecipeTools:
             http_text, html, _ = await self._fetch_simple(url)
             if http_text and len(http_text) > len(text or ""):
                 text = http_text
+                if text and len(text) >= MIN_CONTENT_LENGTH:
+                    tier_used = "httpx"
 
         # Tier 3: Playwright if still insufficient
         if not text or len(text) < MIN_CONTENT_LENGTH:
@@ -129,6 +148,8 @@ class RecipeTools:
             if pw_text and len(pw_text) > len(text or ""):
                 text = pw_text
                 html = pw_html
+                if text and len(text) >= MIN_CONTENT_LENGTH:
+                    tier_used = "playwright"
 
         # Extract JSON-LD structured data if we have HTML
         json_ld = _extract_json_ld_recipe(html) if html else None
@@ -144,11 +165,29 @@ class RecipeTools:
         if truncated_text:
             parts.append(f"PAGE TEXT:\n{truncated_text}")
 
+        if parts:
+            outcome = "success"
+
+        # Emit workload event for external_services spine segment
+        if self._spine_repo is not None:
+            duration_ms = int((time.perf_counter() - start) * 1000)
+            try:
+                event = _WorkloadEvent(
+                    segment_id="external_services",
+                    event_type="workload",
+                    timestamp=datetime.now(UTC),
+                    payload=WorkloadPayload(
+                        operation=f"fetch_recipe:{tier_used}",
+                        outcome=outcome,
+                        duration_ms=duration_ms,
+                    ),
+                )
+                await self._spine_repo.record_event(event)
+            except Exception:
+                pass  # Never let spine emission break recipe fetch
+
         if not parts:
-            return (
-                f"Error: Page at {url} loaded but contained no "
-                f"extractable content."
-            )
+            return f"Error: Page at {url} loaded but contained no extractable content."
 
         return "\n\n---\n\n".join(parts)
 
@@ -193,7 +232,10 @@ class RecipeTools:
             return "", "", "httpx-failed"
 
     async def _fetch_playwright(self, url: str) -> tuple[str, str, str]:
-        """Fetch via Playwright headless browser. Returns (visible_text, html, source_label)."""
+        """Fetch via Playwright headless browser.
+
+        Returns (visible_text, html, source_label).
+        """
         context = await self._browser.new_context(user_agent=USER_AGENT)
         try:
             page = await context.new_page()
@@ -211,13 +253,11 @@ class RecipeTools:
             await page.goto(url, timeout=30000, wait_until="networkidle")
 
             # Wait for body to have meaningful text (up to 10s)
-            try:
+            with contextlib.suppress(Exception):
                 await page.wait_for_function(
                     "(document.body.innerText || '').length > 500",
                     timeout=10000,
                 )
-            except Exception:
-                pass  # Continue with whatever we have
 
             visible_text = await page.evaluate("document.body.innerText")
             html = await page.content()
@@ -243,17 +283,11 @@ def _extract_json_ld_recipe(html: str) -> dict | None:
                         return data
                     if "@graph" in data:
                         for item in data["@graph"]:
-                            if (
-                                isinstance(item, dict)
-                                and item.get("@type") == "Recipe"
-                            ):
+                            if isinstance(item, dict) and item.get("@type") == "Recipe":
                                 return item
                 elif isinstance(data, list):
                     for item in data:
-                        if (
-                            isinstance(item, dict)
-                            and item.get("@type") == "Recipe"
-                        ):
+                        if isinstance(item, dict) and item.get("@type") == "Recipe":
                             return item
             except (json.JSONDecodeError, TypeError):
                 continue
