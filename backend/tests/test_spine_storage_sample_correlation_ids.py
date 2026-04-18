@@ -25,7 +25,7 @@ async def test_returns_unique_recent_ids_in_descending_order():
             [
                 {
                     "correlation_id": "id-1",
-                    "timestamp": "2026-04-18T12:00:00+00:00",
+                    "timestamp": "2026-04-18T12:02:00+00:00",  # newest
                 },
                 {
                     "correlation_id": "id-2",
@@ -33,7 +33,7 @@ async def test_returns_unique_recent_ids_in_descending_order():
                 },
                 {
                     "correlation_id": "id-1",  # duplicate from a different segment
-                    "timestamp": "2026-04-18T12:02:00+00:00",
+                    "timestamp": "2026-04-18T12:00:00+00:00",  # oldest
                 },
             ]
         )
@@ -56,12 +56,13 @@ async def test_returns_unique_recent_ids_in_descending_order():
 
 @pytest.mark.asyncio
 async def test_respects_limit():
+    # Mock simulates Cosmos ORDER BY c.timestamp DESC: newest first.
     rows = [
         {
             "correlation_id": f"id-{i}",
             "timestamp": f"2026-04-18T12:{i:02d}:00+00:00",
         }
-        for i in range(10)
+        for i in reversed(range(10))
     ]
     correlation = MagicMock()
     correlation.query_items = MagicMock(return_value=_async_iter(rows))
@@ -77,9 +78,7 @@ async def test_respects_limit():
         kind="capture", time_range_seconds=86400, limit=3
     )
     assert len(ids) == 3
-    assert (
-        ids[0] == "id-0"
-    )  # most recent first (rows fed in ascending order, first seen wins)
+    assert ids[0] == "id-9"  # most recent first (Cosmos DESC ordering)
 
 
 @pytest.mark.asyncio
