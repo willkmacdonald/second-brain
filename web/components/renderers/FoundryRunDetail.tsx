@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 interface FoundryRun {
   timestamp: string;
   name: string;
@@ -72,9 +74,27 @@ export function FoundryRunDetail({ data }: { data: FoundryRunData }) {
                 }}
               >
                 run={r.run_id}
-                {r.thread_id && <> · thread={r.thread_id}</>}
+                {r.thread_id && (
+                  <>
+                    {" · "}
+                    <Link
+                      href={`/correlation/thread/${encodeURIComponent(r.thread_id)}`}
+                      style={{ color: "#9ecbff" }}
+                    >
+                      thread={r.thread_id}
+                    </Link>
+                  </>
+                )}
                 {r.capture_trace_id && (
-                  <> · trace={r.capture_trace_id.slice(0, 8)}</>
+                  <>
+                    {" · "}
+                    <Link
+                      href={`/correlation/capture/${encodeURIComponent(r.capture_trace_id)}`}
+                      style={{ color: "#9ecbff" }}
+                    >
+                      trace={r.capture_trace_id.slice(0, 8)}
+                    </Link>
+                  </>
                 )}
               </div>
             </li>

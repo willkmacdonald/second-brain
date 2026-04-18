@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 interface AppInsightsData {
   schema: "azure_monitor_app_insights";
   app_exceptions: Array<{
@@ -15,6 +17,8 @@ interface AppInsightsData {
     name: string;
     duration_ms: number | null;
     result_code: string;
+    capture_trace_id?: string | null;
+    operation_id?: string | null;
   }>;
 }
 
@@ -36,6 +40,16 @@ export function AppInsightsDetail({ data }: { data: AppInsightsData }) {
                   {new Date(e.timestamp).toLocaleString()} · {e.component ?? "—"}
                 </div>
                 <div style={{ marginTop: 4, fontWeight: 600 }}>{e.outer_message ?? e.message}</div>
+                {e.capture_trace_id && (
+                  <div style={{ marginTop: 6 }}>
+                    <Link
+                      href={`/correlation/capture/${encodeURIComponent(e.capture_trace_id)}`}
+                      style={{ color: "#9ecbff", fontSize: 12 }}
+                    >
+                      Trace {e.capture_trace_id.slice(0, 8)}
+                    </Link>
+                  </div>
+                )}
                 {e.outer_type && (
                   <div style={{ fontSize: 12, color: "#aaa", marginTop: 4 }}>
                     <code>{e.outer_type}</code>
@@ -70,17 +84,37 @@ export function AppInsightsDetail({ data }: { data: AppInsightsData }) {
                 <th style={{ textAlign: "left", padding: 8 }}>Operation</th>
                 <th style={{ textAlign: "right", padding: 8 }}>Duration</th>
                 <th style={{ textAlign: "right", padding: 8 }}>Status</th>
+                <th style={{ textAlign: "left", padding: 8 }}>Trace</th>
               </tr>
             </thead>
             <tbody>
               {requests.map((r, i) => (
                 <tr key={i} style={{ borderBottom: "1px solid #1a2028" }}>
                   <td style={{ padding: 8, color: "#888" }}>{new Date(r.timestamp).toLocaleTimeString()}</td>
-                  <td style={{ padding: 8 }}>{r.name}</td>
+                  <td style={{ padding: 8 }}>
+                    <div>{r.name}</div>
+                    {r.operation_id && (
+                      <div style={{ color: "#666", fontFamily: "monospace", fontSize: 11, marginTop: 4 }}>
+                        op={r.operation_id}
+                      </div>
+                    )}
+                  </td>
                   <td style={{ padding: 8, textAlign: "right" }}>
                     {r.duration_ms != null ? `${r.duration_ms}ms` : "—"}
                   </td>
                   <td style={{ padding: 8, textAlign: "right" }}>{r.result_code}</td>
+                  <td style={{ padding: 8 }}>
+                    {r.capture_trace_id ? (
+                      <Link
+                        href={`/correlation/capture/${encodeURIComponent(r.capture_trace_id)}`}
+                        style={{ color: "#9ecbff", fontFamily: "monospace", fontSize: 12 }}
+                      >
+                        {r.capture_trace_id.slice(0, 8)}
+                      </Link>
+                    ) : (
+                      <span style={{ color: "#666" }}>—</span>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

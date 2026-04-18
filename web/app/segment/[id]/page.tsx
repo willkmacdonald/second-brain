@@ -1,17 +1,62 @@
+import Link from "next/link";
 import { spine } from "@/lib/spine";
 import { AppInsightsDetail } from "@/components/renderers/AppInsightsDetail";
 import { FoundryRunDetail } from "@/components/renderers/FoundryRunDetail";
 import { CosmosDiagnosticDetail } from "@/components/renderers/CosmosDiagnosticDetail";
 import { MobileTelemetryDetail } from "@/components/renderers/MobileTelemetryDetail";
 import { SegmentDetailHeader } from "@/components/SegmentDetailHeader";
-import type { SegmentDetailResponse } from "@/lib/types";
+import type { CorrelationKind, SegmentDetailResponse } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-export default async function SegmentPage({ params }: { params: { id: string } }) {
+const VALID_CORRELATION_KINDS = new Set<CorrelationKind>([
+  "capture",
+  "thread",
+  "request",
+  "crud",
+]);
+
+function parseCorrelationKind(value: string | undefined): CorrelationKind | undefined {
+  if (!value || !VALID_CORRELATION_KINDS.has(value as CorrelationKind)) {
+    return undefined;
+  }
+  return value as CorrelationKind;
+}
+
+function parseTimeRangeSeconds(value: string | undefined): number | undefined {
+  if (!value) return undefined;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return undefined;
+  }
+  return Math.floor(parsed);
+}
+
+export default async function SegmentPage({
+  params,
+  searchParams,
+}: {
+  params: { id: string };
+  searchParams?: {
+    correlation_kind?: string;
+    correlation_id?: string;
+    time_range_seconds?: string;
+  };
+}) {
+  const correlationKind = parseCorrelationKind(searchParams?.correlation_kind);
+  const correlationId =
+    correlationKind && searchParams?.correlation_id
+      ? searchParams.correlation_id
+      : undefined;
+  const timeRangeSeconds = parseTimeRangeSeconds(searchParams?.time_range_seconds);
+
   let detail: SegmentDetailResponse;
   try {
-    detail = await spine.segmentDetail(params.id);
+    detail = await spine.segmentDetail(params.id, {
+      correlation_kind: correlationKind,
+      correlation_id: correlationId,
+      time_range_seconds: timeRangeSeconds,
+    });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     return (
@@ -33,6 +78,19 @@ export default async function SegmentPage({ params }: { params: { id: string } }
         segmentId={params.id}
         nativeUrl={detail.envelope.native_url ?? null}
       />
+      {correlationKind && correlationId && (
+        <p style={{ color: "#888", fontSize: 13, marginTop: 16 }}>
+          Filtered to {correlationKind}{" "}
+          <code>{correlationId}</code>.{" "}
+          <Link
+            href={`/correlation/${correlationKind}/${encodeURIComponent(correlationId)}`}
+            style={{ color: "#9ecbff" }}
+          >
+            View correlation timeline
+          </Link>
+          .
+        </p>
+      )}
       {schema === "azure_monitor_app_insights" ? (
         <AppInsightsDetail data={detail.data as never} />
       ) : schema === "foundry_run" ? (
