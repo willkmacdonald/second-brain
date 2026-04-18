@@ -42,10 +42,13 @@ jobs:
           echo "key=$KEY" >> $GITHUB_OUTPUT
 
       - name: Run parity check
+        shell: bash
         env:
           SPINE_BASE_URL: https://brain.willmacdonald.com
           SPINE_API_KEY: ${{ steps.kv.outputs.key }}
+          LOG_ANALYTICS_WORKSPACE_ID: 572d91c2-3209-4b92-b431-5ffb7e8ce4ad
         run: |
+          set -euo pipefail
           cd mcp && uv run python parity_check.py | tee parity_report.json
 
       - name: Upload parity report
