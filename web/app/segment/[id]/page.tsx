@@ -1,6 +1,7 @@
 import { spine } from "@/lib/spine";
 import { AppInsightsDetail } from "@/components/renderers/AppInsightsDetail";
 import { FoundryRunDetail } from "@/components/renderers/FoundryRunDetail";
+import { CosmosDiagnosticDetail } from "@/components/renderers/CosmosDiagnosticDetail";
 import { SegmentDetailHeader } from "@/components/SegmentDetailHeader";
 import type { SegmentDetailResponse } from "@/lib/types";
 
@@ -35,6 +36,8 @@ export default async function SegmentPage({ params }: { params: { id: string } }
         <AppInsightsDetail data={detail.data as never} />
       ) : schema === "foundry_run" ? (
         <FoundryRunDetail data={detail.data as never} />
+      ) : schema === "azure_monitor_cosmos" ? (
+        <CosmosDiagnosticDetail data={detail.data as never} />
       ) : (
         <p>No renderer registered for schema: <code>{schema}</code></p>
       )}
