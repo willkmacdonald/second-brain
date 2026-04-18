@@ -199,10 +199,14 @@ async def _wire_spine(
             )
             from second_brain.spine.adapters.cosmos import CosmosAdapter
 
+            cosmos_ws = (
+                settings.cosmos_diagnostics_workspace_id
+                or settings.log_analytics_workspace_id
+            )
             cosmos_diag_fetcher = partial(
                 fetch_cosmos_diagnostics,
                 app.state.logs_client,
-                settings.log_analytics_workspace_id,
+                cosmos_ws,
             )
             adapters.append(
                 CosmosAdapter(

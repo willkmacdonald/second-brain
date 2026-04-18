@@ -85,7 +85,10 @@ def _fake_cosmos_manager_with_containers() -> MagicMock:
 
 @pytest.fixture
 def settings_stub() -> SimpleNamespace:
-    return SimpleNamespace(log_analytics_workspace_id="ws-id")
+    return SimpleNamespace(
+        log_analytics_workspace_id="ws-id",
+        cosmos_diagnostics_workspace_id="",
+    )
 
 
 # ---------------------------------------------------------------------------
