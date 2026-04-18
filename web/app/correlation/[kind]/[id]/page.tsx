@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { LocalTime } from "@/components/LocalTime";
 import { spine } from "@/lib/spine";
 import type {
   CorrelationKind,
@@ -100,7 +101,7 @@ export default async function CorrelationPage({
                 </span>
               </div>
               <div style={{ color: "#888", fontSize: 12, marginTop: 4 }}>
-                {new Date(event.timestamp).toLocaleString()}
+                <LocalTime iso={event.timestamp} />
               </div>
               <p style={{ color: "#bbb", margin: "8px 0 0" }}>{event.headline}</p>
               <p style={{ margin: "12px 0 0" }}>
@@ -116,7 +117,7 @@ export default async function CorrelationPage({
         </ul>
       )}
       <p style={{ color: "#666", fontSize: 12, marginTop: 24 }}>
-        Fetched {new Date(correlation.envelope.generated_at).toLocaleString()} ·
+        Fetched <LocalTime iso={correlation.envelope.generated_at} /> ·
         Latency {correlation.envelope.query_latency_ms}ms
       </p>
     </main>

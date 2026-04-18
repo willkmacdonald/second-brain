@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { StatusBoardResponse } from "@/lib/types";
+import { LocalTime } from "./LocalTime";
 import { StatusTile } from "./StatusTile";
 
 export function StatusBoard({ data }: { data: StatusBoardResponse }) {
@@ -49,7 +50,7 @@ export function StatusBoard({ data }: { data: StatusBoardResponse }) {
         </details>
       )}
       <p style={{ color: "#666", fontSize: 12, marginTop: 24 }}>
-        Updated {new Date(data.envelope.generated_at).toLocaleTimeString()} ·
+        Updated <LocalTime iso={data.envelope.generated_at} mode="time" /> ·
         Freshness {data.envelope.freshness_seconds}s ·
         Latency {data.envelope.query_latency_ms}ms
       </p>

@@ -1,3 +1,5 @@
+import { LocalTime } from "@/components/LocalTime";
+
 interface CosmosLog {
   timestamp: string;
   operation_name: string;
@@ -44,7 +46,7 @@ export function CosmosDiagnosticDetail({ data }: { data: CosmosData }) {
             {data.diagnostic_logs.map((l, i) => (
               <tr key={i} style={{ borderBottom: "1px solid #1a2028" }}>
                 <td style={{ padding: 8, color: "#888" }}>
-                  {new Date(l.timestamp).toLocaleTimeString()}
+                  <LocalTime iso={l.timestamp} mode="time" />
                 </td>
                 <td style={{ padding: 8 }}>{l.operation_name}</td>
                 <td style={{ padding: 8 }}>{l.collection_name}</td>

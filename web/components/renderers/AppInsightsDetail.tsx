@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { LocalTime } from "@/components/LocalTime";
+
 interface AppInsightsData {
   schema: "azure_monitor_app_insights";
   app_exceptions: Array<{
@@ -37,7 +39,7 @@ export function AppInsightsDetail({ data }: { data: AppInsightsData }) {
             {exceptions.map((e, i) => (
               <li key={i} style={{ background: "#1a2028", padding: 12, marginBottom: 8, borderRadius: 6 }}>
                 <div style={{ fontSize: 12, color: "#888" }}>
-                  {new Date(e.timestamp).toLocaleString()} · {e.component ?? "—"}
+                  <LocalTime iso={e.timestamp} /> · {e.component ?? "—"}
                 </div>
                 <div style={{ marginTop: 4, fontWeight: 600 }}>{e.outer_message ?? e.message}</div>
                 {e.capture_trace_id && (
@@ -90,7 +92,7 @@ export function AppInsightsDetail({ data }: { data: AppInsightsData }) {
             <tbody>
               {requests.map((r, i) => (
                 <tr key={i} style={{ borderBottom: "1px solid #1a2028" }}>
-                  <td style={{ padding: 8, color: "#888" }}>{new Date(r.timestamp).toLocaleTimeString()}</td>
+                  <td style={{ padding: 8, color: "#888" }}><LocalTime iso={r.timestamp} mode="time" /></td>
                   <td style={{ padding: 8 }}>
                     <div>{r.name}</div>
                     {r.operation_id && (

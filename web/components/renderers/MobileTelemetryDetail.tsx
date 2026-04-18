@@ -1,3 +1,5 @@
+import { LocalTime } from "@/components/LocalTime";
+
 interface SentrySource {
   schema: "sentry_event";
   events: Array<{
@@ -89,7 +91,7 @@ export function MobileTelemetryDetail({ data }: { data: CombinedData }) {
             {rows.map((r, i) => (
               <tr key={i} style={{ borderBottom: "1px solid #1a2028" }}>
                 <td style={{ padding: 8, color: "#888" }}>
-                  {new Date(r.ts).toLocaleString()}
+                  <LocalTime iso={r.ts} />
                 </td>
                 <td
                   style={{

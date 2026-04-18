@@ -4,6 +4,7 @@ import { AppInsightsDetail } from "@/components/renderers/AppInsightsDetail";
 import { FoundryRunDetail } from "@/components/renderers/FoundryRunDetail";
 import { CosmosDiagnosticDetail } from "@/components/renderers/CosmosDiagnosticDetail";
 import { MobileTelemetryDetail } from "@/components/renderers/MobileTelemetryDetail";
+import { LocalTime } from "@/components/LocalTime";
 import { SegmentDetailHeader } from "@/components/SegmentDetailHeader";
 import type { CorrelationKind, SegmentDetailResponse } from "@/lib/types";
 
@@ -103,7 +104,7 @@ export default async function SegmentPage({
         <p>No renderer registered for schema: <code>{schema}</code></p>
       )}
       <p style={{ color: "#666", fontSize: 12, marginTop: 24 }}>
-        Fetched {new Date(detail.envelope.generated_at).toLocaleString()} ·
+        Fetched <LocalTime iso={detail.envelope.generated_at} /> ·
         Latency {detail.envelope.query_latency_ms}ms
       </p>
     </main>

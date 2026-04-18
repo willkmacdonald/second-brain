@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { LocalTime } from "@/components/LocalTime";
+
 interface FoundryRun {
   timestamp: string;
   name: string;
@@ -63,7 +65,7 @@ export function FoundryRunDetail({ data }: { data: FoundryRunData }) {
                 </span>
               </div>
               <div style={{ color: "#888", fontSize: 12, marginTop: 4 }}>
-                {new Date(r.timestamp).toLocaleString()}
+                <LocalTime iso={r.timestamp} />
               </div>
               <div
                 style={{
