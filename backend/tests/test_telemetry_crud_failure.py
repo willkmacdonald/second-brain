@@ -32,11 +32,20 @@ async def test_crud_failure_records_spine_event(app_with_spine) -> None:
             },
         )
     assert resp.status_code == 204
-    app_with_spine.state.spine_repo.record_event.assert_called_once()
-    event = app_with_spine.state.spine_repo.record_event.call_args[0][0]
-    assert event.segment_id == "mobile_ui"
-    assert event.payload.outcome == "failure"
-    assert event.payload.operation == "load_inbox"
+    # 2 calls: workload failure event + synthetic liveness event
+    assert app_with_spine.state.spine_repo.record_event.call_count == 2
+    workload_event = app_with_spine.state.spine_repo.record_event.call_args_list[0][0][
+        0
+    ]
+    assert workload_event.segment_id == "mobile_ui"
+    assert workload_event.event_type == "workload"
+    assert workload_event.payload.outcome == "failure"
+    assert workload_event.payload.operation == "load_inbox"
+    liveness_event = app_with_spine.state.spine_repo.record_event.call_args_list[1][0][
+        0
+    ]
+    assert liveness_event.segment_id == "mobile_ui"
+    assert liveness_event.event_type == "liveness"
 
 
 @pytest.mark.asyncio
@@ -56,8 +65,10 @@ async def test_crud_failure_routes_errands_to_mobile_capture(
             },
         )
     assert resp.status_code == 204
-    event = app_with_spine.state.spine_repo.record_event.call_args[0][0]
-    assert event.segment_id == "mobile_capture"
+    workload_event = app_with_spine.state.spine_repo.record_event.call_args_list[0][0][
+        0
+    ]
+    assert workload_event.segment_id == "mobile_capture"
 
 
 @pytest.mark.asyncio
