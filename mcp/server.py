@@ -576,9 +576,13 @@ async def audit_correlation(
     """Audit whether spine events for a correlation_id (or a sample of recent
     ones) line up with what native sources actually saw.
 
-    Use when the user asks whether observability is working, whether a specific
-    trace was captured correctly, or whether segments are accurately reflecting
-    their domain. Returns per-trace verdicts plus an aggregate roll-up.
+    Use when the user asks whether a specific spine correlation was captured
+    and attributed correctly across all segments, or wants a sampled audit of
+    recent correlations. Distinct from `system_health` (which covers ops
+    metrics like throughput and latency) — this tool covers structural
+    correctness of the spine's correlation records.
+
+    Returns per-trace verdicts plus an aggregate roll-up.
 
     Args:
         correlation_kind: One of 'capture', 'thread', 'request', 'crud'.
@@ -595,6 +599,7 @@ async def audit_correlation(
             "sample_size": sample_size,
             "time_range_seconds": time_range_seconds,
         }
+        # None or empty-string → fall through to sample mode (intentional).
         if correlation_id:
             body["correlation_id"] = correlation_id
         return await _spine_post("/api/spine/audit/correlation", body)

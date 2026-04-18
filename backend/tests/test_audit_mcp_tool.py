@@ -31,7 +31,7 @@ async def test_audit_correlation_calls_spine_endpoint():
 
     with patch("mcp.server._spine_post", new=AsyncMock(return_value=expected_response)):
         # Import inside the patch so the tool sees the patched helper.
-        from mcp.server import audit_correlation  # noqa: WPS433
+        from mcp.server import audit_correlation
 
         result = await audit_correlation(
             correlation_kind="capture",
@@ -49,7 +49,7 @@ async def test_audit_correlation_returns_error_on_exception():
         "mcp.server._spine_post",
         new=AsyncMock(side_effect=RuntimeError("boom")),
     ):
-        from mcp.server import audit_correlation  # noqa: WPS433
+        from mcp.server import audit_correlation
 
         result = await audit_correlation(
             correlation_kind="capture",
