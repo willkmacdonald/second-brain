@@ -15,7 +15,8 @@ See docs/superpowers/specs/2026-04-18-per-segment-correlation-audit-design.md.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+import asyncio
+from collections.abc import Callable, Iterable
 from datetime import UTC, datetime
 from typing import Any
 
@@ -90,6 +91,9 @@ class CorrelationAuditor:
         if timestamps:
             window = TimeWindow(start=min(timestamps), end=max(timestamps))
         else:
+            # No spine records for this trace — `missing_required` will already
+            # mark this broken; the window is a placeholder, not a meaningful
+            # range. Don't add downstream guards against zero-duration windows.
             now = self._now()
             window = TimeWindow(start=now, end=now)
 
@@ -109,7 +113,7 @@ class CorrelationAuditor:
             correlation_id=correlation_id,
             verdict=verdict,
             headline=_headline_for_trace(
-                verdict, missing_required, misattributions, orphans, unexpected
+                missing_required, misattributions, orphans, unexpected
             ),
             missing_required=missing_required,
             present_optional=present_optional,
@@ -132,10 +136,14 @@ class CorrelationAuditor:
             time_range_seconds=time_range_seconds,
             limit=sample_size,
         )
-        traces = [
-            await self.audit(kind, cid, time_range_seconds=time_range_seconds)
-            for cid in ids
-        ]
+        traces = list(
+            await asyncio.gather(
+                *(
+                    self.audit(kind, cid, time_range_seconds=time_range_seconds)
+                    for cid in ids
+                )
+            )
+        )
         return AuditReport(
             correlation_kind=kind,
             sample_size_requested=sample_size,
@@ -147,7 +155,7 @@ class CorrelationAuditor:
         )
 
 
-def _native_links_for(segment_ids) -> dict[str, str]:
+def _native_links_for(segment_ids: Iterable[str]) -> dict[str, str]:
     return {
         seg: NATIVE_LINK_TEMPLATES[seg]
         for seg in segment_ids
@@ -156,7 +164,6 @@ def _native_links_for(segment_ids) -> dict[str, str]:
 
 
 def _headline_for_trace(
-    verdict: str,
     missing_required: list[str],
     misattributions: list[Misattribution],
     orphans: list[OrphanReport],
