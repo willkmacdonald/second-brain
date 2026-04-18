@@ -476,6 +476,8 @@ export default function StatusScreen() {
             <SpineStatusTile segmentId="classifier" />
             <SpineStatusTile segmentId="admin" />
             <SpineStatusTile segmentId="investigation" />
+            <SpineStatusTile segmentId="cosmos" />
+            <SpineStatusTile segmentId="external_services" />
             {adminNotifications.map((n) => (
               <View key={n.inboxItemId} style={styles.notificationBanner}>
                 <Text style={styles.notificationText}>{n.message}</Text>
