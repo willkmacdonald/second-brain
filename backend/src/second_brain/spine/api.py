@@ -7,8 +7,11 @@ from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
 
 from second_brain.spine.adapters.registry import AdapterRegistry
+from second_brain.spine.audit.models import AuditReport
+from second_brain.spine.audit.walker import CorrelationAuditor
 from second_brain.spine.evaluator import StatusEvaluator
 from second_brain.spine.models import (
     STALE_FRESHNESS_SECONDS,
@@ -28,12 +31,22 @@ from second_brain.spine.registry import SegmentRegistry
 from second_brain.spine.storage import SpineRepository
 
 
+class AuditRequest(BaseModel):
+    """Request body for POST /api/spine/audit/correlation."""
+
+    correlation_kind: CorrelationKind
+    correlation_id: str | None = None
+    sample_size: int = Field(5, ge=1, le=20)
+    time_range_seconds: int = Field(86400, ge=60, le=604800)  # 1min - 7d
+
+
 def build_spine_router(
     repo: SpineRepository,
     evaluator: StatusEvaluator,
     adapter_registry: AdapterRegistry,
     segment_registry: SegmentRegistry,
     auth_dependency: Callable[..., Awaitable[None]],
+    auditor: CorrelationAuditor | None = None,
 ) -> APIRouter:
     """Build the /api/spine router with injected dependencies."""
 
@@ -189,6 +202,37 @@ def build_spine_router(
                 query_latency_ms=latency_ms,
                 native_url=data.get("native_url"),
             ),
+        )
+
+    @router.post(
+        "/audit/correlation",
+        response_model=AuditReport,
+        dependencies=[Depends(auth_dependency)],
+    )
+    async def audit_correlation(req: AuditRequest) -> AuditReport:
+        if auditor is None:
+            raise HTTPException(503, "Audit not configured")
+        if req.correlation_id:
+            trace = await auditor.audit(
+                kind=req.correlation_kind,
+                correlation_id=req.correlation_id,
+                time_range_seconds=req.time_range_seconds,
+            )
+            from second_brain.spine.audit.walker import _build_summary
+
+            summary = _build_summary([trace])
+            return AuditReport(
+                correlation_kind=req.correlation_kind,
+                sample_size_requested=1,
+                sample_size_returned=1,
+                time_range_seconds=req.time_range_seconds,
+                traces=[trace],
+                summary=summary,
+            )
+        return await auditor.audit_sample(
+            kind=req.correlation_kind,
+            sample_size=req.sample_size,
+            time_range_seconds=req.time_range_seconds,
         )
 
     return router

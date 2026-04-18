@@ -350,6 +350,42 @@ async def _wire_spine(
             len(spine_liveness_tasks),
         )
 
+        from functools import partial as _partial
+
+        from second_brain.observability.queries import (
+            fetch_audit_cosmos_diagnostics_for_correlation,
+            fetch_audit_exceptions_for_correlation,
+            fetch_audit_spans_for_correlation,
+        )
+        from second_brain.spine.audit.native_lookup import NativeLookup
+        from second_brain.spine.audit.walker import CorrelationAuditor
+
+        if app.state.logs_client is not None and settings.log_analytics_workspace_id:
+            audit_lookup = NativeLookup(
+                spans_fetcher=_partial(
+                    fetch_audit_spans_for_correlation,
+                    app.state.logs_client,
+                    settings.log_analytics_workspace_id,
+                ),
+                exceptions_fetcher=_partial(
+                    fetch_audit_exceptions_for_correlation,
+                    app.state.logs_client,
+                    settings.log_analytics_workspace_id,
+                ),
+                cosmos_fetcher=_partial(
+                    fetch_audit_cosmos_diagnostics_for_correlation,
+                    app.state.logs_client,
+                    settings.log_analytics_workspace_id,
+                ),
+            )
+        else:
+            audit_lookup = NativeLookup(
+                spans_fetcher=None,
+                exceptions_fetcher=None,
+                cosmos_fetcher=None,
+            )
+        spine_auditor = CorrelationAuditor(repo=spine_repo, lookup=audit_lookup)
+
         app.include_router(
             build_spine_router(
                 repo=spine_repo,
@@ -357,6 +393,7 @@ async def _wire_spine(
                 adapter_registry=adapter_registry,
                 segment_registry=spine_registry,
                 auth_dependency=spine_auth,
+                auditor=spine_auditor,
             )
         )
         logger.info("Spine lifespan wiring complete")
