@@ -142,8 +142,21 @@ class CorrelationAuditor:
                 )
             )
 
-        # ---- Check 3 (Task 8 fills this in) ----
+        # ---- Check 3: bounded under-reporting (orphans) ----
         orphans: list[OrphanReport] = []
+        for segment_id in segments_seen.keys() & chain_ids:
+            workload_events = await self._workload_events_for(
+                segment_id=segment_id,
+                correlation_id=correlation_id,
+                time_range_seconds=time_range_seconds,
+            )
+            orphan_report = _detect_orphans(
+                segment_id=segment_id,
+                workload_events=workload_events,
+                spans=spans,
+            )
+            if orphan_report and orphan_report.orphan_count > 0:
+                orphans.append(orphan_report)
 
         verdict = roll_up_trace_verdict(
             missing_required=missing_required,
@@ -404,3 +417,41 @@ def _check_misattribution(
             )
 
     return findings
+
+
+def _detect_orphans(
+    *,
+    segment_id: str,
+    workload_events: list[dict[str, Any]],
+    spans: list[dict[str, Any]],
+) -> OrphanReport | None:
+    """Return an OrphanReport if the segment has more native spans than workload events.
+
+    Orphans are spans tagged with this trace's correlation_id whose Name is not
+    plausibly covered by any spine workload event for this segment.
+    """
+    seg_spans = [
+        s for s in spans if str(s.get("Component", "")).lower() == segment_id.lower()
+    ]
+    if not seg_spans:
+        return None
+
+    spine_ops_blob = " ".join(
+        str(e["payload"]["operation"]) for e in workload_events
+    ).lower()
+
+    orphan_names: list[str] = []
+    for span in seg_spans:
+        name = str(span.get("Name", ""))
+        if not name:
+            continue
+        if name.lower() not in spine_ops_blob:
+            orphan_names.append(name)
+
+    if not orphan_names:
+        return None
+    return OrphanReport(
+        segment_id=segment_id,
+        orphan_count=len(orphan_names),
+        sample_operations=orphan_names[:3],
+    )
