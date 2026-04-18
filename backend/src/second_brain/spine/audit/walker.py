@@ -47,6 +47,22 @@ NATIVE_LINK_TEMPLATES: dict[str, str] = {
     "container_app": "https://portal.azure.com/#blade/AppInsightsExtension",
 }
 
+# Segments expected to emit App Insights spans/exceptions. When `_check_misattribution`
+# can't find a segment-tagged span via Properties.component, it falls back to all spans
+# in the trace — but ONLY for these segments. Mobile segments are Sentry-sourced and
+# never appear in App Insights, so the fallback would produce cross-segment false
+# positives (e.g. mobile_capture inheriting backend_api's POST /api/capture span).
+_APPINSIGHTS_SEGMENTS: frozenset[str] = frozenset(
+    {
+        "backend_api",
+        "classifier",
+        "admin",
+        "investigation",
+        "external_services",
+        "container_app",
+    }
+)
+
 
 class CorrelationAuditor:
     """Walks the expected chain for one correlation_id and audits it."""
@@ -279,59 +295,96 @@ def _check_misattribution(
     exceptions: list[dict[str, Any]],
     cosmos_rows: list[dict[str, Any]],
 ) -> list[Misattribution]:
-    """Run outcome / operation / time-window sub-checks for one segment."""
+    """Run outcome / operation sub-checks for one segment.
+
+    Filtering rules:
+    - Per-segment Component filter on spans/exceptions; cross-trace fallback
+      ONLY for App-Insights-instrumented segments (mobile is Sentry-only and
+      will never have AppInsights coverage).
+    - Cosmos rows are relevant only when segment_id == "cosmos". For that
+      segment, non-2xx statusCode_s rows count as exception-equivalent
+      evidence for the outcome check.
+
+    Note on thresholds:
+    - Operation check fires only when EVERY spine operation is unmatched
+      across all native span Names. Loose discipline by design — partial
+      matches don't flag.
+    - Outcome check uses set semantics on `spine_outcomes`. A retry pattern
+      (failure then success for the same segment+trace) can fire BOTH
+      checks. Surfacing both is intentional: the agent can decide whether
+      the retry pattern is benign.
+    """
     findings: list[Misattribution] = []
 
     # Filter native rows to this segment when possible (Component column).
-    seg_spans = [
+    seg_spans_filtered = [
         s for s in spans if str(s.get("Component", "")).lower() == segment_id.lower()
-    ] or spans
-    seg_exceptions = [
+    ]
+    seg_exceptions_filtered = [
         e
         for e in exceptions
         if str(e.get("Component", "")).lower() == segment_id.lower()
-    ] or exceptions
+    ]
 
-    # Cosmos has no Component column; treat any cosmos row as relevant only
-    # when this segment_id == "cosmos".
+    # Fall back to all spans/exceptions ONLY for AppInsights-instrumented
+    # segments. Mobile segments never appear in AppInsights — using the
+    # full trace as fallback creates spurious cross-segment misattributions.
+    if segment_id in _APPINSIGHTS_SEGMENTS:
+        seg_spans = seg_spans_filtered or spans
+        seg_exceptions = seg_exceptions_filtered or exceptions
+    else:
+        seg_spans = seg_spans_filtered
+        seg_exceptions = seg_exceptions_filtered
+
+    # Cosmos rows belong to the cosmos segment exclusively. Non-2xx status
+    # codes count as exception-equivalent evidence for that segment's
+    # outcome check.
     seg_cosmos = cosmos_rows if segment_id == "cosmos" else []
+    cosmos_errors = [
+        r for r in seg_cosmos if not str(r.get("statusCode_s", "")).startswith("2")
+    ]
+
+    # An "exception-equivalent" set: AppInsights exceptions plus, for cosmos,
+    # any non-2xx Cosmos diagnostic rows.
+    error_evidence_count = len(seg_exceptions) + len(cosmos_errors)
 
     has_native_evidence = bool(seg_spans or seg_exceptions or seg_cosmos)
     if not has_native_evidence:
-        # No native data to compare against — silent on all three sub-checks.
+        # No native data to compare against — silent on all sub-checks.
         return findings
 
     spine_outcomes = {e["payload"]["outcome"] for e in workload_events}
 
     # Outcome agreement
-    if "success" in spine_outcomes and seg_exceptions:
+    if "success" in spine_outcomes and error_evidence_count > 0:
         findings.append(
             Misattribution(
                 segment_id=segment_id,
                 check="outcome",
                 spine_value="success",
-                native_value=f"{len(seg_exceptions)} exception(s) in window",
+                native_value=f"{error_evidence_count} error indicator(s) in window",
                 reason=(
                     "spine reports success but native sources have"
-                    f" {len(seg_exceptions)} exception(s) for this trace"
+                    f" {error_evidence_count} error indicator(s) for this trace"
                 ),
             )
         )
-    if "failure" in spine_outcomes and not seg_exceptions:
+    if "failure" in spine_outcomes and error_evidence_count == 0:
         findings.append(
             Misattribution(
                 segment_id=segment_id,
                 check="outcome",
                 spine_value="failure",
-                native_value="0 exceptions in window",
+                native_value="0 error indicators in window",
                 reason=(
                     "spine reports failure but native sources have no"
-                    " exceptions for this trace"
+                    " error indicators for this trace"
                 ),
             )
         )
 
-    # Operation name plausibility (loose: spine.operation appears in any span Name)
+    # Operation name plausibility (loose: spine.operation appears in any span Name).
+    # Only fires when ALL spine ops are unmatched — partial matches don't flag.
     spine_ops = {e["payload"]["operation"] for e in workload_events}
     if seg_spans and spine_ops:
         native_names = " ".join(str(s.get("Name", "")) for s in seg_spans).lower()
