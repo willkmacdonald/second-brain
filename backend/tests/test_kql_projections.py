@@ -81,7 +81,7 @@ def test_cosmos_diagnostic_logs_template_filters_compose() -> None:
     from second_brain.observability.kql_templates import COSMOS_DIAGNOSTIC_LOGS
 
     rendered = COSMOS_DIAGNOSTIC_LOGS.format(
-        capture_filter='| where clientRequestId_g == "trace-1"\n',
+        capture_filter='| where ActivityId == "trace-1"\n',
         limit=50,
     )
     assert "trace-1" in rendered
@@ -94,4 +94,4 @@ def test_cosmos_diagnostic_logs_template_no_filter() -> None:
     rendered = COSMOS_DIAGNOSTIC_LOGS.format(capture_filter="", limit=25)
     assert "CDBDataPlaneRequests" in rendered
     assert "take 25" in rendered
-    assert "| where clientRequestId_g ==" not in rendered
+    assert "| where ActivityId ==" not in rendered

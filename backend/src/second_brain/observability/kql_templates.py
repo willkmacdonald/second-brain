@@ -418,8 +418,13 @@ union withsource=SourceTable
 # ---------------------------------------------------------------------------
 # Returns recent Cosmos operations from Azure Monitor diagnostic logs.
 # Diagnostic logs flow with 5-10 minute lag.
-# {capture_filter} is e.g. '| where clientRequestId_g == "trace-1"' or empty.
+# {capture_filter} is e.g. '| where ActivityId == "trace-1"' or empty.
 # {limit} is row limit.
+#
+# Column notes (workspace schema verified 2026-04-18):
+#   ActivityId = the x-ms-client-request-id header we set via
+#                apply_request_id / trace_headers.
+#   No PartitionKeyRangeId column in this workspace — use PartitionId.
 
 COSMOS_DIAGNOSTIC_LOGS = """\
 CDBDataPlaneRequests
@@ -431,7 +436,7 @@ CDBDataPlaneRequests
     request_charge = RequestCharge,
     request_length = RequestLength,
     response_length = ResponseLength,
-    client_request_id = clientRequestId_g,
+    client_request_id = ActivityId,
     collection_name = CollectionName
 | order by timestamp desc
 | take {limit}
