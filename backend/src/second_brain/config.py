@@ -23,8 +23,6 @@ class Settings(BaseSettings):
 
     # Log Analytics (workspace queries via LogsQueryClient)
     log_analytics_workspace_id: str = ""
-    # Cosmos diagnostic logs go to a separate workspace (shared-services-logs)
-    cosmos_diagnostics_workspace_id: str = ""
 
     # Cosmos DB
     cosmos_endpoint: str = ""
