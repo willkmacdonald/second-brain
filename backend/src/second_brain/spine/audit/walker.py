@@ -62,6 +62,10 @@ _APPINSIGHTS_SEGMENTS: frozenset[str] = frozenset(
     }
 )
 
+# Tracks per-trace which segments had any native data returned by the lookup.
+# Keyed by correlation_id → set of segment_ids with non-empty native results.
+SegmentNativeMap = dict[str, set[str]]
+
 
 class CorrelationAuditor:
     """Walks the expected chain for one correlation_id and audits it."""
@@ -85,7 +89,19 @@ class CorrelationAuditor:
         time_range_seconds: int,
     ) -> TraceAudit:
         """Audit a single correlation_id."""
-        # ---- Pull spine records for this trace ----
+        trace, _ = await self._audit_with_native_presence(
+            kind, correlation_id, time_range_seconds=time_range_seconds
+        )
+        return trace
+
+    async def _audit_with_native_presence(
+        self,
+        kind: CorrelationKind,
+        correlation_id: str,
+        *,
+        time_range_seconds: int,
+    ) -> tuple[TraceAudit, set[str]]:
+        """Internal: returns the audit + which segments had any native data."""
         records = await self._repo.get_correlation_events(kind, correlation_id)
         segments_seen: dict[str, list[dict[str, Any]]] = {}
         for r in records:
@@ -96,12 +112,10 @@ class CorrelationAuditor:
         required = {s.segment_id for s in chain if s.required}
         optional = {s.segment_id for s in chain if not s.required}
 
-        # ---- Check 1: correlation integrity ----
         missing_required = sorted(required - segments_seen.keys())
         present_optional = sorted(optional & segments_seen.keys())
         unexpected = sorted(set(segments_seen.keys()) - chain_ids)
 
-        # ---- Trace window from spine record timestamps ----
         timestamps = [parse_cosmos_ts(r["timestamp"]) for r in records]
         if timestamps:
             window = TimeWindow(start=min(timestamps), end=max(timestamps))
@@ -112,8 +126,7 @@ class CorrelationAuditor:
             now = self._now()
             window = TimeWindow(start=now, end=now)
 
-        # ---- Check 2: mis-attribution (outcome / operation / time_window) ----
-        # Pull native sources once for the whole trace.
+        # ---- Check 2: mis-attribution ----
         spans = await self._lookup.spans(
             correlation_id, time_range_seconds=time_range_seconds
         )
@@ -124,10 +137,10 @@ class CorrelationAuditor:
             correlation_id, time_range_seconds=time_range_seconds
         )
 
-        # Cache workload events per segment so Check 2 and Check 3 share one
-        # Cosmos read per (segment, trace) instead of two.
         workload_by_segment: dict[str, list[dict[str, Any]]] = {}
         misattributions: list[Misattribution] = []
+        native_present: set[str] = set()
+
         for segment_id in segments_seen.keys() & chain_ids:
             workload_events = await self._workload_events_for(
                 segment_id=segment_id,
@@ -135,6 +148,8 @@ class CorrelationAuditor:
                 time_range_seconds=time_range_seconds,
             )
             workload_by_segment[segment_id] = workload_events
+            if _segment_has_native_data(segment_id, spans, exceptions, cosmos_rows):
+                native_present.add(segment_id)
             misattributions.extend(
                 _check_misattribution(
                     segment_id=segment_id,
@@ -145,7 +160,7 @@ class CorrelationAuditor:
                 )
             )
 
-        # ---- Check 3: bounded under-reporting (orphans) ----
+        # ---- Check 3: orphans ----
         orphans: list[OrphanReport] = []
         for segment_id, workload_events in workload_by_segment.items():
             orphan_report = _detect_orphans(
@@ -163,7 +178,7 @@ class CorrelationAuditor:
             unexpected=unexpected,
         )
 
-        return TraceAudit(
+        trace = TraceAudit(
             correlation_kind=kind,
             correlation_id=correlation_id,
             verdict=verdict,
@@ -178,6 +193,7 @@ class CorrelationAuditor:
             trace_window=window,
             native_links=_native_links_for(segments_seen.keys()),
         )
+        return trace, native_present
 
     async def _workload_events_for(
         self,
@@ -209,14 +225,18 @@ class CorrelationAuditor:
             time_range_seconds=time_range_seconds,
             limit=sample_size,
         )
-        traces = list(
-            await asyncio.gather(
-                *(
-                    self.audit(kind, cid, time_range_seconds=time_range_seconds)
-                    for cid in ids
+        results = await asyncio.gather(
+            *(
+                self._audit_with_native_presence(
+                    kind, cid, time_range_seconds=time_range_seconds
                 )
+                for cid in ids
             )
         )
+        traces = [trace for trace, _ in results]
+        per_trace_native = [native_present for _, native_present in results]
+
+        warning = _instrumentation_warning(kind, traces, per_trace_native)
         return AuditReport(
             correlation_kind=kind,
             sample_size_requested=sample_size,
@@ -224,7 +244,7 @@ class CorrelationAuditor:
             time_range_seconds=time_range_seconds,
             traces=traces,
             summary=build_summary(traces),
-            instrumentation_warning=None,
+            instrumentation_warning=warning,
         )
 
 
@@ -422,4 +442,66 @@ def _detect_orphans(
         segment_id=segment_id,
         orphan_count=len(orphan_names),
         sample_operations=orphan_names[:3],
+    )
+
+
+def _segment_has_native_data(
+    segment_id: str,
+    spans: list[dict[str, Any]],
+    exceptions: list[dict[str, Any]],
+    cosmos_rows: list[dict[str, Any]],
+) -> bool:
+    """Return True if any native source returned a row attributable to segment_id."""
+    if any(str(s.get("Component", "")).lower() == segment_id.lower() for s in spans):
+        return True
+    if any(
+        str(e.get("Component", "")).lower() == segment_id.lower() for e in exceptions
+    ):
+        return True
+    return bool(segment_id == "cosmos" and cosmos_rows)
+
+
+def _instrumentation_warning(
+    kind: CorrelationKind,
+    traces: list[TraceAudit],
+    per_trace_native: list[set[str]],
+) -> str | None:
+    """Return a warning if any required segment had zero native data across all traces.
+
+    Only fires for segments that are expected to emit data into the native lookup
+    sources (App Insights spans/exceptions, or Cosmos diagnostics). Mobile segments
+    are Sentry-sourced and never appear in the App Insights lookup — they are excluded
+    to avoid spurious warnings on every sample.
+    """
+    if not traces:
+        return None
+
+    required = {s.segment_id for s in EXPECTED_CHAINS[kind] if s.required}
+    # Only warn about segments the native lookup can actually see.
+    # Mobile segments (mobile_capture, mobile_ui) are Sentry-only and will
+    # never have App Insights records, so silence is expected, not broken.
+    queryable = _APPINSIGHTS_SEGMENTS | {"cosmos"}
+    required_and_queryable = required & queryable
+
+    # Only consider segments that were actually present in every trace's spine
+    # chain — otherwise we'd flag legitimately-missing required segments as an
+    # instrumentation issue.
+    appeared_everywhere = set(required_and_queryable)
+    for trace in traces:
+        appeared_everywhere &= set(
+            trace.present_optional
+            + [s for s in required_and_queryable if s not in trace.missing_required]
+        )
+
+    silent_segments: list[str] = []
+    for seg in sorted(appeared_everywhere):
+        if all(seg not in present for present in per_trace_native):
+            silent_segments.append(seg)
+
+    if not silent_segments:
+        return None
+    return (
+        f"{', '.join(silent_segments)} appears to have lost correlation_id"
+        " tagging — every sampled trace had spine events for this segment but"
+        " zero matching native records"
     )
