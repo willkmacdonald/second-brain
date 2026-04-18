@@ -2,12 +2,10 @@
 
 Usage (from the repo root):
 
-    MCP_SPINE_RECENT_ERRORS=on \\
-    MCP_SPINE_SYSTEM_HEALTH=on \\
-    MCP_SPINE_TRACE_LIFECYCLE=on \\
-    MCP_SPINE_ADMIN_AUDIT=on \\
-    SPINE_API_KEY=<key> \\
-    python3 mcp/parity_check.py
+    SPINE_API_KEY=<key> python3 mcp/parity_check.py
+
+The script invokes the legacy helpers and the spine transform functions
+directly, so the MCP_SPINE_* per-tool feature flags are not needed here.
 
 Exit code 0 means all checked tools matched; exit code 1 means at least one
 diverged (or a tool failed on one of the two paths).
@@ -153,13 +151,6 @@ def _make_tool_callables(
         )
         return srv._transform_recent_errors_from_spine(data, time_range, component)
 
-    async def legacy_system_health(time_range: str = "24h") -> dict:
-        return await srv._legacy_system_health(time_range, ctx)
-
-    async def spine_system_health(time_range: str = "24h") -> dict:
-        data = await srv._spine_call("/api/spine/status")
-        return srv._transform_system_health_from_spine(data)
-
     async def legacy_trace_lifecycle(trace_id: str | None = None) -> dict:
         return await srv._legacy_trace_lifecycle(trace_id, ctx)
 
@@ -185,10 +176,11 @@ def _make_tool_callables(
 
     return {
         "recent_errors": (legacy_recent_errors, spine_recent_errors),
-        "system_health": (legacy_system_health, spine_system_health),
         "trace_lifecycle": (legacy_trace_lifecycle, spine_trace_lifecycle),
         "admin_audit": (legacy_admin_audit, spine_admin_audit),
-        # usage_patterns and run_kql are legacy-only; excluded from parity.
+        # system_health, usage_patterns, run_kql are legacy-only; excluded
+        # from parity. system_health has no spine equivalent -- /status
+        # tracks traffic lights, not ops metrics.
     }
 
 

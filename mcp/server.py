@@ -165,55 +165,6 @@ def _transform_recent_errors_from_spine(
     }
 
 
-def _transform_system_health_from_spine(
-    spine_data: dict[str, Any],
-) -> dict[str, Any]:
-    """Project a spine /status response into an approximate system_health shape.
-
-    The legacy path returns a rich EnhancedHealthSummary model with latency
-    percentiles and trend data. The spine /status endpoint exposes per-segment
-    traffic light statuses instead. During the parity window this approximate
-    projection is intentional -- the goal is structural parity, not value parity
-    (the parity runner normalises ephemeral fields before comparing shapes).
-    """
-    segments: list[dict[str, Any]] = spine_data.get("segments", [])
-    envelope: dict[str, Any] = spine_data.get("envelope", {})
-
-    # Summarise traffic light counts
-    status_counts: dict[str, int] = {"green": 0, "yellow": 0, "red": 0, "stale": 0}
-    segment_summaries = []
-    for seg in segments:
-        status = seg.get("status", "stale")
-        status_counts[status] = status_counts.get(status, 0) + 1
-        segment_summaries.append(
-            {
-                "id": seg.get("id"),
-                "name": seg.get("name"),
-                "status": status,
-                "headline": seg.get("headline", ""),
-                "freshness_seconds": seg.get("freshness_seconds"),
-            }
-        )
-
-    overall = (
-        "red"
-        if status_counts["red"] > 0
-        else "yellow"
-        if status_counts["yellow"] > 0
-        else "green"
-        if status_counts["green"] > 0
-        else "stale"
-    )
-
-    return {
-        "overall_status": overall,
-        "status_counts": status_counts,
-        "segments": segment_summaries,
-        "freshness_seconds": envelope.get("freshness_seconds"),
-        "source": "spine",
-    }
-
-
 def _transform_trace_lifecycle_from_spine(
     spine_data: dict[str, Any],
     trace_id: str,
@@ -557,18 +508,13 @@ async def system_health(
     latency percentiles (P95/P99), and trend comparison against the
     previous period.
 
+    This tool is permanently served from the legacy App Insights path.
+    The spine /status endpoint tracks segment traffic lights, not ops
+    metrics, so there is no spine equivalent to cut over to.
+
     Args:
         time_range: Time range to query: '1h', '6h', '24h', '3d', or '7d'.
     """
-    if _spine_enabled_for("system_health"):
-        try:
-            spine_data = await _spine_call("/api/spine/status")
-            return _transform_system_health_from_spine(spine_data)
-        except Exception as exc:
-            logger.error("system_health (spine) failed: %s", exc, exc_info=True)
-            return {"error": True, "message": str(exc), "type": type(exc).__name__}
-
-    # Legacy path
     return await _legacy_system_health(time_range, ctx)
 
 

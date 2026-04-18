@@ -89,6 +89,9 @@ def _compare_shapes(a: Any, b: Any) -> tuple[bool, str]:
 
 # Keys that are intrinsically time-dependent and should be excluded from comparison.
 # Extending this set is the correct way to suppress known-volatile fields.
+# 'source' is a non-semantic path marker the spine transformers stamp on
+# every response ('source: "spine"'); it never appears on the legacy side
+# and shouldn't contribute to shape divergence.
 _EPHEMERAL_KEYS = frozenset(
     {
         "timestamp",
@@ -96,6 +99,7 @@ _EPHEMERAL_KEYS = frozenset(
         "last_updated",
         "freshness_seconds",
         "query_latency_ms",
+        "source",
     }
 )
 
