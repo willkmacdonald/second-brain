@@ -32,6 +32,12 @@ async def test_facade_dispatches_to_each_fetcher():
     spans_fetcher.assert_called_once_with(
         correlation_id="abc-123", time_range_seconds=600
     )
+    exceptions_fetcher.assert_called_once_with(
+        correlation_id="abc-123", time_range_seconds=600
+    )
+    cosmos_fetcher.assert_called_once_with(
+        correlation_id="abc-123", time_range_seconds=600
+    )
 
 
 @pytest.mark.asyncio

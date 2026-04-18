@@ -9,10 +9,23 @@ degraded environments.
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
-from typing import Any
+from typing import Any, Protocol
 
-NativeFetcher = Callable[..., Awaitable[list[dict[str, Any]]]]
+
+class NativeFetcher(Protocol):
+    """Fetcher signature: an awaitable that returns a list of dict rows.
+
+    Production fetchers are produced by `functools.partial(query_fn, client,
+    workspace_id)` — the Protocol pins the post-partial signature so wiring
+    bugs are visible to type checkers.
+    """
+
+    async def __call__(
+        self,
+        *,
+        correlation_id: str,
+        time_range_seconds: int,
+    ) -> list[dict[str, Any]]: ...
 
 
 class NativeLookup:
