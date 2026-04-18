@@ -11,6 +11,7 @@ from second_brain.spine.audit.models import (
     OrphanReport,
     TimeWindow,
     TraceAudit,
+    roll_up_report_verdict,
     roll_up_trace_verdict,
 )
 
@@ -174,3 +175,65 @@ def test_audit_report_round_trip():
     )
     payload = report.model_dump(mode="json")
     assert payload["sample_size_returned"] == 3
+
+
+def test_roll_up_report_broken_dominates():
+    """Per spec: any broken trace → broken report."""
+    tw = TimeWindow(
+        start=datetime(2026, 4, 18, 12, 0, 0, tzinfo=UTC),
+        end=datetime(2026, 4, 18, 12, 0, 30, tzinfo=UTC),
+    )
+    traces = [
+        TraceAudit(
+            correlation_kind="capture",
+            correlation_id="a",
+            verdict="clean",
+            headline="ok",
+            trace_window=tw,
+        ),
+        TraceAudit(
+            correlation_kind="capture",
+            correlation_id="b",
+            verdict="warn",
+            headline="w",
+            trace_window=tw,
+        ),
+        TraceAudit(
+            correlation_kind="capture",
+            correlation_id="c",
+            verdict="broken",
+            headline="b",
+            trace_window=tw,
+        ),
+    ]
+    assert roll_up_report_verdict(traces) == "broken"
+
+
+def test_roll_up_report_warn_beats_clean():
+    """Per spec: any warn (and no broken) → warn report."""
+    tw = TimeWindow(
+        start=datetime(2026, 4, 18, 12, 0, 0, tzinfo=UTC),
+        end=datetime(2026, 4, 18, 12, 0, 30, tzinfo=UTC),
+    )
+    traces = [
+        TraceAudit(
+            correlation_kind="capture",
+            correlation_id="a",
+            verdict="clean",
+            headline="ok",
+            trace_window=tw,
+        ),
+        TraceAudit(
+            correlation_kind="capture",
+            correlation_id="b",
+            verdict="warn",
+            headline="w",
+            trace_window=tw,
+        ),
+    ]
+    assert roll_up_report_verdict(traces) == "warn"
+
+
+def test_roll_up_report_empty_is_clean():
+    """Empty trace list rolls up to clean (zero broken, zero warn)."""
+    assert roll_up_report_verdict([]) == "clean"
