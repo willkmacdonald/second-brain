@@ -10,6 +10,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, router } from "expo-router";
 import { API_BASE_URL, API_KEY } from "../../constants/config";
+import { reportError } from "../../lib/telemetry";
 import { StatusSectionRenderer } from "../../components/StatusSectionRenderer";
 import { ErrandRow } from "../../components/ErrandRow";
 import { TaskRow } from "../../components/TaskRow";
@@ -168,6 +169,13 @@ export default function StatusScreen() {
             })),
         );
         setAdminNotifications(errandsData.adminNotifications ?? []);
+      } else {
+        void reportError({
+          eventType: "crud_failure",
+          message: `Errands load failed: HTTP ${errandsRes.status}`,
+          correlationKind: "crud",
+          metadata: { operation: "load_errands", status: errandsRes.status },
+        });
       }
 
       if (tasksRes.ok) {
@@ -185,11 +193,24 @@ export default function StatusScreen() {
             key: "tasks",
           });
         }
+      } else {
+        void reportError({
+          eventType: "crud_failure",
+          message: `Tasks load failed: HTTP ${tasksRes.status}`,
+          correlationKind: "crud",
+          metadata: { operation: "load_tasks", status: tasksRes.status },
+        });
       }
 
       setSections(allSections);
       setHasLoaded(true);
-    } catch {
+    } catch (err) {
+      void reportError({
+        eventType: "crud_failure",
+        message: `Status data load failed: ${String(err)}`,
+        correlationKind: "crud",
+        metadata: { operation: "load_status" },
+      });
       if (!hasLoaded) setLoading(false);
       return;
     }
@@ -290,9 +311,21 @@ export default function StatusScreen() {
             },
           );
           if (!res.ok && res.status !== 404) {
+            void reportError({
+              eventType: "crud_failure",
+              message: `Delete errand failed: HTTP ${res.status}`,
+              correlationKind: "crud",
+              metadata: { operation: "delete_errand", errand_id: itemId },
+            });
             void fetchData();
           }
-        } catch {
+        } catch (err) {
+          void reportError({
+            eventType: "crud_failure",
+            message: `Delete errand failed: ${String(err)}`,
+            correlationKind: "crud",
+            metadata: { operation: "delete_errand", errand_id: itemId },
+          });
           void fetchData();
         }
       })();
@@ -310,9 +343,21 @@ export default function StatusScreen() {
             headers: { Authorization: `Bearer ${API_KEY}` },
           });
           if (!res.ok && res.status !== 404) {
+            void reportError({
+              eventType: "crud_failure",
+              message: `Delete task failed: HTTP ${res.status}`,
+              correlationKind: "crud",
+              metadata: { operation: "delete_task", task_id: itemId },
+            });
             void fetchData();
           }
-        } catch {
+        } catch (err) {
+          void reportError({
+            eventType: "crud_failure",
+            message: `Delete task failed: ${String(err)}`,
+            correlationKind: "crud",
+            metadata: { operation: "delete_task", task_id: itemId },
+          });
           void fetchData();
         }
       })();
@@ -338,7 +383,13 @@ export default function StatusScreen() {
             }),
           });
           void fetchData();
-        } catch {
+        } catch (err) {
+          void reportError({
+            eventType: "crud_failure",
+            message: `Route errand failed: ${String(err)}`,
+            correlationKind: "crud",
+            metadata: { operation: "route_errand", errand_id: itemId },
+          });
           void fetchData();
         }
       })();
@@ -361,9 +412,21 @@ export default function StatusScreen() {
           },
         );
         if (!res.ok && res.status !== 404) {
-          void fetchData(); // Re-fetch to restore notification if dismiss failed
+          void reportError({
+            eventType: "crud_failure",
+            message: `Dismiss notification failed: HTTP ${res.status}`,
+            correlationKind: "crud",
+            metadata: { operation: "dismiss_notification", inbox_item_id: inboxItemId },
+          });
+          void fetchData();
         }
-      } catch {
+      } catch (err) {
+        void reportError({
+          eventType: "crud_failure",
+          message: `Dismiss notification failed: ${String(err)}`,
+          correlationKind: "crud",
+          metadata: { operation: "dismiss_notification", inbox_item_id: inboxItemId },
+        });
         void fetchData();
       }
     })();

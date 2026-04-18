@@ -15,9 +15,11 @@ export function generateTraceId(): string {
 }
 
 interface TelemetryEvent {
-  eventType: "error" | "network_failure" | "performance";
+  eventType: "error" | "network_failure" | "performance" | "crud_failure";
   message: string;
   captureTraceId?: string;
+  correlationKind?: "capture" | "thread" | "request" | "crud";
+  correlationId?: string;
   metadata?: Record<string, string | number | boolean>;
 }
 
@@ -37,6 +39,8 @@ export async function reportError(event: TelemetryEvent): Promise<void> {
         event_type: event.eventType,
         message: event.message,
         capture_trace_id: event.captureTraceId,
+        correlation_kind: event.correlationKind,
+        correlation_id: event.correlationId,
         metadata: event.metadata,
       }),
     });

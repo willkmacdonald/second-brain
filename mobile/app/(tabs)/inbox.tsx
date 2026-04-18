@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useFocusEffect } from "expo-router";
 import { API_BASE_URL, API_KEY } from "../../constants/config";
+import { reportError } from "../../lib/telemetry";
 import { InboxItem } from "../../components/InboxItem";
 import type { InboxItemData } from "../../components/InboxItem";
 
@@ -44,7 +45,15 @@ export default function InboxScreen() {
             headers: { Authorization: `Bearer ${API_KEY}` },
           },
         );
-        if (!res.ok) return;
+        if (!res.ok) {
+          void reportError({
+            eventType: "crud_failure",
+            message: `Inbox load HTTP ${res.status}`,
+            correlationKind: "crud",
+            metadata: { operation: "load_inbox", status: res.status },
+          });
+          return;
+        }
         const data: { items: InboxItemData[]; count: number } =
           await res.json();
         if (append) {
@@ -59,8 +68,13 @@ export default function InboxScreen() {
           setItems(data.items);
         }
         setHasMore(data.items.length === PAGE_SIZE);
-      } catch {
-        // Silently fail -- empty list is shown
+      } catch (err) {
+        void reportError({
+          eventType: "crud_failure",
+          message: `Inbox load failed: ${String(err)}`,
+          correlationKind: "crud",
+          metadata: { operation: "load_inbox" },
+        });
       }
     },
     [],
@@ -113,10 +127,21 @@ export default function InboxScreen() {
                 headers: { Authorization: `Bearer ${API_KEY}` },
               });
               if (!res.ok && res.status !== 404) {
-                // Restore on failure — re-fetch to get accurate state
+                void reportError({
+                  eventType: "crud_failure",
+                  message: `Delete inbox item failed: HTTP ${res.status}`,
+                  correlationKind: "crud",
+                  metadata: { operation: "delete_inbox", inbox_id: itemId },
+                });
                 void fetchInbox();
               }
-            } catch {
+            } catch (err) {
+              void reportError({
+                eventType: "crud_failure",
+                message: `Delete inbox item failed: ${String(err)}`,
+                correlationKind: "crud",
+                metadata: { operation: "delete_inbox", inbox_id: itemId },
+              });
               void fetchInbox();
             }
           },
@@ -169,8 +194,26 @@ export default function InboxScreen() {
           setSelectedItem(null);
           setRecategorizeToast(`Moved to ${newBucket}`);
         }
-      } catch {
-        // Silently fail -- detail card stays open
+
+        if (!res.ok) {
+          void reportError({
+            eventType: "crud_failure",
+            message: `Recategorize failed: HTTP ${res.status}`,
+            correlationKind: "crud",
+            metadata: {
+              operation: "recategorize",
+              inbox_id: itemId,
+              new_bucket: newBucket,
+            },
+          });
+        }
+      } catch (err) {
+        void reportError({
+          eventType: "crud_failure",
+          message: `Recategorize failed: ${String(err)}`,
+          correlationKind: "crud",
+          metadata: { operation: "recategorize", inbox_id: itemId },
+        });
       } finally {
         setIsRecategorizing(false);
       }
