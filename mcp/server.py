@@ -32,11 +32,8 @@ from mcp.server.session import ServerSession  # noqa: E402
 
 from second_brain.observability.queries import (  # noqa: E402
     execute_kql,
-    query_admin_audit,
-    query_capture_trace,
     query_enhanced_system_health,
     query_latest_capture_trace_id,
-    query_recent_failures_filtered,
     query_usage_patterns,
 )
 
@@ -70,22 +67,11 @@ ALLOWED_GROUP_BY = frozenset({"day", "hour", "bucket", "destination"})
 
 
 # ---------------------------------------------------------------------------
-# Spine client + feature flag helpers
+# Spine client
 # ---------------------------------------------------------------------------
 
 SPINE_BASE_URL = os.environ.get("SPINE_BASE_URL", "https://brain.willmacdonald.com")
 SPINE_API_KEY = os.environ.get("SPINE_API_KEY", "")
-
-
-def _spine_enabled_for(tool: str) -> bool:
-    """Per-tool feature flag -- enables spine path during parity period.
-
-    Set MCP_SPINE_<TOOL_NAME>=on (or 'true' / '1') in the environment to
-    activate the spine path for a specific tool. All tools default to off
-    so the legacy App Insights path is used unless explicitly opted in.
-    """
-    flag = os.environ.get(f"MCP_SPINE_{tool.upper()}", "off").lower()
-    return flag in {"on", "true", "1"}
 
 
 async def _spine_call(
@@ -161,7 +147,6 @@ def _transform_recent_errors_from_spine(
         "time_range": time_range,
         "component_filter": component,
         "errors": errors_slice,
-        "source": "spine",
     }
 
 
@@ -205,7 +190,6 @@ def _transform_trace_lifecycle_from_spine(
             if truncated
             else None
         ),
-        "source": "spine",
     }
 
 
@@ -243,7 +227,6 @@ def _transform_admin_audit_from_spine(
         "events": events[:RESULT_LIMIT],
         "total_events": total_events,
         "truncated": truncated,
-        "source": "spine",
     }
 
 
@@ -328,55 +311,22 @@ async def trace_lifecycle(
 ) -> dict:
     """Trace a specific capture through its full lifecycle.
 
-    Returns the ordered sequence of log entries showing classification,
-    filing, and admin processing. Pass null to look up the most recent
-    capture.
+    Returns the ordered sequence of spine CorrelationEvents showing
+    classification, filing, and admin processing. Pass null to look up
+    the most recent capture.
 
     Args:
         trace_id: Capture trace ID (UUID). Pass null to trace the most
             recent capture.
     """
-    if _spine_enabled_for("trace_lifecycle"):
-        try:
-            # Spine requires a concrete trace_id -- fall back to legacy for the
-            # "latest capture" lookup because the spine correlation endpoint does
-            # not expose a "give me the most recent" query.
-            if not trace_id:
-                app = _get_app(ctx)
-                if err := _check_config(app):
-                    return err
-                trace_id = await query_latest_capture_trace_id(
-                    app.logs_client, app.workspace_id
-                )
-                if not trace_id:
-                    return {
-                        "error": True,
-                        "message": "No recent captures found in the last 24 hours",
-                        "type": "no_data",
-                    }
-
-            spine_data = await _spine_call(f"/api/spine/correlation/capture/{trace_id}")
-            return _transform_trace_lifecycle_from_spine(spine_data, trace_id)
-
-        except Exception as exc:
-            logger.error("trace_lifecycle (spine) failed: %s", exc, exc_info=True)
-            return {"error": True, "message": str(exc), "type": type(exc).__name__}
-
-    # Legacy path
-    return await _legacy_trace_lifecycle(trace_id, ctx)
-
-
-async def _legacy_trace_lifecycle(
-    trace_id: str | None,
-    ctx: Context[ServerSession, AppContext],
-) -> dict:
-    """Original App Insights implementation of trace_lifecycle."""
-    app = _get_app(ctx)
-    if err := _check_config(app):
-        return err
     try:
-        # If no trace_id, look up the most recent capture
+        # Spine correlation requires a concrete trace_id. The "most recent"
+        # lookup still reads App Insights because spine has no "give me the
+        # latest capture" endpoint.
         if not trace_id:
+            app = _get_app(ctx)
+            if err := _check_config(app):
+                return err
             trace_id = await query_latest_capture_trace_id(
                 app.logs_client, app.workspace_id
             )
@@ -387,33 +337,8 @@ async def _legacy_trace_lifecycle(
                     "type": "no_data",
                 }
 
-        records = await query_capture_trace(app.logs_client, app.workspace_id, trace_id)
-
-        if not records:
-            return {
-                "error": True,
-                "message": f"No trace data found for trace ID {trace_id}",
-                "type": "no_data",
-            }
-
-        # Truncation: keep LAST N records (terminal event is at the end)
-        total_events = len(records)
-        truncated = total_events > RESULT_LIMIT
-        if truncated:
-            records_slice = records[-RESULT_LIMIT:]
-        else:
-            records_slice = records
-
-        return {
-            "events": [r.model_dump() for r in records_slice],
-            "total_events": total_events,
-            "truncated": truncated,
-            "note": (
-                f"Kept last {RESULT_LIMIT} events to preserve terminal outcome"
-                if truncated
-                else None
-            ),
-        }
+        spine_data = await _spine_call(f"/api/spine/correlation/capture/{trace_id}")
+        return _transform_trace_lifecycle_from_spine(spine_data, trace_id)
 
     except Exception as exc:
         logger.error("trace_lifecycle failed: %s", exc, exc_info=True)
@@ -431,64 +356,23 @@ async def recent_errors(
     component: str | None = None,
     ctx: Context[ServerSession, AppContext] = None,
 ) -> dict:
-    """Query recent errors and failures from App Insights.
+    """Query recent errors and failures from the backend_api spine segment.
 
-    Returns Error-level and Critical-level log entries with optional
-    component filtering.
+    Returns the exceptions surfaced by the backend_api segment within the
+    requested window, with optional component filtering.
 
     Args:
         time_range: Time range to query: '1h', '6h', '24h', '3d', or '7d'.
         component: Filter by component name (e.g., 'classifier',
             'admin_agent'). Pass null for all components.
     """
-    if _spine_enabled_for("recent_errors"):
-        try:
-            seconds = _time_range_to_seconds(time_range)
-            spine_data = await _spine_call(
-                "/api/spine/segment/backend_api",
-                params={"time_range_seconds": seconds},
-            )
-            return _transform_recent_errors_from_spine(
-                spine_data, time_range, component
-            )
-        except Exception as exc:
-            logger.error("recent_errors (spine) failed: %s", exc, exc_info=True)
-            return {"error": True, "message": str(exc), "type": type(exc).__name__}
-
-    # Legacy path
-    return await _legacy_recent_errors(time_range, component, ctx)
-
-
-async def _legacy_recent_errors(
-    time_range: str,
-    component: str | None,
-    ctx: Context[ServerSession, AppContext],
-) -> dict:
-    """Original App Insights implementation of recent_errors."""
-    app = _get_app(ctx)
-    if err := _check_config(app):
-        return err
     try:
-        _kql_duration, td = TIME_RANGE_MAP.get(time_range, TIME_RANGE_MAP["24h"])
-
-        result = await query_recent_failures_filtered(
-            app.logs_client,
-            app.workspace_id,
-            component=component,
-            severity="error",
-            limit=RESULT_LIMIT,
-            timespan=td,
+        seconds = _time_range_to_seconds(time_range)
+        spine_data = await _spine_call(
+            "/api/spine/segment/backend_api",
+            params={"time_range_seconds": seconds},
         )
-
-        return {
-            "total_count": result.total_count,
-            "returned_count": result.returned_count,
-            "truncated": result.truncated,
-            "time_range": time_range,
-            "component_filter": component,
-            "errors": [r.model_dump() for r in result.records],
-        }
-
+        return _transform_recent_errors_from_spine(spine_data, time_range, component)
     except Exception as exc:
         logger.error("recent_errors failed: %s", exc, exc_info=True)
         return {"error": True, "message": str(exc), "type": type(exc).__name__}
@@ -608,41 +492,13 @@ async def usage_patterns(
 async def admin_audit(
     ctx: Context[ServerSession, AppContext] = None,
 ) -> dict:
-    """Query Admin Agent activity logs from the last 24 hours.
+    """Query Admin Agent activity from the admin spine segment.
 
     Shows processing events, successes, and failures.
     """
-    if _spine_enabled_for("admin_audit"):
-        try:
-            spine_data = await _spine_call("/api/spine/segment/admin")
-            return _transform_admin_audit_from_spine(spine_data)
-        except Exception as exc:
-            logger.error("admin_audit (spine) failed: %s", exc, exc_info=True)
-            return {"error": True, "message": str(exc), "type": type(exc).__name__}
-
-    # Legacy path
-    return await _legacy_admin_audit(ctx)
-
-
-async def _legacy_admin_audit(
-    ctx: Context[ServerSession, AppContext],
-) -> dict:
-    """Original App Insights implementation of admin_audit."""
-    app = _get_app(ctx)
-    if err := _check_config(app):
-        return err
     try:
-        records = await query_admin_audit(app.logs_client, app.workspace_id)
-
-        total_events = len(records)
-        truncated = total_events > RESULT_LIMIT
-
-        return {
-            "events": [r.model_dump() for r in records[:RESULT_LIMIT]],
-            "total_events": total_events,
-            "truncated": truncated,
-        }
-
+        spine_data = await _spine_call("/api/spine/segment/admin")
+        return _transform_admin_audit_from_spine(spine_data)
     except Exception as exc:
         logger.error("admin_audit failed: %s", exc, exc_info=True)
         return {"error": True, "message": str(exc), "type": type(exc).__name__}
