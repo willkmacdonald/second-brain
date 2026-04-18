@@ -443,3 +443,64 @@ AzureDiagnostics
 | order by timestamp desc
 | take {limit}
 """
+
+
+# ---------------------------------------------------------------------------
+# Audit native-lookup templates (per-segment correlation audit, 2026-04-18)
+# ---------------------------------------------------------------------------
+# All three accept a single {correlation_id} parameter via str.format().
+# Timespan is controlled by the query_workspace call (caller-provided).
+
+AUDIT_SPANS_BY_CORRELATION = """\
+let cid = "{correlation_id}";
+union AppRequests, AppDependencies
+| where tostring(Properties.correlation_id) == cid
+   or tostring(Properties.capture_trace_id) == cid
+| project
+    timestamp = TimeGenerated,
+    Name,
+    Component = tostring(Properties.component),
+    DurationMs,
+    ResultCode = tostring(ResultCode),
+    CorrelationId = coalesce(
+        tostring(Properties.correlation_id),
+        tostring(Properties.capture_trace_id)
+    ),
+    CorrelationKind = tostring(Properties.correlation_kind)
+| order by timestamp asc
+"""
+
+AUDIT_EXCEPTIONS_BY_CORRELATION = """\
+let cid = "{correlation_id}";
+AppExceptions
+| where tostring(Properties.correlation_id) == cid
+   or tostring(Properties.capture_trace_id) == cid
+| project
+    timestamp = TimeGenerated,
+    Component = tostring(Properties.component),
+    ExceptionType,
+    OuterMessage,
+    OuterType,
+    InnermostMessage,
+    Details = tostring(Details),
+    CorrelationId = coalesce(
+        tostring(Properties.correlation_id),
+        tostring(Properties.capture_trace_id)
+    )
+| order by timestamp asc
+"""
+
+AUDIT_COSMOS_BY_CORRELATION = """\
+let cid = "{correlation_id}";
+AzureDiagnostics
+| where Category == "DataPlaneRequests"
+| where activityId_g == cid
+| project
+    timestamp = TimeGenerated,
+    OperationName,
+    statusCode_s,
+    duration_s,
+    activityId_g,
+    collectionName_s
+| order by timestamp asc
+"""

@@ -676,3 +676,73 @@ async def fetch_cosmos_diagnostics(
         return []
 
     return result.tables[0]
+
+
+# ---------------------------------------------------------------------------
+# Audit native-lookup query functions (per-segment correlation audit)
+# ---------------------------------------------------------------------------
+
+
+async def fetch_audit_spans_for_correlation(
+    client: LogsQueryClient,
+    workspace_id: str,
+    correlation_id: str,
+    time_range_seconds: int,
+) -> list[dict]:
+    """Return App Insights AppRequests + AppDependencies tagged with correlation_id."""
+    from second_brain.observability.kql_templates import AUDIT_SPANS_BY_CORRELATION
+
+    query = AUDIT_SPANS_BY_CORRELATION.format(correlation_id=correlation_id)
+    result = await execute_kql(
+        client,
+        workspace_id,
+        query,
+        timespan=timedelta(seconds=time_range_seconds),
+    )
+    if not result.tables or not result.tables[0]:
+        return []
+    return list(result.tables[0])
+
+
+async def fetch_audit_exceptions_for_correlation(
+    client: LogsQueryClient,
+    workspace_id: str,
+    correlation_id: str,
+    time_range_seconds: int,
+) -> list[dict]:
+    """Return App Insights AppExceptions tagged with correlation_id."""
+    from second_brain.observability.kql_templates import (
+        AUDIT_EXCEPTIONS_BY_CORRELATION,
+    )
+
+    query = AUDIT_EXCEPTIONS_BY_CORRELATION.format(correlation_id=correlation_id)
+    result = await execute_kql(
+        client,
+        workspace_id,
+        query,
+        timespan=timedelta(seconds=time_range_seconds),
+    )
+    if not result.tables or not result.tables[0]:
+        return []
+    return list(result.tables[0])
+
+
+async def fetch_audit_cosmos_diagnostics_for_correlation(
+    client: LogsQueryClient,
+    workspace_id: str,
+    correlation_id: str,
+    time_range_seconds: int,
+) -> list[dict]:
+    """Return Cosmos diagnostic-log rows whose activityId_g matches correlation_id."""
+    from second_brain.observability.kql_templates import AUDIT_COSMOS_BY_CORRELATION
+
+    query = AUDIT_COSMOS_BY_CORRELATION.format(correlation_id=correlation_id)
+    result = await execute_kql(
+        client,
+        workspace_id,
+        query,
+        timespan=timedelta(seconds=time_range_seconds),
+    )
+    if not result.tables or not result.tables[0]:
+        return []
+    return list(result.tables[0])
