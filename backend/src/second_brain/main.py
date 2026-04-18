@@ -248,6 +248,87 @@ async def _wire_spine(
         else:
             logger.warning("Spine wired without adapters: logs_client unavailable")
 
+        # Phase 4: Mobile composite adapters (Sentry + spine telemetry)
+        # These adapters use spine_repo directly, not logs_client, so they
+        # are wired unconditionally (regardless of logs_client availability).
+        from second_brain.spine.adapters.composite import CompositeAdapter
+        from second_brain.spine.adapters.mobile_telemetry import MobileTelemetryAdapter
+        from second_brain.spine.adapters.sentry import (
+            SentryAdapter,
+            make_sentry_fetcher,
+        )
+
+        _sentry_auth_token = getattr(settings, "sentry_auth_token", "")
+        _sentry_org = getattr(settings, "sentry_org", "")
+        _sentry_project_mobile = getattr(settings, "sentry_project_mobile", "")
+        if _sentry_auth_token and _sentry_org and _sentry_project_mobile:
+            sentry_fetcher = await make_sentry_fetcher(
+                auth_token=_sentry_auth_token,
+                org=_sentry_org,
+                project=_sentry_project_mobile,
+            )
+            sentry_ui = SentryAdapter(
+                segment_id="mobile_ui",
+                sentry_fetcher=sentry_fetcher,
+                native_url_template=(
+                    f"https://sentry.io/organizations/{_sentry_org}"
+                    f"/projects/{_sentry_project_mobile}"
+                    f"/?query=app_segment%3Amobile_ui"
+                ),
+                tag_filter={"app_segment": "mobile_ui"},
+            )
+            sentry_capture = SentryAdapter(
+                segment_id="mobile_capture",
+                sentry_fetcher=sentry_fetcher,
+                native_url_template=(
+                    f"https://sentry.io/organizations/{_sentry_org}"
+                    f"/projects/{_sentry_project_mobile}"
+                    f"/?query=app_segment%3Amobile_capture"
+                ),
+                tag_filter={"app_segment": "mobile_capture"},
+            )
+        else:
+            sentry_ui = None
+            sentry_capture = None
+
+        mobile_telemetry_ui = MobileTelemetryAdapter(
+            segment_id="mobile_ui",
+            repo=spine_repo,
+            native_url="https://portal.azure.com/#blade/AppInsightsExtension",
+        )
+        mobile_telemetry_capture = MobileTelemetryAdapter(
+            segment_id="mobile_capture",
+            repo=spine_repo,
+            native_url="https://portal.azure.com/#blade/AppInsightsExtension",
+        )
+
+        mobile_ui_composite = CompositeAdapter(
+            segment_id="mobile_ui",
+            sources={
+                **({"sentry": sentry_ui} if sentry_ui else {}),
+                "telemetry": mobile_telemetry_ui,
+            },
+            native_url=(
+                sentry_ui.native_url_template
+                if sentry_ui
+                else mobile_telemetry_ui.native_url_template
+            ),
+        )
+        mobile_capture_composite = CompositeAdapter(
+            segment_id="mobile_capture",
+            sources={
+                **({"sentry": sentry_capture} if sentry_capture else {}),
+                "telemetry": mobile_telemetry_capture,
+            },
+            native_url=(
+                sentry_capture.native_url_template
+                if sentry_capture
+                else mobile_telemetry_capture.native_url_template
+            ),
+        )
+        adapters.extend([mobile_ui_composite, mobile_capture_composite])
+        logger.info("Spine mobile composite adapters wired")
+
         adapter_registry = AdapterRegistry(adapters)
         app.state.spine_adapter_registry = adapter_registry
 

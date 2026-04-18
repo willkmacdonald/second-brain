@@ -11,7 +11,12 @@ from datetime import UTC, datetime
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 
-from second_brain.spine.models import WorkloadPayload, _WorkloadEvent
+from second_brain.spine.models import (
+    LivenessPayload,
+    WorkloadPayload,
+    _LivenessEvent,
+    _WorkloadEvent,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -103,3 +108,15 @@ async def report_client_telemetry(body: TelemetryEvent, request: Request) -> Non
                     "Failed to record mobile crud failure to spine",
                     exc_info=True,
                 )
+            liveness_event = _LivenessEvent(
+                segment_id=segment_id,
+                event_type="liveness",
+                timestamp=datetime.now(UTC),
+                payload=LivenessPayload(
+                    instance_id=request.headers.get("user-agent", "unknown")[:64]
+                ),
+            )
+            try:
+                await spine_repo.record_event(liveness_event)
+            except Exception:
+                logger.warning("Failed to emit mobile liveness", exc_info=True)
