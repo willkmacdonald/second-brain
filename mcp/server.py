@@ -93,6 +93,19 @@ async def _spine_call(
         return resp.json()  # type: ignore[no-any-return]
 
 
+async def _spine_post(path: str, json_body: dict[str, Any]) -> dict[str, Any]:
+    """POST to the spine API and return the JSON response."""
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(
+            f"{SPINE_BASE_URL}{path}",
+            json=json_body,
+            headers={"Authorization": f"Bearer {SPINE_API_KEY}"},
+            timeout=60.0,
+        )
+        resp.raise_for_status()
+        return resp.json()  # type: ignore[no-any-return]
+
+
 def _time_range_to_seconds(time_range: str) -> int:
     """Convert a TIME_RANGE_MAP key to an integer number of seconds.
 
@@ -544,6 +557,49 @@ async def run_kql(
 
     except Exception as exc:
         logger.error("run_kql failed: %s", exc, exc_info=True)
+        return {"error": True, "message": str(exc), "type": type(exc).__name__}
+
+
+# ---------------------------------------------------------------------------
+# Tool 7: audit_correlation
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool()
+async def audit_correlation(
+    correlation_kind: str,
+    correlation_id: str | None = None,
+    sample_size: int = 5,
+    time_range_seconds: int = 86400,
+    ctx: Context[ServerSession, AppContext] = None,
+) -> dict:
+    """Audit whether spine events for a correlation_id (or a sample of recent
+    ones) line up with what native sources actually saw.
+
+    Use when the user asks whether observability is working, whether a specific
+    trace was captured correctly, or whether segments are accurately reflecting
+    their domain. Returns per-trace verdicts plus an aggregate roll-up.
+
+    Args:
+        correlation_kind: One of 'capture', 'thread', 'request', 'crud'.
+        correlation_id: Audit a specific ID. If null, samples the N most-recent
+            correlation_ids of this kind from the last `time_range_seconds`.
+        sample_size: Number of traces to sample when correlation_id is null
+            (1-20). Ignored otherwise.
+        time_range_seconds: Window for sampling and native-source lookups
+            (60 to 604800 = 1 minute to 7 days).
+    """
+    try:
+        body: dict[str, Any] = {
+            "correlation_kind": correlation_kind,
+            "sample_size": sample_size,
+            "time_range_seconds": time_range_seconds,
+        }
+        if correlation_id:
+            body["correlation_id"] = correlation_id
+        return await _spine_post("/api/spine/audit/correlation", body)
+    except Exception as exc:
+        logger.error("audit_correlation failed: %s", exc, exc_info=True)
         return {"error": True, "message": str(exc), "type": type(exc).__name__}
 
 
