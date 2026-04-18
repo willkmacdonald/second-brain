@@ -126,6 +126,35 @@ def get_default_registry() -> SegmentRegistry:
                 },
             ),
             EvaluatorConfig(
+                segment_id="cosmos",
+                display_name="Cosmos DB",
+                liveness_interval_seconds=120,
+                host_segment=None,
+                workload_window_seconds=900,
+                acceptable_lag_seconds=600,
+                yellow_thresholds={
+                    "workload_failure_rate": 0.05,
+                },
+                red_thresholds={
+                    "workload_failure_rate": 0.20,
+                    "consecutive_failures": 5,
+                },
+            ),
+            EvaluatorConfig(
+                segment_id="external_services",
+                display_name="External Services",
+                liveness_interval_seconds=300,
+                host_segment="container_app",
+                workload_window_seconds=3600,
+                yellow_thresholds={
+                    "workload_failure_rate": 0.30,
+                },
+                red_thresholds={
+                    "workload_failure_rate": 0.70,
+                    "consecutive_failures": 3,
+                },
+            ),
+            EvaluatorConfig(
                 segment_id="container_app",
                 display_name="Container App",
                 liveness_interval_seconds=60,

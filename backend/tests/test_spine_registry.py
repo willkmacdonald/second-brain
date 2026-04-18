@@ -32,13 +32,15 @@ def test_unknown_segment_raises_keyerror() -> None:
 def test_all_returns_all_segments() -> None:
     registry = get_default_registry()
     all_cfgs = registry.all()
-    assert len(all_cfgs) == 5
+    assert len(all_cfgs) == 7
     ids = {c.segment_id for c in all_cfgs}
     assert ids == {
         "backend_api",
         "classifier",
         "admin",
         "investigation",
+        "cosmos",
+        "external_services",
         "container_app",
     }
 
