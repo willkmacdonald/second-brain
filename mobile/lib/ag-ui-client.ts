@@ -1,6 +1,7 @@
 import EventSource from "react-native-sse";
 import { API_BASE_URL } from "../constants/config";
 import { generateTraceId, reportError } from "./telemetry";
+import { tagTrace } from "./sentry";
 import type {
   AGUIEventType,
   SendCaptureOptions,
@@ -200,6 +201,7 @@ export function sendCapture({
 }: SendCaptureOptions): { cleanup: () => void; threadId: string; traceId: string } {
   const threadId = `thread-${Date.now()}`;
   const traceId = generateTraceId();
+  tagTrace(traceId);
 
   const headers: Record<string, string> = {
     Authorization: `Bearer ${apiKey}`,
@@ -258,6 +260,7 @@ export function sendFollowUp({
   traceId: providedTraceId,
 }: SendFollowUpOptions): { cleanup: () => void; traceId: string } {
   const traceId = providedTraceId ?? generateTraceId();
+  tagTrace(traceId);
 
   const es = new EventSource<AGUIEventType>(
     `${API_BASE_URL}/api/capture/follow-up`,
@@ -311,6 +314,7 @@ export function sendVoiceCapture({
   callbacks,
 }: SendVoiceCaptureOptions): { cleanup: () => void; traceId: string } {
   const traceId = generateTraceId();
+  tagTrace(traceId);
 
   const formData = new FormData();
   const isWav = audioUri.toLowerCase().endsWith(".wav");
@@ -366,6 +370,7 @@ export function sendFollowUpVoice({
   traceId: providedTraceId,
 }: SendFollowUpVoiceOptions): { cleanup: () => void; traceId: string } {
   const traceId = providedTraceId ?? generateTraceId();
+  tagTrace(traceId);
 
   const formData = new FormData();
   formData.append("file", {

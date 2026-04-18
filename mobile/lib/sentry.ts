@@ -16,4 +16,16 @@ export function initSentry(): void {
   });
 }
 
+export function tagTrace(captureTraceId: string): void {
+  Sentry.setTag("capture_trace_id", captureTraceId);
+  Sentry.setTag("correlation_kind", "capture");
+  Sentry.setTag("correlation_id", captureTraceId);
+}
+
+export function clearTraceTags(): void {
+  Sentry.setTag("capture_trace_id", undefined as never);
+  Sentry.setTag("correlation_kind", undefined as never);
+  Sentry.setTag("correlation_id", undefined as never);
+}
+
 export { Sentry, navigationIntegration };
