@@ -143,8 +143,8 @@ async def test_wire_spine_full_happy_path(settings_stub) -> None:
     evaluator_task, liveness_tasks = await _wire_spine(app, settings_stub)
     try:
         assert isinstance(evaluator_task, asyncio.Task)
-        # 7 liveness emitters (all registered segments including container_app)
-        assert len(liveness_tasks) == 7
+        # 9 liveness emitters (7 prior + 2 mobile segments)
+        assert len(liveness_tasks) == 9
         assert isinstance(app.state.spine_repo, SpineRepository)
         assert app.state.spine_adapter_registry.has("backend_api")
         # Spine router mounted

@@ -155,6 +155,34 @@ def get_default_registry() -> SegmentRegistry:
                 },
             ),
             EvaluatorConfig(
+                segment_id="mobile_ui",
+                display_name="Mobile UI",
+                liveness_interval_seconds=300,
+                host_segment=None,
+                workload_window_seconds=900,
+                yellow_thresholds={
+                    "workload_failure_rate": 0.10,
+                },
+                red_thresholds={
+                    "workload_failure_rate": 0.30,
+                    "consecutive_failures": 5,
+                },
+            ),
+            EvaluatorConfig(
+                segment_id="mobile_capture",
+                display_name="Mobile Capture",
+                liveness_interval_seconds=300,
+                host_segment=None,
+                workload_window_seconds=900,
+                yellow_thresholds={
+                    "workload_failure_rate": 0.10,
+                },
+                red_thresholds={
+                    "workload_failure_rate": 0.30,
+                    "consecutive_failures": 3,
+                },
+            ),
+            EvaluatorConfig(
                 segment_id="container_app",
                 display_name="Container App",
                 liveness_interval_seconds=60,
