@@ -418,26 +418,28 @@ union withsource=SourceTable
 # ---------------------------------------------------------------------------
 # Returns recent Cosmos operations from Azure Monitor diagnostic logs.
 # Diagnostic logs flow with 5-10 minute lag.
-# {capture_filter} is e.g. '| where ActivityId == "trace-1"' or empty.
-# {limit} is row limit.
 #
-# Column notes (workspace schema verified 2026-04-18):
-#   ActivityId = the x-ms-client-request-id header we set via
-#                apply_request_id / trace_headers.
-#   No PartitionKeyRangeId column in this workspace — use PartitionId.
+# Data lands in AzureDiagnostics (Azure diagnostics mode), NOT the
+# resource-specific CDBDataPlaneRequests table. Column names use
+# _s (string), _d (double), _g (GUID) suffixes.
+#
+# {capture_filter} is e.g.
+#   '| where activityId_g == "trace-1"' or empty.
+# {limit} is row limit.
 
 COSMOS_DIAGNOSTIC_LOGS = """\
-CDBDataPlaneRequests
+AzureDiagnostics
+| where Category == "DataPlaneRequests"
 {capture_filter}| project
     timestamp = TimeGenerated,
     operation_name = OperationName,
-    status_code = StatusCode,
-    duration_ms = DurationMs,
-    request_charge = RequestCharge,
-    request_length = RequestLength,
-    response_length = ResponseLength,
-    client_request_id = ActivityId,
-    collection_name = CollectionName
+    status_code = toint(statusCode_s),
+    duration_ms = todouble(duration_s),
+    request_charge = todouble(requestCharge_s),
+    request_length = todouble(requestLength_s),
+    response_length = todouble(responseLength_s),
+    client_request_id = tostring(activityId_g),
+    collection_name = collectionName_s
 | order by timestamp desc
 | take {limit}
 """

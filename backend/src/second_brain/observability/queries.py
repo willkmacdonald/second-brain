@@ -658,7 +658,7 @@ async def fetch_cosmos_diagnostics(
         raise ValueError(f"Invalid capture_trace_id: {capture_trace_id!r}")
 
     capture_filter = (
-        f'| where ActivityId == "{capture_trace_id}"\n' if capture_trace_id else ""
+        f'| where activityId_g == "{capture_trace_id}"\n' if capture_trace_id else ""
     )
     query = COSMOS_DIAGNOSTIC_LOGS.format(
         capture_filter=capture_filter,
