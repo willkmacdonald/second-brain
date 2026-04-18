@@ -195,7 +195,7 @@ Plans:
 **Plans:** 1 plan
 
 Plans:
-- [ ] 19.1-01-PLAN.md -- KQL projection fields, Pydantic model extensions, MCP Details truncation, regression tests
+- [x] 19.1-01-PLAN.md -- KQL projection fields, Pydantic model extensions, MCP Details truncation, regression tests (absorbed into commit e1254a1, shipped 2026-04-14)
 
 ### Phase 20: Feedback Collection
 **Goal**: Quality signals flow into the system automatically from user behavior and explicitly from user feedback
