@@ -371,7 +371,7 @@ export default function StatusScreen() {
 
       void (async () => {
         try {
-          await fetch(`${API_BASE_URL}/api/errands/${itemId}/route`, {
+          const res = await fetch(`${API_BASE_URL}/api/errands/${itemId}/route`, {
             method: "POST",
             headers: {
               Authorization: `Bearer ${API_KEY}`,
@@ -382,7 +382,15 @@ export default function StatusScreen() {
               saveRule: true,
             }),
           });
-          void fetchData();
+          if (!res.ok && res.status !== 404) {
+            void reportError({
+              eventType: "crud_failure",
+              message: `Route errand failed: HTTP ${res.status}`,
+              correlationKind: "crud",
+              metadata: { operation: "route_errand", errand_id: itemId },
+            });
+            void fetchData();
+          }
         } catch (err) {
           void reportError({
             eventType: "crud_failure",

@@ -152,6 +152,22 @@ async def _wire_spine(
             )
             logger.info("Spine BackendApiAdapter wired")
 
+            # Phase 3: External Services adapter (same App Insights queries)
+            from second_brain.spine.adapters.external_services import (
+                ExternalServicesAdapter,
+            )
+
+            adapters.append(
+                ExternalServicesAdapter(
+                    failures_fetcher=failures_fetcher,
+                    requests_fetcher=requests_fetcher,
+                    native_url_template=(
+                        "https://portal.azure.com/#blade/AppInsightsExtension"
+                    ),
+                )
+            )
+            logger.info("Spine ExternalServicesAdapter wired")
+
             # Phase 2: Foundry agent adapters (reuse same logs client)
             spans_fetcher = partial(
                 fetch_agent_runs,
@@ -199,24 +215,10 @@ async def _wire_spine(
             )
             from second_brain.spine.adapters.cosmos import CosmosAdapter
 
-            cosmos_ws = settings.cosmos_diagnostics_workspace_id
-            if cosmos_ws:
-                logger.info(
-                    "Cosmos diagnostics using dedicated workspace: %s",
-                    cosmos_ws,
-                )
-            else:
-                cosmos_ws = settings.log_analytics_workspace_id
-                logger.warning(
-                    "COSMOS_DIAGNOSTICS_WORKSPACE_ID not set — "
-                    "falling back to App Insights workspace. "
-                    "Cosmos diagnostic logs may not be available "
-                    "if routed to a different workspace.",
-                )
             cosmos_diag_fetcher = partial(
                 fetch_cosmos_diagnostics,
                 app.state.logs_client,
-                cosmos_ws,
+                settings.log_analytics_workspace_id,
             )
             adapters.append(
                 CosmosAdapter(
@@ -241,8 +243,6 @@ async def _wire_spine(
         )
         # Liveness emitters for all registered segments
         for seg_cfg in spine_registry.all():
-            if seg_cfg.segment_id == "container_app":
-                continue
             spine_liveness_tasks.append(
                 asyncio.create_task(
                     liveness_emitter(spine_repo, segment_id=seg_cfg.segment_id)

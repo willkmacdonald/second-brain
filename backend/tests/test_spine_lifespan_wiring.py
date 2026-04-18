@@ -87,7 +87,6 @@ def _fake_cosmos_manager_with_containers() -> MagicMock:
 def settings_stub() -> SimpleNamespace:
     return SimpleNamespace(
         log_analytics_workspace_id="ws-id",
-        cosmos_diagnostics_workspace_id="",
     )
 
 
@@ -144,8 +143,8 @@ async def test_wire_spine_full_happy_path(settings_stub) -> None:
     evaluator_task, liveness_tasks = await _wire_spine(app, settings_stub)
     try:
         assert isinstance(evaluator_task, asyncio.Task)
-        # 6 liveness emitters (all segments except container_app)
-        assert len(liveness_tasks) == 6
+        # 7 liveness emitters (all registered segments including container_app)
+        assert len(liveness_tasks) == 7
         assert isinstance(app.state.spine_repo, SpineRepository)
         assert app.state.spine_adapter_registry.has("backend_api")
         # Spine router mounted
