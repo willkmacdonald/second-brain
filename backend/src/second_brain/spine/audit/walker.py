@@ -97,8 +97,36 @@ class CorrelationAuditor:
             now = self._now()
             window = TimeWindow(start=now, end=now)
 
-        # ---- Check 2 + Check 3 (Tasks 7 + 8 fill these in) ----
+        # ---- Check 2: mis-attribution (outcome / operation / time_window) ----
+        # Pull native sources once for the whole trace.
+        spans = await self._lookup.spans(
+            correlation_id, time_range_seconds=time_range_seconds
+        )
+        exceptions = await self._lookup.exceptions(
+            correlation_id, time_range_seconds=time_range_seconds
+        )
+        cosmos_rows = await self._lookup.cosmos(
+            correlation_id, time_range_seconds=time_range_seconds
+        )
+
         misattributions: list[Misattribution] = []
+        for segment_id in segments_seen.keys() & chain_ids:
+            workload_events = await self._workload_events_for(
+                segment_id=segment_id,
+                correlation_id=correlation_id,
+                time_range_seconds=time_range_seconds,
+            )
+            misattributions.extend(
+                _check_misattribution(
+                    segment_id=segment_id,
+                    workload_events=workload_events,
+                    spans=spans,
+                    exceptions=exceptions,
+                    cosmos_rows=cosmos_rows,
+                )
+            )
+
+        # ---- Check 3 (Task 8 fills this in) ----
         orphans: list[OrphanReport] = []
 
         verdict = roll_up_trace_verdict(
@@ -123,6 +151,24 @@ class CorrelationAuditor:
             trace_window=window,
             native_links=_native_links_for(segments_seen.keys()),
         )
+
+    async def _workload_events_for(
+        self,
+        *,
+        segment_id: str,
+        correlation_id: str,
+        time_range_seconds: int,
+    ) -> list[dict[str, Any]]:
+        """Return workload events for this segment+correlation in the window."""
+        events = await self._repo.get_recent_events(
+            segment_id=segment_id, window_seconds=time_range_seconds
+        )
+        return [
+            e
+            for e in events
+            if e.get("event_type") == "workload"
+            and e.get("payload", {}).get("correlation_id") == correlation_id
+        ]
 
     async def audit_sample(
         self,
@@ -223,3 +269,85 @@ def _summary_headline(overall: str, broken: int, warn: int, total: int) -> str:
     if overall == "warn":
         return f"{warn} of {total} traces have warnings"
     return f"all {total} traces clean"
+
+
+def _check_misattribution(
+    *,
+    segment_id: str,
+    workload_events: list[dict[str, Any]],
+    spans: list[dict[str, Any]],
+    exceptions: list[dict[str, Any]],
+    cosmos_rows: list[dict[str, Any]],
+) -> list[Misattribution]:
+    """Run outcome / operation / time-window sub-checks for one segment."""
+    findings: list[Misattribution] = []
+
+    # Filter native rows to this segment when possible (Component column).
+    seg_spans = [
+        s for s in spans if str(s.get("Component", "")).lower() == segment_id.lower()
+    ] or spans
+    seg_exceptions = [
+        e
+        for e in exceptions
+        if str(e.get("Component", "")).lower() == segment_id.lower()
+    ] or exceptions
+
+    # Cosmos has no Component column; treat any cosmos row as relevant only
+    # when this segment_id == "cosmos".
+    seg_cosmos = cosmos_rows if segment_id == "cosmos" else []
+
+    has_native_evidence = bool(seg_spans or seg_exceptions or seg_cosmos)
+    if not has_native_evidence:
+        # No native data to compare against — silent on all three sub-checks.
+        return findings
+
+    spine_outcomes = {e["payload"]["outcome"] for e in workload_events}
+
+    # Outcome agreement
+    if "success" in spine_outcomes and seg_exceptions:
+        findings.append(
+            Misattribution(
+                segment_id=segment_id,
+                check="outcome",
+                spine_value="success",
+                native_value=f"{len(seg_exceptions)} exception(s) in window",
+                reason=(
+                    "spine reports success but native sources have"
+                    f" {len(seg_exceptions)} exception(s) for this trace"
+                ),
+            )
+        )
+    if "failure" in spine_outcomes and not seg_exceptions:
+        findings.append(
+            Misattribution(
+                segment_id=segment_id,
+                check="outcome",
+                spine_value="failure",
+                native_value="0 exceptions in window",
+                reason=(
+                    "spine reports failure but native sources have no"
+                    " exceptions for this trace"
+                ),
+            )
+        )
+
+    # Operation name plausibility (loose: spine.operation appears in any span Name)
+    spine_ops = {e["payload"]["operation"] for e in workload_events}
+    if seg_spans and spine_ops:
+        native_names = " ".join(str(s.get("Name", "")) for s in seg_spans).lower()
+        unmatched = [op for op in spine_ops if op.lower() not in native_names]
+        if unmatched and len(unmatched) == len(spine_ops):
+            findings.append(
+                Misattribution(
+                    segment_id=segment_id,
+                    check="operation",
+                    spine_value=", ".join(sorted(spine_ops)),
+                    native_value="(no matching span Name)",
+                    reason=(
+                        "spine operation name(s) not found in any native span"
+                        " Name for this trace"
+                    ),
+                )
+            )
+
+    return findings
