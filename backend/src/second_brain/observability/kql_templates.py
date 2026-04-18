@@ -412,3 +412,28 @@ union withsource=SourceTable
 | order by timestamp desc
 | take 200
 """
+
+# ---------------------------------------------------------------------------
+# Cosmos diagnostic logs (Phase 3: cosmos adapter)
+# ---------------------------------------------------------------------------
+# Returns recent Cosmos operations from Azure Monitor diagnostic logs.
+# Diagnostic logs flow with 5-10 minute lag.
+# {capture_filter} is e.g. '| where clientRequestId_g == "trace-1"' or empty.
+# {limit} is row limit.
+
+COSMOS_DIAGNOSTIC_LOGS = """\
+CDBDataPlaneRequests
+{capture_filter}| project
+    timestamp = TimeGenerated,
+    operation_name = OperationName,
+    status_code = StatusCode,
+    duration_ms = DurationMs,
+    request_charge = RequestCharge,
+    request_length = RequestLength,
+    response_length = ResponseLength,
+    partition_key_range_id = PartitionKeyRangeId,
+    client_request_id = clientRequestId_g,
+    collection_name = CollectionName
+| order by timestamp desc
+| take {limit}
+"""

@@ -13,6 +13,7 @@ from second_brain.observability.kql_templates import (
     BACKEND_API_FAILURES,
     BACKEND_API_REQUESTS,
     CAPTURE_TRACE,
+    COSMOS_DIAGNOSTIC_LOGS,
     LATEST_CAPTURE_TRACE_ID,
     RECENT_FAILURES,
     RECENT_FAILURES_FILTERED,
@@ -620,6 +621,49 @@ async def fetch_agent_runs(
         agent_filter=agent_filter,
         capture_filter=capture_filter,
         thread_filter=thread_filter,
+        limit=limit,
+    )
+    result = await execute_kql(
+        client,
+        workspace_id,
+        query,
+        timespan=timedelta(seconds=time_range_seconds),
+        server_timeout=30,
+    )
+
+    if not result.tables or not result.tables[0]:
+        return []
+
+    return result.tables[0]
+
+
+# ---------------------------------------------------------------------------
+# Cosmos diagnostic logs (Phase 3: cosmos adapter)
+# ---------------------------------------------------------------------------
+
+
+async def fetch_cosmos_diagnostics(
+    client: LogsQueryClient,
+    workspace_id: str,
+    capture_trace_id: str | None = None,
+    time_range_seconds: int = 3600,
+    limit: int = 50,
+) -> list[dict]:
+    """Fetch Cosmos data-plane requests from diagnostic logs.
+
+    Diagnostic logs lag 5-10 minutes. Time range should be wide enough
+    to compensate.
+    """
+    if capture_trace_id is not None and not _TRACE_ID_RE.fullmatch(capture_trace_id):
+        raise ValueError(f"Invalid capture_trace_id: {capture_trace_id!r}")
+
+    capture_filter = (
+        f'| where clientRequestId_g == "{capture_trace_id}"\n'
+        if capture_trace_id
+        else ""
+    )
+    query = COSMOS_DIAGNOSTIC_LOGS.format(
+        capture_filter=capture_filter,
         limit=limit,
     )
     result = await execute_kql(
