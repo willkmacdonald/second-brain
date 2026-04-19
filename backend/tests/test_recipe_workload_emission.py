@@ -30,9 +30,11 @@ async def test_recipe_fetch_success_emits_workload_event() -> None:
 
     repo.record_event.assert_called()
     event = repo.record_event.call_args[0][0]
-    assert event.segment_id == "external_services"
-    assert event.payload.outcome == "success"
-    assert "jina" in event.payload.operation
+    # SPIKE-MEMO §5.3 — recipe now emits via emit_agent_workload which wraps
+    # in IngestEvent(root=...); read through `.root`.
+    assert event.root.segment_id == "external_services"
+    assert event.root.payload.outcome == "success"
+    assert "jina" in event.root.payload.operation
 
 
 @pytest.mark.asyncio
@@ -64,9 +66,9 @@ async def test_recipe_fetch_all_tiers_failed_emits_failure() -> None:
     # Should have emitted a failure workload event
     repo.record_event.assert_called()
     event = repo.record_event.call_args[0][0]
-    assert event.segment_id == "external_services"
+    assert event.root.segment_id == "external_services"
     # All tiers returned empty content, so outcome is "failure"
-    assert event.payload.outcome == "failure"
+    assert event.root.payload.outcome == "failure"
 
 
 @pytest.mark.asyncio

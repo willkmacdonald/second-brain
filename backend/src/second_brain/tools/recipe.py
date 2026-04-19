@@ -17,7 +17,6 @@ import logging
 import re
 import socket
 import time
-from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Annotated
 from urllib.parse import urlparse, urlunparse
 
@@ -27,7 +26,8 @@ from bs4 import BeautifulSoup
 from playwright.async_api import Browser, Route
 from pydantic import Field
 
-from second_brain.spine.models import WorkloadPayload, _WorkloadEvent
+from second_brain.spine.agent_emitter import emit_agent_workload
+from second_brain.tools.classification import capture_trace_id_var
 
 if TYPE_CHECKING:
     from second_brain.spine.storage import SpineRepository
@@ -126,7 +126,7 @@ class RecipeTools:
 
         start = time.perf_counter()
         tier_used = "none"
-        outcome = "failure"
+        outcome: str = "failure"
 
         # Tier 1: Jina Reader (bypasses Cloudflare/bot protection)
         text = await self._fetch_jina(url)
@@ -168,23 +168,32 @@ class RecipeTools:
         if parts:
             outcome = "success"
 
-        # Emit workload event for external_services spine segment
+        # SPIKE-MEMO §5.3 — emit workload event through the shared helper.
+        #
+        # The prior implementation constructed a raw `_WorkloadEvent` and
+        # passed it to `record_event`, which (a) raises AttributeError on
+        # the `.root` accessor in production (same shape bug as §5.1) and
+        # (b) never set correlation_kind / correlation_id so the row never
+        # joined spine_correlation. Using emit_agent_workload threads the
+        # capture_trace_id from the classifier/admin agent ContextVar and
+        # centralises the correlation precedence logic, so external_services
+        # events land with correlation_kind="capture" when the recipe tool
+        # is invoked inside an agent call with a known trace.
         if self._spine_repo is not None:
             duration_ms = int((time.perf_counter() - start) * 1000)
-            try:
-                event = _WorkloadEvent(
-                    segment_id="external_services",
-                    event_type="workload",
-                    timestamp=datetime.now(UTC),
-                    payload=WorkloadPayload(
-                        operation=f"fetch_recipe:{tier_used}",
-                        outcome=outcome,
-                        duration_ms=duration_ms,
-                    ),
-                )
-                await self._spine_repo.record_event(event)
-            except Exception:
-                pass  # Never let spine emission break recipe fetch
+            capture_trace_id = capture_trace_id_var.get() or None
+            # emit_agent_workload owns its own try/except + warning log,
+            # so bare `except: pass` is no longer needed here.
+            await emit_agent_workload(
+                repo=self._spine_repo,
+                segment_id="external_services",
+                operation=f"fetch_recipe:{tier_used}",
+                outcome=outcome,  # type: ignore[arg-type]
+                duration_ms=duration_ms,
+                capture_trace_id=capture_trace_id,
+                run_id=None,
+                thread_id=None,
+            )
 
         if not parts:
             return f"Error: Page at {url} loaded but contained no extractable content."
