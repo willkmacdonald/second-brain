@@ -21,6 +21,19 @@ Test B — focused query primitives exist with the adapter's signature:
     gymnastics. Without this the adapter has no backing queries and
     /api/spine/segment/backend_api cannot return the locked
     azure_monitor_app_insights schema.
+
+Test C — Phase 19.2 emitter shape contract (SPIKE-MEMO §5):
+    Every emit site must wrap its concrete `_WorkloadEvent` /
+    `_LivenessEvent` in `IngestEvent(root=...)` before calling
+    `SpineRepository.record_event`. The production repository does
+    `event.root` (Pydantic v2 RootModel accessor) which raises
+    AttributeError on a raw `_WorkloadEvent`. Every emit site that
+    bypasses this wrap is silently broken in production — AsyncMock
+    tests mask the defect because mocks don't exercise `.root`.
+
+    The fake `RootAccessingSpineRepo` below calls `event.root` in the
+    same way `SpineRepository.record_event` does, so the shape bug
+    surfaces at test time.
 """
 
 from __future__ import annotations
@@ -227,3 +240,313 @@ def test_adapter_does_not_use_query_capture_trace_as_requests_source() -> None:
     assert "trace_id" in sig.parameters  # timeline-query shape
     assert "time_range_seconds" not in sig.parameters  # NOT the adapter shape
     assert "capture_trace_id" not in sig.parameters  # NOT the adapter shape
+
+
+# ---------------------------------------------------------------------------
+# Test C — Phase 19.2 emitter shape contract (SPIKE-MEMO §5)
+#
+# The production `SpineRepository.record_event` accepts `IngestEvent`
+# and does `event.root` to pull the concrete variant. AsyncMock-based
+# tests bypass this accessor, so the shape bug at
+# `spine/agent_emitter.py:63`, `api/telemetry.py:105,120`, and
+# `tools/recipe.py:185` survives in production despite green unit tests.
+#
+# `RootAccessingSpineRepo` emulates the production `record_event`
+# contract faithfully: it calls `.root` and stores the concrete variant.
+# Any emit site that passes a raw `_WorkloadEvent` / `_LivenessEvent`
+# will raise AttributeError here, exactly as it does in production.
+# ---------------------------------------------------------------------------
+
+
+import logging  # noqa: E402
+import socket  # noqa: E402
+from contextlib import ExitStack  # noqa: E402 — grouped with tests below
+from unittest.mock import MagicMock, patch  # noqa: E402
+
+from fastapi import FastAPI as _FastAPI  # noqa: E402 — shadowed safely
+from httpx import ASGITransport as _ASGITransport  # noqa: E402
+from httpx import AsyncClient as _AsyncClient  # noqa: E402
+
+from second_brain.api.telemetry import router as telemetry_router  # noqa: E402
+from second_brain.spine.agent_emitter import emit_agent_workload  # noqa: E402
+from second_brain.spine.models import (  # noqa: E402
+    IngestEvent,
+    _LivenessEvent,
+    _WorkloadEvent,
+)
+
+
+class _RootAccessingSpineRepo:
+    """Fake SpineRepository whose record_event emulates production.
+
+    The real SpineRepository.record_event does `inner = event.root` on
+    the passed-in argument. That accessor exists only on the
+    `IngestEvent` RootModel wrapper — a raw `_WorkloadEvent` /
+    `_LivenessEvent` raises `AttributeError: '_WorkloadEvent' object has
+    no attribute 'root'`, which is the production bug the SPIKE memo
+    catalogued for four segments (classifier / admin / investigation /
+    external_services) plus mobile crud_failure.
+    """
+
+    def __init__(self) -> None:
+        self.events_recorded: list = []
+
+    async def record_event(self, event) -> None:  # noqa: ANN001
+        # This mirrors SpineRepository.record_event:
+        #   inner = event.root  # raises if event is not an IngestEvent
+        inner = event.root
+        self.events_recorded.append(inner)
+
+
+# ---------------------------------------------------------------------------
+# §5.1 — emit_agent_workload wraps event in IngestEvent(root=...)
+#
+# Fixes classifier + admin + investigation simultaneously because they
+# all route through this helper via stream_wrapper / admin_handoff.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_emit_agent_workload_wraps_event_in_ingest_event_root() -> None:
+    """SPIKE-MEMO §5.1 — agent_emitter.py:63 must pass IngestEvent.
+
+    RED against the current code (raw `_WorkloadEvent` passed to
+    `record_event` raises AttributeError in the fake). Green after the
+    one-line wrap `IngestEvent(root=event)` lands.
+    """
+    repo = _RootAccessingSpineRepo()
+    await emit_agent_workload(
+        repo=repo,
+        segment_id="classifier",
+        operation="classify",
+        outcome="success",
+        duration_ms=123,
+        capture_trace_id="trace-abc",
+        run_id="run-1",
+        thread_id=None,
+    )
+    assert len(repo.events_recorded) == 1
+    inner = repo.events_recorded[0]
+    assert inner.segment_id == "classifier"
+    assert inner.event_type == "workload"
+    assert inner.payload.correlation_kind == "capture"
+    assert inner.payload.correlation_id == "trace-abc"
+
+
+@pytest.mark.asyncio
+async def test_emit_agent_workload_investigation_thread_correlation() -> None:
+    """SPIKE-MEMO §5.1 — also repairs investigation thread correlation.
+
+    Investigation never wrote a `thread`-kind correlation row because
+    agent_emitter's wrap bug dropped every event. RED until the wrap
+    fix lands.
+    """
+    repo = _RootAccessingSpineRepo()
+    await emit_agent_workload(
+        repo=repo,
+        segment_id="investigation",
+        operation="answer_question",
+        outcome="success",
+        duration_ms=4000,
+        capture_trace_id=None,
+        run_id="run-xyz",
+        thread_id="thread-xyz",
+    )
+    assert len(repo.events_recorded) == 1
+    inner = repo.events_recorded[0]
+    assert inner.segment_id == "investigation"
+    assert inner.payload.correlation_kind == "thread"
+    assert inner.payload.correlation_id == "thread-xyz"
+
+
+# ---------------------------------------------------------------------------
+# §5.2 — api/telemetry.py workload + liveness events wrap in IngestEvent
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_telemetry_crud_failure_wraps_workload_event_in_ingest_event() -> None:
+    """SPIKE-MEMO §5.2 — telemetry.py:105 must pass IngestEvent.
+
+    Mobile crud_failure path is latently broken the same way agent
+    emitter is. RED until the wrap lands for both workload (line 105)
+    and the sibling liveness emit (line 120).
+    """
+    app = _FastAPI()
+    app.include_router(telemetry_router)
+    app.state.spine_repo = _RootAccessingSpineRepo()
+    async with _AsyncClient(
+        transport=_ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        resp = await client.post(
+            "/api/telemetry",
+            json={
+                "event_type": "crud_failure",
+                "message": "Inbox load failed: 500",
+                "metadata": {"operation": "load_inbox", "status": 500},
+            },
+        )
+    assert resp.status_code == 204
+    # 2 events: workload failure + synthetic liveness
+    events = app.state.spine_repo.events_recorded
+    assert len(events) == 2
+    workload = events[0]
+    assert isinstance(workload, _WorkloadEvent)
+    assert workload.segment_id == "mobile_ui"
+    assert workload.payload.outcome == "failure"
+    liveness = events[1]
+    assert isinstance(liveness, _LivenessEvent)
+    assert liveness.segment_id == "mobile_ui"
+
+
+# ---------------------------------------------------------------------------
+# §5.3 — tools/recipe.py migrates to emit_agent_workload with correlation
+#
+# Recipe tool is called by the admin agent @tool invocation. The capture
+# trace id is propagated via the existing `capture_trace_id_var`
+# ContextVar (the same mechanism file_capture already uses in
+# classification.py). When set, the emitted workload event MUST carry
+# correlation_kind="capture" + correlation_id=<trace> so it lands in
+# spine_correlation.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_recipe_fetch_emits_correlation_tagged_workload_via_contextvar() -> None:
+    """SPIKE-MEMO §5.3 — recipe.py:175-185 must migrate to emit_agent_workload.
+
+    RED against current code: direct `_WorkloadEvent` construction at
+    line 175 both (a) raises AttributeError in RootAccessingSpineRepo
+    and (b) omits correlation_kind / correlation_id so the row never
+    joins spine_correlation. Green after the migration + ContextVar
+    read lands.
+    """
+    from second_brain.tools.classification import capture_trace_id_var
+    from second_brain.tools.recipe import RecipeTools
+
+    # Prevent live DNS resolution
+    fake_addr = [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 0))]
+
+    browser = MagicMock()
+    repo = _RootAccessingSpineRepo()
+    tools = RecipeTools(browser, spine_repo=repo)
+
+    trace_id = "trace-recipe-xyz"
+    token = capture_trace_id_var.set(trace_id)
+    try:
+        with ExitStack() as stack:
+            stack.enter_context(
+                patch(
+                    "second_brain.tools.recipe.socket.getaddrinfo",
+                    return_value=fake_addr,
+                )
+            )
+            stack.enter_context(
+                patch(
+                    "second_brain.tools.recipe._is_safe_url",
+                    return_value=True,
+                )
+            )
+            stack.enter_context(
+                patch.object(
+                    tools,
+                    "_fetch_jina",
+                    new=AsyncMock(return_value="x" * 600),
+                )
+            )
+            await tools.fetch_recipe_url(url="https://example.com/recipe")
+    finally:
+        capture_trace_id_var.reset(token)
+
+    assert len(repo.events_recorded) == 1
+    inner = repo.events_recorded[0]
+    assert inner.segment_id == "external_services"
+    assert inner.payload.outcome == "success"
+    assert inner.payload.correlation_kind == "capture"
+    assert inner.payload.correlation_id == trace_id
+
+
+@pytest.mark.asyncio
+async def test_recipe_fetch_logs_warning_when_spine_emit_fails(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """SPIKE-MEMO §5.3c — replace bare `except: pass` with logger.warning.
+
+    RED against current code: `tools/recipe.py:186-187` has
+    `except Exception: pass` which silently swallows every emit
+    failure. After the fix, the warning message must reach logs with
+    exc_info so operators can see the failure.
+    """
+    from second_brain.tools.classification import capture_trace_id_var
+    from second_brain.tools.recipe import RecipeTools
+
+    fake_addr = [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 0))]
+
+    class _ExplodingRepo:
+        async def record_event(self, event) -> None:  # noqa: ANN001, ARG002
+            raise RuntimeError("cosmos down")
+
+    browser = MagicMock()
+    tools = RecipeTools(browser, spine_repo=_ExplodingRepo())
+
+    token = capture_trace_id_var.set("trace-explode")
+    caplog.set_level(logging.WARNING, logger="second_brain")
+    try:
+        with ExitStack() as stack:
+            stack.enter_context(
+                patch(
+                    "second_brain.tools.recipe.socket.getaddrinfo",
+                    return_value=fake_addr,
+                )
+            )
+            stack.enter_context(
+                patch(
+                    "second_brain.tools.recipe._is_safe_url",
+                    return_value=True,
+                )
+            )
+            stack.enter_context(
+                patch.object(
+                    tools,
+                    "_fetch_jina",
+                    new=AsyncMock(return_value="x" * 600),
+                )
+            )
+            # Must not raise even though emit fails
+            await tools.fetch_recipe_url(url="https://example.com/recipe")
+    finally:
+        capture_trace_id_var.reset(token)
+
+    # Warning log must be present with exc_info (not silently swallowed)
+    matching = [
+        r
+        for r in caplog.records
+        if r.levelno == logging.WARNING and "cosmos down" in (r.exc_text or "")
+    ]
+    assert matching, (
+        "recipe emit failure should log WARNING with exc_info, not bare `except: pass`"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Hygiene: ensure production telemetry module really uses IngestEvent
+#
+# Guards against future regressions: if someone reintroduces a raw
+# `_WorkloadEvent`/`_LivenessEvent` call to record_event in the mobile
+# crud path, this import-time assertion fails.
+# ---------------------------------------------------------------------------
+
+
+def test_telemetry_module_imports_ingest_event() -> None:
+    """Cheap regression guard: telemetry.py references IngestEvent.
+
+    After the §5.2 fix lands, `api/telemetry.py` wraps its emits in
+    `IngestEvent(root=...)`. This test fails if the import disappears.
+    """
+    import second_brain.api.telemetry as telemetry_module
+
+    assert hasattr(telemetry_module, "IngestEvent"), (
+        "telemetry.py must import IngestEvent after SPIKE-MEMO §5.2 fix"
+    )
+    # And it must be the real RootModel, not a stub
+    assert telemetry_module.IngestEvent is IngestEvent
