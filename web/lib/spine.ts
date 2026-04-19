@@ -7,6 +7,8 @@ import type {
   StatusBoardResponse,
   CorrelationResponse,
   SegmentDetailResponse,
+  SegmentLedgerResponse,
+  TransactionPathResponse,
   CorrelationKind,
 } from "./types";
 
@@ -42,5 +44,29 @@ export const spine = {
     if (params?.time_range_seconds) search.set("time_range_seconds", String(params.time_range_seconds));
     const qs = search.toString();
     return spineFetch<SegmentDetailResponse>(`/api/spine/segment/${id}${qs ? `?${qs}` : ""}`);
+  },
+  segmentLedger: (
+    id: string,
+    params?: { window_seconds?: number; limit?: number },
+  ) => {
+    const search = new URLSearchParams();
+    if (params?.window_seconds) search.set("window_seconds", String(params.window_seconds));
+    if (params?.limit) search.set("limit", String(params.limit));
+    const qs = search.toString();
+    return spineFetch<SegmentLedgerResponse>(
+      `/api/spine/ledger/segment/${encodeURIComponent(id)}${qs ? `?${qs}` : ""}`,
+    );
+  },
+  transactionPath: (
+    kind: CorrelationKind,
+    id: string,
+    params?: { window_seconds?: number },
+  ) => {
+    const search = new URLSearchParams();
+    if (params?.window_seconds) search.set("window_seconds", String(params.window_seconds));
+    const qs = search.toString();
+    return spineFetch<TransactionPathResponse>(
+      `/api/spine/ledger/correlation/${kind}/${encodeURIComponent(id)}${qs ? `?${qs}` : ""}`,
+    );
   },
 };
