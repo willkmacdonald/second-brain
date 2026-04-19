@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Observability & Evals
 status: in_progress
-last_updated: "2026-04-19T20:25:00.000Z"
+last_updated: "2026-04-19T20:35:32.000Z"
 progress:
   total_phases: 17
   completed_phases: 14
   total_plans: 53
-  completed_plans: 48
+  completed_plans: 49
 ---
 
 # Project State
@@ -23,11 +23,11 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 ## Current Position
 
 Phase: 19.2 of 22 (Transaction-First Spine) -- IN PROGRESS
-Plan: 2 of 5 complete in current phase
-Status: Phase 19.2 Plan 02 complete (emitter + correlation fixes per SPIKE-MEMO §5, integrated-release checklist produced) -- Plan 03 (ledger read API) ready to dispatch
-Last activity: 2026-04-19 -- Plan 19.2-02 executed (6 memo §5 fixes + walking regression + classifier verification + integrated-release verify doc; 9 commits b6394c7..bfe33d9; 412 backend tests green)
+Plan: 3 of 5 complete in current phase
+Status: Phase 19.2 Plan 03 complete (backend ledger read API — /api/spine/ledger/segment + /api/spine/ledger/correlation with purposeful empty-state metadata and explicit gap reporting) -- Plan 04 (web UI ledger section) ready to dispatch
+Last activity: 2026-04-19 -- Plan 19.2-03 executed (3 tasks, 6 files, 16 new tests, 430 backend tests green; commits 3229120 / 48a2f0a / 7aba1f5)
 
-Progress: [████████░░░░░░░░░░░░] 40% (Phase 19.2: 2/5 plans complete)
+Progress: [████████████░░░░░░░░] 60% (Phase 19.2: 3/5 plans complete)
 
 ## Performance Metrics
 
@@ -42,8 +42,8 @@ Progress: [████████░░░░░░░░░░░░] 40% (Ph
 - Timeline: 2026-02-26 to 2026-03-01 (4 days)
 
 **Velocity (v3.1):**
-- Plans completed: 15
-- Last plan duration: ~30 min (19.2-02 — 6 memo §5 fixes + walking regression + classifier verification + integrated-release verify doc)
+- Plans completed: 16
+- Last plan duration: 4 min (19.2-03 — backend ledger read API with purposeful empty-state metadata and explicit gap reporting)
 - Timeline: 2026-04-05 to present
 
 *Updated after each plan completion*
@@ -115,6 +115,13 @@ v3.0 decisions archived to .planning/milestones/v3.0-ROADMAP.md
 - [Phase 19.2-02]: §5.6 classifier-side emit verification implemented at spine_stream_wrapper level rather than full capture-handler integration -- wrapper is the only emit boundary the real handler delegates to, so wrapper-level RootAccessingSpineRepo test satisfies the integration guarantee without wiring Foundry/Cosmos mocks
 - [Phase 19.2-02]: Mobile Jest unit tests for Option B terminal paths DEFERRED -- mobile package has no test framework installed; coverage provided via end-to-end trace inspection after EAS build deploys (SPIKE-INTEGRATED-RELEASE-VERIFY.md Step 7)
 - [Phase 19.2-02]: Plan 02 will NOT merge alone -- integrated-release banner and must-have truths both enforce Plans 02-05 deploying together
+- [Phase 19.2-03]: Operator-facing ledger policy codified in backend/src/second_brain/spine/ledger_policy.py (LEDGER_EXPECTED_CHAINS + SEGMENT_LEDGER_METADATA) — separate from raw audit registry; SPIKE-MEMO §4 decisions encoded in code, not read at runtime
+- [Phase 19.2-03]: LEDGER_EXPECTED_CHAINS starts from EXPECTED_CHAINS unchanged — memo's YES/NO mobile decision already aligned with required flags; override layer ready for future memo revisions without schema change
+- [Phase 19.2-03]: Transaction-ledger rows are correlated-only -- get_recent_transaction_events filters IS_DEFINED(correlation_kind/correlation_id) server-side so probe/health noise stays in native diagnostics
+- [Phase 19.2-03]: RESEARCH Option A enrichment -- spine_correlation (which segments) JOIN spine_events (duration/operation) by (segment_id, timestamp) in the read path; avoids forward-only schema change on spine_correlation upsert
+- [Phase 19.2-03]: Purposeful empty-state metadata on SegmentLedgerResponse -- mode (transactional|native_only) + empty_state_reason string rendered verbatim by UI; defaults to transactional/None for unlisted segments
+- [Phase 19.2-03]: Query(...) chosen over Field(...) for FastAPI route-parameter bounds -- Field silently skips ge/le on route params; regression-tested with 422 on out-of-bounds window_seconds
+- [Phase 19.2-03]: api.py added as single Write (not stepwise Edits) for imports + route handlers -- ruff auto-format hook strips unused imports between edits (MEMORY.md Phase 17.1 lesson)
 
 ### Pending Todos
 
@@ -137,5 +144,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-19
-Stopped at: Completed 19.2-02-PLAN.md (6 memo §5 fixes + walking regression + classifier verification + integrated-release verify doc; 9 commits b6394c7..bfe33d9; 412 backend tests green) -- Phase 19.2 Plan 02 complete (emitter + correlation fixes ready for integrated release with Plans 03-05)
-Resume action: Dispatch Plan 19.2-03 (ledger read API — spine_events + spine_correlation join exposure)
+Stopped at: Completed 19.2-03-PLAN.md (backend ledger read API — 3 tasks, 6 files, 16 new tests, 430 backend tests green; commits 3229120 / 48a2f0a / 7aba1f5) -- Phase 19.2 Plan 03 complete (ledger endpoints + operator-facing ledger policy ready for Plans 04/05 to consume)
+Resume action: Dispatch Plan 19.2-04 (web UI -- SegmentLedgerSection + transaction-path types wired to the new /api/spine/ledger/* endpoints)
