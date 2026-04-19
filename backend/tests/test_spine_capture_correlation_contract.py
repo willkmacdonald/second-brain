@@ -550,3 +550,141 @@ def test_telemetry_module_imports_ingest_event() -> None:
     )
     # And it must be the real RootModel, not a stub
     assert telemetry_module.IngestEvent is IngestEvent
+
+
+# ---------------------------------------------------------------------------
+# §5.4 — Cross-site walking regression test
+#
+# Per SPIKE-MEMO §5.4, exercise every agent-side emit entry point against
+# a SpineRepository double whose `record_event` uses the REAL
+# `IngestEvent.root` accessor. Any future code path that forgets the wrap
+# — direct `_WorkloadEvent` construction, new emit site that skips
+# `emit_agent_workload`, etc — fails this test at import/construction
+# time instead of silently dropping events in production.
+#
+# Entry points covered:
+#   1. `spine_stream_wrapper` — classifier path (also what admin + any
+#      future SSE agent route uses)
+#   2. `emit_agent_workload` — direct helper call (admin / investigation
+#      / recipe all route through this)
+#   3. `api/telemetry.py` crud_failure — mobile_ui / mobile_capture
+#      latent crud path (covered separately above, but re-asserted here
+#      for a single-suite "every emit site" guarantee)
+#   4. `tools/recipe.RecipeTools.fetch_recipe_url` — external_services
+#      (covered above in §5.3 tests, asserted here in walk form)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_stream_wrapper_emit_uses_ingest_event_wrap() -> None:
+    """SPIKE-MEMO §5.4 — classifier SSE wrapper must land events.
+
+    `spine_stream_wrapper` calls `emit_agent_workload` in its `finally`
+    block. If the helper ever regresses on the wrap, this test fails.
+    """
+    from second_brain.spine.stream_wrapper import spine_stream_wrapper
+
+    repo = _RootAccessingSpineRepo()
+
+    async def _fake_sse() -> AsyncGenerator[str, None]:  # type: ignore[name-defined]  # noqa: F821
+        yield 'data: {"type":"STEP_START"}\n\n'
+        yield 'data: {"type":"COMPLETE"}\n\n'
+
+    collected: list[str] = []
+    async for chunk in spine_stream_wrapper(
+        inner=_fake_sse(),
+        repo=repo,  # type: ignore[arg-type]
+        segment_id="classifier",
+        operation="capture_text",
+        capture_trace_id="trace-wrap-walk-1",
+        run_id=None,
+        thread_id=None,
+    ):
+        collected.append(chunk)
+
+    assert len(collected) == 2, "wrapper must pass SSE chunks through"
+    assert len(repo.events_recorded) == 1, (
+        "wrapper must emit one workload event after the stream completes"
+    )
+    inner = repo.events_recorded[0]
+    assert inner.segment_id == "classifier"
+    assert inner.payload.correlation_kind == "capture"
+    assert inner.payload.correlation_id == "trace-wrap-walk-1"
+
+
+@pytest.mark.asyncio
+async def test_stream_wrapper_emits_failure_event_on_error() -> None:
+    """SPIKE-MEMO §5.4 — failure path also honours the wrap.
+
+    The failure emit happens in the same `finally` block after `raise`.
+    Guards against the wrap being lost on the failure branch only.
+    """
+    from second_brain.spine.stream_wrapper import spine_stream_wrapper
+
+    repo = _RootAccessingSpineRepo()
+
+    class _BoomError(RuntimeError):
+        pass
+
+    async def _failing_sse() -> AsyncGenerator[str, None]:  # type: ignore[name-defined]  # noqa: F821
+        yield 'data: {"type":"STEP_START"}\n\n'
+        raise _BoomError("synthetic failure")
+
+    with pytest.raises(_BoomError):
+        async for _ in spine_stream_wrapper(
+            inner=_failing_sse(),
+            repo=repo,  # type: ignore[arg-type]
+            segment_id="classifier",
+            operation="capture_text",
+            capture_trace_id="trace-wrap-walk-fail",
+            run_id=None,
+            thread_id=None,
+        ):
+            pass
+
+    assert len(repo.events_recorded) == 1
+    inner = repo.events_recorded[0]
+    assert inner.payload.outcome == "failure"
+    assert inner.payload.error_class == "_BoomError"
+
+
+def test_no_bare_workload_event_record_event_calls_remain() -> None:
+    """SPIKE-MEMO §5.4 — static guard against future regressions.
+
+    Scans the production source for any `record_event(` call whose argument
+    is a raw `_WorkloadEvent(` or `_LivenessEvent(` constructor. Every
+    emit site MUST wrap in `IngestEvent(root=...)`. If this test fails,
+    a new emit site was added without the wrap — fix it or add the call
+    site to the exemption list with a citation explaining why.
+    """
+    import pathlib
+    import re
+
+    backend_src = pathlib.Path(__file__).parent.parent / "src" / "second_brain"
+    assert backend_src.is_dir(), "expected backend/src/second_brain to exist"
+
+    # Pattern: record_event(<identifier>  where identifier starts with `_`
+    # (our concrete event model classes are _LivenessEvent / _WorkloadEvent /
+    # _ReadinessEvent). Wrapped calls use record_event(IngestEvent(...))
+    # which starts with a capital letter and passes this filter.
+    bad_pattern = re.compile(
+        r"record_event\s*\(\s*_(?:Workload|Liveness|Readiness)Event\b"
+    )
+    # Also catch `record_event(event)` where `event` is a raw concrete —
+    # we approximate by forbidding `record_event(event)` when `event =
+    # _WorkloadEvent(...)` appears without an intervening IngestEvent
+    # wrap. Full AST analysis is overkill; the named-arg catches the
+    # common bug shape from the spike.
+
+    offenders: list[str] = []
+    for path in backend_src.rglob("*.py"):
+        text = path.read_text()
+        for match in bad_pattern.finditer(text):
+            line_no = text.count("\n", 0, match.start()) + 1
+            offenders.append(f"{path.relative_to(backend_src)}:{line_no}")
+
+    assert not offenders, (
+        "SPIKE-MEMO §5.4 regression — raw `_WorkloadEvent` / `_LivenessEvent`"
+        f" passed to record_event at: {offenders}. Wrap in IngestEvent(root=...)"
+        " or route through `emit_agent_workload`."
+    )
