@@ -1,7 +1,11 @@
 # Phase 19.2 Plan 01 — Spike Memo
 
-**Status:** Awaiting human approval (Plan 01 Task 3 gate) — **Round 2 revision**
+**Status:** Awaiting human approval (Plan 01 Task 3 gate) — **Round 3 revision** (pre-approved contingent on this fix)
 **Evidence:** See [SPIKE-DATA.md](./SPIKE-DATA.md) for raw query output, App Insights stack traces, and audit_correlation reports. This memo contains categorization and recommendations only — no raw data.
+
+**Round 3 changes vs. round 2** (in response to operator review of §4c / §5 item 5):
+- §4c rewritten. Previously said "wrap onComplete / onError" which would miss `MISUNDERSTOOD` / `LOW_CONFIDENCE` / `UNRESOLVED` (all set `hitlTriggered=true` and suppress the downstream `COMPLETE` → `onComplete` dispatch) plus the legacy `CUSTOM` HITL paths and the SSE transport `error` listener. Now enumerates all seven (+ three legacy) terminal paths from the real `attachCallbacks` in `mobile/lib/ag-ui-client.ts`, centralises the emit inside `attachCallbacks` itself with a single-fire guard, and documents the outcome mapping (success / degraded / failure) including HITL-style outcomes as `degraded`.
+- §5 item 5 rewritten to mirror §4c — emit fires exactly once per stream via the shared `attachCallbacks` helper covering every terminal path, not per-`sendX` onComplete/onError wrappers.
 
 **Round 2 changes vs. round 1** (in response to operator review):
 - §4 rewritten. Decision unchanged (YES for `mobile_capture`, NO for `mobile_ui`) but now explicitly picks **Option B (post-capture fire-and-forget)** after disclosing the honest trade-off between Option A (pre-capture emit with queue/retry — proves transport failure, but a new subsystem) and Option B (simpler, but cannot prove transport failure). §4a explains the trade-off; §4c maps Option B to concrete hook sites in `mobile/lib/ag-ui-client.ts`; §4d covers Plan 04's empty-state UX for the transport-failure blind spot.
@@ -139,11 +143,60 @@ Mobile UI is the CRUD-screen segment — it emits for destructive operations (de
 
 ### 4c. Mapping Option B onto the existing mobile client
 
-Concrete site where the post-capture emit must hook in:
+**Critical constraint: emit MUST fire exactly once on every terminal path.** The SSE client in `mobile/lib/ag-ui-client.ts::attachCallbacks` has **seven distinct terminal paths** that each end a capture lifecycle, and wrapping only `onComplete` / `onError` in each `sendX` function would miss every HITL path because `MISUNDERSTOOD` / `LOW_CONFIDENCE` / `UNRESOLVED` all set `hitlTriggered = true` which suppresses the downstream `COMPLETE` → `onComplete` dispatch (see guard at `ag-ui-client.ts:121`). That would leave valid backend-reached captures with zero `mobile_capture` rows in the ledger.
 
-- `mobile/lib/ag-ui-client.ts::sendCapture` — the existing `wrappedCallbacks` at line 227-238 already intercepts `onError`. Plan 02 adds an analogous `onComplete` wrapper (and preserves the `onError` one) that, AFTER calling the user's callback, issues a `fetch(API_BASE_URL + "/api/spine/ingest", { method: "POST", ... })` with an `IngestEvent` body shaped like `{ root: { segment_id: "mobile_capture", event_type: "workload", timestamp, payload: { operation: "submit_capture", outcome, duration_ms, correlation_kind: "capture", correlation_id: traceId } } }`. Body conforms to `spine/api.py:59`'s `IngestEvent` parameter, so no shape bug is possible on the mobile side.
-- Same pattern applies to `sendVoiceCapture`, `sendFollowUp`, `sendFollowUpVoice` — each already has a `traceId` in scope and an SSE error/complete path.
-- `mobile/lib/telemetry.ts::reportError` is NOT the right hook — it's error-only and semantically about logging, not about the capture workload completing successfully.
+**Enumerated terminal paths in the current `attachCallbacks` (line numbers as of 2026-04-18):**
+
+1. `CLASSIFIED` at line 85 — fires `callbacks.onComplete(result)` (v2 normal success).
+2. `COMPLETE` / `RUN_FINISHED` at line 119-129 — fires `callbacks.onComplete(...)` only when `!hitlTriggered && (RUN_FINISHED || !result)`; always calls `es.close()`. (The `!result` guard prevents a double-fire when `CLASSIFIED` already set `result` on the same stream.)
+3. `MISUNDERSTOOD` at line 89 — fires `callbacks.onMisunderstood?.(...)` and sets `hitlTriggered = true` (HITL, suppresses COMPLETE).
+4. `LOW_CONFIDENCE` at line 101 — fires `callbacks.onLowConfidence?.(...)` and sets `hitlTriggered = true` (HITL, suppresses COMPLETE).
+5. `UNRESOLVED` at line 113 — fires `callbacks.onUnresolved?.(...)` and sets `hitlTriggered = true` (HITL, suppresses COMPLETE).
+6. `ERROR` / `RUN_ERROR` at line 131-135 — fires `callbacks.onError(...)` and calls `es.close()` (backend-raised error).
+7. SSE transport `error` listener at line 176-181 — fires `callbacks.onError(...)` and calls `es.close()` (connection-level failure: network drop, non-2xx response, parse error, etc).
+8. **Legacy `CUSTOM` envelope at line 145-169** — three sub-paths (`HITL_REQUIRED` / `MISUNDERSTOOD` / `UNRESOLVED`) that each set `hitlTriggered = true` and fire their respective HITL callback. These are v1 backward-compat paths the v2 backend no longer emits but the client still handles; they must be covered for the same reason as paths 3-5.
+
+**Design: centralize the emit in `attachCallbacks` itself, with a single-fire guard.**
+
+- Do NOT wrap each `sendX` function's callbacks individually — that would require duplicating the guard and the emit across four call sites and would miss the HITL paths entirely (because the `sendX`-level wrappers only see `onError` / `onComplete`, not `onMisunderstood` / `onLowConfidence` / `onUnresolved`).
+- Add the emit inside `attachCallbacks` where every terminal path is already observed. Every dispatch above is routed through `attachCallbacks`, so a shared wrapper there sees all seven.
+- Implement a single-fire guard — mechanism is an implementation detail (a closure-scoped boolean like `let emitted = false` is sufficient given `attachCallbacks` runs per-stream; anything equivalent is fine).
+- Add a `startMs = Date.now()` captured at the top of `attachCallbacks` (or threaded in from `sendX`) so `duration_ms` can be computed on emit.
+- Thread `traceId` into `attachCallbacks` (today it's only in scope inside each `sendX`; extend the `attachCallbacks` signature to accept it).
+
+**Outcome mapping** (resolves the operator's open question on HITL-style outcomes for `operation="submit_capture"`):
+
+| Terminal path                              | `outcome`   | Rationale                                                                 |
+| ------------------------------------------ | ----------- | ------------------------------------------------------------------------- |
+| `CLASSIFIED`                               | `success`   | Normal success — backend classified and filed.                            |
+| `COMPLETE` / `RUN_FINISHED` (non-HITL)     | `success`   | Same as above via the fallback path.                                      |
+| `MISUNDERSTOOD`                            | `degraded`  | Reached backend and a classification attempt happened, but needs human follow-up (HITL). |
+| `LOW_CONFIDENCE`                           | `degraded`  | Same — HITL-required manual bucket selection.                             |
+| `UNRESOLVED`                               | `degraded`  | Same — HITL-required resolution.                                          |
+| `ERROR` / `RUN_ERROR`                      | `failure`   | Backend emitted an error event — capture did not succeed.                 |
+| SSE transport `error`                      | `failure`   | Connection / transport failed — capture did not complete successfully.    |
+| Legacy `CUSTOM: HITL_REQUIRED`             | `degraded`  | Legacy equivalent of MISUNDERSTOOD.                                       |
+| Legacy `CUSTOM: MISUNDERSTOOD`             | `degraded`  | Same.                                                                     |
+| Legacy `CUSTOM: UNRESOLVED`                | `degraded`  | Same.                                                                     |
+
+**General rule** for any future terminal path: reached backend and got a classification (regardless of HITL) ⇒ `success` or `degraded`; never reached backend OR backend raised an error ⇒ `failure`.
+
+**Body shape** — conforms to `backend/src/second_brain/spine/api.py:59`'s `IngestEvent` parameter (Pydantic `RootModel`), so no shape bug is possible on the mobile side:
+
+```
+{ root: { segment_id: "mobile_capture",
+          event_type: "workload",
+          timestamp: <iso>,
+          payload: { operation: "submit_capture",
+                     outcome: "success" | "degraded" | "failure",
+                     duration_ms: <measured from sendX start to terminal dispatch>,
+                     correlation_kind: "capture",
+                     correlation_id: <traceId> } } }
+```
+
+**Not the right hooks (for reference):**
+- `mobile/lib/telemetry.ts::reportError` (line 30) — error-only and semantically about Sentry logging, not about the capture workload terminating.
+- Per-`sendX` callback wrappers (the existing `wrappedCallbacks` at line 227-238, 284-295, 341-352, 398-409) — these only intercept `onError` today and would require adding wrappers for all five HITL callbacks per call site. Centralizing in `attachCallbacks` is both less code and strictly more correct.
 
 ### 4d. Scope implications for Plan 04
 
@@ -166,17 +219,31 @@ Plan 02 executes these fixes, in this order:
 
 4. **Add a TEST that would have caught the shape bug pre-deploy** — a pytest that calls every emit site (classifier via `spine_stream_wrapper`, admin via `emit_agent_workload`, investigation similarly, recipe's `RecipeTools`) against a fake `SpineRepository` whose `record_event` uses the REAL `IngestEvent.root` access — so the next time someone forgets the wrap, CI fails.
 
-5. **Add mobile_capture push path (Option B — post-capture fire-and-forget)** — in `mobile/lib/ag-ui-client.ts`, wrap both the `onError` and `onComplete` callbacks for each of the four submit flows (`sendCapture`, `sendVoiceCapture`, `sendFollowUp`, `sendFollowUpVoice`) so that AFTER the user's callback fires, the client issues a fire-and-forget `fetch(API_BASE_URL + "/api/spine/ingest", { method: "POST", ... })` with an `IngestEvent` body:
+5. **Add mobile_capture push path (Option B — post-capture fire-and-forget)** — in `mobile/lib/ag-ui-client.ts`, centralise the emit inside the shared `attachCallbacks` helper (line 47) so it fires **exactly once on every terminal path**, covering all four submit flows (`sendCapture`, `sendVoiceCapture`, `sendFollowUp`, `sendFollowUpVoice`) in one edit. See §4c for the full terminal-path enumeration and the outcome-mapping table; the task must cover every path listed there:
+   - `CLASSIFIED` → `outcome="success"`
+   - `COMPLETE` / `RUN_FINISHED` (non-HITL) → `outcome="success"`
+   - `MISUNDERSTOOD` / `LOW_CONFIDENCE` / `UNRESOLVED` → `outcome="degraded"` (HITL — backend reached, classification happened, human follow-up required)
+   - `ERROR` / `RUN_ERROR` → `outcome="failure"`
+   - SSE transport `error` listener → `outcome="failure"`
+   - Legacy `CUSTOM: HITL_REQUIRED` / `MISUNDERSTOOD` / `UNRESOLVED` → `outcome="degraded"` (legacy equivalents)
+
+   **Single-fire guard:** a closure-scoped boolean (`let emitted = false`) inside `attachCallbacks` ensures the emit fires once per stream even if multiple terminal events arrive (e.g. `CLASSIFIED` followed by `COMPLETE`, or a HITL event followed by stream close). Exact mechanism is an implementation detail — any equivalent single-fire primitive is fine.
+
+   **Signature change:** extend `attachCallbacks(es, callbacks)` to `attachCallbacks(es, callbacks, traceId, startMs)` so the emit has `correlation_id` and `duration_ms` in scope. Each `sendX` passes the `traceId` it already owns and a `startMs = Date.now()` captured at the top of the function.
+
+   **Body shape** (Pydantic `RootModel` — conforms to `backend/src/second_brain/spine/api.py:59`'s `IngestEvent`, no shape bug possible on mobile):
    ```
    { root: { segment_id: "mobile_capture", event_type: "workload",
              timestamp: <iso>,
              payload: { operation: "submit_capture",
-                        outcome: "success" | "failure",
-                        duration_ms: <measured>,
+                        outcome: "success" | "degraded" | "failure",
+                        duration_ms: <Date.now() - startMs>,
                         correlation_kind: "capture",
                         correlation_id: <traceId> } } }
    ```
-   Body conforms to `backend/src/second_brain/spine/api.py:59`'s `IngestEvent` parameter — server deserialises via Pydantic `RootModel`, so no shape bug is possible on the mobile side. Fire-and-forget (no retry, no queue). `duration_ms` measured from the `sendX` call start to the callback fire. Add integration test that exercises a mocked `sendCapture` + asserts `/api/spine/ingest` was called with the expected body.
+   Fire-and-forget (no retry, no queue). Issued as a `fetch(API_BASE_URL + "/api/spine/ingest", { method: "POST", ... })` AFTER the user's callback runs, so the ledger emit never blocks or delays the UI.
+
+   **Tests:** integration tests that exercise each terminal path with a mocked EventSource + mocked `fetch` — one per outcome bucket at minimum (one `success` path, one `degraded` path, one `failure` path), plus a single-fire assertion that emits do not double up when `CLASSIFIED` and `COMPLETE` arrive on the same stream.
 
 6. **Add a classifier-side emit verification test** — integration test that runs a real `capture` handler against a Cosmos double and asserts a workload event for `segment_id=classifier` lands after the stream completes.
 
