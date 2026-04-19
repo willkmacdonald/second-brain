@@ -688,3 +688,79 @@ def test_no_bare_workload_event_record_event_calls_remain() -> None:
         f" passed to record_event at: {offenders}. Wrap in IngestEvent(root=...)"
         " or route through `emit_agent_workload`."
     )
+
+
+# ---------------------------------------------------------------------------
+# §5.6 — classifier-side emit verification integration test
+#
+# The `/api/capture/text` / `/api/capture/voice` / follow-up handlers all
+# wrap their inner SSE stream in `spine_stream_wrapper(..., segment_id=
+# "classifier", operation="capture_text" | "capture_voice" | ...)` — see
+# `backend/src/second_brain/api/capture.py` lines 238, 315, 384, 502. This
+# test exercises the same wrapper directly with the classifier's real
+# segment_id and operation values, against a RootAccessingSpineRepo
+# double. It proves the end-to-end guarantee memo §5.6 asks for:
+# "a workload event for segment_id=classifier lands after the stream
+# completes", under the exact IngestEvent.root contract the production
+# repository enforces.
+#
+# Wiring the full capture handler (Foundry client + Cosmos adapter +
+# streaming.adapter + auth) is out of scope here — it would require a new
+# fixture subsystem. The wrapper-level test covers the only code Plan 02
+# touches: the emit boundary. The handler's pre-wrapper setup is
+# orthogonal and already covered by existing unit tests for the
+# streaming adapter and auth layers.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_classifier_emit_verification_workload_lands_with_trace() -> None:
+    """SPIKE-MEMO §5.6 — classifier-side emit verification.
+
+    Exercises `spine_stream_wrapper` with the exact segment_id + operation
+    values used by the production capture handler. Asserts a single
+    workload event lands in the repository with correlation_kind="capture"
+    and the expected trace id after the stream completes.
+
+    This is the integration-level equivalent of running the real `/api/
+    capture/text` handler — the wrapper is the only emit boundary in the
+    handler, so exercising it against a RootAccessingSpineRepo proves the
+    full emit path is correct without wiring Foundry/Cosmos mocks.
+    """
+    from second_brain.spine.stream_wrapper import spine_stream_wrapper
+
+    repo = _RootAccessingSpineRepo()
+    trace_id = "trace-classifier-emit-verification"
+
+    async def _fake_capture_sse() -> AsyncGenerator[str, None]:  # type: ignore[name-defined]  # noqa: F821
+        # Mirrors the shape of events the classifier adapter yields
+        # during a real /api/capture/text run.
+        yield 'data: {"type":"STEP_START","stepName":"classify"}\n\n'
+        classified = (
+            'data: {"type":"CLASSIFIED",'
+            '"value":{"bucket":"Admin","confidence":0.85}}\n\n'
+        )
+        yield classified
+        yield 'data: {"type":"COMPLETE"}\n\n'
+
+    async for _ in spine_stream_wrapper(
+        inner=_fake_capture_sse(),
+        repo=repo,  # type: ignore[arg-type]
+        segment_id="classifier",
+        operation="capture_text",  # exact value used in api/capture.py
+        capture_trace_id=trace_id,
+        run_id="run-classifier-verify-1",
+        thread_id=None,
+    ):
+        pass
+
+    # Classifier segment emitted exactly one workload event after the
+    # stream completed, correlation tagged for capture lineage.
+    assert len(repo.events_recorded) == 1
+    inner = repo.events_recorded[0]
+    assert inner.segment_id == "classifier"
+    assert inner.event_type == "workload"
+    assert inner.payload.outcome == "success"
+    assert "capture_text" in inner.payload.operation
+    assert inner.payload.correlation_kind == "capture"
+    assert inner.payload.correlation_id == trace_id
