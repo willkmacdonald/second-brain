@@ -35,6 +35,56 @@ interface AGUIEventPayload {
 }
 
 /**
+ * SPIKE-MEMO §5.5 — Option B mobile push-path emit.
+ *
+ * Fire-and-forget POST to /api/spine/ingest after the SSE capture stream
+ * terminates. Emits ONE workload event per capture, with outcome mapped
+ * from the terminal SSE path (see §4c table). No retry, no queue; the
+ * mobile error renderer (Sentry) already owns transport-failure
+ * diagnosis for the case where both /api/capture AND this ingest POST
+ * fail over the same broken network.
+ *
+ * Body conforms to backend/src/second_brain/spine/api.py:59's IngestEvent
+ * (Pydantic RootModel), so no shape bug is possible on the mobile side.
+ */
+type MobileCaptureOutcome = "success" | "degraded" | "failure";
+
+function emitMobileCaptureWorkload(
+  traceId: string,
+  outcome: MobileCaptureOutcome,
+  durationMs: number,
+): void {
+  const body = {
+    root: {
+      segment_id: "mobile_capture",
+      event_type: "workload",
+      timestamp: new Date().toISOString(),
+      payload: {
+        operation: "submit_capture",
+        outcome,
+        duration_ms: durationMs,
+        correlation_kind: "capture",
+        correlation_id: traceId,
+      },
+    },
+  };
+
+  // Fire-and-forget — never block or delay the user callback. Swallow
+  // network errors here because (a) we cannot retry without a new
+  // subsystem (memo §4a explicitly defers that as Option A), and
+  // (b) the user-visible capture has already completed or errored in
+  // its own right via the SSE callbacks above.
+  fetch(`${API_BASE_URL}/api/spine/ingest`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  }).catch(() => {
+    /* transport failure surfaces via Sentry error reporting on the
+       original capture path; we do not re-report here. */
+  });
+}
+
+/**
  * Wire up an EventSource to dispatch streaming callbacks.
  *
  * Handles both v2 event types (STEP_START, STEP_END, CLASSIFIED,
@@ -42,14 +92,34 @@ interface AGUIEventPayload {
  * (STEP_STARTED, STEP_FINISHED, TEXT_MESSAGE_CONTENT, CUSTOM,
  * RUN_FINISHED, RUN_ERROR) for backward compatibility during development.
  *
+ * SPIKE-MEMO §5.5 — emits a `mobile_capture` workload event to the
+ * spine on EVERY terminal path (success / degraded HITL / failure).
+ * Single-fire guard ensures exactly one emit per stream even when
+ * CLASSIFIED is followed by COMPLETE, or a HITL event is followed by
+ * stream close. The emit is centralised here (not in per-sendX
+ * wrappers) because HITL paths set `hitlTriggered=true` which
+ * suppresses the downstream COMPLETE dispatch — per-sendX wrappers
+ * would miss every HITL terminal path.
+ *
  * Returns a cleanup function to abort the connection.
  */
 function attachCallbacks(
   es: EventSource<AGUIEventType>,
   callbacks: StreamingCallbacks,
+  traceId: string,
+  startMs: number,
 ): () => void {
   let result = "";
   let hitlTriggered = false;
+  // SPIKE-MEMO §5.5 — closure-scoped single-fire guard. Multiple
+  // terminal events can arrive on one stream (e.g. CLASSIFIED followed
+  // by COMPLETE); we must emit exactly once per capture lifecycle.
+  let emitted = false;
+  const emitOnce = (outcome: MobileCaptureOutcome): void => {
+    if (emitted) return;
+    emitted = true;
+    emitMobileCaptureWorkload(traceId, outcome, Date.now() - startMs);
+  };
 
   es.addEventListener("message", (event) => {
     if (!event.data) return;
@@ -82,6 +152,8 @@ function attachCallbacks(
               // Single: "Filed -> Admin (0.85)"
               result = `Filed -> ${bucket} (${confidence.toFixed(2)})`;
             }
+            // SPIKE-MEMO §5.5 terminal path 1 — CLASSIFIED ⇒ success
+            emitOnce("success");
             callbacks.onComplete(result);
           }
           break;
@@ -90,6 +162,8 @@ function attachCallbacks(
           // New v2: MISUNDERSTOOD is top-level
           if (parsed.value?.inboxItemId) {
             hitlTriggered = true;
+            // SPIKE-MEMO §5.5 terminal path 3 — HITL ⇒ degraded
+            emitOnce("degraded");
             callbacks.onMisunderstood?.(
               parsed.value.threadId ?? "",
               parsed.value.questionText ?? "",
@@ -102,6 +176,8 @@ function attachCallbacks(
           // Low-confidence classification -- show bucket buttons for manual filing
           if (parsed.value) {
             hitlTriggered = true; // Prevents COMPLETE from firing onComplete
+            // SPIKE-MEMO §5.5 terminal path 4 — HITL ⇒ degraded
+            emitOnce("degraded");
             callbacks.onLowConfidence?.(
               parsed.value.inboxItemId ?? "",
               parsed.value.bucket ?? "?",
@@ -113,6 +189,8 @@ function attachCallbacks(
         case "UNRESOLVED":
           // New v2: UNRESOLVED is top-level
           hitlTriggered = true; // Prevent COMPLETE from firing misleading onComplete
+          // SPIKE-MEMO §5.5 terminal path 5 — HITL ⇒ degraded
+          emitOnce("degraded");
           callbacks.onUnresolved?.(parsed.value?.inboxItemId ?? "");
           break;
 
@@ -122,7 +200,14 @@ function attachCallbacks(
             if (parsed.type === "RUN_FINISHED" || !result) {
               // RUN_FINISHED (legacy): always fire onComplete.
               // COMPLETE (v2): fire onComplete if CLASSIFIED didn't already set result.
+              // SPIKE-MEMO §5.5 terminal path 2 — non-HITL COMPLETE ⇒ success
+              emitOnce("success");
               callbacks.onComplete(result || "Captured");
+            } else {
+              // CLASSIFIED already fired; just close. CLASSIFIED path
+              // already called emitOnce("success"), which the guard
+              // honours, so no double-fire here.
+              emitOnce("success");
             }
           }
           es.close();
@@ -130,6 +215,8 @@ function attachCallbacks(
 
         case "ERROR":
         case "RUN_ERROR": // legacy compat
+          // SPIKE-MEMO §5.5 terminal path 6 — backend error ⇒ failure
+          emitOnce("failure");
           callbacks.onError(parsed.message ?? "Run failed");
           es.close();
           break;
@@ -148,6 +235,8 @@ function attachCallbacks(
             hitlTriggered = true;
             const questionText = parsed.value.questionText || result;
             const inboxItemId = parsed.value.inboxItemId;
+            // SPIKE-MEMO §5.5 legacy terminal 8a — HITL_REQUIRED ⇒ degraded
+            emitOnce("degraded");
             callbacks.onHITLRequired?.(
               parsed.value.threadId,
               questionText,
@@ -156,6 +245,8 @@ function attachCallbacks(
           }
           if (parsed.name === "MISUNDERSTOOD" && parsed.value?.inboxItemId) {
             hitlTriggered = true;
+            // SPIKE-MEMO §5.5 legacy terminal 8b — MISUNDERSTOOD ⇒ degraded
+            emitOnce("degraded");
             callbacks.onMisunderstood?.(
               parsed.value.threadId ?? "",
               parsed.value.questionText ?? "",
@@ -164,6 +255,8 @@ function attachCallbacks(
           }
           if (parsed.name === "UNRESOLVED" && parsed.value?.inboxItemId) {
             hitlTriggered = true;
+            // SPIKE-MEMO §5.5 legacy terminal 8c — UNRESOLVED ⇒ degraded
+            emitOnce("degraded");
             callbacks.onUnresolved?.(parsed.value.inboxItemId);
           }
           break;
@@ -176,6 +269,12 @@ function attachCallbacks(
   es.addEventListener("error", (event) => {
     const errorMessage =
       "message" in event ? event.message : "Connection error";
+    // SPIKE-MEMO §5.5 terminal path 7 — SSE transport error ⇒ failure.
+    // Note: if the transport itself is broken (airplane mode, DNS
+    // outage, etc.) the fire-and-forget fetch inside emitOnce will
+    // also fail. That's the Option B blind spot documented in §4d —
+    // Plan 04 surfaces an empty-state pointing the operator to Sentry.
+    emitOnce("failure");
     callbacks.onError(errorMessage);
     es.close();
   });
@@ -202,6 +301,7 @@ export function sendCapture({
   const threadId = `thread-${Date.now()}`;
   const traceId = generateTraceId();
   tagTrace(traceId);
+  const startMs = Date.now();
 
   const headers: Record<string, string> = {
     Authorization: `Bearer ${apiKey}`,
@@ -223,7 +323,9 @@ export function sendCapture({
     pollingInterval: 0, // CRITICAL: prevents auto-reconnection and duplicate captures
   });
 
-  // Wrap error callback with telemetry reporting
+  // Wrap error callback with telemetry reporting. The §5.5 mobile_capture
+  // emit is handled inside attachCallbacks, not here — this wrapper is
+  // only for Sentry error-path visibility.
   const wrappedCallbacks: StreamingCallbacks = {
     ...callbacks,
     onError: (error: string) => {
@@ -237,7 +339,7 @@ export function sendCapture({
     },
   };
 
-  const cleanup = attachCallbacks(es, wrappedCallbacks);
+  const cleanup = attachCallbacks(es, wrappedCallbacks, traceId, startMs);
 
   return { cleanup, threadId, traceId };
 }
@@ -261,6 +363,7 @@ export function sendFollowUp({
 }: SendFollowUpOptions): { cleanup: () => void; traceId: string } {
   const traceId = providedTraceId ?? generateTraceId();
   tagTrace(traceId);
+  const startMs = Date.now();
 
   const es = new EventSource<AGUIEventType>(
     `${API_BASE_URL}/api/capture/follow-up`,
@@ -294,7 +397,7 @@ export function sendFollowUp({
     },
   };
 
-  const cleanup = attachCallbacks(es, wrappedCallbacks);
+  const cleanup = attachCallbacks(es, wrappedCallbacks, traceId, startMs);
   return { cleanup, traceId };
 }
 
@@ -315,6 +418,7 @@ export function sendVoiceCapture({
 }: SendVoiceCaptureOptions): { cleanup: () => void; traceId: string } {
   const traceId = generateTraceId();
   tagTrace(traceId);
+  const startMs = Date.now();
 
   const formData = new FormData();
   const isWav = audioUri.toLowerCase().endsWith(".wav");
@@ -351,7 +455,7 @@ export function sendVoiceCapture({
     },
   };
 
-  const cleanup = attachCallbacks(es, wrappedCallbacks);
+  const cleanup = attachCallbacks(es, wrappedCallbacks, traceId, startMs);
   return { cleanup, traceId };
 }
 
@@ -371,6 +475,7 @@ export function sendFollowUpVoice({
 }: SendFollowUpVoiceOptions): { cleanup: () => void; traceId: string } {
   const traceId = providedTraceId ?? generateTraceId();
   tagTrace(traceId);
+  const startMs = Date.now();
 
   const formData = new FormData();
   formData.append("file", {
@@ -408,6 +513,6 @@ export function sendFollowUpVoice({
     },
   };
 
-  const cleanup = attachCallbacks(es, wrappedCallbacks);
+  const cleanup = attachCallbacks(es, wrappedCallbacks, traceId, startMs);
   return { cleanup, traceId };
 }
