@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Observability & Evals
 status: in_progress
-last_updated: "2026-04-19T20:35:32.000Z"
+last_updated: "2026-04-19T20:43:09.000Z"
 progress:
   total_phases: 17
   completed_phases: 14
@@ -23,11 +23,11 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 ## Current Position
 
 Phase: 19.2 of 22 (Transaction-First Spine) -- IN PROGRESS
-Plan: 3 of 5 complete in current phase
-Status: Phase 19.2 Plan 03 complete (backend ledger read API — /api/spine/ledger/segment + /api/spine/ledger/correlation with purposeful empty-state metadata and explicit gap reporting) -- Plan 04 (web UI ledger section) ready to dispatch
-Last activity: 2026-04-19 -- Plan 19.2-03 executed (3 tasks, 6 files, 16 new tests, 430 backend tests green; commits 3229120 / 48a2f0a / 7aba1f5)
+Plan: 3 of 5 complete in current phase; Plan 04 code complete, human-verify checkpoint pending
+Status: Phase 19.2 Plan 04 code complete (web UI ledger-first layout wired — TS types + spine client methods + LedgerSection + segment page rewired; tsc clean, next build clean) -- blocking human-verify checkpoint: operator must visit ≥3 deployed segment pages (backend_api, classifier, cosmos) after integrated release and type "ledger approved"
+Last activity: 2026-04-19 -- Plan 19.2-04 code executed (4 auto tasks, 4 files, commits 9550f8e / d39ae18 / e3615f8 / 122a144); checkpoint gate blocking Plan 05 dispatch until operator approves the deployed ledger-first UI
 
-Progress: [████████████░░░░░░░░] 60% (Phase 19.2: 3/5 plans complete)
+Progress: [████████████░░░░░░░░] 60% (Phase 19.2: 3/5 plans fully complete, 1 code-complete awaiting checkpoint)
 
 ## Performance Metrics
 
@@ -42,8 +42,8 @@ Progress: [████████████░░░░░░░░] 60% (Ph
 - Timeline: 2026-02-26 to 2026-03-01 (4 days)
 
 **Velocity (v3.1):**
-- Plans completed: 16
-- Last plan duration: 4 min (19.2-03 — backend ledger read API with purposeful empty-state metadata and explicit gap reporting)
+- Plans completed: 16 fully + 1 code-complete awaiting human-verify checkpoint (19.2-04)
+- Last plan duration: ~3 min (19.2-04 — web UI ledger-first layout; 4 auto tasks executed, 1 checkpoint gating operator approval)
 - Timeline: 2026-04-05 to present
 
 *Updated after each plan completion*
@@ -122,6 +122,12 @@ v3.0 decisions archived to .planning/milestones/v3.0-ROADMAP.md
 - [Phase 19.2-03]: Purposeful empty-state metadata on SegmentLedgerResponse -- mode (transactional|native_only) + empty_state_reason string rendered verbatim by UI; defaults to transactional/None for unlisted segments
 - [Phase 19.2-03]: Query(...) chosen over Field(...) for FastAPI route-parameter bounds -- Field silently skips ge/le on route params; regression-tested with 422 on out-of-bounds window_seconds
 - [Phase 19.2-03]: api.py added as single Write (not stepwise Edits) for imports + route handlers -- ruff auto-format hook strips unused imports between edits (MEMORY.md Phase 17.1 lesson)
+- [Phase 19.2-04]: Web TS types for ledger response (TransactionLedgerRow / SegmentLedgerResponse / TransactionEvent / TransactionPathResponse) mirror Plan 03 Pydantic models verbatim; Pydantic Optional[T]=None -> TS T | null (not undefined) to match JSON-null wire format
+- [Phase 19.2-04]: spine.segmentLedger + spine.transactionPath added to web/lib/spine.ts with encodeURIComponent on both id args -- preserves project_followup_phase1_web_hardening.md follow-up (same bug was latent in segmentDetail pre-Phase-1 hardening)
+- [Phase 19.2-04]: Ledger fetch wrapped in try/catch console.warn -- non-fatal graceful degradation during integrated-release rollout window where Plan 04 web build may deploy before Plan 03 backend build (or vice versa). Falls through to native telemetry renderer, which is pre-19.2 behavior. "Best, most robust solution" over "simplest."
+- [Phase 19.2-04]: Two empty-state branches encapsulated inside <LedgerSection /> component (not the segment page) -- page just passes raw ledger.mode + ledger.empty_state_reason through. Adding a third empty-state type later becomes a single-file change.
+- [Phase 19.2-04]: page.tsx done as single Write (import merge + component import + first usage in one file write) to prevent auto-format stripping unused SegmentLedgerResponse + LedgerSection symbols mid-task (MEMORY.md Phase 17.1 lesson)
+- [Phase 19.2-04]: Native renderer dispatch unchanged -- new "Diagnostics (native telemetry)" h2 label added above it but the schema->AppInsights/Foundry/Cosmos/Mobile dispatch stays verbatim. Regression guard: existing segment pages still render the same native renderer as before.
 
 ### Pending Todos
 
@@ -144,5 +150,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-19
-Stopped at: Completed 19.2-03-PLAN.md (backend ledger read API — 3 tasks, 6 files, 16 new tests, 430 backend tests green; commits 3229120 / 48a2f0a / 7aba1f5) -- Phase 19.2 Plan 03 complete (ledger endpoints + operator-facing ledger policy ready for Plans 04/05 to consume)
-Resume action: Dispatch Plan 19.2-04 (web UI -- SegmentLedgerSection + transaction-path types wired to the new /api/spine/ledger/* endpoints)
+Stopped at: Plan 19.2-04 code complete (4 atomic commits 9550f8e / d39ae18 / e3615f8 / 122a144 across web/lib/types.ts + web/lib/spine.ts + web/components/LedgerSection.tsx + web/app/segment/[id]/page.tsx; tsc --noEmit clean; next build clean with 4 pages compiled); blocking human-verify checkpoint (Task 5) pending operator approval on deployed web app against deployed backend
+Resume action: Trigger integrated release (Plans 02-05 together per SPIKE-INTEGRATED-RELEASE-VERIFY.md), then operator visits https://<web-host>/segment/backend_api + /segment/classifier + /segment/cosmos to verify ledger-first layout, then types "ledger approved" to unblock Plan 19.2-05 (transaction page rewrite)
