@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Observability & Evals
 status: in_progress
-last_updated: "2026-04-18T00:00:00.000Z"
+last_updated: "2026-04-19T20:25:00.000Z"
 progress:
   total_phases: 17
   completed_phases: 14
   total_plans: 53
-  completed_plans: 47
+  completed_plans: 48
 ---
 
 # Project State
@@ -23,11 +23,11 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 ## Current Position
 
 Phase: 19.2 of 22 (Transaction-First Spine) -- IN PROGRESS
-Plan: 1 of 5 complete in current phase
-Status: Phase 19.2 Plan 01 complete (spike approved) -- Plan 02 (emitter fixes) ready to dispatch
-Last activity: 2026-04-18 -- Plan 19.2-01 executed (investigation spike memo approved after 3 revision rounds, commit febcca0)
+Plan: 2 of 5 complete in current phase
+Status: Phase 19.2 Plan 02 complete (emitter + correlation fixes per SPIKE-MEMO §5, integrated-release checklist produced) -- Plan 03 (ledger read API) ready to dispatch
+Last activity: 2026-04-19 -- Plan 19.2-02 executed (6 memo §5 fixes + walking regression + classifier verification + integrated-release verify doc; 9 commits b6394c7..bfe33d9; 412 backend tests green)
 
-Progress: [████░░░░░░░░░░░░░░░░] 20% (Phase 19.2: 1/5 plans complete)
+Progress: [████████░░░░░░░░░░░░] 40% (Phase 19.2: 2/5 plans complete)
 
 ## Performance Metrics
 
@@ -42,8 +42,8 @@ Progress: [████░░░░░░░░░░░░░░░░] 20% (Ph
 - Timeline: 2026-02-26 to 2026-03-01 (4 days)
 
 **Velocity (v3.1):**
-- Plans completed: 14
-- Last plan duration: ~5h (19.2-01 — investigation spike with 3 memo revision rounds + human approval gate)
+- Plans completed: 15
+- Last plan duration: ~30 min (19.2-02 — 6 memo §5 fixes + walking regression + classifier verification + integrated-release verify doc)
 - Timeline: 2026-04-05 to present
 
 *Updated after each plan completion*
@@ -108,6 +108,13 @@ v3.0 decisions archived to .planning/milestones/v3.0-ROADMAP.md
 - [Phase 19.2-01]: Outcome mapping -- success (CLASSIFIED / COMPLETE-non-HITL), degraded (MISUNDERSTOOD / LOW_CONFIDENCE / UNRESOLVED / legacy CUSTOM HITL), failure (ERROR / RUN_ERROR / SSE transport error)
 - [Phase 19.2-01]: backend_api native-correlation gap (AppRequests untagged by capture_trace_id) DEFERRED from Plan 02 -- follow-up bundled with project_followup_audit_first_findings.md
 - [Phase 19.2-01]: Duplicate Key Vault secret cleanup (sb-api-key vs second-brain-api-key) OUT-OF-SCOPE for Plan 02 -- pre-existing hygiene, tracked separately
+- [Phase 19.2-02]: Applied SPIKE-MEMO §5 six numbered fixes verbatim (5.1-5.6) in memo-prescribed order; no speculative additions, no prescribed skips
+- [Phase 19.2-02]: §5.3 recipe migration threads capture_trace_id via the existing capture_trace_id_var ContextVar already set by the classifier adapter -- no new plumbing
+- [Phase 19.2-02]: §5.4 regression coverage uses (a) focused spine_stream_wrapper tests against _RootAccessingSpineRepo + (b) static source scan that fails CI if any future edit reintroduces record_event(_WorkloadEvent(...)) without the IngestEvent wrap
+- [Phase 19.2-02]: §5.5 mobile emit centralised in attachCallbacks (not per-sendX wrappers) with closure-scoped single-fire guard covering all 7 + 3 legacy terminal paths; per-sendX wrappers would miss every HITL path because hitlTriggered=true suppresses COMPLETE
+- [Phase 19.2-02]: §5.6 classifier-side emit verification implemented at spine_stream_wrapper level rather than full capture-handler integration -- wrapper is the only emit boundary the real handler delegates to, so wrapper-level RootAccessingSpineRepo test satisfies the integration guarantee without wiring Foundry/Cosmos mocks
+- [Phase 19.2-02]: Mobile Jest unit tests for Option B terminal paths DEFERRED -- mobile package has no test framework installed; coverage provided via end-to-end trace inspection after EAS build deploys (SPIKE-INTEGRATED-RELEASE-VERIFY.md Step 7)
+- [Phase 19.2-02]: Plan 02 will NOT merge alone -- integrated-release banner and must-have truths both enforce Plans 02-05 deploying together
 
 ### Pending Todos
 
@@ -129,6 +136,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-04-18
-Stopped at: Completed 19.2-01-PLAN.md (investigation spike memo approved after 3 revision rounds, commit febcca0) -- Phase 19.2 Plan 01 complete (spike approved)
-Resume action: Dispatch Plan 19.2-02 (emitter fixes per memo §5 numbered scope)
+Last session: 2026-04-19
+Stopped at: Completed 19.2-02-PLAN.md (6 memo §5 fixes + walking regression + classifier verification + integrated-release verify doc; 9 commits b6394c7..bfe33d9; 412 backend tests green) -- Phase 19.2 Plan 02 complete (emitter + correlation fixes ready for integrated release with Plans 03-05)
+Resume action: Dispatch Plan 19.2-03 (ledger read API — spine_events + spine_correlation join exposure)
