@@ -162,6 +162,74 @@ class CorrelationResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Transaction ledger (Phase 19.2)
+# ---------------------------------------------------------------------------
+
+
+class TransactionLedgerRow(BaseModel):
+    """One workload event as surfaced to the ledger-first UI.
+
+    Shaped to satisfy CONTEXT.md: stage (segment_id), timestamp, duration,
+    outcome, correlation id, small payload summary (operation + error_class).
+    """
+
+    segment_id: str
+    timestamp: datetime
+    operation: str
+    outcome: Literal["success", "failure", "degraded"]
+    duration_ms: int
+    correlation_kind: CorrelationKind | None = None
+    correlation_id: str | None = None
+    error_class: str | None = None
+
+
+class SegmentLedgerResponse(BaseModel):
+    """Response shape for GET /api/spine/ledger/segment/{id}."""
+
+    segment_id: str
+    mode: Literal["transactional", "native_only"]
+    empty_state_reason: str | None = None
+    rows: list[TransactionLedgerRow]
+    envelope: ResponseEnvelope
+
+
+class TransactionEvent(BaseModel):
+    """One segment appearance in a transaction's full path, enriched.
+
+    Distinct from CorrelationEvent (which lacks duration/operation). Keep
+    CorrelationEvent for the older /api/spine/correlation route.
+    """
+
+    segment_id: str
+    timestamp: datetime
+    status: SegmentStatus
+    operation: str | None = (
+        None  # None if the correlation row exists but the raw event lookup fell through
+    )
+    outcome: Literal["success", "failure", "degraded"] | None = None
+    duration_ms: int | None = None
+    error_class: str | None = None
+    headline: str
+
+
+class TransactionPathResponse(BaseModel):
+    """Response shape for GET /api/spine/ledger/correlation/{kind}/{id}.
+
+    Explicit gap reporting: `missing_required` is the set of chain segments
+    the UI must render as "expected but did not appear." `present_optional`
+    and `unexpected` are informational.
+    """
+
+    correlation_kind: CorrelationKind
+    correlation_id: str
+    events: list[TransactionEvent]
+    missing_required: list[str]
+    present_optional: list[str]
+    unexpected: list[str]
+    envelope: ResponseEnvelope
+
+
+# ---------------------------------------------------------------------------
 # Segment detail responses
 # ---------------------------------------------------------------------------
 
