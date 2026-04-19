@@ -1,7 +1,18 @@
 # Phase 19.2 Plan 01 — Spike Memo
 
-**Status:** Awaiting human approval (Plan 01 Task 3 gate)
+**Status:** Awaiting human approval (Plan 01 Task 3 gate) — **Round 2 revision**
 **Evidence:** See [SPIKE-DATA.md](./SPIKE-DATA.md) for raw query output, App Insights stack traces, and audit_correlation reports. This memo contains categorization and recommendations only — no raw data.
+
+**Round 2 changes vs. round 1** (in response to operator review):
+- §4 rewritten. Decision unchanged (YES for `mobile_capture`, NO for `mobile_ui`) but now explicitly picks **Option B (post-capture fire-and-forget)** after disclosing the honest trade-off between Option A (pre-capture emit with queue/retry — proves transport failure, but a new subsystem) and Option B (simpler, but cannot prove transport failure). §4a explains the trade-off; §4c maps Option B to concrete hook sites in `mobile/lib/ag-ui-client.ts`; §4d covers Plan 04's empty-state UX for the transport-failure blind spot.
+- §5 updated. Mobile_capture task (item 5) now matches Option B specifically. New "Out of scope for Plan 02" subsection explicitly lists backend_api native-correlation and duplicate Key Vault secret as deferred (per operator confirmation).
+- §6 updated. Round-1 open questions recorded as answered.
+- **Line numbers re-verified** against current files. Corrections:
+  - `agent_emitter.py:63` — confirmed correct (operator's "57" was off; stayed at 63).
+  - `tools/recipe.py`: construction at line 175, `record_event(event)` call at line 185, bare-except at 186-187 (operator's "172" is the start of the `if self._spine_repo is not None:` guard; memo uses the specific callsite numbers instead).
+  - `mobile/lib/ag-ui-client.ts`: `sendCapture` signature at line 201; `X-Trace-Id` header literal at line 209; `new EventSource(...)` at line 215 (operator cited 201 for the X-Trace-Id propagation point — resolved to line 209 where the header is actually set).
+  - `mobile/lib/telemetry.ts`: `reportError` is at line 30 (confirmed); file is 51 lines long, so operator's "line 83" does not exist — the nearest-matching citation is the `fetch(...)` call at line 32. No impact on findings.
+  - `backend/src/second_brain/spine/api.py:59` — `/api/spine/ingest` endpoint — confirmed correct.
 
 ---
 
@@ -9,7 +20,7 @@
 
 1. **Capture chain:** Every agent-side emitter (classifier / admin / investigation) is silently broken by a single Pydantic shape bug — `_WorkloadEvent` is being passed to `record_event` instead of `IngestEvent(root=_WorkloadEvent)`. All three sites fail with the same `AttributeError: '_WorkloadEvent' object has no attribute 'root'` the moment they fire. The code LOOKS right but the deployed behaviour is zero landed events.
 2. **Thread chain:** Investigation never writes a `thread`-kind correlation row for the same reason (shared helper). The audit tool therefore reports `sample_size_returned=0` for thread correlations in every run.
-3. **Mobile push-path decision:** **YES** — add normal-capture workload emission from `mobile_capture`. The operator UX CONTEXT.md describes ("mobile_capture seen, classifier missing" as an explicit gap on the transaction page) is only possible if mobile is in the ledger. Rationale and scope in §4.
+3. **Mobile push-path decision:** **YES for `mobile_capture`, NO for `mobile_ui`.** Plan 02 ships **Option B** (post-capture fire-and-forget emit): the ledger can distinguish downstream failures after backend receipt, but CANNOT prove transport failure when `/api/capture` itself fails. Rationale and scope in §4.
 
 ---
 
@@ -97,30 +108,46 @@ No segment is fully working end-to-end. `backend_api` is the closest — its emi
 
 **Decision: YES for `mobile_capture`. NO for `mobile_ui`.**
 
-### Rationale
+### 4a. Implementation choice: Option B (post-capture, fire-and-forget)
 
-CONTEXT.md's transaction-page UX is literally: _"gaps must be explicit: 'backend_api seen, classifier missing'"_. The very first example of an explicit gap is **mobile_capture → backend_api**. Without a mobile_capture emit path, the ledger cannot distinguish these two ops-scenarios:
+The current mobile client in `mobile/lib/ag-ui-client.ts` builds headers (including `X-Trace-Id`) at line 209 and opens the SSE POST to `/api/capture` at line 215. Telemetry reporting in `mobile/lib/telemetry.ts::reportError` (line 30) is invoked from the SSE `onError` wrapper (line 229-237) AFTER the capture attempt fails or completes. There is no pre-capture emit path today, and no offline queue / retry buffer.
 
-- "Capture never arrived at backend" (network failure, bad URL, app down) — **mobile_capture emitted, backend_api missing**
-- "Capture arrived at backend but classifier crashed" — **mobile_capture emitted, backend_api emitted, classifier missing**
+Two honest framings were available:
 
-Both collapse to a single observation today: _"no transaction rows for this trace_id."_ That's exactly the lossy signal CONTEXT.md's ledger UX is designed to avoid.
+**Option A — emit-before-capture with independent retry (stronger operator story, more work):**
+> Mobile emits a `segment_id="mobile_capture"` workload event to `/api/spine/ingest` BEFORE issuing `/api/capture`, keyed by the same `X-Trace-Id`. The emit is queued to local storage if the network is down, and retried independently of the capture submission. If `/api/capture` never lands (network drop, DNS failure, backend returns 500 before any handler runs), the ledger still shows `mobile_capture` seen + `backend_api` missing — literally proving "capture never reached backend."
+>
+> **Implementation cost:** new queue/retry buffer in `ag-ui-client.ts` around line 209 (before the `new EventSource(...)` at 215); local persistence (AsyncStorage or similar); retry-on-reconnect hook; reconciliation semantics if the queue drains out of order; end-to-end tests for offline scenarios. This is a new subsystem, not a small edit.
 
-The RESEARCH.md "Pitfall 3" correctly warned NOT to pre-plan this as a bug fix — but the spike has now answered the question CONTEXT.md explicitly delegated to the spike. The operator UX demands mobile_capture be emit-first.
+**Option B — emit-after-capture fire-and-forget (narrower but honest story, simpler shipping — CHOSEN):**
+> Mobile emits a `segment_id="mobile_capture"` workload event to `/api/spine/ingest` AFTER the `/api/capture` SSE stream completes or errors. Fire-and-forget, no queue, no retry. Uses the existing `X-Trace-Id` as `correlation_id`. The outcome is `"success"` if the stream reached `COMPLETE` / `CLASSIFIED` / `MISUNDERSTOOD`, `"failure"` if it hit `ERROR` or the SSE connection errored.
+>
+> **What this ledger CAN distinguish:** DOWNSTREAM failures after backend receipt. E.g. mobile_capture seen + backend_api seen + classifier missing ⇒ classifier crashed. Or mobile_capture seen + classifier seen + admin missing ⇒ admin handoff broke.
+>
+> **What this ledger CANNOT prove:** That `/api/capture` itself never reached the backend. If the capture POST fails (airplane-mode submission, DNS outage, TLS error, backend 500 before any handler runs), then `onError` fires ⇒ `reportError` fires ⇒ the mobile_capture emit to `/api/spine/ingest` ALSO fails over the same broken transport. The ledger ends up with NEITHER a `mobile_capture` row NOR a `backend_api` row. The operator must infer "transport failed" from the native mobile error renderer (the error toast / Sentry event with `source: "sendCapture"` metadata already emitted at `ag-ui-client.ts:234`), NOT from the ledger.
 
-**`mobile_ui` is different.** Mobile UI is the CRUD-screen segment — it emits for destructive operations (delete errand, update destination, etc.), not for a capture. A capture doesn't "touch" mobile_ui. For the CAPTURE chain, `mobile_ui` is correctly `pull_by_design`. The crud_failure path it already has today is the right model. (However, `telemetry.py:105,120` is latently broken the same way `agent_emitter.py:63` is — both need the IngestEvent wrap. That's a prereq for mobile_ui being a functioning emitter at all for its native correlation_kind=`crud`.)
+**Why Option B is the right choice for Plan 02:**
 
-### Scope implications
+1. **Plan 02 scope is wave-1 emitter shape fixes.** Adding a mobile offline queue is a materially different workstream (new subsystem, new failure modes, new tests, new docs) and would push Plan 02 past its single-wave boundary.
+2. **CONTEXT.md's canonical example ("backend_api seen, classifier missing") is a DOWNSTREAM gap**, which Option B covers natively. The transport-failure case is real but orthogonal — CONTEXT.md's ledger is not the only diagnostic surface for it; the native mobile error renderer + Sentry already owns that failure mode.
+3. **The ledger asymmetry is honestly disclosable in the UI.** When a trace appears with no mobile_capture row AND no backend_api row, the transaction page can surface "no rows for this trace id — check Sentry for client-side transport errors." That's a stable, honest UX.
+4. **Upgrading Option B → Option A later is additive, not rework.** If operator experience shows the transport-failure blind spot is costing diagnostic time, a future phase can add the pre-capture emit + queue with no schema change and no break to downstream consumers. Option B's wire format is exactly the same as Option A's — just fired at a different time.
 
-If Will approves:
+### 4b. `mobile_ui`: NO for normal-capture emit
 
-- **Plan 02 (emitter fixes)** additionally includes: a new push path from the Expo app — on every capture submission, POST a lightweight workload-event to `/api/spine/ingest` (already exists at `spine/api.py:59`) with `segment_id="mobile_capture"`, `correlation_kind="capture"`, `correlation_id=<the trace id sent in X-Trace-Id on the capture POST>`, `operation="submit_capture"`, `outcome="success"|"failure"` based on the HTTP response.
-- **Plan 04 (UI)** stays as-planned — it just gets a richer ledger to render because mobile_capture will now show up.
+Mobile UI is the CRUD-screen segment — it emits for destructive operations (delete errand, update destination, etc.), not for a capture. A capture doesn't "touch" mobile_ui. For the CAPTURE chain, `mobile_ui` is correctly `pull_by_design`. The crud_failure path it already has today is the right model. (However, `api/telemetry.py:105,120` is latently broken the same way `agent_emitter.py:63` is — both need the `IngestEvent(root=...)` wrap. That's a prereq for mobile_ui being a functioning emitter at all for its native `correlation_kind="crud"` contract.)
 
-If Will rejects:
+### 4c. Mapping Option B onto the existing mobile client
 
-- Plan 02 drops the mobile_capture task.
-- Plan 04 UI must explicitly label mobile_capture and mobile_ui rows "native-only (Sentry) — see Sentry panel below" and not render them in the expected-chain gap callout.
+Concrete site where the post-capture emit must hook in:
+
+- `mobile/lib/ag-ui-client.ts::sendCapture` — the existing `wrappedCallbacks` at line 227-238 already intercepts `onError`. Plan 02 adds an analogous `onComplete` wrapper (and preserves the `onError` one) that, AFTER calling the user's callback, issues a `fetch(API_BASE_URL + "/api/spine/ingest", { method: "POST", ... })` with an `IngestEvent` body shaped like `{ root: { segment_id: "mobile_capture", event_type: "workload", timestamp, payload: { operation: "submit_capture", outcome, duration_ms, correlation_kind: "capture", correlation_id: traceId } } }`. Body conforms to `spine/api.py:59`'s `IngestEvent` parameter, so no shape bug is possible on the mobile side.
+- Same pattern applies to `sendVoiceCapture`, `sendFollowUp`, `sendFollowUpVoice` — each already has a `traceId` in scope and an SSE error/complete path.
+- `mobile/lib/telemetry.ts::reportError` is NOT the right hook — it's error-only and semantically about logging, not about the capture workload completing successfully.
+
+### 4d. Scope implications for Plan 04
+
+Plan 04 (UI) can render the transaction page exactly as CONTEXT.md describes for the DOWNSTREAM-gap case (`mobile_capture seen, classifier missing`). For the transport-failure case (no mobile_capture row + no backend_api row for a known trace id), Plan 04 should surface a dedicated empty-state: _"No transaction events recorded for this trace id. The capture request may never have reached the backend — see Sentry for client-side transport errors."_ This is the only operator-visible concession to Option B's blind spot.
 
 ---
 
@@ -128,36 +155,50 @@ If Will rejects:
 
 Plan 02 executes these fixes, in this order:
 
-1. **Fix `emit_agent_workload` shape bug** — `backend/src/second_brain/spine/agent_emitter.py:63` — wrap event in `IngestEvent(root=event)`. This single edit repairs the classifier + admin + investigation emitters simultaneously because they all route through this helper. Add regression test: a repository double that asserts `record_event` received an `IngestEvent`, not a bare `_WorkloadEvent`.
+1. **Fix `emit_agent_workload` shape bug** — `backend/src/second_brain/spine/agent_emitter.py:63` (the line `await repo.record_event(event)` inside the `try:` block) — wrap event in `IngestEvent(root=event)`. This single edit repairs the classifier + admin + investigation emitters simultaneously because they all route through this helper via `stream_wrapper.py:41` / `admin_handoff.py:397`. Add regression test: a repository double that asserts `record_event` received an `IngestEvent`, not a bare `_WorkloadEvent`.
 
-2. **Fix `api/telemetry.py:105,120` (mobile crud-failure path)** — same wrap treatment for both the workload and liveness emits. Add regression test exercising `crud_failure` through a repository double.
+2. **Fix `api/telemetry.py:105,120` (mobile crud-failure path)** — same wrap treatment for both the workload emit at line 105 and the liveness emit at line 120. Add regression test exercising `crud_failure` through a repository double.
 
-3. **Fix `tools/recipe.py:185` (external_services)** — two-part:
-   (a) wrap in `IngestEvent(root=event)` OR migrate to `emit_agent_workload` (preferred — it centralises correlation handling and this bug won't recur).
-   (b) thread `capture_trace_id` into the `WorkloadPayload` so correlation rows land in `spine_correlation` (today the payload is missing `correlation_kind`/`correlation_id` even if the write succeeds — Pitfall 2 from RESEARCH.md).
-   (c) replace bare `except: pass` with `except Exception: logger.warning("recipe spine emit failed", exc_info=True)`.
+3. **Fix `tools/recipe.py:175,185 (external_services)`** — two-part:
+   (a) wrap in `IngestEvent(root=event)` at line 185 OR migrate to `emit_agent_workload` (preferred — it centralises correlation handling and this bug won't recur). The `_WorkloadEvent` construction at line 175 would go away entirely in the migration path.
+   (b) thread `capture_trace_id` into the `WorkloadPayload` so correlation rows land in `spine_correlation` (today the payload at line 179-183 is missing `correlation_kind`/`correlation_id` even if the write succeeds — Pitfall 2 from RESEARCH.md — `_WorkloadEvent` construction bypasses `emit_agent_workload`'s correlation precedence logic).
+   (c) replace bare `except Exception: pass` at line 186-187 with `except Exception: logger.warning("recipe spine emit failed", exc_info=True)`.
 
-4. **Add a TEST that would have caught the shape bug pre-deploy** — a pytest that calls every emit site (classifier via `spine_stream_wrapper`, admin via `emit_agent_workload`, investigation similarly, recipe's `RecipeTool`) against a fake `SpineRepository` whose `record_event` uses the REAL `IngestEvent.root` access — so the next time someone forgets the wrap, CI fails.
+4. **Add a TEST that would have caught the shape bug pre-deploy** — a pytest that calls every emit site (classifier via `spine_stream_wrapper`, admin via `emit_agent_workload`, investigation similarly, recipe's `RecipeTools`) against a fake `SpineRepository` whose `record_event` uses the REAL `IngestEvent.root` access — so the next time someone forgets the wrap, CI fails.
 
-5. **Add mobile_capture push path** (IF §4 answer is YES) — Expo app sends a fire-and-forget POST to `/api/spine/ingest` after `/api/capture` completes, with the same `X-Trace-Id` as `correlation_id`. Wire into the existing capture submit flow; use the existing `IngestEvent` wire format (the ingest endpoint takes an `IngestEvent` from the request body directly, so no shape bug possible).
+5. **Add mobile_capture push path (Option B — post-capture fire-and-forget)** — in `mobile/lib/ag-ui-client.ts`, wrap both the `onError` and `onComplete` callbacks for each of the four submit flows (`sendCapture`, `sendVoiceCapture`, `sendFollowUp`, `sendFollowUpVoice`) so that AFTER the user's callback fires, the client issues a fire-and-forget `fetch(API_BASE_URL + "/api/spine/ingest", { method: "POST", ... })` with an `IngestEvent` body:
+   ```
+   { root: { segment_id: "mobile_capture", event_type: "workload",
+             timestamp: <iso>,
+             payload: { operation: "submit_capture",
+                        outcome: "success" | "failure",
+                        duration_ms: <measured>,
+                        correlation_kind: "capture",
+                        correlation_id: <traceId> } } }
+   ```
+   Body conforms to `backend/src/second_brain/spine/api.py:59`'s `IngestEvent` parameter — server deserialises via Pydantic `RootModel`, so no shape bug is possible on the mobile side. Fire-and-forget (no retry, no queue). `duration_ms` measured from the `sendX` call start to the callback fire. Add integration test that exercises a mocked `sendCapture` + asserts `/api/spine/ingest` was called with the expected body.
 
 6. **Add a classifier-side emit verification test** — integration test that runs a real `capture` handler against a Cosmos double and asserts a workload event for `segment_id=classifier` lands after the stream completes.
 
-**Deliberately deferred to a follow-up (NOT Plan 02 scope):**
+### Out of scope for Plan 02 (deliberately deferred)
 
-- **`correlation_lost` on `backend_api` (AppRequests native tagging).** This requires OTel request-span attribute propagation from `request.state.capture_trace_id` into the inbound HTTP auto-instrumentation. It's a real gap but it's independent from the ledger making sense — the ledger's `native_links` don't depend on AppRequests filters (they deep-link to the time window + operation name, and the user filters in the portal). Leave this to a Phase 19.1-style follow-up.
-- **`cosmos` `activityId_g` → `capture_trace_id` mapping.** Same — independent follow-up. Today, spine correlation already has the per-capture row for the `cosmos` segment when the classifier writes to the Inbox container; fixing classifier emit (step 1) will materialise that row. If there's still a join gap afterwards, address separately.
+- **`correlation_lost` on `backend_api` (AppRequests native tagging).** OTel request-span attribute propagation from `request.state.capture_trace_id` into the inbound HTTP auto-instrumentation is a real native-correlation gap, but it's independent from the ledger making sense — the ledger's `native_links` deep-link to a time window + operation name, and the user filters in the portal. Confirmed deferred by operator feedback. Track as a dedicated follow-up (related to `project_followup_audit_first_findings.md`).
+- **Duplicate Key Vault secret cleanup** (`sb-api-key` + `second-brain-api-key` both exist in `wkm-shared-kv`). Spike used the second during reproduction (see SPIKE-DATA.md §1). Pre-existing hygiene item, unrelated to spine. Tracked separately at `project_followup_duplicate_api_key_secrets.md`. Confirmed out-of-scope by operator feedback.
+- **Mobile offline queue / pre-capture emit (Option A from §4a).** Option B is shipping instead — it covers the downstream-gap operator story natively and can be upgraded additively to Option A if operator experience later shows the transport-failure blind spot is costing diagnostic time. No schema change required for a future upgrade.
+- **`cosmos` `activityId_g` → `capture_trace_id` mapping.** Independent follow-up. Today, spine correlation already writes a per-capture row for the `cosmos` segment when the classifier writes to the Inbox container; fixing classifier emit (step 1) will materialise that row. If a join gap remains afterwards, address separately.
+- **Thread-kind correlation tagging for investigation custom spans.** Fix 1 repairs the investigation emit into `spine_events` but does not add a `thread_id` span attribute to the investigation Foundry custom spans. If the `/investigate`-side transaction page ends up empty after Plan 02 ships, address as a follow-up — again additive, no schema change.
 
 ---
 
 ## 6. Open questions for the human checkpoint
 
-1. **Mobile push-path decision — confirm YES for `mobile_capture`, NO for `mobile_ui`.**
-   - YES-YES: adds Expo push on EVERY crud too (e.g. pressing a `delete errand` emits to spine). Redundant with existing crud_failure path and much noisier.
-   - YES-NO (recommended): mobile_capture gets a normal-capture emit; mobile_ui keeps its crud_failure-only model.
-   - NO-NO: ledger UI must render both mobile segments as native-only badges for the capture chain.
-2. **Should Plan 02 also take the `backend_api` native-correlation fix (§3b)?** I've recommended deferring to a follow-up. If you want it IN Plan 02 instead, bundle it as a separate task rather than mixing with the emitter shape fix — different mechanism, different risk profile.
-3. **Should Plan 02 also fix the duplicate Key Vault secret (`sb-api-key` + `second-brain-api-key`)?** Spike tripped over it — both exist. Tracked as `project_followup_duplicate_api_key_secrets.md`. Unrelated to spine, so my default answer is NO (stay in Plan 02's scope).
+All three open questions from the first-round memo have been answered by the operator in the round-1 review. Recorded here for traceability:
+
+1. **Mobile push-path decision — YES for `mobile_capture`, NO for `mobile_ui`.** CONFIRMED (round 1). Option A vs Option B was under-specified in round 1; round 2 picks **Option B (post-capture fire-and-forget)** — see §4a for the honest trade-off disclosure and §4d for how Plan 04 handles Option B's transport-failure blind spot.
+2. **Backend_api native-correlation fix — DEFERRED (not in Plan 02).** CONFIRMED (round 1). Tracked as a separate follow-up, bundled with `project_followup_audit_first_findings.md`.
+3. **Duplicate Key Vault secret cleanup — NOT in Plan 02.** CONFIRMED (round 1). Tracked at `project_followup_duplicate_api_key_secrets.md`, pre-existing hygiene item unrelated to spine.
+
+No new open questions for this round. If the Option B framing and the explicit "Out of scope" subsection in §5 match your expectations, type `memo approved` and Plan 02 executes the numbered list verbatim.
 
 ---
 
