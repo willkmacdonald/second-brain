@@ -12,6 +12,7 @@ from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 
 from second_brain.spine.models import (
+    IngestEvent,
     LivenessPayload,
     WorkloadPayload,
     _LivenessEvent,
@@ -101,8 +102,10 @@ async def report_client_telemetry(body: TelemetryEvent, request: Request) -> Non
                     error_class="MobileCrudFailure",
                 ),
             )
+            # SPIKE-MEMO §5.2 — wrap in IngestEvent(root=...) so record_event's
+            # `event.root` accessor does not raise AttributeError.
             try:
-                await spine_repo.record_event(event)
+                await spine_repo.record_event(IngestEvent(root=event))
             except Exception:
                 logger.warning(
                     "Failed to record mobile crud failure to spine",
@@ -116,7 +119,8 @@ async def report_client_telemetry(body: TelemetryEvent, request: Request) -> Non
                     instance_id=request.headers.get("user-agent", "unknown")[:64]
                 ),
             )
+            # SPIKE-MEMO §5.2 — same wrap for the sibling liveness emit.
             try:
-                await spine_repo.record_event(liveness_event)
+                await spine_repo.record_event(IngestEvent(root=liveness_event))
             except Exception:
                 logger.warning("Failed to emit mobile liveness", exc_info=True)
