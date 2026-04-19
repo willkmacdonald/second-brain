@@ -176,6 +176,73 @@ class SpineRepository:
         results.sort(key=lambda r: r["timestamp"])
         return results
 
+    async def get_recent_transaction_events(
+        self,
+        segment_id: str,
+        window_seconds: int,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        """Return correlated workload events for a segment, newest-first.
+
+        Capped at `limit`. This is the transaction/noise boundary for the operator UI:
+        uncorrelated workload rows (for example GET /health probes) stay in
+        native diagnostics and DO NOT appear in the ledger-first section.
+        """
+        cutoff = (datetime.now(UTC) - timedelta(seconds=window_seconds)).isoformat()
+        results: list[dict[str, Any]] = []
+        async for item in self._events.query_items(
+            query=(
+                "SELECT * FROM c"
+                " WHERE c.segment_id = @sid"
+                " AND c.timestamp >= @cutoff"
+                " AND c.event_type = 'workload'"
+                " AND IS_DEFINED(c.payload.correlation_kind)"
+                " AND NOT IS_NULL(c.payload.correlation_kind)"
+                " AND IS_DEFINED(c.payload.correlation_id)"
+                " AND NOT IS_NULL(c.payload.correlation_id)"
+                " ORDER BY c.timestamp DESC"
+            ),
+            parameters=[
+                {"name": "@sid", "value": segment_id},
+                {"name": "@cutoff", "value": cutoff},
+            ],
+        ):
+            results.append(item)
+            if len(results) >= limit:
+                break
+        return results
+
+    async def get_workload_events_for_correlation(
+        self,
+        correlation_kind: CorrelationKind,
+        correlation_id: str,
+        window_seconds: int,
+    ) -> list[dict[str, Any]]:
+        """Return raw workload events matching a correlation_id within the window.
+
+        Used to enrich CorrelationEvents with duration/operation. The
+        spine_correlation container has segment/status/headline but not
+        duration or operation; those live on the raw event row in spine_events.
+        """
+        cutoff = (datetime.now(UTC) - timedelta(seconds=window_seconds)).isoformat()
+        results: list[dict[str, Any]] = []
+        async for item in self._events.query_items(
+            query=(
+                "SELECT * FROM c"
+                " WHERE c.event_type = 'workload'"
+                " AND c.timestamp >= @cutoff"
+                " AND c.payload.correlation_kind = @kind"
+                " AND c.payload.correlation_id = @cid"
+            ),
+            parameters=[
+                {"name": "@cutoff", "value": cutoff},
+                {"name": "@kind", "value": correlation_kind},
+                {"name": "@cid", "value": correlation_id},
+            ],
+        ):
+            results.append(item)
+        return results
+
     async def get_recent_correlation_ids(
         self,
         kind: CorrelationKind,
