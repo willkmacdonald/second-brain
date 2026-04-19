@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Observability & Evals
-status: unknown
-last_updated: "2026-04-14T01:51:07.336Z"
+status: in_progress
+last_updated: "2026-04-18T00:00:00.000Z"
 progress:
-  total_phases: 16
+  total_phases: 17
   completed_phases: 14
-  total_plans: 48
-  completed_plans: 46
+  total_plans: 53
+  completed_plans: 47
 ---
 
 # Project State
@@ -22,12 +22,12 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 
 ## Current Position
 
-Phase: 19 of 22 (Claude Code MCP Tool) -- COMPLETE
-Plan: 2 of 2 in current phase
-Status: Phase 19 complete. MCP server + investigate skill migration done.
-Last activity: 2026-04-14 -- Plan 19-02 executed (skill migration to MCP tools)
+Phase: 19.2 of 22 (Transaction-First Spine) -- IN PROGRESS
+Plan: 1 of 5 complete in current phase
+Status: Phase 19.2 Plan 01 complete (spike approved) -- Plan 02 (emitter fixes) ready to dispatch
+Last activity: 2026-04-18 -- Plan 19.2-01 executed (investigation spike memo approved after 3 revision rounds, commit febcca0)
 
-Progress: [████████████████████] 100% (Phase 19: 2/2 plans complete)
+Progress: [████░░░░░░░░░░░░░░░░] 20% (Phase 19.2: 1/5 plans complete)
 
 ## Performance Metrics
 
@@ -42,8 +42,8 @@ Progress: [████████████████████] 100% (P
 - Timeline: 2026-02-26 to 2026-03-01 (4 days)
 
 **Velocity (v3.1):**
-- Plans completed: 13
-- Last plan duration: 3min (19-02)
+- Plans completed: 14
+- Last plan duration: ~5h (19.2-01 — investigation spike with 3 memo revision rounds + human approval gate)
 - Timeline: 2026-04-05 to present
 
 *Updated after each plan completion*
@@ -101,6 +101,13 @@ v3.0 decisions archived to .planning/milestones/v3.0-ROADMAP.md
 - [Phase 19]: prerelease=allow in mcp/pyproject.toml [tool.uv] for agent-framework-azure-ai RC
 - [Phase 19]: Investigate skill uses conversation context + stable IDs for follow-ups (replaces server-side thread management)
 - [Phase 19]: Deprecation notes use generic wording to satisfy zero-reference verification on old script paths
+- [Phase 19.2-01]: Investigation spike memo gates Plan 02 scope -- memo §5 numbered recommendations become Plan 02 task list verbatim; no pre-plan speculation
+- [Phase 19.2-01]: Single root cause for 4 broken_emitter segments -- agent_emitter.py:63 passes raw _WorkloadEvent to record_event (expects IngestEvent RootModel); one-line wrap fix repairs classifier+admin+investigation simultaneously; same shape bug latent at telemetry.py:105,120 and recipe.py:185
+- [Phase 19.2-01]: Mobile push-path: YES for mobile_capture, NO for mobile_ui -- Plan 02 ships Option B (post-capture fire-and-forget) not Option A (pre-capture with offline queue); upgrade to Option A is additive if transport-failure blind spot becomes costly
+- [Phase 19.2-01]: Option B emit centralised inside attachCallbacks with single-fire guard, covering all 7 + 3 legacy terminal paths -- per-sendX wrappers would miss HITL paths because hitlTriggered suppresses COMPLETE->onComplete dispatch
+- [Phase 19.2-01]: Outcome mapping -- success (CLASSIFIED / COMPLETE-non-HITL), degraded (MISUNDERSTOOD / LOW_CONFIDENCE / UNRESOLVED / legacy CUSTOM HITL), failure (ERROR / RUN_ERROR / SSE transport error)
+- [Phase 19.2-01]: backend_api native-correlation gap (AppRequests untagged by capture_trace_id) DEFERRED from Plan 02 -- follow-up bundled with project_followup_audit_first_findings.md
+- [Phase 19.2-01]: Duplicate Key Vault secret cleanup (sb-api-key vs second-brain-api-key) OUT-OF-SCOPE for Plan 02 -- pre-existing hygiene, tracked separately
 
 ### Pending Todos
 
@@ -113,6 +120,7 @@ None.
 - Phase 17.3 inserted after Phase 17: Address critical observability gaps (URGENT) -- COMPLETE (Sentry crash reporting verified on device)
 - Phase 17.4 inserted after Phase 17.3: Foundry Observability and Codex Code Review (URGENT) -- Zero visibility into Foundry agent internals; investigation agent hangs are a black box; discovered during 18-04 gap closure (2026-04-13)
 - Phase 19.1 inserted after Phase 19: address observability gap (URGENT)
+- Phase 19.2 inserted after Phase 19.1: transaction-first spine (URGENT) -- ledger-first drill-down model; 5 plans, spike-gated; Plan 01 complete 2026-04-18
 
 ### Blockers/Concerns
 
@@ -121,6 +129,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-04-14
-Stopped at: Completed 19-02-PLAN.md (skill migration to MCP tools) -- Phase 19 complete
-Resume action: Begin Phase 20 planning (or next scheduled phase)
+Last session: 2026-04-18
+Stopped at: Completed 19.2-01-PLAN.md (investigation spike memo approved after 3 revision rounds, commit febcca0) -- Phase 19.2 Plan 01 complete (spike approved)
+Resume action: Dispatch Plan 19.2-02 (emitter fixes per memo §5 numbered scope)

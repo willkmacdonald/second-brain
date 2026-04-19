@@ -221,10 +221,10 @@ Plans:
 
 **Why this phase is one unit:** Fixing emitters without a ledger leaves the new data invisible. Building a ledger without fixing emitters leaves the ledger incomplete. Both have to ship together for the system to become operationally useful.
 
-**Plans:** 5 plans
+**Plans:** 1/5 plans executed
 
 Plans:
-- [ ] 19.2-01-PLAN.md — Investigation spike memo: per-segment emit/correlation audit against deployed, memo gates Plan 02 scope
+- [x] 19.2-01-PLAN.md — Investigation spike memo: per-segment emit/correlation audit against deployed, memo gates Plan 02 scope (approved 2026-04-18 after 3 revision rounds, commit febcca0 — 4 broken_emitter / 1 correlation_lost / 4 pull_by_design; mobile push-path YES for mobile_capture via Option B, NO for mobile_ui; Plan 02 scope locked)
 - [ ] 19.2-02-PLAN.md — Emitter and correlation-tagging fixes driven by the memo (scope bounded by memo recommendations)
 - [ ] 19.2-03-PLAN.md — Backend ledger read API: /api/spine/ledger/segment/{id} + /api/spine/ledger/correlation/{kind}/{id} + enriched models
 - [ ] 19.2-04-PLAN.md — Web segment page ledger-first section (LedgerSection component, types, spine client methods, segment page rewire)
