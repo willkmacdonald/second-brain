@@ -11,6 +11,7 @@ from typing import Literal
 
 from second_brain.spine.models import (
     CorrelationKind,
+    IngestEvent,
     WorkloadPayload,
     _WorkloadEvent,
 )
@@ -59,7 +60,12 @@ async def emit_agent_workload(
             error_class=error_class,
         ),
     )
+    # SPIKE-MEMO §5.1 — SpineRepository.record_event accesses `event.root`
+    # (Pydantic v2 RootModel). The concrete `_WorkloadEvent` MUST be wrapped
+    # in `IngestEvent(root=...)` or the write raises AttributeError and no
+    # event lands in Cosmos. This one wrap repairs classifier, admin, and
+    # investigation simultaneously (they all route through this helper).
     try:
-        await repo.record_event(event)
+        await repo.record_event(IngestEvent(root=event))
     except Exception:  # noqa: BLE001
         logger.warning("emit_agent_workload failed", exc_info=True)
