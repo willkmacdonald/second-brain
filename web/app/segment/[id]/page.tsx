@@ -4,9 +4,14 @@ import { AppInsightsDetail } from "@/components/renderers/AppInsightsDetail";
 import { FoundryRunDetail } from "@/components/renderers/FoundryRunDetail";
 import { CosmosDiagnosticDetail } from "@/components/renderers/CosmosDiagnosticDetail";
 import { MobileTelemetryDetail } from "@/components/renderers/MobileTelemetryDetail";
+import { LedgerSection } from "@/components/LedgerSection";
 import { LocalTime } from "@/components/LocalTime";
 import { SegmentDetailHeader } from "@/components/SegmentDetailHeader";
-import type { CorrelationKind, SegmentDetailResponse } from "@/lib/types";
+import type {
+  CorrelationKind,
+  SegmentDetailResponse,
+  SegmentLedgerResponse,
+} from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -71,6 +76,19 @@ export default async function SegmentPage({
     );
   }
 
+  // Ledger fetch is non-fatal: the native-telemetry section below still
+  // renders if the /ledger/segment route is unavailable (graceful degradation
+  // during partial deploys, env misconfig, etc.).
+  let ledger: SegmentLedgerResponse | null = null;
+  try {
+    ledger = await spine.segmentLedger(params.id, {
+      window_seconds: 3600,
+      limit: 50,
+    });
+  } catch (e) {
+    console.warn(`ledger fetch failed for segment ${params.id}:`, e);
+  }
+
   const schema = detail.data.schema;
 
   return (
@@ -92,6 +110,21 @@ export default async function SegmentPage({
           .
         </p>
       )}
+
+      {ledger ? (
+        <LedgerSection
+          segmentId={params.id}
+          rows={ledger.rows}
+          mode={ledger.mode}
+          emptyStateReason={ledger.empty_state_reason}
+        />
+      ) : (
+        <p style={{ color: "#666", fontSize: 12, marginTop: 24 }}>
+          Ledger unavailable. Falling through to native diagnostics.
+        </p>
+      )}
+
+      <h2 style={{ marginTop: 32 }}>Diagnostics (native telemetry)</h2>
       {schema === "azure_monitor_app_insights" ? (
         <AppInsightsDetail data={detail.data as never} />
       ) : schema === "foundry_run" ? (
