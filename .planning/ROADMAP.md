@@ -221,7 +221,7 @@ Plans:
 
 **Why this phase is one unit:** Fixing emitters without a ledger leaves the new data invisible. Building a ledger without fixing emitters leaves the ledger incomplete. Both have to ship together for the system to become operationally useful.
 
-**Plans:** 3/5 plans executed; 2 code-complete awaiting bundled human-verify checkpoint (Plans 04+05 bundled per operator instruction + SPIKE-INTEGRATED-RELEASE-VERIFY.md rule)
+**Plans:** 5/5 plans complete
 
 Plans:
 - [x] 19.2-01-PLAN.md — Investigation spike memo: per-segment emit/correlation audit against deployed, memo gates Plan 02 scope (approved 2026-04-18 after 3 revision rounds, commit febcca0 — 4 broken_emitter / 1 correlation_lost / 4 pull_by_design; mobile push-path YES for mobile_capture via Option B, NO for mobile_ui; Plan 02 scope locked)
