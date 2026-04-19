@@ -32,8 +32,9 @@ async def test_wrapper_emits_success_on_normal_completion() -> None:
     assert len(events) == 2
     repo.record_event.assert_called_once()
     emitted = repo.record_event.call_args.args[0]
-    assert emitted.payload.outcome == "success"
-    assert emitted.segment_id == "classifier"
+    # SPIKE-MEMO §5.1 — wrapper now wraps in IngestEvent(root=...).
+    assert emitted.root.payload.outcome == "success"
+    assert emitted.root.segment_id == "classifier"
 
 
 @pytest.mark.asyncio
@@ -48,8 +49,8 @@ async def test_wrapper_emits_failure_on_exception() -> None:
         ):
             pass
     emitted = repo.record_event.call_args.args[0]
-    assert emitted.payload.outcome == "failure"
-    assert emitted.payload.error_class == "RuntimeError"
+    assert emitted.root.payload.outcome == "failure"
+    assert emitted.root.payload.error_class == "RuntimeError"
 
 
 @pytest.mark.asyncio
@@ -63,4 +64,4 @@ async def test_wrapper_records_duration() -> None:
     ):
         pass
     emitted = repo.record_event.call_args.args[0]
-    assert emitted.payload.duration_ms >= 0
+    assert emitted.root.payload.duration_ms >= 0

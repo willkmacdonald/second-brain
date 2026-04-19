@@ -37,15 +37,16 @@ async def test_crud_failure_records_spine_event(app_with_spine) -> None:
     workload_event = app_with_spine.state.spine_repo.record_event.call_args_list[0][0][
         0
     ]
-    assert workload_event.segment_id == "mobile_ui"
-    assert workload_event.event_type == "workload"
-    assert workload_event.payload.outcome == "failure"
-    assert workload_event.payload.operation == "load_inbox"
+    # SPIKE-MEMO §5.2 — emits now wrap in IngestEvent(root=...).
+    assert workload_event.root.segment_id == "mobile_ui"
+    assert workload_event.root.event_type == "workload"
+    assert workload_event.root.payload.outcome == "failure"
+    assert workload_event.root.payload.operation == "load_inbox"
     liveness_event = app_with_spine.state.spine_repo.record_event.call_args_list[1][0][
         0
     ]
-    assert liveness_event.segment_id == "mobile_ui"
-    assert liveness_event.event_type == "liveness"
+    assert liveness_event.root.segment_id == "mobile_ui"
+    assert liveness_event.root.event_type == "liveness"
 
 
 @pytest.mark.asyncio
@@ -68,7 +69,7 @@ async def test_crud_failure_routes_errands_to_mobile_capture(
     workload_event = app_with_spine.state.spine_repo.record_event.call_args_list[0][0][
         0
     ]
-    assert workload_event.segment_id == "mobile_capture"
+    assert workload_event.root.segment_id == "mobile_capture"
 
 
 @pytest.mark.asyncio
