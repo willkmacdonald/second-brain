@@ -221,14 +221,14 @@ Plans:
 
 **Why this phase is one unit:** Fixing emitters without a ledger leaves the new data invisible. Building a ledger without fixing emitters leaves the ledger incomplete. Both have to ship together for the system to become operationally useful.
 
-**Plans:** 3/5 plans executed; 1 code-complete awaiting human-verify checkpoint
+**Plans:** 3/5 plans executed; 2 code-complete awaiting bundled human-verify checkpoint (Plans 04+05 bundled per operator instruction + SPIKE-INTEGRATED-RELEASE-VERIFY.md rule)
 
 Plans:
 - [x] 19.2-01-PLAN.md — Investigation spike memo: per-segment emit/correlation audit against deployed, memo gates Plan 02 scope (approved 2026-04-18 after 3 revision rounds, commit febcca0 — 4 broken_emitter / 1 correlation_lost / 4 pull_by_design; mobile push-path YES for mobile_capture via Option B, NO for mobile_ui; Plan 02 scope locked)
 - [x] 19.2-02-PLAN.md — Emitter and correlation-tagging fixes driven by the memo (6 memo §5 fixes verbatim + walking regression + classifier verification + integrated-release verify doc; 412 backend tests green; commits b6394c7..bfe33d9; shipped 2026-04-19)
 - [x] 19.2-03-PLAN.md — Backend ledger read API: /api/spine/ledger/segment/{id} + /api/spine/ledger/correlation/{kind}/{id} + enriched models (operator-facing ledger_policy.py with memo §4 decisions encoded in code, RESEARCH Option A enrichment join, explicit gap reporting; 430 backend tests green; commits 3229120..7aba1f5; shipped 2026-04-19)
-- [ ] 19.2-04-PLAN.md — Web segment page ledger-first section (CODE COMPLETE 2026-04-19, 4 atomic commits 9550f8e..122a144 across types + spine client + LedgerSection + segment page; tsc clean, next build clean — blocking human-verify checkpoint pending operator approval on deployed site after integrated release)
-- [ ] 19.2-05-PLAN.md — Web transaction page rewrite: consume transactionPath endpoint, render explicit gap callouts (missing_required, unexpected, present_optional)
+- [ ] 19.2-04-PLAN.md — Web segment page ledger-first section (CODE COMPLETE 2026-04-19, 4 atomic commits 9550f8e..122a144 across types + spine client + LedgerSection + segment page; tsc clean, next build clean — bundled human-verify checkpoint pending operator approval on deployed site after integrated release)
+- [ ] 19.2-05-PLAN.md — Web transaction page rewrite (CODE COMPLETE 2026-04-19, 1 atomic commit 3d2c863 on web/app/correlation/[kind]/[id]/page.tsx; consumes spine.transactionPath, renders missing_required / unexpected / present_optional gap callouts, per-event drill-down preserved; tsc clean, next build clean — bundled human-verify checkpoint pending operator approval on deployed site after integrated release)
 
 ### Phase 20: Feedback Collection
 **Goal**: Quality signals flow into the system automatically from user behavior and explicitly from user feedback

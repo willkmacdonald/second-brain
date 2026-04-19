@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Observability & Evals
 status: in_progress
-last_updated: "2026-04-19T20:43:09.000Z"
+last_updated: "2026-04-19T20:54:46.976Z"
 progress:
   total_phases: 17
   completed_phases: 14
@@ -22,12 +22,12 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 
 ## Current Position
 
-Phase: 19.2 of 22 (Transaction-First Spine) -- IN PROGRESS
-Plan: 3 of 5 complete in current phase; Plan 04 code complete, human-verify checkpoint pending
-Status: Phase 19.2 Plan 04 code complete (web UI ledger-first layout wired — TS types + spine client methods + LedgerSection + segment page rewired; tsc clean, next build clean) -- blocking human-verify checkpoint: operator must visit ≥3 deployed segment pages (backend_api, classifier, cosmos) after integrated release and type "ledger approved"
-Last activity: 2026-04-19 -- Plan 19.2-04 code executed (4 auto tasks, 4 files, commits 9550f8e / d39ae18 / e3615f8 / 122a144); checkpoint gate blocking Plan 05 dispatch until operator approves the deployed ledger-first UI
+Phase: 19.2 of 22 (Transaction-First Spine) -- CODE COMPLETE
+Plan: 5 of 5 code complete in current phase; Plans 04+05 code-complete, bundled human-verify checkpoint pending
+Status: Phase 19.2 Plan 05 code complete (web/app/correlation/[kind]/[id]/page.tsx rewritten to consume spine.transactionPath with missing_required / unexpected / present_optional gap callouts, enriched event rows with operation/duration/outcome/error_class, per-event drill-down preserved; tsc clean, next build clean) -- bundled human-verify checkpoint consolidating Plan 04 segment-page verification + Plan 05 transaction-page verification returned to orchestrator per operator instruction + SPIKE-INTEGRATED-RELEASE-VERIFY.md rule (single approval unblocks phase closeout)
+Last activity: 2026-04-19 -- Plan 19.2-05 code executed (1 auto task, 1 file, commit 3d2c863); bundled checkpoint now gates Phase 19.2 closeout until operator approves the deployed web app after integrated release (Plans 02-05 deploy together)
 
-Progress: [████████████░░░░░░░░] 60% (Phase 19.2: 3/5 plans fully complete, 1 code-complete awaiting checkpoint)
+Progress: [█████████████░░░░░░░] 65% (Phase 19.2: 3/5 plans fully complete, 2 code-complete awaiting bundled checkpoint)
 
 ## Performance Metrics
 
@@ -42,8 +42,8 @@ Progress: [████████████░░░░░░░░] 60% (Ph
 - Timeline: 2026-02-26 to 2026-03-01 (4 days)
 
 **Velocity (v3.1):**
-- Plans completed: 16 fully + 1 code-complete awaiting human-verify checkpoint (19.2-04)
-- Last plan duration: ~3 min (19.2-04 — web UI ledger-first layout; 4 auto tasks executed, 1 checkpoint gating operator approval)
+- Plans completed: 16 fully + 2 code-complete awaiting bundled human-verify checkpoint (19.2-04 + 19.2-05)
+- Last plan duration: ~1 min (19.2-05 — web transaction page rewrite; 1 auto task executed, 1 checkpoint bundled with Plan 04 per operator instruction)
 - Timeline: 2026-04-05 to present
 
 *Updated after each plan completion*
@@ -128,6 +128,8 @@ v3.0 decisions archived to .planning/milestones/v3.0-ROADMAP.md
 - [Phase 19.2-04]: Two empty-state branches encapsulated inside <LedgerSection /> component (not the segment page) -- page just passes raw ledger.mode + ledger.empty_state_reason through. Adding a third empty-state type later becomes a single-file change.
 - [Phase 19.2-04]: page.tsx done as single Write (import merge + component import + first usage in one file write) to prevent auto-format stripping unused SegmentLedgerResponse + LedgerSection symbols mid-task (MEMORY.md Phase 17.1 lesson)
 - [Phase 19.2-04]: Native renderer dispatch unchanged -- new "Diagnostics (native telemetry)" h2 label added above it but the schema->AppInsights/Foundry/Cosmos/Mobile dispatch stays verbatim. Regression guard: existing segment pages still render the same native renderer as before.
+- [Phase 19.2-05]: Transaction page rewrite replaces spine.correlation with spine.transactionPath and adds three conditional gap callouts (missing_required red, unexpected yellow, present_optional muted) — fulfills CONTEXT.md drill-down step 3 ('show me the full path across segments' with explicit 'backend_api seen, classifier missing' reporting); whole-file single Write used to prevent ruff auto-format stripping unused TransactionPathResponse import mid-task
+- [Phase 19.2-05]: Plan 04 + Plan 05 human-verify checkpoints BUNDLED into single consolidated approval per operator instruction + SPIKE-INTEGRATED-RELEASE-VERIFY.md rule (don't ship alone, verify after Plans 02-05 deployed together) — Plan 05 does not pause on its own checkpoint; single approval unblocks phase 19.2 closeout
 
 ### Pending Todos
 
@@ -150,5 +152,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-19
-Stopped at: Plan 19.2-04 code complete (4 atomic commits 9550f8e / d39ae18 / e3615f8 / 122a144 across web/lib/types.ts + web/lib/spine.ts + web/components/LedgerSection.tsx + web/app/segment/[id]/page.tsx; tsc --noEmit clean; next build clean with 4 pages compiled); blocking human-verify checkpoint (Task 5) pending operator approval on deployed web app against deployed backend
-Resume action: Trigger integrated release (Plans 02-05 together per SPIKE-INTEGRATED-RELEASE-VERIFY.md), then operator visits https://<web-host>/segment/backend_api + /segment/classifier + /segment/cosmos to verify ledger-first layout, then types "ledger approved" to unblock Plan 19.2-05 (transaction page rewrite)
+Stopped at: Plan 19.2-05 code complete (1 atomic commit 3d2c863 on web/app/correlation/[kind]/[id]/page.tsx; tsc --noEmit clean; next build clean with 4 pages compiled; /correlation/[kind]/[id] stays force-dynamic at 390 B); bundled human-verify checkpoint consolidating Plan 04 (segment page) + Plan 05 (transaction page) pending operator approval after integrated release
+Resume action: Trigger integrated release (Plans 02-05 together per SPIKE-INTEGRATED-RELEASE-VERIFY.md), then operator visits https://<web-host>/segment/backend_api + /segment/classifier + /segment/cosmos (Plan 04 verification) AND https://<web-host>/correlation/capture/<recent-trace-id> (Plan 05 verification) on the deployed web app, then types consolidated approval (e.g. "ledger and transaction approved") to close out Phase 19.2 — marks Plans 04+05 complete, ticks roadmap checkbox, advances to Phase 20
