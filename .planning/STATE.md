@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Observability & Evals
 status: executing
-stopped_at: Completed 19.4-02-PLAN.md (checkpoint B approved, all 4 sites carry capture_trace_id)
-last_updated: "2026-04-20T06:33:04.322Z"
+stopped_at: Completed 19.4-03-PLAN.md (Cosmos trace_headers coverage verified, checkpoint C approved)
+last_updated: "2026-04-20T13:04:24.520Z"
 last_activity: 2026-04-20
 progress:
   total_phases: 13
   completed_phases: 8
   total_plans: 28
-  completed_plans: 25
-  percent: 89
+  completed_plans: 26
+  percent: 93
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 ## Current Position
 
 Phase: 19.4 of 22 (Native Span Correlation Tagging) -- IN PROGRESS
-Plan: 2 of 4 in current phase; Plans 01-02 complete (SpanProcessor deployed + all 4 sites confirmed)
-Status: Plan 19.4-02 complete -- all 4 emit sites carry capture.trace_id, checkpoint B approved
+Plan: 3 of 4 in current phase; Plans 01-03 complete (SpanProcessor deployed, all 4 sites confirmed, Cosmos trace_headers coverage verified)
+Status: Plan 19.4-03 complete -- Cosmos static scan + live verification done, checkpoint C approved
 Last activity: 2026-04-20
 
-Progress: [█████████░] 89% (Phase 19.4: IN PROGRESS, 2/4 plans done)
+Progress: [█████████░] 93% (Phase 19.4: IN PROGRESS, 3/4 plans done)
 
 ## Performance Metrics
 
@@ -151,6 +151,8 @@ v3.0 decisions archived to .planning/milestones/v3.0-ROADMAP.md
 - [Phase 19.4-01]: trace_headers() still valuable for AzureDiagnostics defense-in-depth but PRIMARY correlation path is AppDependencies
 - [Phase 19.4-02]: get_current_span().set_attribute() used to retroactively tag AppRequests span (SpanProcessor on_start fires before handler sets ContextVar)
 - [Phase 19.4-02]: Cosmos correlation KQL switched from AzureDiagnostics activityId_g to AppDependencies Properties.capture.trace_id (more reliable, no mapping table)
+- [Phase 19.4]: Cosmos correlation verified via AppDependencies (SpanProcessor-tagged) not AzureDiagnostics activityId_g -- consistent with spike memo section 6 decision
+- [Phase 19.4]: Plan 03 Task 1 (add trace_headers to remaining sites) skipped -- already completed in Plan 02 commit 89af305
 
 ### Pending Todos
 
@@ -172,6 +174,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-04-20T06:33:04.318Z
-Stopped at: Completed 19.4-02-PLAN.md (checkpoint B approved, all 4 sites carry capture_trace_id)
-Resume action: Execute 19.4-03-PLAN.md (extend trace_headers to remaining Cosmos call sites) or assess scope reduction per SPIKE-MEMO section 7
+Last session: 2026-04-20T13:04:24.516Z
+Stopped at: Completed 19.4-03-PLAN.md (Cosmos trace_headers coverage verified, checkpoint C approved)
+Resume action: Execute 19.4-04-PLAN.md (integrated verification) or assess scope reduction -- Plans 01-03 confirmed all 4 sites carry capture.trace_id with CI regression guard
