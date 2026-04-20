@@ -68,6 +68,7 @@ See: .planning/milestones/v3.0-ROADMAP.md
 - [x] **Phase 17.4: Foundry Observability and Codex Code Review** (INSERTED) - AI Foundry agent visibility, SDK diagnostics, code review (completed 2026-04-13)
 - [x] **Phase 18: Mobile Investigation Chat** - Chat screen, dashboard cards, quick action chips, and error deep-linking (completed 2026-04-12)
 - [x] **Phase 19: Claude Code MCP Tool** - Standalone MCP server for App Insights queries from Claude Code (completed 2026-04-14)
+- [x] **Phase 19.3: Native Capability Inventory** (INSERTED) - Audit 9 native surfaces, 3 live-evidence checkpoints, phase impact addendum for 19.4-22 (completed 2026-04-19)
 - [ ] **Phase 20: Feedback Collection** - Implicit quality signals, explicit thumbs up/down, golden dataset promotion
 - [ ] **Phase 21: Eval Framework** - Golden datasets, deterministic evaluators, score storage, on-demand trigger
 - [ ] **Phase 22: Self-Monitoring Loop** - Automated weekly evals, threshold alerts, push notifications on degradation
@@ -229,6 +230,16 @@ Plans:
 - [x] 19.2-03-PLAN.md — Backend ledger read API: /api/spine/ledger/segment/{id} + /api/spine/ledger/correlation/{kind}/{id} + enriched models (operator-facing ledger_policy.py with memo §4 decisions encoded in code, RESEARCH Option A enrichment join, explicit gap reporting; 430 backend tests green; commits 3229120..7aba1f5; shipped 2026-04-19)
 - [ ] 19.2-04-PLAN.md — Web segment page ledger-first section (CODE COMPLETE 2026-04-19, 4 atomic commits 9550f8e..122a144 across types + spine client + LedgerSection + segment page; tsc clean, next build clean — bundled human-verify checkpoint pending operator approval on deployed site after integrated release)
 - [ ] 19.2-05-PLAN.md — Web transaction page rewrite (CODE COMPLETE 2026-04-19, 1 atomic commit 3d2c863 on web/app/correlation/[kind]/[id]/page.tsx; consumes spine.transactionPath, renders missing_required / unexpected / present_optional gap callouts, per-event drill-down preserved; tsc clean, next build clean — bundled human-verify checkpoint pending operator approval on deployed site after integrated release)
+
+### Phase 19.3: Native Capability Inventory (INSERTED)
+
+**Goal:** Audit the 9 native surfaces Second Brain depends on to determine what each platform gives us natively vs. what we still need to build, grounding downstream phase scope in observed behavior rather than docs-only speculation.
+**Requirements:** (no explicit requirement IDs — investigation-only phase; feedstock for Phases 19.4-22)
+**Depends on:** Phase 19.2
+**Plans:** 1/1 complete
+
+Plans:
+- [x] 19.3-01-PLAN.md — 28-row inventory across 9 surfaces, 3 live-evidence checkpoints (Foundry trace depth, Foundry evals SDK, Sentry RN), phase impact addendum with scope deltas for 19.4/19.5/20/21/22, 2 housekeeping todos captured (approved 2026-04-19)
 
 ### Phase 20: Feedback Collection
 **Goal**: Quality signals flow into the system automatically from user behavior and explicitly from user feedback
