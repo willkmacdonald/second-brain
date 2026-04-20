@@ -65,7 +65,11 @@ OTel baggage propagation through the Foundry SDK is the single highest-leverage 
 
 ### 5. Sentry.IO
 
-_Rows TBD (Task 6)._
+| Capability | Native today | What's missing | Downstream phase(s) |
+|---|---|---|---|
+| Python SDK integrations (backend) | NOT installed on backend. `sentry-sdk` is not in `pyproject.toml`. Backend error tracking goes exclusively through App Insights via `configure_azure_monitor()`. The backend uses Sentry only as a pull source via the Sentry REST API (`spine/adapters/sentry.py`) to fetch mobile error events into spine segments. | No gap -- backend error tracking through App Insights is the correct architecture. Adding `sentry-sdk` to the backend would create duplicate error reporting with no benefit. | - (no downstream impact) |
+| React Native SDK post-18-03 | `@sentry/react-native ~7.2.0` installed with: `Sentry.init()` at module scope in `_layout.tsx`, `Sentry.ErrorBoundary` wrapping the root layout, `Sentry.wrap()` on the root component, `reactNavigationIntegration` for navigation breadcrumbs, `tracesSampleRate: 1.0` (100% for single-user), `enabled: !__DEV__` (disabled in dev mode). `Sentry.captureMessage()` called in error paths on the main capture screen. Deferred live test in Checkpoint C to confirm events are arriving in the Sentry dashboard. | Live validation deferred to Checkpoint C. The SDK configuration looks correct but the phone may be running a pre-18-03 EAS build. The `enabled: !__DEV__` guard means Sentry only fires in production EAS builds, not the Metro dev server -- so live testing requires an EAS build on the phone. | 19.5 |
+| Custom tags for correlation | `tagTrace(captureTraceId)` in `lib/sentry.ts` calls `Sentry.setTag("capture_trace_id", value)`, `Sentry.setTag("correlation_kind", "capture")`, `Sentry.setTag("correlation_id", value)`. Tags are searchable in the Sentry UI via the `capture_trace_id` tag. `clearTraceTags()` removes them after capture completes. The backend Sentry adapter (`spine/adapters/sentry.py`) passes `tag_filter` to filter events by `app_segment` tag. | If Sentry RN events carry `capture_trace_id` as a tag (confirmed live in Checkpoint C), then mobile Segment View in Phase 19.5 can filter Sentry errors by correlation ID. If tags are absent (SDK misconfigured or events not arriving), Phase 19.5 must source mobile error counts from spine workload events or `AgentDecisionRecords` instead. | 19.4, 19.5 |
 
 ### 6. Azure Cosmos DB
 

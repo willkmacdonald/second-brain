@@ -116,6 +116,33 @@ These are all app-created spans. The Foundry SDK auto-creates its own spans via 
 
 **Key finding:** Phase 22 uses log-based scheduled query alerts, not custom OTel metrics. No new infrastructure needed.
 
+## Surface 5: Sentry.IO
+
+### Python SDK (backend)
+
+**Code evidence:**
+- `sentry-sdk` NOT in `backend/pyproject.toml`.
+- Backend uses Sentry only via REST API pull adapter (`spine/adapters/sentry.py`) for mobile error events.
+- Backend errors go through App Insights exclusively.
+
+### React Native SDK
+
+**Code evidence:**
+- `@sentry/react-native ~7.2.0` in `mobile/package.json`.
+- `lib/sentry.ts`: `Sentry.init()` with `tracesSampleRate: 1.0`, `enabled: !__DEV__`, `sendDefaultPii: false`, `reactNavigationIntegration`.
+- `_layout.tsx`: `initSentry()` at module scope, `Sentry.ErrorBoundary`, `Sentry.wrap()`.
+- `(tabs)/index.tsx`: `Sentry.captureMessage()` in error paths.
+
+### Custom tags
+
+**Code evidence:**
+- `lib/sentry.ts:19-23`: `tagTrace()` sets `capture_trace_id`, `correlation_kind`, `correlation_id` via `Sentry.setTag()`.
+- `lib/sentry.ts:25-29`: `clearTraceTags()` removes them after capture.
+- Backend `sentry.py` adapter: `tag_filter={"app_segment": "mobile_ui"}` filters events by custom tag.
+- `lib/ag-ui-client.ts:4`: imports `tagTrace` and calls it during capture flow.
+
+**Key finding:** Tags are set correctly in code. Live verification deferred to Checkpoint C. If tags arrive in Sentry, mobile-side correlation works.
+
 ### Log-to-span correlation
 
 **Evidence:**
