@@ -91,6 +91,31 @@ These are all app-created spans. The Foundry SDK auto-creates its own spans via 
 - No archive tier.
 - No ingestion sampling.
 
+## Surface 4: Azure Monitor
+
+### Workbooks
+
+**Doc evidence:**
+- Azure Monitor Workbooks gallery includes: Performance, Failures, Usage, Availability, App Map templates for App Insights.
+- No LLM/agent-specific templates. Custom workbooks can be created with arbitrary KQL + parameterized inputs.
+- Workbook URLs support parameters for deep-linking.
+
+**Key finding:** Workbooks are a supplement to the web RCA view, not a replacement. Good for "View in Azure" escape hatch.
+
+### SecondBrainAlerts
+
+**From MEMORY.md:** Action Group "SecondBrainAlerts" with 3 rules (API-Error-Spike, Capture-Processing-Failures, API-Health-Check). Email to will@willmacdonald.com + push notifications.
+
+**Key finding:** Adding rules is CLI-able. Phase 22 adds eval degradation rules without restructuring.
+
+### Custom metric alerting
+
+**Doc evidence:**
+- Two paths: log-based alerts (scheduled query rules against AppTraces) or custom OTel metrics.
+- Log-based alerts are simpler for Phase 22 since eval scores are already logged as custom dimensions.
+
+**Key finding:** Phase 22 uses log-based scheduled query alerts, not custom OTel metrics. No new infrastructure needed.
+
 ### Log-to-span correlation
 
 **Evidence:**
