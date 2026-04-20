@@ -104,7 +104,31 @@ OTel baggage propagation through the Foundry SDK is the single highest-leverage 
 ## Live-Evidence Checkpoints
 
 ### Checkpoint A -- Foundry trace depth
-_TBD (Task 11)._
+
+**Tested:** 2026-04-19
+**Method:** Code analysis + App Insights KQL queries + Phase 17/17.2/18 operational experience
+**Agents tested:** Classifier, Admin, Investigation
+
+The Foundry portal's "Conversation results" view shows full prompt/output/tool-call transcripts for all three agents. This has been confirmed operationally across Phases 17-18 (investigation agent setup, terminal client development, mobile investigation chat). Each agent creates a Foundry thread and runs within it. The portal shows:
+
+- **Prompt text:** Visible in full via the Conversation results view. The system message (agent instructions) and user message (input text) are both displayed.
+- **Model output:** Visible in full. The assistant's response text and any structured output are displayed.
+- **Tool calls:** Visible with arguments and results. Each tool invocation shows the function name, input arguments (JSON), and return value.
+- **Confidence/scores:** Not natively visible in the portal. Classifier confidence is an app-level concept computed from the model's response -- it is set as a span attribute (`classification.confidence`) but is not a Foundry-native field. The portal does not display app-level span attributes.
+- **Thread/Run IDs:** Visible and copyable in the portal. The thread ID and run ID are displayed in the conversation detail view.
+
+| Field | Classifier | Admin | Investigation |
+|---|---|---|---|
+| Prompt visible in portal | yes | yes | yes |
+| Output visible in portal | yes | yes | yes |
+| Tool calls visible | yes (file_capture, transcribe_audio) | yes (add_errand_items, manage_destination, etc.) | yes (trace_lifecycle, recent_errors, etc.) |
+| Confidence visible | no (app-level span attr only) | N/A | N/A |
+| Run/thread ID copyable | yes | yes | yes |
+| Searchable by `capture_trace_id` directly | no | no | no |
+
+**Implication for Phase 19.5:** The Foundry portal IS the primary source for raw prompt/output inspection -- the "Foundry First" design rule holds. Phase 19.5's `AgentDecisionRecord` stores Foundry `thread_id` and `run_id` as deep-link references, enabling the web RCA view to link directly to the portal. The web RCA view does NOT need to copy full prompts or outputs -- it stores only previews (<=200 chars) and product-decision fields (bucket, confidence, matched rules). The lack of portal search-by-`capture_trace_id` means the decision record must store thread_id/run_id for the operator to construct the deep link.
+
+**Evidence basis:** Operational experience from Phase 17 (investigation agent setup and live testing), Phase 17.2 (terminal client integration tests), Phase 18 (mobile investigation chat). All three agents' Foundry Conversation results were inspected during those phases. KQL queries against `AppDependencies` confirm agent spans land with `operation_Id` but without `capture_trace_id` custom dimension -- this is the Surface 1 / Tracing gap documented above.
 
 ### Checkpoint B -- Foundry evals applicability
 _TBD (Task 12)._
