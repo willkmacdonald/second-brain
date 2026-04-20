@@ -68,7 +68,7 @@ See: .planning/milestones/v3.0-ROADMAP.md
 - [x] **Phase 17.4: Foundry Observability and Codex Code Review** (INSERTED) - AI Foundry agent visibility, SDK diagnostics, code review (completed 2026-04-13)
 - [x] **Phase 18: Mobile Investigation Chat** - Chat screen, dashboard cards, quick action chips, and error deep-linking (completed 2026-04-12)
 - [x] **Phase 19: Claude Code MCP Tool** - Standalone MCP server for App Insights queries from Claude Code (completed 2026-04-14)
-- [ ] **Phase 19.4: Native Span Correlation Tagging** (INSERTED) - Tag all native telemetry rows with capture_trace_id so spine-to-native drill-down works
+- [x] **Phase 19.4: Native Span Correlation Tagging** (INSERTED) - Tag all native telemetry rows with capture_trace_id so spine-to-native drill-down works (completed 2026-04-20)
 - [ ] **Phase 20: Feedback Collection** - Implicit quality signals, explicit thumbs up/down, golden dataset promotion
 - [ ] **Phase 21: Eval Framework** - Golden datasets, deterministic evaluators, score storage, on-demand trigger
 - [ ] **Phase 22: Self-Monitoring Loop** - Automated weekly evals, threshold alerts, push notifications on degradation
@@ -242,13 +242,13 @@ Plans:
   3. Given a `capture_trace_id`, the spine correlation API returns Cosmos `activityId_g` values that query rows in `AzureDiagnostics`
   4. The web segment page's native `FoundryRunDetail` renderer shows ≥1 run for a capture with an active Foundry run (was showing 0)
   5. Investigation custom spans are filterable by correlation ID identically
-**Plans:** 3/4 plans executed
+**Plans:** 4/4 plans complete
 
 Plans:
 - [x] 19.4-01-PLAN.md -- Spike memo: deploy CaptureTraceSpanProcessor, query KQL, audit Cosmos call sites, lock Plan 02 scope
 - [x] 19.4-02-PLAN.md -- Finalize SpanProcessor for Sites 1/2/4 (AppRequests, Foundry, Investigation) with unit tests
 - [x] 19.4-03-PLAN.md -- Extend trace_headers() to remaining capture-correlated Cosmos call sites (Site 3)
-- [ ] 19.4-04-PLAN.md -- End-to-end integrated verification: spine-to-native drill-down shows real data
+- [x] 19.4-04-PLAN.md -- End-to-end integrated verification: spine-to-native drill-down shows real data
 
 ### Phase 20: Feedback Collection
 **Goal**: Quality signals flow into the system automatically from user behavior and explicitly from user feedback
@@ -308,7 +308,7 @@ Items not yet scheduled into a milestone or phase.
 | 17.4. Foundry Observability and Codex Code Review | 4/4 | Complete    | 2026-04-13 | - |
 | 18. Mobile Investigation Chat | 4/4 | Complete   | 2026-04-13 | - |
 | 19. Claude Code MCP Tool | 2/2 | Complete    | 2026-04-14 | - |
-| 19.4. Native Span Correlation Tagging | 2/4 | 3/4 | In Progress|  |
+| 19.4. Native Span Correlation Tagging | 4/4 | Complete | 2026-04-20 | - |
 | 20. Feedback Collection | v3.1 | 0/TBD | Not started | - |
 | 21. Eval Framework | v3.1 | 0/TBD | Not started | - |
 | 22. Self-Monitoring Loop | v3.1 | 0/TBD | Not started | - |
