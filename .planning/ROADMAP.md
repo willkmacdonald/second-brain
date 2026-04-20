@@ -68,6 +68,7 @@ See: .planning/milestones/v3.0-ROADMAP.md
 - [x] **Phase 17.4: Foundry Observability and Codex Code Review** (INSERTED) - AI Foundry agent visibility, SDK diagnostics, code review (completed 2026-04-13)
 - [x] **Phase 18: Mobile Investigation Chat** - Chat screen, dashboard cards, quick action chips, and error deep-linking (completed 2026-04-12)
 - [x] **Phase 19: Claude Code MCP Tool** - Standalone MCP server for App Insights queries from Claude Code (completed 2026-04-14)
+- [ ] **Phase 19.4: Native Span Correlation Tagging** (INSERTED) - Tag all native telemetry rows with capture_trace_id so spine-to-native drill-down works
 - [ ] **Phase 20: Feedback Collection** - Implicit quality signals, explicit thumbs up/down, golden dataset promotion
 - [ ] **Phase 21: Eval Framework** - Golden datasets, deterministic evaluators, score storage, on-demand trigger
 - [ ] **Phase 22: Self-Monitoring Loop** - Automated weekly evals, threshold alerts, push notifications on degradation
@@ -229,6 +230,19 @@ Plans:
 - [x] 19.2-03-PLAN.md — Backend ledger read API: /api/spine/ledger/segment/{id} + /api/spine/ledger/correlation/{kind}/{id} + enriched models (operator-facing ledger_policy.py with memo §4 decisions encoded in code, RESEARCH Option A enrichment join, explicit gap reporting; 430 backend tests green; commits 3229120..7aba1f5; shipped 2026-04-19)
 - [ ] 19.2-04-PLAN.md — Web segment page ledger-first section (CODE COMPLETE 2026-04-19, 4 atomic commits 9550f8e..122a144 across types + spine client + LedgerSection + segment page; tsc clean, next build clean — bundled human-verify checkpoint pending operator approval on deployed site after integrated release)
 - [ ] 19.2-05-PLAN.md — Web transaction page rewrite (CODE COMPLETE 2026-04-19, 1 atomic commit 3d2c863 on web/app/correlation/[kind]/[id]/page.tsx; consumes spine.transactionPath, renders missing_required / unexpected / present_optional gap callouts, per-event drill-down preserved; tsc clean, next build clean — bundled human-verify checkpoint pending operator approval on deployed site after integrated release)
+
+### Phase 19.4: Native Span Correlation Tagging (INSERTED)
+
+**Goal:** Every native telemetry row produced during a capture is filterable by `capture_trace_id`. The drill-down from spine to native telemetry stops being blind.
+**Requirements:** (no explicit requirement IDs — inserted phase from superpowers observability evolution spec)
+**Depends on:** Phase 19.2 (spine ledger), Phase 19.3 (inventory findings)
+**Success Criteria** (what must be TRUE):
+  1. For any recent `capture_trace_id`, a KQL query against `AppRequests` returns the request span with `capture_trace_id` as a custom dimension
+  2. Same for Foundry agent spans in `AppDependencies`
+  3. Given a `capture_trace_id`, the spine correlation API returns Cosmos `activityId_g` values that query rows in `AzureDiagnostics`
+  4. The web segment page's native `FoundryRunDetail` renderer shows ≥1 run for a capture with an active Foundry run (was showing 0)
+  5. Investigation custom spans are filterable by correlation ID identically
+**Plans:** TBD (3-5, spike memo determines)
 
 ### Phase 20: Feedback Collection
 **Goal**: Quality signals flow into the system automatically from user behavior and explicitly from user feedback
