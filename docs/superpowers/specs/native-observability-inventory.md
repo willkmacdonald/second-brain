@@ -96,7 +96,10 @@ OTel baggage propagation through the Foundry SDK is the single highest-leverage 
 
 ### 9. Expo / EAS
 
-_Rows TBD (Task 10)._
+| Capability | Native today | What's missing | Downstream phase(s) |
+|---|---|---|---|
+| Crash reports | EAS provides basic crash reporting via the Expo dashboard (Submissions > Builds > crash data). However, Sentry RN (`@sentry/react-native ~7.2.0`) is the primary crash reporting tool for Second Brain -- it provides richer breadcrumbs, custom tags, source maps, and release tracking. EAS crash reports are a complement, not a replacement. The two do not duplicate -- EAS captures native-layer crashes (ObjC/Swift, Java/Kotlin) that Sentry's JS-layer error boundary might miss, while Sentry captures JS-layer errors, navigation breadcrumbs, and custom-tagged events. | No action needed. Sentry RN is the primary path for Phase 19.5 mobile Segment View error counts. EAS crash reports are a fallback diagnostic channel for native-layer issues only. | - (noted but low downstream impact) |
+| OTA update adoption | EAS Update tracks which devices are running which update bundle via the Expo dashboard (Updates section). Each update has a unique ID and the dashboard shows adoption percentage. The operator can verify Will's phone is running the latest bundle by checking the "Devices" count on the most recent update. The `expo-updates` package (if installed) can also be queried programmatically at runtime via `Updates.manifest` to get the current update ID. Note: the current app uses dev/preview builds via `eas build`, not OTA updates via `eas update` -- so the adoption check is at the build level (which build is installed) rather than the update level (which OTA bundle is cached). | For the mobile EAS rebuild housekeeping todo, the operator verifies the phone has the correct build by opening the Expo dashboard > Builds and confirming the latest build was installed. There is no automated "phone is on the right build" check -- it's a manual verification step. If the project later adopts `eas update` for JS-only updates, adoption tracking becomes automatic. | housekeeping (mobile EAS rebuild verification) |
 
 ## Live-Evidence Checkpoints
 

@@ -213,6 +213,25 @@ These are all app-created spans. The Foundry SDK auto-creates its own spans via 
 
 **Key finding:** All three GitHub Actions capabilities are available and some are already in use. Phase 22 adds one scheduled workflow and one summary output. No new infrastructure needed.
 
+## Surface 9: Expo / EAS
+
+### Crash reports
+
+**Code evidence:**
+- `app.json`: EAS project ID `81ec77de-a22f-49c9-aed8-29d81b0ca951`.
+- Sentry RN is the primary crash reporter (JS-layer). EAS provides native-layer crash data.
+- The two complement each other -- EAS for ObjC/Swift/Java crashes, Sentry for JS errors with breadcrumbs and custom tags.
+
+### OTA update adoption
+
+**Evidence:**
+- App uses dev/preview builds via `eas build`, not OTA updates via `eas update`.
+- Expo dashboard > Builds shows installed build per device.
+- No automated adoption check -- manual verification step.
+- `expo-updates` package would provide runtime query capability if OTA updates were adopted.
+
+**Key finding:** Build-level verification is manual (Expo dashboard). OTA adoption tracking would be automatic if `eas update` were adopted in the future. For now, the mobile EAS rebuild housekeeping todo uses manual build verification.
+
 ### Log-to-span correlation
 
 **Evidence:**
