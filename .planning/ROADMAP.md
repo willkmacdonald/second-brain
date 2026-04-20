@@ -308,7 +308,7 @@ Items not yet scheduled into a milestone or phase.
 | 17.4. Foundry Observability and Codex Code Review | 4/4 | Complete    | 2026-04-13 | - |
 | 18. Mobile Investigation Chat | 4/4 | Complete   | 2026-04-13 | - |
 | 19. Claude Code MCP Tool | 2/2 | Complete    | 2026-04-14 | - |
-| 19.4. Native Span Correlation Tagging | 4/4 | Complete | 2026-04-20 | - |
+| 19.4. Native Span Correlation Tagging | 4/4 | 4/4 | Complete    | 2026-04-20 |
 | 20. Feedback Collection | v3.1 | 0/TBD | Not started | - |
 | 21. Eval Framework | v3.1 | 0/TBD | Not started | - |
 | 22. Self-Monitoring Loop | v3.1 | 0/TBD | Not started | - |
