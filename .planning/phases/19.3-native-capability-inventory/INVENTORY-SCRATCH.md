@@ -143,6 +143,34 @@ These are all app-created spans. The Foundry SDK auto-creates its own spans via 
 
 **Key finding:** Tags are set correctly in code. Live verification deferred to Checkpoint C. If tags arrive in Sentry, mobile-side correlation works.
 
+## Surface 6: Azure Cosmos DB
+
+### Diagnostic logs + activityId_g
+
+**Code evidence:**
+- `observability/kql_templates.py:441`: `client_request_id = tostring(activityId_g)` -- already querying this field.
+- `observability/kql_templates.py:497`: `| where activityId_g == cid` -- correlation filter exists.
+- `AzureDiagnostics` table with `Category == "DataPlaneRequests"`, `_s`/`_d`/`_g` suffixes.
+
+### Per-operation client-request-id
+
+**Code evidence:**
+- `spine/cosmos_request_id.py`: `trace_headers()` helper returns `{"initial_headers": {"x-ms-client-request-id": request_id}}`.
+- Used in `tools/classification.py:161,279` and `processing/admin_handoff.py:123,187`.
+- Tests: `test_cosmos_request_id_propagation.py` validates the header injection.
+
+**Key finding:** Mechanism is proven and tested. Phase 19.4 just needs to apply `trace_headers()` at remaining capture-correlated call sites. No bespoke Cosmos SDK instrumentation needed.
+
+### Change Feed
+
+**Doc evidence:**
+- Python SDK provides `ChangeFeedIterator` via `container.query_items_change_feed()`.
+- Near-real-time latency (<2 seconds typical).
+- In-process hosting via background `asyncio.Task` is consistent with existing architecture (spine evaluator loop, liveness emitters).
+- Lease management via `azure-cosmos` change feed processor or manual continuation tokens.
+
+**Key finding:** In-process Change Feed listener is viable for Phase 20. No new infrastructure. Detects recategorization, HITL bucket changes, errand re-routes as document mutations.
+
 ### Log-to-span correlation
 
 **Evidence:**
