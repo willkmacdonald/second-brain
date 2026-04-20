@@ -171,6 +171,23 @@ These are all app-created spans. The Foundry SDK auto-creates its own spans via 
 
 **Key finding:** In-process Change Feed listener is viable for Phase 20. No new infrastructure. Detects recategorization, HITL bucket changes, errand re-routes as document mutations.
 
+## Surface 7: Azure Container Apps
+
+### Revision metadata
+
+**Code evidence:**
+- `deploy-backend.yml:59`: `REVISION_SUFFIX="sha-$(echo ${{ github.sha }} | cut -c1-7)"`
+- Container Apps runtime injects `CONTAINER_APP_REVISION` env var automatically.
+- Revision name format: `second-brain-api--sha-3fa1498`
+
+**Key finding:** `CONTAINER_APP_REVISION` env var available in-process. Provides code-side versioning for `agent_release_id`. Combined with `AgentReleaseManifest` for Foundry instruction versioning.
+
+### System logs
+
+- `ContainerAppSystemLogs_CL`: scale events, revision transitions, container lifecycle.
+- `ContainerAppConsoleLogs_CL`: stdout/stderr (uvicorn access logs).
+- Low value for observability phases. No downstream dependency.
+
 ### Log-to-span correlation
 
 **Evidence:**

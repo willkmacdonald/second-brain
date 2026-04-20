@@ -81,7 +81,10 @@ OTel baggage propagation through the Foundry SDK is the single highest-leverage 
 
 ### 7. Azure Container Apps
 
-_Rows TBD (Task 8)._
+| Capability | Native today | What's missing | Downstream phase(s) |
+|---|---|---|---|
+| Revision metadata + git SHA in name | Container Apps revision names embed git SHA via `--revision-suffix "sha-$(echo $GITHUB_SHA \| cut -c1-7)"` in the deploy workflow. The active revision name is available in-process via the `CONTAINER_APP_REVISION` environment variable (injected by Container Apps runtime automatically). This means the backend can read `os.environ.get("CONTAINER_APP_REVISION")` at request time to get `second-brain-api--sha-3fa1498` or similar, which contains the git commit that built this image. Phase 19.5 can use this as the `agent_release_id` in decision records -- tying each decision to the exact code + agent instruction version that was deployed. | The revision name contains the git SHA but NOT the agent instruction content hash. If agent instructions change in the Foundry portal without a code deploy, the revision name stays the same. The `AgentReleaseManifest` (repo-versioned JSON) is still needed to version agent instructions independently of code deploys. The revision name covers code-side versioning; the manifest covers Foundry-side versioning. Together they form the complete `agent_release_id`. | 19.5 |
+| System logs (scale, revisions) | Container Apps system logs (`ContainerAppSystemLogs_CL` in Log Analytics) capture scale events, revision transitions, and container lifecycle events. Console logs (`ContainerAppConsoleLogs_CL`) show stdout/stderr (primarily uvicorn access logs). Python `logger.info()` goes to App Insights, not console logs. | System logs are low-value for observability phases -- they cover infrastructure events (cold starts, scale-to-zero, revision transitions) that are noise for capture-level investigation. No downstream phase depends on these logs. They exist as a fallback diagnostic channel for Container Apps-level issues. | - |
 
 ### 8. GitHub Actions
 
