@@ -16,6 +16,7 @@ from second_brain.observability.kql_templates import (
     BACKEND_API_FAILURES,
     BACKEND_API_REQUESTS,
     CAPTURE_TRACE,
+    COSMOS_BY_CAPTURE_TRACE,
     COSMOS_DIAGNOSTIC_LOGS,
     LATEST_CAPTURE_TRACE_ID,
     RECENT_FAILURES,
@@ -652,21 +653,29 @@ async def fetch_cosmos_diagnostics(
     time_range_seconds: int = 3600,
     limit: int = 50,
 ) -> list[dict]:
-    """Fetch Cosmos data-plane requests from diagnostic logs.
+    """Fetch Cosmos operations, optionally filtered to a capture.
 
-    Diagnostic logs lag 5-10 minutes. Time range should be wide enough
-    to compensate.
+    When capture_trace_id is provided, queries AppDependencies for
+    Cosmos SDK spans tagged by CaptureTraceSpanProcessor (reliable).
+    Without capture_trace_id, falls back to AzureDiagnostics for
+    server-side metrics (RU charge, status codes). Diagnostic logs
+    lag 5-10 minutes; time range should be wide enough to compensate.
     """
     if capture_trace_id is not None and not _TRACE_ID_RE.fullmatch(capture_trace_id):
         raise ValueError(f"Invalid capture_trace_id: {capture_trace_id!r}")
 
-    capture_filter = (
-        f'| where activityId_g == "{capture_trace_id}"\n' if capture_trace_id else ""
-    )
-    query = COSMOS_DIAGNOSTIC_LOGS.format(
-        capture_filter=capture_filter,
-        limit=limit,
-    )
+    if capture_trace_id:
+        # Use AppDependencies path -- SpanProcessor tags Cosmos SDK
+        # spans with capture.trace_id (activityId_g does NOT work).
+        query = COSMOS_BY_CAPTURE_TRACE.format(
+            capture_trace_id=capture_trace_id,
+            limit=limit,
+        )
+    else:
+        query = COSMOS_DIAGNOSTIC_LOGS.format(
+            capture_filter="",
+            limit=limit,
+        )
     result = await execute_kql(
         client,
         workspace_id,

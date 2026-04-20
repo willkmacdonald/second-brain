@@ -16,8 +16,10 @@ from uuid import uuid4
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import StreamingResponse
+from opentelemetry import trace
 from pydantic import BaseModel, Field
 
+from second_brain.spine.cosmos_request_id import trace_headers
 from second_brain.spine.stream_wrapper import spine_stream_wrapper
 from second_brain.streaming.adapter import (
     stream_follow_up_capture,
@@ -119,7 +121,10 @@ async def _stream_with_thread_id_persistence(
                                 item=item_id, partition_key="will"
                             )
                             doc["foundryThreadId"] = conversation_id
-                            await inbox_container.upsert_item(body=doc)
+                            await inbox_container.upsert_item(
+                                body=doc,
+                                **trace_headers(capture_trace_id or None),
+                            )
                             logger.info(
                                 "Persisted foundryThreadId=%s for inbox item %s",
                                 conversation_id,
@@ -176,7 +181,9 @@ async def _stream_with_follow_up_context(
                     item=inbox_item_id, partition_key="will"
                 )
                 doc["foundryThreadId"] = foundry_conversation_id
-                await inbox_container.upsert_item(body=doc)
+                await inbox_container.upsert_item(
+                    body=doc, **trace_headers(capture_trace_id or None)
+                )
                 logger.info(
                     "Updated foundryThreadId=%s for ongoing follow-up on %s",
                     foundry_conversation_id,
@@ -213,6 +220,12 @@ async def capture(request: Request, body: TextCaptureBody) -> StreamingResponse:
     # AppRequests span (created by auto-instrumentation at request entry).
     # The adapter refreshes this inside the generator; this is additive.
     capture_trace_id_var.set(capture_trace_id)
+    # Retroactively tag the already-started AppRequests span (created by
+    # ASGI auto-instrumentation before handler entry -- SpanProcessor
+    # on_start fired with empty ContextVar, so we patch it here).
+    _current = trace.get_current_span()
+    if _current.is_recording():
+        _current.set_attribute("capture.trace_id", capture_trace_id)
     log_extra = _capture_extra(capture_trace_id)
 
     capture_source = request.headers.get("X-Capture-Source")
@@ -288,6 +301,10 @@ async def capture_voice(
     # Set ContextVar early so CaptureTraceSpanProcessor can tag the
     # AppRequests span (created by auto-instrumentation at request entry).
     capture_trace_id_var.set(capture_trace_id)
+    # Retroactively tag the already-started AppRequests span (see capture()).
+    _current = trace.get_current_span()
+    if _current.is_recording():
+        _current.set_attribute("capture.trace_id", capture_trace_id)
     log_extra = _capture_extra(capture_trace_id)
 
     async def stream_with_cleanup_and_persistence():
@@ -351,6 +368,10 @@ async def follow_up(request: Request, body: FollowUpBody) -> StreamingResponse:
     # Set ContextVar early so CaptureTraceSpanProcessor can tag the
     # AppRequests span (created by auto-instrumentation at request entry).
     capture_trace_id_var.set(capture_trace_id)
+    # Retroactively tag the already-started AppRequests span (see capture()).
+    _current = trace.get_current_span()
+    if _current.is_recording():
+        _current.set_attribute("capture.trace_id", capture_trace_id)
 
     # Look up the original inbox item to get the Foundry thread ID
     try:
@@ -436,6 +457,10 @@ async def follow_up_voice(
     # Set ContextVar early so CaptureTraceSpanProcessor can tag the
     # AppRequests span (created by auto-instrumentation at request entry).
     capture_trace_id_var.set(capture_trace_id)
+    # Retroactively tag the already-started AppRequests span (see capture()).
+    _current = trace.get_current_span()
+    if _current.is_recording():
+        _current.set_attribute("capture.trace_id", capture_trace_id)
     log_extra = _capture_extra(capture_trace_id)
 
     # Transcribe from in-memory bytes (no blob re-download)

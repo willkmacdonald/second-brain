@@ -423,8 +423,13 @@ union withsource=SourceTable
 # resource-specific CDBDataPlaneRequests table. Column names use
 # _s (string), _d (double), _g (GUID) suffixes.
 #
-# {capture_filter} is e.g.
-#   '| where activityId_g == "trace-1"' or empty.
+# NOTE: activityId_g is the Cosmos SERVER-SIDE activity ID (a UUID),
+# NOT the x-ms-client-request-id set by trace_headers(). For
+# capture-correlated Cosmos queries, use COSMOS_BY_CAPTURE_TRACE
+# which queries AppDependencies where CaptureTraceSpanProcessor
+# injects the capture.trace_id attribute.
+#
+# {capture_filter} is optional -- empty string for no filter.
 # {limit} is row limit.
 
 COSMOS_DIAGNOSTIC_LOGS = """\
@@ -440,6 +445,36 @@ AzureDiagnostics
     response_length = todouble(responseLength_s),
     client_request_id = tostring(activityId_g),
     collection_name = collectionName_s
+| order by timestamp desc
+| take {limit}
+"""
+
+# ---------------------------------------------------------------------------
+# Cosmos operations by capture_trace_id (Phase 19.4: correlation tagging)
+# ---------------------------------------------------------------------------
+# Returns Cosmos SDK spans from AppDependencies, correlated by
+# capture.trace_id injected by CaptureTraceSpanProcessor.
+# This is the PRIMARY path for capture-correlated Cosmos queries --
+# more reliable than AzureDiagnostics because activityId_g does NOT
+# contain the client-provided trace ID.
+#
+# Parameterised with {capture_trace_id} and {limit} via str.format().
+
+COSMOS_BY_CAPTURE_TRACE = """\
+AppDependencies
+| where Name startswith "ContainerProxy"
+    or Name startswith "POST /dbs"
+    or Name startswith "GET /dbs"
+| where tostring(Properties.["capture.trace_id"])
+    == "{capture_trace_id}"
+| project
+    timestamp = TimeGenerated,
+    operation_name = Name,
+    duration_ms = DurationMs,
+    success = Success,
+    result_code = ResultCode,
+    capture_trace_id = tostring(Properties.["capture.trace_id"]),
+    collection_name = tostring(Properties.db_cosmosdb_container)
 | order by timestamp desc
 | take {limit}
 """

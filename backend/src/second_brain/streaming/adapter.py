@@ -18,6 +18,7 @@ from agent_framework import ChatOptions, Message
 from agent_framework.azure import AzureAIAgentClient
 from opentelemetry import trace
 
+from second_brain.spine.cosmos_request_id import trace_headers
 from second_brain.streaming.sse import (
     classified_event,
     complete_event,
@@ -128,7 +129,9 @@ async def _safety_net_file_as_misunderstood(
         doc_body["captureTraceId"] = capture_trace_id
 
     inbox_container = cosmos_manager.get_container("Inbox")
-    await inbox_container.create_item(body=doc_body)
+    await inbox_container.create_item(
+        body=doc_body, **trace_headers(capture_trace_id or None)
+    )
 
     span.set_attribute("capture.outcome", "misunderstood")
     span.set_attribute("capture.safety_net", True)
