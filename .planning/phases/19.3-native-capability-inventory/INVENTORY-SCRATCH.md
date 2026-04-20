@@ -40,3 +40,42 @@ Raw findings per surface. Gets pruned into `native-observability-inventory.md` a
 - Portal: No version history UI. Edit overwrites.
 
 **Key finding:** No native versioning. `AgentReleaseManifest` (repo-versioned JSON snapshot) required for Phase 19.5.
+
+## Surface 2: OpenTelemetry
+
+### Span attributes
+
+**Code evidence:**
+- `streaming/adapter.py`: 30+ `span.set_attribute()` calls covering `capture.trace_id`, `capture.outcome`, `capture.type`, `capture.thread_id`, `capture.run_id`, `capture.buckets`, etc.
+- `agents/middleware.py`: `AuditAgentMiddleware` sets `agent.name`, `agent.duration_ms`. `ToolTimingMiddleware` sets `tool.name`, `tool.duration_ms`, `classification.*` attrs.
+- `processing/admin_handoff.py`: Sets `admin.*` attrs and `capture.trace_id`.
+- `streaming/investigation_adapter.py`: Sets `investigate.*` attrs.
+
+These are all app-created spans. The Foundry SDK auto-creates its own spans via `azure-core-tracing-opentelemetry` which only carry `operation_Id`.
+
+### Baggage propagation
+
+**Code evidence:**
+- No imports of `opentelemetry.baggage` anywhere in backend codebase.
+- `capture_trace_id` propagated via Python `ContextVar` (`capture_trace_id_var` in `tools/classification.py:38-39`).
+- ContextVar is thread-local / task-local -- invisible to OTel's trace context propagation.
+
+**Doc evidence:**
+- OTel Python SDK supports baggage via `opentelemetry.baggage.set_baggage()`.
+- `azure-core` HTTP pipeline uses `opentelemetry` for distributed tracing but the baggage propagation into auto-instrumented spans is NOT guaranteed by `azure-core-tracing-opentelemetry`.
+- The W3C `baggage` header is a separate concern from `traceparent` -- SDK must explicitly opt into injecting it.
+
+**Key finding:** Unverified whether Foundry SDK propagates OTel baggage. This is the #1 Phase 19.4 spike question.
+
+### Log-to-span correlation
+
+**Evidence:**
+- `configure_azure_monitor()` auto-correlates logs to spans via `operation_Id` in `AppTraces`.
+- Custom span attributes do NOT auto-propagate to log records. Verified by Phase 17 experience where `SeverityLevel` mapping was the issue, not correlation.
+
+### Cross-process context propagation
+
+**Code evidence:**
+- `pyproject.toml`: has `azure-core-tracing-opentelemetry` as dependency. This auto-instruments Azure SDK HTTP calls.
+- `tools/recipe.py`: Uses raw `httpx.AsyncClient` -- no OTel instrumentation. `opentelemetry-instrumentation-httpx` not in dependencies.
+- The Foundry Agent Service endpoint is async -- agent runs happen server-side, not in our process boundary.
