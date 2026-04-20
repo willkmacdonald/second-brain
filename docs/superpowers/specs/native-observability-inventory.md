@@ -48,7 +48,11 @@ OTel baggage propagation through the Foundry SDK is the single highest-leverage 
 
 ### 3. Application Insights / Log Analytics
 
-_Rows TBD (Task 4)._
+| Capability | Native today | What's missing | Downstream phase(s) |
+|---|---|---|---|
+| Auto-instrumentation (FastAPI, httpx, Cosmos, Foundry, AOAI) | `configure_azure_monitor(logger_name="second_brain")` auto-instruments: FastAPI routes to `AppRequests`, Azure SDK HTTP calls (Cosmos, Key Vault, Foundry, AOAI) to `AppDependencies`, Python logging to `AppTraces`, unhandled exceptions to `AppExceptions`. The `azure-core-tracing-opentelemetry` package provides automatic span creation for all Azure SDK calls. `httpx` is NOT auto-instrumented (no `opentelemetry-instrumentation-httpx` in dependencies). | `httpx` calls (recipe URL fetching via Jina Reader, direct fetch, Playwright) are invisible in App Insights. Low priority -- recipe fetching is a secondary concern. | 19.4, 19.5 |
+| Custom dimension shape (`Properties` dynamic column) | Span attributes set via `span.set_attribute()` land in the `Properties` dynamic column (workspace schema) / `customDimensions` (portal schema). Accessed via `tostring(Properties.capture_trace_id)` in KQL. This is the established pattern across 30+ KQL templates in `observability/kql_templates.py`. Custom dimensions are indexed for equality filters. | No missing gaps -- the pattern is proven and in production. The only issue is that `capture_trace_id` is not yet set as a custom dimension on Foundry SDK auto-instrumented spans (Surface 1 / Tracing gap). | 19.4 |
+| Retention / archive / sampling | Log Analytics workspace `shared-services-logs` has 90-day retention (per MEMORY.md, confirmed at workspace creation). No table-level retention overrides. No archive tier configured. No ingestion sampling configured -- all telemetry is collected at 100%. For a single-user hobby project, cost is negligible. | Content-rich data (full prompts, full model outputs) should NOT be stored in App Insights -- the 90-day hard retention and per-GB ingestion cost make it unsuitable for long-term decision records. Phase 19.5's `AgentDecisionRecords` go to Cosmos (indefinite retention, no per-GB ingestion cost) per the "Foundry First" design rule. App Insights stores references and summaries only. | 19.5 |
 
 ### 4. Azure Monitor
 

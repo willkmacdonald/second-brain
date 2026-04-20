@@ -67,6 +67,30 @@ These are all app-created spans. The Foundry SDK auto-creates its own spans via 
 
 **Key finding:** Unverified whether Foundry SDK propagates OTel baggage. This is the #1 Phase 19.4 spike question.
 
+## Surface 3: Application Insights / Log Analytics
+
+### Auto-instrumentation
+
+**Code evidence:**
+- `main.py:14-19`: `configure_azure_monitor(logger_name="second_brain")` -- scoped to app loggers only.
+- `pyproject.toml`: `azure-monitor-opentelemetry>=1.8.6` and `azure-core-tracing-opentelemetry` as direct dependencies.
+- Tables populated: `AppRequests` (FastAPI routes), `AppDependencies` (Azure SDK HTTP), `AppTraces` (Python logging), `AppExceptions` (unhandled errors).
+- `httpx` NOT instrumented: `opentelemetry-instrumentation-httpx` not in pyproject.toml.
+
+### Custom dimension shape
+
+**Code evidence:**
+- `observability/kql_templates.py`: 30+ KQL templates using `tostring(Properties.capture_trace_id)`, `tostring(Properties.component)`, etc.
+- Workspace schema: `Properties` is the dynamic column name (NOT `customDimensions` which is portal schema).
+- Pattern is well-established and proven across Phases 16-19.
+
+### Retention
+
+**From MEMORY.md:** Log Analytics workspace `shared-services-logs` (ID `572d91c2-3209-4b92-b431-5ffb7e8ce4ad`, 90-day retention).
+- No table-level overrides.
+- No archive tier.
+- No ingestion sampling.
+
 ### Log-to-span correlation
 
 **Evidence:**
