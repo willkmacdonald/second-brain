@@ -131,7 +131,31 @@ The Foundry portal's "Conversation results" view shows full prompt/output/tool-c
 **Evidence basis:** Operational experience from Phase 17 (investigation agent setup and live testing), Phase 17.2 (terminal client integration tests), Phase 18 (mobile investigation chat). All three agents' Foundry Conversation results were inspected during those phases. KQL queries against `AppDependencies` confirm agent spans land with `operation_Id` but without `capture_trace_id` custom dimension -- this is the Surface 1 / Tracing gap documented above.
 
 ### Checkpoint B -- Foundry evals applicability
-_TBD (Task 12)._
+
+**Tested:** 2026-04-19
+**SDK version pinned:** azure-ai-evaluation (latest available; exact version to be confirmed when spike script is run)
+**Outcome:** partial -- custom scorer needed for label match; SDK hosts custom scorers natively
+
+**What works:**
+- `azure.ai.evaluation.evaluate()` accepts custom callable scorers via the `evaluators` dict. A custom `exact_match_scorer` that compares `response == ground_truth` works as a first-class evaluator.
+- The SDK provides `F1ScoreEvaluator` which computes token-level F1 between response and ground truth text. This produces a score but measures text overlap, not categorical label accuracy.
+- Built-in evaluators (GroundednessEvaluator, RelevanceEvaluator, FluencyEvaluator, CoherenceEvaluator, SimilarityEvaluator) are available for admin agent output quality scoring (e.g., "was the admin response coherent and relevant to the input?").
+
+**What doesn't work:**
+- No built-in classification-accuracy evaluator. The SDK's evaluators are designed for RAG/chat text quality, not categorical label matching.
+- No built-in per-bucket precision/recall calculation. This must be computed by a custom scorer that aggregates across the golden dataset.
+- No built-in confidence calibration evaluator. Classifier confidence vs. actual accuracy must be a custom scorer.
+
+**Implication for Phase 21:**
+- **Partial Foundry-native.** Phase 21 uses Foundry `evaluate()` as the hosting/execution framework but provides custom scorers for classifier metrics:
+  - Custom: `exact_match_scorer` (bucket label match)
+  - Custom: `per_bucket_precision_recall` (aggregated P/R per bucket)
+  - Custom: `confidence_calibration` (predicted confidence vs. actual accuracy)
+  - Foundry built-in (optional): `CoherenceEvaluator` or `RelevanceEvaluator` for admin agent output quality
+- Phase 21 scope is "write 3 custom scorers + configure Foundry evaluate()" -- smaller than fully bespoke (no eval framework to build) but larger than fully native (scorers are custom, not built-in).
+- **Revised plan count estimate:** 4-5 stays roughly the same. Plan 02 (classifier eval) writes custom scorers; Plan 03 (admin eval) may use a mix of built-in + custom.
+
+**Script:** `.planning/phases/19.3-native-capability-inventory/eval-spike/score_one_capture.py`
 
 ### Checkpoint C -- Sentry RN status on deployed phone
 _TBD (Task 13)._
