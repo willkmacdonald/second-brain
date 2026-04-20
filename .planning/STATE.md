@@ -22,12 +22,12 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 
 ## Current Position
 
-Phase: 19.2 of 22 (Transaction-First Spine) -- CODE COMPLETE
-Plan: 5 of 5 code complete in current phase; Plans 04+05 code-complete, bundled human-verify checkpoint pending
-Status: Phase 19.2 Plan 05 code complete (web/app/correlation/[kind]/[id]/page.tsx rewritten to consume spine.transactionPath with missing_required / unexpected / present_optional gap callouts, enriched event rows with operation/duration/outcome/error_class, per-event drill-down preserved; tsc clean, next build clean) -- bundled human-verify checkpoint consolidating Plan 04 segment-page verification + Plan 05 transaction-page verification returned to orchestrator per operator instruction + SPIKE-INTEGRATED-RELEASE-VERIFY.md rule (single approval unblocks phase closeout)
-Last activity: 2026-04-19 -- Plan 19.2-05 code executed (1 auto task, 1 file, commit 3d2c863); bundled checkpoint now gates Phase 19.2 closeout until operator approves the deployed web app after integrated release (Plans 02-05 deploy together)
+Phase: 19.3 of 22 (Native Capability Inventory) -- IN PROGRESS
+Plan: 1 of 1 in current phase; Tasks 1-16 complete, human-verify checkpoint (Task 17) pending
+Status: Phase 19.3 Plan 01 Tasks 1-16 complete (28-row inventory across 9 native surfaces, 3 live-evidence checkpoints, phase impact addendum with scope deltas for 19.4/19.5/20/21/22, 2 housekeeping todos captured) -- human-verify checkpoint at Task 17 gates Phase 19.4 planning
+Last activity: 2026-04-19 -- Plan 19.3-01 executed (16 auto tasks, 16 commits; checkpoint awaiting operator review of inventory document)
 
-Progress: [█████████████░░░░░░░] 65% (Phase 19.2: 3/5 plans fully complete, 2 code-complete awaiting bundled checkpoint)
+Progress: [█████████████░░░░░░░] 66% (Phase 19.3: 1/1 plan in progress, human-verify checkpoint pending)
 
 ## Performance Metrics
 
@@ -42,8 +42,8 @@ Progress: [█████████████░░░░░░░] 65% (Ph
 - Timeline: 2026-02-26 to 2026-03-01 (4 days)
 
 **Velocity (v3.1):**
-- Plans completed: 16 fully + 2 code-complete awaiting bundled human-verify checkpoint (19.2-04 + 19.2-05)
-- Last plan duration: ~1 min (19.2-05 — web transaction page rewrite; 1 auto task executed, 1 checkpoint bundled with Plan 04 per operator instruction)
+- Plans completed: 16 fully + 2 code-complete awaiting bundled human-verify checkpoint (19.2-04 + 19.2-05) + 1 investigation plan at human-verify checkpoint (19.3-01)
+- Last plan duration: ~18 min (19.3-01 -- native capability inventory; 16 auto tasks executed, 1 checkpoint pending)
 - Timeline: 2026-04-05 to present
 
 *Updated after each plan completion*
@@ -130,6 +130,13 @@ v3.0 decisions archived to .planning/milestones/v3.0-ROADMAP.md
 - [Phase 19.2-04]: Native renderer dispatch unchanged -- new "Diagnostics (native telemetry)" h2 label added above it but the schema->AppInsights/Foundry/Cosmos/Mobile dispatch stays verbatim. Regression guard: existing segment pages still render the same native renderer as before.
 - [Phase 19.2-05]: Transaction page rewrite replaces spine.correlation with spine.transactionPath and adds three conditional gap callouts (missing_required red, unexpected yellow, present_optional muted) — fulfills CONTEXT.md drill-down step 3 ('show me the full path across segments' with explicit 'backend_api seen, classifier missing' reporting); whole-file single Write used to prevent ruff auto-format stripping unused TransactionPathResponse import mid-task
 - [Phase 19.2-05]: Plan 04 + Plan 05 human-verify checkpoints BUNDLED into single consolidated approval per operator instruction + SPIKE-INTEGRATED-RELEASE-VERIFY.md rule (don't ship alone, verify after Plans 02-05 deployed together) — Plan 05 does not pause on its own checkpoint; single approval unblocks phase 19.2 closeout
+- [Phase 19.3]: Foundry First design rule confirmed -- portal shows full prompt/output/tool transcripts for all 3 agents; decision records store deep-link refs only
+- [Phase 19.3]: No built-in classification-accuracy evaluator in azure-ai-evaluation -- Phase 21 needs custom scorers hosted via Foundry evaluate()
+- [Phase 19.3]: AgentReleaseManifest confirmed necessary -- Foundry has no native prompt-agent instruction versioning
+- [Phase 19.3]: Cosmos trace_headers() mechanism proven -- Phase 19.4 extends existing helper, no bespoke instrumentation
+- [Phase 19.3]: In-process Change Feed listener viable for Phase 20 -- no separate Azure Functions deployment needed
+- [Phase 19.3]: Log-based scheduled query alerts sufficient for Phase 22 -- no custom OTel metrics infrastructure
+- [Phase 19.3]: OTel baggage propagation through Foundry SDK unverified -- #1 spike question for Phase 19.4
 
 ### Pending Todos
 
@@ -152,5 +159,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-19
-Stopped at: Plan 19.2-05 code complete (1 atomic commit 3d2c863 on web/app/correlation/[kind]/[id]/page.tsx; tsc --noEmit clean; next build clean with 4 pages compiled; /correlation/[kind]/[id] stays force-dynamic at 390 B); bundled human-verify checkpoint consolidating Plan 04 (segment page) + Plan 05 (transaction page) pending operator approval after integrated release
-Resume action: Trigger integrated release (Plans 02-05 together per SPIKE-INTEGRATED-RELEASE-VERIFY.md), then operator visits https://<web-host>/segment/backend_api + /segment/classifier + /segment/cosmos (Plan 04 verification) AND https://<web-host>/correlation/capture/<recent-trace-id> (Plan 05 verification) on the deployed web app, then types consolidated approval (e.g. "ledger and transaction approved") to close out Phase 19.2 — marks Plans 04+05 complete, ticks roadmap checkbox, advances to Phase 20
+Stopped at: Plan 19.3-01 Tasks 1-16 complete; human-verify checkpoint (Task 17) awaiting operator review of `docs/superpowers/specs/native-observability-inventory.md`
+Resume action: Read the inventory document end-to-end, confirm per-surface rows match mental model, confirm checkpoint findings (A/B/C) are acceptable, confirm phase impact addendum scope deltas are the deltas to apply. Type "inventory approved" to unblock Phase 19.4 planning, or describe corrections.
