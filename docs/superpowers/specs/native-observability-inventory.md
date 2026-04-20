@@ -265,4 +265,8 @@ If `capture_trace_id` tags are absent (SDK misconfigured, events not arriving, o
 **Revised plan count estimate:** 3 stays as-is.
 
 ## Housekeeping Captured
-_TBD (Task 15)._
+
+The spec defined two housekeeping items that do not warrant their own phase. Both are captured as todos on 2026-04-19:
+
+- **Mobile EAS rebuild + 19.2 closure verification** -- todo `2026-04-19-mobile-eas-rebuild-close-19.2.md`. Trigger: before 19.4 execution if possible, else after. Reference: `memory/project_deferred_19.2_spine_gaps.md`.
+- **Duplicate Key Vault secret cleanup** -- todo `2026-04-19-delete-duplicate-keyvault-secret.md`. Trigger: whenever; zero blocker. Reference: `memory/project_followup_duplicate_api_key_secrets.md`.
