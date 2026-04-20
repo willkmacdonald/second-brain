@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Observability & Evals
-status: verifying
-stopped_at: Completed 19.3-01-PLAN.md (inventory approved by operator)
-last_updated: "2026-04-20T05:37:47.387Z"
+status: executing
+stopped_at: Completed 19.4-02-PLAN.md (checkpoint B approved, all 4 sites carry capture_trace_id)
+last_updated: "2026-04-20T06:33:04.322Z"
 last_activity: 2026-04-20
 progress:
   total_phases: 13
   completed_phases: 8
   total_plans: 28
-  completed_plans: 24
-  percent: 86
+  completed_plans: 25
+  percent: 89
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 ## Current Position
 
 Phase: 19.4 of 22 (Native Span Correlation Tagging) -- IN PROGRESS
-Plan: 1 of 4 in current phase; Plan 01 complete (spike memo approved)
-Status: Plan 19.4-01 complete -- spike memo approved, Plan 02 scope locked
+Plan: 2 of 4 in current phase; Plans 01-02 complete (SpanProcessor deployed + all 4 sites confirmed)
+Status: Plan 19.4-02 complete -- all 4 emit sites carry capture.trace_id, checkpoint B approved
 Last activity: 2026-04-20
 
-Progress: [█████████░] 86% (Phase 19.4: IN PROGRESS, 1/4 plans done)
+Progress: [█████████░] 89% (Phase 19.4: IN PROGRESS, 2/4 plans done)
 
 ## Performance Metrics
 
@@ -149,6 +149,8 @@ v3.0 decisions archived to .planning/milestones/v3.0-ROADMAP.md
 - [Phase 19.4-01]: Cosmos correlation via AppDependencies (SpanProcessor-tagged) more reliable than AzureDiagnostics (activityId_g) -- no mapping table needed
 - [Phase 19.4-01]: Plans 02+04 merge into single plan -- SpanProcessor covers Sites 2+4 without per-site code; 6 tasks from memo section 5
 - [Phase 19.4-01]: trace_headers() still valuable for AzureDiagnostics defense-in-depth but PRIMARY correlation path is AppDependencies
+- [Phase 19.4-02]: get_current_span().set_attribute() used to retroactively tag AppRequests span (SpanProcessor on_start fires before handler sets ContextVar)
+- [Phase 19.4-02]: Cosmos correlation KQL switched from AzureDiagnostics activityId_g to AppDependencies Properties.capture.trace_id (more reliable, no mapping table)
 
 ### Pending Todos
 
@@ -170,6 +172,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-04-20
-Stopped at: Completed 19.4-01-PLAN.md (spike memo approved, Plan 02 scope locked)
-Resume action: Execute 19.4-02-PLAN.md (merged Plan 02+04: 6 tasks from SPIKE-MEMO.md section 5)
+Last session: 2026-04-20T06:33:04.318Z
+Stopped at: Completed 19.4-02-PLAN.md (checkpoint B approved, all 4 sites carry capture_trace_id)
+Resume action: Execute 19.4-03-PLAN.md (extend trace_headers to remaining Cosmos call sites) or assess scope reduction per SPIKE-MEMO section 7
