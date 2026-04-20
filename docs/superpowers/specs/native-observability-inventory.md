@@ -195,19 +195,74 @@ If `capture_trace_id` tags are absent (SDK misconfigured, events not arriving, o
 ## Phase Impact Addendum
 
 ### Phase 19.4 -- Native Span Correlation Tagging
-_TBD (Task 14)._
+
+**Original scope (from spec):** Tag `backend_api` AppRequests, Foundry agent spans, Cosmos `activityId_g`, and Investigation custom spans with `capture_trace_id`.
+
+**Inventory findings that affect this phase:**
+- Surface 2 / Baggage propagation: OTel baggage propagation through the Foundry SDK is **unverified**. If baggage works, it collapses 3 emit sites (backend_api, Foundry agent spans, investigation) into 1 middleware config. If not, each site needs explicit `span.set_attribute()`.
+- Surface 6 / Per-operation client-request-id: The `trace_headers()` helper for Cosmos is **proven and tested** (`spine/cosmos_request_id.py`). Phase 19.4 just needs to apply it at remaining capture-correlated Cosmos call sites -- no bespoke instrumentation.
+- Surface 1 / Tracing to App Insights: Foundry SDK auto-instrumented spans carry `operation_Id` but NOT `capture_trace_id`. Gap confirmed by `project_native_foundry_correlation_gap.md`.
+- Surface 2 / Cross-process context propagation: `httpx` calls in recipe tools are NOT auto-instrumented. Low priority -- recipe fetch spans are secondary.
+
+**Scope delta:** `add spike memo` -- OTel baggage propagation through the Foundry SDK is the #1 ambiguity. If YES, Plans 02+04 merge (backend_api + investigation handled by one middleware config alongside Foundry). If NO, explicit per-site injection (3 separate plans). Cosmos Plan 03 is unchanged either way.
+
+**Revised plan count estimate:** 3-5 stays as-is. Spike memo (Plan 01) resolves the baggage question and determines whether Plans 02+04 merge.
 
 ### Phase 19.5 -- Agent Decision Record & RCA View
-_TBD (Task 14)._
+
+**Original scope (from spec):** For any capture, show per-agent decision details (prompt context, output, rules, config version) via Foundry deep links + app-owned `AgentDecisionRecord`.
+
+**Inventory findings that affect this phase:**
+- Checkpoint A: Foundry portal shows full prompt/output/tool-call transcripts for all 3 agents. The "Foundry First" design rule holds -- decision records store deep-link references only, NOT full transcripts.
+- Surface 1 / Conversation persistence: Thread IDs are available in SSE stream and span attributes. Portal shows full transcripts. No native search-by-`capture_trace_id` -- decision records must store `thread_id` + `run_id` for deep linking.
+- Surface 1 / Prompt-agent versioning: No native versioning in Foundry. `AgentReleaseManifest` (repo-versioned JSON snapshot) IS needed for Phase 19.5. `agent_release_id` = `{revision_name}:{manifest_hash}`.
+- Surface 7 / Revision metadata: `CONTAINER_APP_REVISION` env var provides code-side versioning. Combined with `AgentReleaseManifest` for complete release tracking.
+- Surface 4 / Workbooks: Parameterized workbook URLs are available as a "View in Azure" escape hatch alongside the primary web RCA page. Does not replace the structured RCA view.
+- Checkpoint C: Sentry RN status deferred to operator. Mobile Segment View data source (Sentry vs. spine workload events) depends on Checkpoint C confirmation after EAS rebuild.
+
+**Scope delta:** `no change` -- all findings confirm the original design. `AgentReleaseManifest` is confirmed necessary (Surface 1 / Prompt-agent versioning finding). Mobile Segment View data source has a documented fallback path (spine workload events) if Sentry tags are absent.
+
+**Revised plan count estimate:** 8-10 stays as-is.
 
 ### Phase 20 -- Labels: Feedback Signals
-_TBD (Task 14)._
+
+**Original scope (from spec):** Accumulate labeled examples (implicit + explicit) keyed to decision records, usable as eval golden data.
+
+**Inventory findings that affect this phase:**
+- Surface 6 / Change Feed: In-process Change Feed listener is **viable**. Near-real-time latency (<2 seconds). Can run as a background `asyncio.Task` alongside spine evaluator loop -- consistent with existing architecture. No separate deployment (Azure Functions, worker) needed.
+- Surface 6 / Change Feed (hosting detail): Lease management via `azure-cosmos` change feed processor or manual continuation tokens. In-process hosting adds startup complexity but no new infrastructure.
+
+**Scope delta:** `smaller scope` -- Change Feed listener replaces per-call-site feedback instrumentation. Instead of instrumenting N mutation call sites (recategorize, re-route, HITL bucket change) with explicit emit code, a single Change Feed listener on `Inbox` and `Errands` containers detects all document mutations and emits label events. Plan 02 likely shrinks from "instrument 5+ call sites" to "add 1 Change Feed listener background task."
+
+**Revised plan count estimate:** 5 -> 4. Plan 02 (implicit signal emission) shrinks because Change Feed replaces per-site instrumentation.
 
 ### Phase 21 -- Eval: Automated Scoring
-_TBD (Task 14)._
+
+**Original scope (from spec):** Classifier and admin agent quality measurable deterministically against golden data.
+
+**Inventory findings that affect this phase:**
+- Checkpoint B: Foundry Evaluations SDK is **partial Foundry-native**. `evaluate()` function hosts custom callable scorers natively. No built-in classification-accuracy evaluator.
+- Surface 1 / Evaluations SDK -- built-ins: Built-in evaluators (groundedness, relevance, coherence) cover admin output quality but NOT classifier label match.
+- Checkpoint B (specific): Phase 21 needs 3 custom scorers: exact-match (bucket label), per-bucket precision/recall, confidence calibration. Foundry `evaluate()` runs them without a separate eval framework.
+
+**Scope delta:** `smaller scope (partial)` -- Foundry `evaluate()` is the hosting framework, so Phase 21 does NOT need to build an eval runner, dataset loader, or result aggregator from scratch. Custom scorers are small Python functions passed to `evaluate()`. Plan 02 (classifier eval) and Plan 03 (admin eval) write scorers + configure `evaluate()` calls, not build an entire eval pipeline.
+
+**Revised plan count estimate:** 4-5 -> 4. The eval framework is Foundry-native; only scorers are custom.
 
 ### Phase 22 -- Self-Monitoring
-_TBD (Task 14)._
+
+**Original scope (from spec):** Evals run automatically on schedule. Degradation below thresholds fires push alerts.
+
+**Inventory findings that affect this phase:**
+- Surface 4 / `SecondBrainAlerts` action group: Exists with 3 rules, delivers via email + push. Adding new rules is CLI-able (`az monitor scheduled-query create`). No portal-only workflow.
+- Surface 4 / Alerts on custom App Insights metrics: Log-based scheduled query alerts against `AppTraces` are the correct path. No custom OTel metrics infrastructure needed -- eval scores are already logged to `AppTraces` as custom dimensions.
+- Surface 8 / `schedule: cron` triggers: Available, no constraints for weekly interval. Repo is active, no 60-day disable concern.
+- Surface 8 / `actions/upload-artifact` + retention: 90-day default, configurable. Eval result JSONs are <1 MB. Supplementary to Cosmos `EvalResults` storage.
+- Surface 8 / `$GITHUB_STEP_SUMMARY` + annotations: Pattern established in deploy workflows. Eval scores visible at a glance on the workflow run page.
+
+**Scope delta:** `no change` -- all findings confirm the original thin design. GitHub Actions + existing `SecondBrainAlerts` action group cover the need without new infrastructure. Phase 22 stays at 3 plans.
+
+**Revised plan count estimate:** 3 stays as-is.
 
 ## Housekeeping Captured
 _TBD (Task 15)._
