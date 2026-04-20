@@ -88,7 +88,11 @@ OTel baggage propagation through the Foundry SDK is the single highest-leverage 
 
 ### 8. GitHub Actions
 
-_Rows TBD (Task 9)._
+| Capability | Native today | What's missing | Downstream phase(s) |
+|---|---|---|---|
+| `schedule: cron` triggers | GitHub Actions supports `schedule` event with cron syntax on all plans (Free, Pro, Team, Enterprise). Minimum interval is 5 minutes but GitHub warns that scheduled workflows on inactive repos (no pushes in 60 days) may be automatically disabled. No existing scheduled workflows in the repo -- all current workflows are push-triggered. The repo is active (daily pushes), so the 60-day inactivity disable is not a concern. | Phase 22 adds a weekly eval workflow. No constraints on interval or workflow count. One caveat: cron runs are best-effort -- GitHub does not guarantee exact timing, with up to 15-minute delay possible during high load periods. This is acceptable for weekly eval runs. | 22 |
+| `actions/upload-artifact` + retention | GitHub Actions artifact storage is available. Default retention is 90 days (configurable per-workflow). Maximum artifact size is 500 MB per individual file, 10 GB per workflow run. The repo does not currently use `actions/upload-artifact`. Eval result payloads would be small (JSON, <1 MB per run), well within limits. | Phase 22 eval runs can use `actions/upload-artifact` to persist eval result JSONs for historical comparison. 90-day default retention aligns with App Insights retention, but a longer window can be configured (up to 400 days on paid plans). Alternatively, eval results persist in Cosmos `EvalResults` container (indefinite retention) and `actions/upload-artifact` is supplementary only. | 22 |
+| `$GITHUB_STEP_SUMMARY` + annotations | Already used in both `deploy-backend.yml` and `deploy-web.yml` for deploy summaries (revision, image, health, traffic, duration). Annotations via `echo "::warning::"` and `echo "::error::"` are used for traffic weight warnings and health check failures. Phase 22 can emit eval scores in `$GITHUB_STEP_SUMMARY` as a Markdown table and use `::error::` annotations for threshold breaches. | No gaps. Pattern is established in existing workflows. Phase 22 just needs to add summary and annotation output to the eval workflow. | 22 |
 
 ### 9. Expo / EAS
 

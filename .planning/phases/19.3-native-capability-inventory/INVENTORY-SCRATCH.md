@@ -188,6 +188,31 @@ These are all app-created spans. The Foundry SDK auto-creates its own spans via 
 - `ContainerAppConsoleLogs_CL`: stdout/stderr (uvicorn access logs).
 - Low value for observability phases. No downstream dependency.
 
+## Surface 8: GitHub Actions
+
+### Cron schedule triggers
+
+**Doc evidence:**
+- Available on all GitHub plans. Minimum 5-minute interval. Best-effort timing (up to 15-min delay).
+- Repos with no pushes in 60 days may have scheduled workflows disabled. Not a concern for this repo.
+- No existing scheduled workflows in `.github/workflows/`.
+
+### Artifact storage
+
+**Doc evidence:**
+- 90-day default retention, configurable per-workflow (up to 400 days on paid plans).
+- 500 MB per file, 10 GB per run.
+- Eval result JSONs are <1 MB -- well within limits.
+
+### Step summary + annotations
+
+**Code evidence:**
+- `deploy-backend.yml:163`: `cat >> "$GITHUB_STEP_SUMMARY"` used for deploy summary table.
+- `deploy-web.yml:153`: Same pattern.
+- `::warning::` and `::error::` annotations used for traffic weight and health check failures.
+
+**Key finding:** All three GitHub Actions capabilities are available and some are already in use. Phase 22 adds one scheduled workflow and one summary output. No new infrastructure needed.
+
 ### Log-to-span correlation
 
 **Evidence:**
