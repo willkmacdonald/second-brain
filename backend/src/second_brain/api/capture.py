@@ -24,7 +24,7 @@ from second_brain.streaming.adapter import (
     stream_text_capture,
     stream_voice_capture,
 )
-from second_brain.tools.classification import follow_up_context
+from second_brain.tools.classification import capture_trace_id_var, follow_up_context
 
 logger = logging.getLogger(__name__)
 
@@ -209,6 +209,10 @@ async def capture(request: Request, body: TextCaptureBody) -> StreamingResponse:
     run_id = body.run_id or f"run-{uuid4()}"
     capture_trace_id = request.headers.get("X-Trace-Id", str(uuid4()))
     request.state.capture_trace_id = capture_trace_id
+    # Set ContextVar early so CaptureTraceSpanProcessor can tag the
+    # AppRequests span (created by auto-instrumentation at request entry).
+    # The adapter refreshes this inside the generator; this is additive.
+    capture_trace_id_var.set(capture_trace_id)
     log_extra = _capture_extra(capture_trace_id)
 
     capture_source = request.headers.get("X-Capture-Source")
@@ -281,6 +285,9 @@ async def capture_voice(
     run_id = f"run-{uuid4()}"
     capture_trace_id = request.headers.get("X-Trace-Id", str(uuid4()))
     request.state.capture_trace_id = capture_trace_id
+    # Set ContextVar early so CaptureTraceSpanProcessor can tag the
+    # AppRequests span (created by auto-instrumentation at request entry).
+    capture_trace_id_var.set(capture_trace_id)
     log_extra = _capture_extra(capture_trace_id)
 
     async def stream_with_cleanup_and_persistence():
@@ -341,6 +348,9 @@ async def follow_up(request: Request, body: FollowUpBody) -> StreamingResponse:
     inbox_container = cosmos_manager.get_container("Inbox")
     capture_trace_id = request.headers.get("X-Trace-Id", str(uuid4()))
     request.state.capture_trace_id = capture_trace_id
+    # Set ContextVar early so CaptureTraceSpanProcessor can tag the
+    # AppRequests span (created by auto-instrumentation at request entry).
+    capture_trace_id_var.set(capture_trace_id)
 
     # Look up the original inbox item to get the Foundry thread ID
     try:
@@ -423,6 +433,9 @@ async def follow_up_voice(
     blob_url = await blob_manager.upload_audio(audio_bytes=audio_bytes)
     capture_trace_id = request.headers.get("X-Trace-Id", str(uuid4()))
     request.state.capture_trace_id = capture_trace_id
+    # Set ContextVar early so CaptureTraceSpanProcessor can tag the
+    # AppRequests span (created by auto-instrumentation at request entry).
+    capture_trace_id_var.set(capture_trace_id)
     log_extra = _capture_extra(capture_trace_id)
 
     # Transcribe from in-memory bytes (no blob re-download)

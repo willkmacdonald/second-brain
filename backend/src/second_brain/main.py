@@ -13,10 +13,15 @@ load_dotenv()
 
 from azure.monitor.opentelemetry import configure_azure_monitor  # noqa: E402
 
+from second_brain.observability.span_processor import CaptureTraceSpanProcessor  # noqa: E402
+
 # Scope log collection to application loggers only -- prevents azure-core,
 # azure-cosmos, and azure-identity internal noise from flooding App Insights.
 logging.getLogger("second_brain").setLevel(logging.INFO)
-configure_azure_monitor(logger_name="second_brain")
+configure_azure_monitor(
+    logger_name="second_brain",
+    span_processors=[CaptureTraceSpanProcessor()],
+)
 
 from agent_framework.observability import enable_instrumentation  # noqa: E402
 
