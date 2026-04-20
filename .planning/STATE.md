@@ -2,13 +2,16 @@
 gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Observability & Evals
-status: unknown
-last_updated: "2026-04-19T21:24:28.110Z"
+status: verifying
+stopped_at: Completed 19.3-01-PLAN.md (inventory approved by operator)
+last_updated: "2026-04-20T05:37:47.387Z"
+last_activity: 2026-04-20
 progress:
-  total_phases: 18
-  completed_phases: 15
-  total_plans: 54
-  completed_plans: 51
+  total_phases: 13
+  completed_phases: 8
+  total_plans: 28
+  completed_plans: 24
+  percent: 86
 ---
 
 # Project State
@@ -22,28 +25,31 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 
 ## Current Position
 
-Phase: 19.3 of 22 (Native Capability Inventory) -- COMPLETE
-Plan: 1 of 1 in current phase; All 17 tasks complete (checkpoint approved)
-Status: Phase 19.3 COMPLETE -- 28-row inventory across 9 native surfaces approved; 3 live-evidence checkpoints accepted; phase impact addendum with scope deltas for 19.4/19.5/20/21/22 confirmed; 2 housekeeping todos captured
-Last activity: 2026-04-19 -- Plan 19.3-01 complete (17 tasks, 17 commits; inventory approved by operator)
+Phase: 19.4 of 22 (Native Span Correlation Tagging) -- IN PROGRESS
+Plan: 1 of 4 in current phase; Plan 01 complete (spike memo approved)
+Status: Plan 19.4-01 complete -- spike memo approved, Plan 02 scope locked
+Last activity: 2026-04-20
 
-Progress: [█████████████░░░░░░░] 66% (Phase 19.3: COMPLETE, 1/1 plan done)
+Progress: [█████████░] 86% (Phase 19.4: IN PROGRESS, 1/4 plans done)
 
 ## Performance Metrics
 
 **Velocity (v3.0):**
+
 - Total plans completed: 33
 - Average duration: 3.1 min
 - Timeline: 2026-03-01 to 2026-03-23 (22 days)
 
 **Velocity (v2.0):**
+
 - Total plans completed: 16
 - Average duration: 3.3 min
 - Timeline: 2026-02-26 to 2026-03-01 (4 days)
 
 **Velocity (v3.1):**
-- Plans completed: 16 fully + 2 code-complete awaiting bundled human-verify checkpoint (19.2-04 + 19.2-05) + 1 investigation plan at human-verify checkpoint (19.3-01)
-- Last plan duration: ~18 min (19.3-01 -- native capability inventory; 17 tasks complete, inventory approved)
+
+- Plans completed: 17 fully + 2 code-complete awaiting bundled human-verify checkpoint (19.2-04 + 19.2-05)
+- Last plan duration: ~45 min (19.4-01 -- spike memo with SpanProcessor empirical test; 3 tasks complete, checkpoint approved)
 - Timeline: 2026-04-05 to present
 
 *Updated after each plan completion*
@@ -56,6 +62,7 @@ Decisions are logged in PROJECT.md Key Decisions table.
 v3.0 decisions archived to .planning/milestones/v3.0-ROADMAP.md
 
 **v3.1 decisions:**
+
 - KQL programmatic queries use workspace schema (traces/requests), NOT portal schema (AppTraces/AppRequests)
 - Investigation agent uses parameterized @tool functions, NOT free-form LLM-generated KQL
 - Classifier evals use deterministic metrics (exact match, confusion matrix), NOT LLM-as-judge
@@ -137,6 +144,11 @@ v3.0 decisions archived to .planning/milestones/v3.0-ROADMAP.md
 - [Phase 19.3]: In-process Change Feed listener viable for Phase 20 -- no separate Azure Functions deployment needed
 - [Phase 19.3]: Log-based scheduled query alerts sufficient for Phase 22 -- no custom OTel metrics infrastructure
 - [Phase 19.3]: OTel baggage propagation through Foundry SDK unverified -- #1 spike question for Phase 19.4
+- [Phase 19.4-01]: SpanProcessor on_start fires before capture handler sets ContextVar -- Site 1 (AppRequests) needs explicit get_current_span().set_attribute() fix
+- [Phase 19.4-01]: activityId_g holds Cosmos server-side activity ID, NOT x-ms-client-request-id -- MEMORY.md documentation incorrect
+- [Phase 19.4-01]: Cosmos correlation via AppDependencies (SpanProcessor-tagged) more reliable than AzureDiagnostics (activityId_g) -- no mapping table needed
+- [Phase 19.4-01]: Plans 02+04 merge into single plan -- SpanProcessor covers Sites 2+4 without per-site code; 6 tasks from memo section 5
+- [Phase 19.4-01]: trace_headers() still valuable for AzureDiagnostics defense-in-depth but PRIMARY correlation path is AppDependencies
 
 ### Pending Todos
 
@@ -158,6 +170,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-04-19
-Stopped at: Completed 19.3-01-PLAN.md (inventory approved by operator)
-Resume action: Phase 19.4 planning ready to begin
+Last session: 2026-04-20
+Stopped at: Completed 19.4-01-PLAN.md (spike memo approved, Plan 02 scope locked)
+Resume action: Execute 19.4-02-PLAN.md (merged Plan 02+04: 6 tasks from SPIKE-MEMO.md section 5)

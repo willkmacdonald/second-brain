@@ -242,10 +242,10 @@ Plans:
   3. Given a `capture_trace_id`, the spine correlation API returns Cosmos `activityId_g` values that query rows in `AzureDiagnostics`
   4. The web segment page's native `FoundryRunDetail` renderer shows ≥1 run for a capture with an active Foundry run (was showing 0)
   5. Investigation custom spans are filterable by correlation ID identically
-**Plans:** 4 plans (Wave 1: spike, Wave 2: SpanProcessor + Cosmos in parallel, Wave 3: integrated verification)
+**Plans:** 1/4 plans executed
 
 Plans:
-- [ ] 19.4-01-PLAN.md -- Spike memo: deploy CaptureTraceSpanProcessor, query KQL, audit Cosmos call sites, lock Plan 02 scope
+- [x] 19.4-01-PLAN.md -- Spike memo: deploy CaptureTraceSpanProcessor, query KQL, audit Cosmos call sites, lock Plan 02 scope
 - [ ] 19.4-02-PLAN.md -- Finalize SpanProcessor for Sites 1/2/4 (AppRequests, Foundry, Investigation) with unit tests
 - [ ] 19.4-03-PLAN.md -- Extend trace_headers() to remaining capture-correlated Cosmos call sites (Site 3)
 - [ ] 19.4-04-PLAN.md -- End-to-end integrated verification: spine-to-native drill-down shows real data
@@ -308,7 +308,7 @@ Items not yet scheduled into a milestone or phase.
 | 17.4. Foundry Observability and Codex Code Review | 4/4 | Complete    | 2026-04-13 | - |
 | 18. Mobile Investigation Chat | 4/4 | Complete   | 2026-04-13 | - |
 | 19. Claude Code MCP Tool | 2/2 | Complete    | 2026-04-14 | - |
-| 19.4. Native Span Correlation Tagging | 0/4 | In progress | - | - |
+| 19.4. Native Span Correlation Tagging | 1/4 | In Progress | - | - |
 | 20. Feedback Collection | v3.1 | 0/TBD | Not started | - |
 | 21. Eval Framework | v3.1 | 0/TBD | Not started | - |
 | 22. Self-Monitoring Loop | v3.1 | 0/TBD | Not started | - |
