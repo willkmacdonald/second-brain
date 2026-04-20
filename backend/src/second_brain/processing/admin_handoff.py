@@ -435,12 +435,13 @@ async def process_admin_captures_batch(
         span.set_attribute("admin.batch_size", len(admin_items))
         span.set_attribute("capture.trace_id", capture_trace_id)
         for item in admin_items:
+            item_trace_id = item.get("capture_trace_id", "") or capture_trace_id
             await process_admin_capture(
                 admin_client=admin_client,
                 admin_tools=admin_tools,
                 cosmos_manager=cosmos_manager,
                 inbox_item_id=item["inbox_item_id"],
                 raw_text=item["raw_text"],
-                capture_trace_id=capture_trace_id,
+                capture_trace_id=item_trace_id,
                 spine_repo=spine_repo,
             )

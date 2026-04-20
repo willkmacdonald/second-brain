@@ -170,7 +170,7 @@ async def get_errands(request: Request) -> ErrandsResponse:
         if admin_client is not None:
             inbox_container = cosmos_manager.get_container("Inbox")
             query = (
-                "SELECT c.id, c.rawText FROM c "
+                "SELECT c.id, c.rawText, c.captureTraceId FROM c "
                 "WHERE c.userId = @userId "
                 "AND c.classificationMeta.bucket = 'Admin' "
                 "AND (NOT IS_DEFINED(c.adminProcessingStatus) "
@@ -219,6 +219,7 @@ async def get_errands(request: Request) -> ErrandsResponse:
                             cosmos_manager=cosmos_manager,
                             inbox_item_id=new_items[0]["id"],
                             raw_text=new_items[0].get("rawText", ""),
+                            capture_trace_id=new_items[0].get("captureTraceId", ""),
                             spine_repo=spine_repo,
                         )
                     )
@@ -232,6 +233,7 @@ async def get_errands(request: Request) -> ErrandsResponse:
                                 {
                                     "inbox_item_id": i["id"],
                                     "raw_text": i.get("rawText", ""),
+                                    "capture_trace_id": i.get("captureTraceId", ""),
                                 }
                                 for i in new_items
                             ],
