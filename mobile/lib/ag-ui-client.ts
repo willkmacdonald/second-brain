@@ -1,5 +1,5 @@
 import EventSource from "react-native-sse";
-import { API_BASE_URL } from "../constants/config";
+import { API_BASE_URL, API_KEY } from "../constants/config";
 import { generateTraceId, reportError } from "./telemetry";
 import { tagTrace } from "./sentry";
 import type {
@@ -55,17 +55,15 @@ function emitMobileCaptureWorkload(
   durationMs: number,
 ): void {
   const body = {
-    root: {
-      segment_id: "mobile_capture",
-      event_type: "workload",
-      timestamp: new Date().toISOString(),
-      payload: {
-        operation: "submit_capture",
-        outcome,
-        duration_ms: durationMs,
-        correlation_kind: "capture",
-        correlation_id: traceId,
-      },
+    segment_id: "mobile_capture",
+    event_type: "workload",
+    timestamp: new Date().toISOString(),
+    payload: {
+      operation: "submit_capture",
+      outcome,
+      duration_ms: durationMs,
+      correlation_kind: "capture",
+      correlation_id: traceId,
     },
   };
 
@@ -76,7 +74,10 @@ function emitMobileCaptureWorkload(
   // its own right via the SSE callbacks above.
   fetch(`${API_BASE_URL}/api/spine/ingest`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${API_KEY}`,
+    },
     body: JSON.stringify(body),
   }).catch(() => {
     /* transport failure surfaces via Sentry error reporting on the
