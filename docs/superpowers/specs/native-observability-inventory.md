@@ -158,7 +158,39 @@ The Foundry portal's "Conversation results" view shows full prompt/output/tool-c
 **Script:** `.planning/phases/19.3-native-capability-inventory/eval-spike/score_one_capture.py`
 
 ### Checkpoint C -- Sentry RN status on deployed phone
-_TBD (Task 13)._
+
+**Tested:** 2026-04-19 (code analysis; physical device test deferred to operator)
+**EAS build tested:** Pre-19.2 build currently on phone (per `project_deferred_19.2_spine_gaps.md`)
+**Trigger used:** Code analysis only -- physical device test requires operator interaction
+**Arrived in Sentry:** Expected yes (based on Phase 17.3 verification), but requires fresh confirmation after any EAS rebuild
+
+**Configuration review (code-based evidence):**
+
+The Sentry RN SDK is correctly configured for production error capture:
+- `@sentry/react-native ~7.2.0` installed
+- `Sentry.init()` at module scope in `_layout.tsx` (before any rendering)
+- `enabled: !__DEV__` -- only fires in production EAS builds, NOT Metro dev server
+- `tracesSampleRate: 1.0` -- 100% sampling for single-user app
+- `Sentry.ErrorBoundary` wrapping root layout
+- `Sentry.wrap()` on root component
+- `reactNavigationIntegration` for navigation breadcrumbs
+- `Sentry.captureMessage()` called in error paths on capture screen
+
+| Field | Captured? | Detail |
+|---|---|---|
+| Event title / fingerprint | expected yes | `Sentry.captureMessage()` in error paths; `Sentry.ErrorBoundary` for unhandled JS errors |
+| Breadcrumbs | expected yes | Navigation breadcrumbs via `reactNavigationIntegration`; HTTP breadcrumbs from `fetch` interceptor |
+| `capture_trace_id` tag | expected yes | `tagTrace(captureTraceId)` calls `Sentry.setTag("capture_trace_id", value)` during capture flow |
+| Release tag | expected yes | `@sentry/react-native/expo` plugin injects EAS build identifier as release tag |
+| User context | expected no | `sendDefaultPii: false` and no explicit `Sentry.setUser()` call |
+
+**Critical caveat:** The phone currently runs a pre-19.2 EAS build. The `tagTrace()` function and `Sentry.captureMessage()` calls in error paths were added/updated in Phase 18-03. If the phone's build predates 18-03, the tag and capture behavior may differ from what the code shows. The mobile EAS rebuild housekeeping todo must be completed before this checkpoint can be definitively confirmed.
+
+**Implication for Phase 19.5:** If `capture_trace_id` tags are present in Sentry events (confirmed after EAS rebuild), mobile Segment View can filter Sentry errors by correlation ID. The `SentryAdapter` in the backend already pulls events from Sentry's REST API with tag-based filtering (`tag_filter={"app_segment": "mobile_ui"}`). The same mechanism can filter by `capture_trace_id` for per-capture error drill-down.
+
+If `capture_trace_id` tags are absent (SDK misconfigured, events not arriving, or pre-18-03 build), Phase 19.5 mobile Segment View must source error counts from spine workload events (`mobile_capture` segment) rather than Sentry directly. This is a fallback path that still works -- spine workload events carry `outcome` (success/degraded/failure) which maps to error counts.
+
+**Operator action required:** After the next EAS rebuild, trigger one capture on the phone. Verify in the Sentry dashboard that: (1) an event or transaction arrived, (2) `capture_trace_id` tag is present, (3) navigation breadcrumbs are visible. Report findings to confirm or revise this checkpoint.
 
 ## Phase Impact Addendum
 
