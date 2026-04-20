@@ -1,7 +1,7 @@
 # Native Observability Capability Inventory
 
 **Date:** 2026-04-19
-**Status:** Draft (in progress)
+**Status:** Ready for review
 **Parent spec:** docs/superpowers/specs/2026-04-19-observability-evolution-design.md
 
 ## Scope
@@ -270,3 +270,15 @@ The spec defined two housekeeping items that do not warrant their own phase. Bot
 
 - **Mobile EAS rebuild + 19.2 closure verification** -- todo `2026-04-19-mobile-eas-rebuild-close-19.2.md`. Trigger: before 19.4 execution if possible, else after. Reference: `memory/project_deferred_19.2_spine_gaps.md`.
 - **Duplicate Key Vault secret cleanup** -- todo `2026-04-19-delete-duplicate-keyvault-secret.md`. Trigger: whenever; zero blocker. Reference: `memory/project_followup_duplicate_api_key_secrets.md`.
+
+## Open Questions for Human Review
+
+Items where the investigator could not reach a confident answer from code analysis alone. These are candidates for downstream phase spike memos, not for re-investigation within 19.3.
+
+1. **OTel baggage propagation through the Foundry SDK (Surface 2 / Baggage propagation).** The single highest-leverage unknown. Can `opentelemetry.baggage.set_baggage("capture_trace_id", value)` propagate through `azure-core`'s HTTP pipeline into Foundry SDK spans? Must be tested empirically in Phase 19.4 Plan 01 spike memo. If yes, collapses 3 emit sites into 1. If no, explicit per-site injection.
+
+2. **Checkpoint C live verification (Sentry RN on deployed phone).** Code configuration looks correct but the phone runs a pre-19.2 EAS build. The EAS rebuild housekeeping todo must be completed before this checkpoint is definitively confirmed. Operator should trigger one capture on the rebuilt phone and verify Sentry dashboard shows `capture_trace_id` tag.
+
+3. **Foundry Evaluations SDK exact version pin.** The spike script in `eval-spike/score_one_capture.py` should be run locally to pin the exact `azure-ai-evaluation` version and confirm `evaluate()` accepts custom callable scorers as documented. This is low-risk (SDK documentation is clear) but the version pin is needed for Phase 21's requirements file.
+
+4. **Azure Monitor Workbook URL format for deep-linking.** The exact parameterized workbook URL format for linking from the web RCA page to a filtered Azure workbook needs testing in the portal. Low priority -- workbooks are a supplement, not a replacement. Defer to Phase 19.5 if the web RCA page wants a "View in Azure" button.
