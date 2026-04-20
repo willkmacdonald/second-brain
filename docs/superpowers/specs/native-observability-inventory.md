@@ -1,7 +1,7 @@
 # Native Observability Capability Inventory
 
 **Date:** 2026-04-19
-**Status:** Ready for review
+**Status:** Approved
 **Parent spec:** docs/superpowers/specs/2026-04-19-observability-evolution-design.md
 
 ## Scope
