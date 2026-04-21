@@ -169,9 +169,16 @@ async def process_admin_capture(
         raw_text: The user's original capture text to send to the Admin Agent.
         capture_trace_id: Trace ID from the originating capture.
     """
+    from second_brain.tools.classification import capture_trace_id_var
+
+    if capture_trace_id:
+        capture_trace_id_var.set(capture_trace_id)
+
     with tracer.start_as_current_span("admin_agent_process") as span:
         span.set_attribute("admin.inbox_item_id", inbox_item_id)
         span.set_attribute("admin.raw_text_length", len(raw_text))
+        if capture_trace_id:
+            span.set_attribute("capture.trace_id", capture_trace_id)
 
         # Spine workload tracking
         _spine_start = time.perf_counter()
