@@ -264,12 +264,12 @@ Plans:
   5. First-launch API key prompt appears when no key is stored; key persists in SecureStore
   6. Settings screen allows viewing (masked) and changing the stored API key
   7. Production EAS build available on TestFlight; OTA updates functional
-**Plans:** 2/4 plans executed
+**Plans:** 3/4 plans executed
 
 Plans:
 - [x] 19.4.1-01-PLAN.md -- API key management: SecureStore context provider, first-launch gate, settings screen, root layout wiring
 - [x] 19.4.1-02-PLAN.md -- Backend health-summary recency: lastErrorTime KQL field, model extension, endpoint update
-- [ ] 19.4.1-03-PLAN.md -- Tab restructuring: new Tasks tab, simplified Status tab, enhanced error card with recency
+- [x] 19.4.1-03-PLAN.md -- Tab restructuring: new Tasks tab, simplified Status tab, enhanced error card with recency
 - [ ] 19.4.1-04-PLAN.md -- EAS production build: expo-updates install, channel config, TestFlight submission + verification
 
 ### Phase 20: Feedback Collection
@@ -331,7 +331,7 @@ Items not yet scheduled into a milestone or phase.
 | 18. Mobile Investigation Chat | 4/4 | Complete   | 2026-04-13 | - |
 | 19. Claude Code MCP Tool | 2/2 | Complete    | 2026-04-14 | - |
 | 19.4. Native Span Correlation Tagging | 4/4 | 4/4 | Complete    | 2026-04-20 |
-| 19.4.1. Fix Mobile UX Issues | 0/4 | 2/4 | In Progress|  |
+| 19.4.1. Fix Mobile UX Issues | 0/4 | 3/4 | In Progress|  |
 | 20. Feedback Collection | v3.1 | 0/TBD | Not started | - |
 | 21. Eval Framework | v3.1 | 0/TBD | Not started | - |
 | 22. Self-Monitoring Loop | v3.1 | 0/TBD | Not started | - |

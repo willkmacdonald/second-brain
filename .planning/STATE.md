@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Observability & Evals
 status: executing
-stopped_at: Completed 19.4.1-02-PLAN.md
-last_updated: "2026-04-21T05:55:25.755Z"
+stopped_at: Completed 19.4.1-03-PLAN.md
+last_updated: "2026-04-21T06:02:00.018Z"
 last_activity: 2026-04-21
 progress:
   total_phases: 14
   completed_phases: 9
   total_plans: 32
-  completed_plans: 29
-  percent: 91
+  completed_plans: 30
+  percent: 94
 ---
 
 # Project State
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 ## Current Position
 
 Phase: 19.4.1 (fix-mobile-ux-issues) — EXECUTING
-Plan: 3 of 4
+Plan: 4 of 4
 Status: Ready to execute
 Last activity: 2026-04-21
 
@@ -158,6 +158,9 @@ v3.0 decisions archived to .planning/milestones/v3.0-ROADMAP.md
 - [Phase 19.4.1]: React Context + SecureStore pattern: provider reads on mount, syncs to config.ts via setRuntimeApiKey
 - [Phase 19.4.1]: ApiKeyGate as Modal overlay (not navigation guard) so all 4 tabs remain visible
 - [Phase 19.4.1]: KQL uses union of AppTraces+AppExceptions with SeverityLevel>=3 for last error time; last_error_time as ISO string, client computes age
+- [Phase 19.4.1]: Tasks tab useFocusEffect triggers GET /api/errands (Admin Agent processing side-effect) -- moved from Status per D-04
+- [Phase 19.4.1]: Status screen uses ScrollView instead of SectionList -- no expandable sections, just dashboard cards and spine tiles
+- [Phase 19.4.1]: formatErrorAge computed client-side from backend lastErrorTime ISO string -- avoids timezone issues
 
 ### Pending Todos
 
@@ -185,8 +188,8 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-04-21T05:55:25.751Z
-Stopped at: Completed 19.4.1-02-PLAN.md
+Last session: 2026-04-21T06:02:00.014Z
+Stopped at: Completed 19.4.1-03-PLAN.md
 Resume action: Plan Phase 19.4.1 (fix mobile UX issues) then continue to Phase 20
 
 **Planned Phase:** 19.4.1 (fix-mobile-ux-issues) — 4 plans — 2026-04-21T05:42:32.093Z
