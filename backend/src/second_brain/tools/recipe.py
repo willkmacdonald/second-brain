@@ -179,6 +179,10 @@ class RecipeTools:
         # centralises the correlation precedence logic, so external_services
         # events land with correlation_kind="capture" when the recipe tool
         # is invoked inside an agent call with a known trace.
+        if self._spine_repo is None:
+            logger.warning(
+                "RecipeTools._spine_repo is None, skipping external_services emit"
+            )
         if self._spine_repo is not None:
             duration_ms = int((time.perf_counter() - start) * 1000)
             capture_trace_id = capture_trace_id_var.get() or None
