@@ -35,11 +35,20 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="tasks"
+        options={{
+          title: "Tasks",
+          tabBarIcon: ({ color }) => (
+            <TabIcon label={"\u2705"} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="status"
         options={{
           title: "Status",
           tabBarIcon: ({ color }) => (
-            <TabIcon label={"\u26A1"} color={color} />
+            <TabIcon label={"\uD83D\uDCCA"} color={color} />
           ),
         }}
       />
