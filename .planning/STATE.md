@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Observability & Evals
 status: executing
-stopped_at: Completed 19.4.1-01-PLAN.md
-last_updated: "2026-04-21T05:51:32.871Z"
-last_activity: 2026-04-21 -- Plan 19.4.1-01 completed
+stopped_at: Completed 19.4.1-02-PLAN.md
+last_updated: "2026-04-21T05:55:25.755Z"
+last_activity: 2026-04-21
 progress:
   total_phases: 14
   completed_phases: 9
   total_plans: 32
-  completed_plans: 28
-  percent: 88
+  completed_plans: 29
+  percent: 91
 ---
 
 # Project State
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 ## Current Position
 
 Phase: 19.4.1 (fix-mobile-ux-issues) — EXECUTING
-Plan: 2 of 4
-Status: Executing Phase 19.4.1 — Plan 01 complete
-Last activity: 2026-04-21 -- Plan 19.4.1-01 completed
+Plan: 3 of 4
+Status: Ready to execute
+Last activity: 2026-04-21
 
 Progress: [█████████░] 88% (Phase 19.4.1: 1/4 plans done)
 
@@ -157,6 +157,7 @@ v3.0 decisions archived to .planning/milestones/v3.0-ROADMAP.md
 - [Phase 19.4.1]: ES module live binding (export let) for API_KEY so all import sites see runtime updates without code changes
 - [Phase 19.4.1]: React Context + SecureStore pattern: provider reads on mount, syncs to config.ts via setRuntimeApiKey
 - [Phase 19.4.1]: ApiKeyGate as Modal overlay (not navigation guard) so all 4 tabs remain visible
+- [Phase 19.4.1]: KQL uses union of AppTraces+AppExceptions with SeverityLevel>=3 for last error time; last_error_time as ISO string, client computes age
 
 ### Pending Todos
 
@@ -184,8 +185,8 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-04-21T05:51:32.867Z
-Stopped at: Completed 19.4.1-01-PLAN.md
+Last session: 2026-04-21T05:55:25.751Z
+Stopped at: Completed 19.4.1-02-PLAN.md
 Resume action: Plan Phase 19.4.1 (fix mobile UX issues) then continue to Phase 20
 
 **Planned Phase:** 19.4.1 (fix-mobile-ux-issues) — 4 plans — 2026-04-21T05:42:32.093Z
