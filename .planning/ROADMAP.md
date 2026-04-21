@@ -69,6 +69,7 @@ See: .planning/milestones/v3.0-ROADMAP.md
 - [x] **Phase 18: Mobile Investigation Chat** - Chat screen, dashboard cards, quick action chips, and error deep-linking (completed 2026-04-12)
 - [x] **Phase 19: Claude Code MCP Tool** - Standalone MCP server for App Insights queries from Claude Code (completed 2026-04-14)
 - [x] **Phase 19.4: Native Span Correlation Tagging** (INSERTED) - Tag all native telemetry rows with capture_trace_id so spine-to-native drill-down works (completed 2026-04-20)
+- [ ] **Phase 19.4.1: Fix Mobile UX Issues** (INSERTED) - 4-tab layout, Tasks tab extraction, API key management, error card recency, EAS production build
 - [ ] **Phase 20: Feedback Collection** - Implicit quality signals, explicit thumbs up/down, golden dataset promotion
 - [ ] **Phase 21: Eval Framework** - Golden datasets, deterministic evaluators, score storage, on-demand trigger
 - [ ] **Phase 22: Self-Monitoring Loop** - Automated weekly evals, threshold alerts, push notifications on degradation
@@ -250,6 +251,27 @@ Plans:
 - [x] 19.4-03-PLAN.md -- Extend trace_headers() to remaining capture-correlated Cosmos call sites (Site 3)
 - [x] 19.4-04-PLAN.md -- End-to-end integrated verification: spine-to-native drill-down shows real data
 
+### Phase 19.4.1: Fix Mobile UX Issues (INSERTED)
+
+**Goal:** Restructure mobile tab navigation to separate actionable items (Tasks tab) from observability (Status tab), add first-launch API key prompt with SecureStore and settings screen, enhance error card with recency info and time-ranged deep-link, and ship a production EAS build to TestFlight with OTA update support
+**Requirements**: UX-01, UX-02, UX-03, UX-04, UX-05
+**Depends on:** Phase 19.4
+**Success Criteria** (what must be TRUE):
+  1. Tab bar shows 4 tabs: Capture | Inbox | Tasks | Status with correct icons
+  2. Tasks tab displays errands/tasks with collapsible sections and triggers Admin Agent processing on focus
+  3. Status tab shows only dashboard cards + spine tiles + investigate/settings icons (no errands)
+  4. Error card displays recency info and deep-link passes time-ranged query to investigation agent
+  5. First-launch API key prompt appears when no key is stored; key persists in SecureStore
+  6. Settings screen allows viewing (masked) and changing the stored API key
+  7. Production EAS build available on TestFlight; OTA updates functional
+**Plans:** 4 plans (Wave 1: API key infrastructure + backend recency, Wave 2: tab restructuring, Wave 3: EAS build + TestFlight)
+
+Plans:
+- [ ] 19.4.1-01-PLAN.md -- API key management: SecureStore context provider, first-launch gate, settings screen, root layout wiring
+- [ ] 19.4.1-02-PLAN.md -- Backend health-summary recency: lastErrorTime KQL field, model extension, endpoint update
+- [ ] 19.4.1-03-PLAN.md -- Tab restructuring: new Tasks tab, simplified Status tab, enhanced error card with recency
+- [ ] 19.4.1-04-PLAN.md -- EAS production build: expo-updates install, channel config, TestFlight submission + verification
+
 ### Phase 20: Feedback Collection
 **Goal**: Quality signals flow into the system automatically from user behavior and explicitly from user feedback
 **Depends on**: Phase 17 (FEED-04 needs investigation agent), Phase 16 (Cosmos containers)
@@ -297,7 +319,7 @@ Items not yet scheduled into a milestone or phase.
 - v1.0: 1 -> 2 -> 3 -> 4 -> 4.1 -> 4.2 -> 4.3 -> 5 (complete)
 - v2.0: 6 -> 7 -> 8 -> 9 -> 9.1 (complete)
 - v3.0: 10 -> 11 -> 11.1 -> 12 -> 12.1 -> 12.2 -> 12.3 -> 12.3.1 -> 12.5 -> 13 -> 14 -> 15 (complete)
-- v3.1: 16 -> 16.1 -> 17 -> 17.3 -> 17.4 -> 18 -> 19 -> 20 -> 21 -> 22
+- v3.1: 16 -> 16.1 -> 17 -> 17.3 -> 17.4 -> 18 -> 19 -> 19.4.1 -> 20 -> 21 -> 22
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -309,6 +331,7 @@ Items not yet scheduled into a milestone or phase.
 | 18. Mobile Investigation Chat | 4/4 | Complete   | 2026-04-13 | - |
 | 19. Claude Code MCP Tool | 2/2 | Complete    | 2026-04-14 | - |
 | 19.4. Native Span Correlation Tagging | 4/4 | 4/4 | Complete    | 2026-04-20 |
+| 19.4.1. Fix Mobile UX Issues | 0/4 | In Progress | - | - |
 | 20. Feedback Collection | v3.1 | 0/TBD | Not started | - |
 | 21. Eval Framework | v3.1 | 0/TBD | Not started | - |
 | 22. Self-Monitoring Loop | v3.1 | 0/TBD | Not started | - |
