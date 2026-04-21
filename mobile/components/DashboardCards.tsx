@@ -4,6 +4,7 @@ export interface DashboardData {
   captureCount: number | null;
   successRate: number | null;
   errorCount: number | null;
+  lastErrorAge: string | null;
   loading: boolean;
 }
 
@@ -17,7 +18,7 @@ interface DashboardCardsProps {
  *
  * - Captures (24h): display-only count
  * - Success Rate: display-only percentage
- * - Last Error: tappable, deep-links to investigation chat
+ * - Errors (24h): tappable, deep-links to investigation chat, shows recency
  */
 export function DashboardCards({ data, onErrorPress }: DashboardCardsProps) {
   const hasErrors = data.errorCount !== null && data.errorCount > 0;
@@ -62,10 +63,13 @@ export function DashboardCards({ data, onErrorPress }: DashboardCardsProps) {
             styles.value,
             hasErrors ? styles.errorText : styles.noErrorText,
           ]}
-          numberOfLines={2}
+          numberOfLines={1}
         >
           {errorDisplay}
         </Text>
+        {hasErrors && data.lastErrorAge && (
+          <Text style={styles.recencyText}>last: {data.lastErrorAge}</Text>
+        )}
       </Pressable>
     </View>
   );
@@ -106,5 +110,11 @@ const styles = StyleSheet.create({
   },
   noErrorText: {
     color: "#4a90d9",
+  },
+  recencyText: {
+    color: "#ff6b6b",
+    fontSize: 11,
+    opacity: 0.7,
+    marginTop: 2,
   },
 });
