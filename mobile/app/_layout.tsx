@@ -4,6 +4,8 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import * as Sentry from "@sentry/react-native";
 import { initSentry, navigationIntegration } from "../lib/sentry";
 import { ErrorFallback } from "../components/ErrorFallback";
+import { ApiKeyProvider } from "../contexts/ApiKeyContext";
+import { ApiKeyGate } from "../components/ApiKeyGate";
 
 // Initialize Sentry at module scope -- BEFORE any rendering (Pitfall 3)
 initSentry();
@@ -18,31 +20,43 @@ function RootLayout() {
   }, [ref]);
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <Sentry.ErrorBoundary fallback={ErrorFallback}>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen
-            name="conversation/[threadId]"
-            options={{
-              headerShown: true,
-              headerTitle: "",
-              headerStyle: { backgroundColor: "#0f0f23" },
-              headerTintColor: "#ffffff",
-            }}
-          />
-          <Stack.Screen
-            name="investigate"
-            options={{
-              headerShown: true,
-              headerTitle: "Investigate",
-              headerStyle: { backgroundColor: "#0f0f23" },
-              headerTintColor: "#ffffff",
-            }}
-          />
-        </Stack>
-      </Sentry.ErrorBoundary>
-    </GestureHandlerRootView>
+    <ApiKeyProvider>
+      <ApiKeyGate />
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <Sentry.ErrorBoundary fallback={ErrorFallback}>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen
+              name="conversation/[threadId]"
+              options={{
+                headerShown: true,
+                headerTitle: "",
+                headerStyle: { backgroundColor: "#0f0f23" },
+                headerTintColor: "#ffffff",
+              }}
+            />
+            <Stack.Screen
+              name="investigate"
+              options={{
+                headerShown: true,
+                headerTitle: "Investigate",
+                headerStyle: { backgroundColor: "#0f0f23" },
+                headerTintColor: "#ffffff",
+              }}
+            />
+            <Stack.Screen
+              name="settings"
+              options={{
+                headerShown: true,
+                headerTitle: "Settings",
+                headerStyle: { backgroundColor: "#0f0f23" },
+                headerTintColor: "#ffffff",
+              }}
+            />
+          </Stack>
+        </Sentry.ErrorBoundary>
+      </GestureHandlerRootView>
+    </ApiKeyProvider>
   );
 }
 
