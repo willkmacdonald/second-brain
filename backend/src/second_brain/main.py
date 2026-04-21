@@ -750,6 +750,11 @@ async def lifespan(app: FastAPI):
         # --- Spine wiring (non-fatal on component failures) ---
         spine_evaluator_task, spine_liveness_tasks = await _wire_spine(app, settings)
 
+        # Backfill spine_repo on RecipeTools — it was created before spine
+        # wiring so its _spine_repo is None at init time.
+        if getattr(app.state, "recipe_tools", None) and app.state.spine_repo:
+            app.state.recipe_tools._spine_repo = app.state.spine_repo
+
         # --- Agent warm-up background task ---
         warmup_task = None
         if settings.agent_warmup_enabled:
