@@ -145,6 +145,7 @@ class HealthSummary(BaseModel):
     failed_capture_count: int = 0
     avg_duration_ms: float | None = None
     admin_processing_count: int = 0
+    last_error_time: str | None = None  # ISO timestamp of most recent error
 
 
 class AdminAuditRecord(BaseModel):

@@ -132,6 +132,11 @@ let admin_count = toscalar(
     | where tostring(Properties.component) == "admin_agent"
     | summarize count()
 );
+let last_error_time = toscalar(
+    union AppTraces, AppExceptions
+    | where SeverityLevel >= 3
+    | summarize max(TimeGenerated)
+);
 print
     capture_count = capture_count,
     successful_count = successful_count,
@@ -139,7 +144,8 @@ print
     server_error_count = server_error_count,
     error_log_count = error_log_count,
     avg_duration_ms = avg_duration,
-    admin_processing_count = admin_count
+    admin_processing_count = admin_count,
+    last_error_time = last_error_time
 """
 
 # ---------------------------------------------------------------------------

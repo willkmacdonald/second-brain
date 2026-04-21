@@ -182,6 +182,9 @@ async def query_system_health(
     client_errors = int(row.get("client_error_count", 0) or 0)
     server_errors = int(row.get("server_error_count", 0) or 0)
 
+    last_error_time_raw = row.get("last_error_time")
+    last_error_time = str(last_error_time_raw) if last_error_time_raw else None
+
     return HealthSummary(
         capture_count=capture_count,
         success_rate=success_rate,
@@ -189,6 +192,7 @@ async def query_system_health(
         failed_capture_count=client_errors + server_errors,
         avg_duration_ms=row.get("avg_duration_ms"),
         admin_processing_count=int(row.get("admin_processing_count", 0) or 0),
+        last_error_time=last_error_time,
     )
 
 
