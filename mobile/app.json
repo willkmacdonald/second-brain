@@ -25,6 +25,7 @@
       "infoPlist": {
         "NSSpeechRecognitionUsageDescription": "Allow Second Brain to use speech recognition for voice-to-text capture.",
         "NSMicrophoneUsageDescription": "Allow Second Brain to access your microphone for voice capture.",
+        "NSPhotoLibraryUsageDescription": "Allow Second Brain to access your photos for attaching images to captures.",
         "ITSAppUsesNonExemptEncryption": false
       }
     },
