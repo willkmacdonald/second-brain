@@ -3,7 +3,11 @@
 Covers:
 - POST /api/feedback explicit thumbs up/down endpoint (FEED-02)
 - Inline feedback signal emission from recategorize, HITL, errand handlers (FEED-01)
+- Investigation tool tests for query_feedback_signals
+  and promote_to_golden_dataset (FEED-03, FEED-04)
 """
+
+from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
 
@@ -14,6 +18,7 @@ from fastapi import FastAPI
 from second_brain.api.feedback import router as feedback_router
 from second_brain.api.inbox import router as inbox_router
 from second_brain.auth import APIKeyMiddleware
+from second_brain.tools.investigation import InvestigationTools
 
 TEST_API_KEY = "test-api-key-12345"
 
@@ -314,6 +319,245 @@ async def test_errand_reroute_emits_feedback(
     assert written["originalBucket"] == "unrouted"
     assert written["correctedBucket"] == "costco"
     assert written["captureText"] == "Buy groceries"
+
+
+# ---------------------------------------------------------------------------
+# Investigation tool tests for feedback signals (FEED-03, FEED-04)
+# ---------------------------------------------------------------------------
+
+SAMPLE_FEEDBACK_SIGNALS = [
+    {
+        "id": "sig-1",
+        "userId": "will",
+        "signalType": "recategorize",
+        "captureText": "Buy milk at store",
+        "originalBucket": "Ideas",
+        "correctedBucket": "Admin",
+        "captureTraceId": "trace-abc",
+        "createdAt": "2026-04-20T10:00:00Z",
+    },
+    {
+        "id": "sig-2",
+        "userId": "will",
+        "signalType": "thumbs_up",
+        "captureText": "Call dentist tomorrow",
+        "originalBucket": "Admin",
+        "correctedBucket": None,
+        "captureTraceId": "trace-def",
+        "createdAt": "2026-04-20T11:00:00Z",
+    },
+    {
+        "id": "sig-3",
+        "userId": "will",
+        "signalType": "recategorize",
+        "captureText": "Pick up dry cleaning",
+        "originalBucket": "Ideas",
+        "correctedBucket": "Admin",
+        "captureTraceId": "trace-ghi",
+        "createdAt": "2026-04-20T12:00:00Z",
+    },
+]
+
+
+@pytest.fixture
+def investigation_tools(mock_cosmos_manager: MagicMock) -> InvestigationTools:
+    """InvestigationTools with mock LogsQueryClient and mock cosmos_manager."""
+    logs_client = MagicMock()
+    return InvestigationTools(
+        logs_client=logs_client,
+        workspace_id="test-workspace-id",
+        cosmos_manager=mock_cosmos_manager,
+    )
+
+
+@pytest.fixture
+def investigation_tools_no_cosmos() -> InvestigationTools:
+    """InvestigationTools without cosmos_manager."""
+    logs_client = MagicMock()
+    return InvestigationTools(
+        logs_client=logs_client,
+        workspace_id="test-workspace-id",
+    )
+
+
+def _mock_feedback_query(signals: list[dict]):
+    """Create an async generator returning the given signals."""
+
+    async def _gen(*args, **kwargs):
+        for item in signals:
+            yield item
+
+    return _gen
+
+
+@pytest.mark.asyncio
+async def test_query_feedback_signals_no_filters(
+    investigation_tools: InvestigationTools,
+    mock_cosmos_manager: MagicMock,
+) -> None:
+    """query_feedback_signals with no filters returns recent signals as JSON."""
+    import json
+
+    feedback_container = mock_cosmos_manager.get_container("Feedback")
+    feedback_container.query_items.return_value = _mock_feedback_query(
+        SAMPLE_FEEDBACK_SIGNALS
+    )()
+
+    result = await investigation_tools.query_feedback_signals()
+    data = json.loads(result)
+
+    assert "signals" in data
+    assert len(data["signals"]) == 3
+    assert data["total"] == 3
+    # Each signal should have expected fields
+    sig = data["signals"][0]
+    assert "signalType" in sig
+    assert "captureText" in sig
+    assert "originalBucket" in sig
+
+
+@pytest.mark.asyncio
+async def test_query_feedback_signals_filter_recategorize(
+    investigation_tools: InvestigationTools,
+    mock_cosmos_manager: MagicMock,
+) -> None:
+    """query_feedback_signals with signal_type='recategorize' filters correctly."""
+    import json
+
+    recategorize_only = [
+        s for s in SAMPLE_FEEDBACK_SIGNALS if s["signalType"] == "recategorize"
+    ]
+    feedback_container = mock_cosmos_manager.get_container("Feedback")
+    feedback_container.query_items.return_value = _mock_feedback_query(
+        recategorize_only
+    )()
+
+    result = await investigation_tools.query_feedback_signals(
+        signal_type="recategorize"
+    )
+    data = json.loads(result)
+
+    assert len(data["signals"]) == 2
+    # Check the query included signalType filter
+    call_args = feedback_container.query_items.call_args
+    query_str = call_args[1].get("query", "") or call_args[0][0] if call_args[0] else ""
+    assert "signalType" in query_str
+
+
+@pytest.mark.asyncio
+async def test_query_feedback_signals_misclassification_summary(
+    investigation_tools: InvestigationTools,
+    mock_cosmos_manager: MagicMock,
+) -> None:
+    """query_feedback_signals includes misclassification_summary
+    for recategorize signals."""
+    import json
+
+    feedback_container = mock_cosmos_manager.get_container("Feedback")
+    feedback_container.query_items.return_value = _mock_feedback_query(
+        SAMPLE_FEEDBACK_SIGNALS
+    )()
+
+    result = await investigation_tools.query_feedback_signals()
+    data = json.loads(result)
+
+    assert "misclassification_summary" in data
+    summary = data["misclassification_summary"]
+    # Two recategorize signals: Ideas -> Admin (x2)
+    assert "Ideas -> Admin" in summary
+    assert summary["Ideas -> Admin"] == 2
+
+
+@pytest.mark.asyncio
+async def test_query_feedback_signals_no_cosmos(
+    investigation_tools_no_cosmos: InvestigationTools,
+) -> None:
+    """query_feedback_signals with cosmos_manager=None returns JSON error."""
+    import json
+
+    result = await investigation_tools_no_cosmos.query_feedback_signals()
+    data = json.loads(result)
+    assert "error" in data
+    assert (
+        "unavailable" in data["error"].lower()
+        or "not configured" in data["error"].lower()
+    )
+
+
+@pytest.mark.asyncio
+async def test_promote_to_golden_dataset_preview(
+    investigation_tools: InvestigationTools,
+    mock_cosmos_manager: MagicMock,
+) -> None:
+    """promote_to_golden_dataset with confirm=False returns preview."""
+    import json
+
+    feedback_container = mock_cosmos_manager.get_container("Feedback")
+    feedback_container.read_item = AsyncMock(return_value=SAMPLE_FEEDBACK_SIGNALS[0])
+
+    result = await investigation_tools.promote_to_golden_dataset(
+        signal_id="sig-1", confirm=False
+    )
+    data = json.loads(result)
+
+    assert "preview" in data or "captureText" in data
+    # Should NOT write to GoldenDataset
+    golden_container = mock_cosmos_manager.get_container("GoldenDataset")
+    golden_container.create_item.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_promote_to_golden_dataset_confirm(
+    investigation_tools: InvestigationTools,
+    mock_cosmos_manager: MagicMock,
+) -> None:
+    """promote_to_golden_dataset with confirm=True writes GoldenDatasetDocument."""
+    import json
+
+    feedback_container = mock_cosmos_manager.get_container("Feedback")
+    feedback_container.read_item = AsyncMock(return_value=SAMPLE_FEEDBACK_SIGNALS[0])
+
+    result = await investigation_tools.promote_to_golden_dataset(
+        signal_id="sig-1", confirm=True
+    )
+    data = json.loads(result)
+
+    assert "success" in data or "id" in data
+
+    golden_container = mock_cosmos_manager.get_container("GoldenDataset")
+    golden_container.create_item.assert_called_once()
+    written = golden_container.create_item.call_args[1]["body"]
+    assert written["source"] == "promoted_feedback"
+    assert written["inputText"] == "Buy milk at store"
+    assert written["expectedBucket"] == "Admin"  # correctedBucket from signal
+
+
+@pytest.mark.asyncio
+async def test_promote_to_golden_dataset_not_found(
+    investigation_tools: InvestigationTools,
+    mock_cosmos_manager: MagicMock,
+) -> None:
+    """promote_to_golden_dataset with nonexistent signal returns JSON error."""
+    import json
+
+    from azure.cosmos.exceptions import CosmosResourceNotFoundError
+
+    feedback_container = mock_cosmos_manager.get_container("Feedback")
+    feedback_container.read_item = AsyncMock(
+        side_effect=CosmosResourceNotFoundError(status_code=404, message="Not found")
+    )
+
+    result = await investigation_tools.promote_to_golden_dataset(
+        signal_id="nonexistent", confirm=False
+    )
+    data = json.loads(result)
+    assert "error" in data
+    assert "not found" in data["error"].lower()
+
+
+# ---------------------------------------------------------------------------
+# Non-fatal signal emission test (FEED-01 continued)
+# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
