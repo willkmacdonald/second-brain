@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Observability & Evals
-status: planning
-stopped_at: Phase 20 context gathered
-last_updated: "2026-04-22T04:46:35.624Z"
-last_activity: 2026-04-21
+status: executing
+stopped_at: Completed 20-01-PLAN.md
+last_updated: "2026-04-22T05:43:16Z"
+last_activity: 2026-04-22 -- Phase 20 Plan 01 complete
 progress:
   total_phases: 14
   completed_phases: 10
-  total_plans: 32
-  completed_plans: 31
-  percent: 97
+  total_plans: 36
+  completed_plans: 32
+  percent: 89
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-05)
 
 **Core value:** One-tap capture from a phone instantly routes through an agent that classifies, files, and clarifies -- with zero organizational effort.
-**Current focus:** Phase --phase — 19.4.1
+**Current focus:** Phase 20 — Feedback Collection
 
 ## Current Position
 
-Phase: 20
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-04-21
+Phase: 20 (Feedback Collection) — EXECUTING
+Plan: 2 of 4
+Status: Plan 01 complete, ready for Plan 02
+Last activity: 2026-04-22 -- Phase 20 Plan 01 complete (feedback signal infrastructure)
 
-Progress: [█████████░] 88% (Phase 19.4.1: 1/4 plans done)
+Progress: [█████████░] 89% (Phase 20: 1/4 plans done)
 
 ## Performance Metrics
 
@@ -48,8 +48,8 @@ Progress: [█████████░] 88% (Phase 19.4.1: 1/4 plans done)
 
 **Velocity (v3.1):**
 
-- Plans completed: 17 fully + 2 code-complete awaiting bundled human-verify checkpoint (19.2-04 + 19.2-05)
-- Last plan duration: ~45 min (19.4-01 -- spike memo with SpanProcessor empirical test; 3 tasks complete, checkpoint approved)
+- Plans completed: 18 fully + 2 code-complete awaiting bundled human-verify checkpoint (19.2-04 + 19.2-05)
+- Last plan duration: 6 min (20-01 -- feedback signal infrastructure; 2 tasks, 9 tests)
 - Timeline: 2026-04-05 to present
 
 *Updated after each plan completion*
@@ -161,6 +161,9 @@ v3.0 decisions archived to .planning/milestones/v3.0-ROADMAP.md
 - [Phase 19.4.1]: Tasks tab useFocusEffect triggers GET /api/errands (Admin Agent processing side-effect) -- moved from Status per D-04
 - [Phase 19.4.1]: Status screen uses ScrollView instead of SectionList -- no expandable sections, just dashboard cards and spine tiles
 - [Phase 19.4.1]: formatErrorAge computed client-side from backend lastErrorTime ISO string -- avoids timezone issues
+- [Phase 20-01]: Fire-and-forget pattern for inline feedback signal writes per D-02 -- try/except wraps every FeedbackDocument write so failures never block primary actions
+- [Phase 20-01]: POST /api/feedback writes directly (not fire-and-forget) since it IS the primary action
+- [Phase 20-01]: signalType whitelist validation rejects anything outside thumbs_up/thumbs_down on explicit endpoint
 
 ### Pending Todos
 
@@ -188,8 +191,6 @@ None.
 
 ## Session Continuity
 
-Last session: --stopped-at
-Stopped at: Phase 20 context gathered
-Resume action: Plan Phase 19.4.1 (fix mobile UX issues) then continue to Phase 20
-
-**Planned Phase:** 19.4.1 (fix-mobile-ux-issues) — 4 plans — 2026-04-21T05:42:32.093Z
+Last session: 2026-04-22T05:43:16Z
+Stopped at: Completed 20-01-PLAN.md
+Resume action: Continue with Phase 20 Plan 02 (signal promotion pipeline)
