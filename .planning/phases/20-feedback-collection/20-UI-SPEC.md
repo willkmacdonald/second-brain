@@ -50,11 +50,10 @@ Exceptions: 14px used for InboxItem row padding (existing pattern, not changed);
 |------|------|--------|-------------|
 | Body | 15px | 400 | 20px |
 | Label | 11px | 600 | 16px (implicit) |
-| Meta | 12px | 600 | 16px (implicit) |
-| Value | 14px | 400 | 20px |
-| Heading | 28px | 700 | 34px (implicit) |
+| Small | 14px | 400 | 20px |
+| Heading | 28px | 600 | 34px (implicit) |
 
-Source: Extracted from existing InboxItem.tsx, inbox.tsx, DashboardCards.tsx StyleSheets.
+Source: Extracted from existing InboxItem.tsx, inbox.tsx, DashboardCards.tsx StyleSheets. Consolidated from 5 codebase sizes to 4 roles; Meta (12px) merged into Label (11px), Heading weight reduced from 700 to 600 for 2-weight scale.
 
 ---
 
@@ -168,7 +167,7 @@ Note: There is no separate "feedback signals" screen or empty state for feedback
 Reuses existing toast pattern from inbox.tsx:
 - Position: absolute, bottom 40, left/right 20
 - Background: `#1a1a2e`, border 1px `#4a90d9`, borderRadius 10, padding 12
-- Text: `#4ade80`, fontSize 14, fontWeight 500
+- Text: `#4ade80`, fontSize 14, fontWeight 600
 - Auto-dismiss: 2000ms (existing pattern)
 
 ---
