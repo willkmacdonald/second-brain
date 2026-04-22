@@ -281,7 +281,13 @@ Plans:
   2. User can tap thumbs up/down on inbox items to record explicit classification feedback
   3. User can promote a quality signal to a golden dataset entry after confirming the correct label
   4. Investigation agent can answer "what are the most common misclassifications?" by querying feedback signal data
-**Plans**: TBD
+**Plans**: 4 plans (Wave 1: signal infrastructure + feedback API, Wave 2: investigation tools + mobile UI in parallel, Wave 3: human-verify)
+
+Plans:
+- [ ] 20-01-PLAN.md -- Feedback API endpoint + implicit signal emit in recategorize, HITL, and errand handlers
+- [ ] 20-02-PLAN.md -- Investigation Agent feedback tools (query_feedback_signals + promote_to_golden_dataset) + portal instructions
+- [ ] 20-03-PLAN.md -- Mobile thumbs up/down UI in inbox detail modal
+- [ ] 20-04-PLAN.md -- End-to-end verification checkpoint
 
 ### Phase 21: Eval Framework
 **Goal**: Classifier and Admin Agent quality are measured with deterministic metrics against golden datasets
@@ -332,6 +338,6 @@ Items not yet scheduled into a milestone or phase.
 | 19. Claude Code MCP Tool | 2/2 | Complete    | 2026-04-14 | - |
 | 19.4. Native Span Correlation Tagging | 4/4 | 4/4 | Complete    | 2026-04-20 |
 | 19.4.1. Fix Mobile UX Issues | 0/4 | 4/4 | Complete    | 2026-04-21 |
-| 20. Feedback Collection | v3.1 | 0/TBD | Not started | - |
+| 20. Feedback Collection | v3.1 | 0/4 | Planned | - |
 | 21. Eval Framework | v3.1 | 0/TBD | Not started | - |
 | 22. Self-Monitoring Loop | v3.1 | 0/TBD | Not started | - |
