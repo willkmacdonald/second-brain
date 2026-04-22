@@ -13,7 +13,12 @@ from fastapi import APIRouter, HTTPException, Query, Request, Response
 from opentelemetry import trace
 from pydantic import BaseModel
 
-from second_brain.models.documents import CONTAINER_MODELS, VALID_BUCKETS, ClassificationMeta
+from second_brain.models.documents import (
+    CONTAINER_MODELS,
+    VALID_BUCKETS,
+    ClassificationMeta,
+    FeedbackDocument,
+)
 
 logger = logging.getLogger(__name__)
 tracer = trace.get_tracer("second_brain.api")
@@ -94,9 +99,7 @@ async def list_inbox(
                 createdAt=item.get("createdAt", ""),
                 classificationMeta=item.get("classificationMeta"),
                 clarificationText=item.get("clarificationText"),
-                adminProcessingStatus=item.get(
-                    "adminProcessingStatus"
-                ),
+                adminProcessingStatus=item.get("adminProcessingStatus"),
             )
         )
 
@@ -257,6 +260,28 @@ async def recategorize_inbox_item(
                         old_meta["classifiedBy"] = "User"
                         item["classificationMeta"] = old_meta
                     await inbox_container.upsert_item(body=item)
+
+                    # --- HITL confirmation signal (fire-and-forget) ---
+                    try:
+                        feedback_doc = FeedbackDocument(
+                            signalType="hitl_bucket",
+                            captureText=item.get("rawText", ""),
+                            originalBucket=old_bucket or "",
+                            correctedBucket=None,
+                            captureTraceId=item.get("captureTraceId"),
+                        )
+                        fb_container = cosmos_manager.get_container("Feedback")
+                        await fb_container.create_item(
+                            body=feedback_doc.model_dump(mode="json")
+                        )
+                    except Exception:
+                        logger.warning(
+                            "Failed to write feedback signal"
+                            " for hitl_bucket on item %s",
+                            item_id,
+                            exc_info=True,
+                        )
+
                 span.set_attribute("recategorize.success", True)
                 return dict(item)
 
@@ -291,9 +316,7 @@ async def recategorize_inbox_item(
 
             bucket_doc = model_class(**kwargs)
             target_container = cosmos_manager.get_container(body.new_bucket)
-            await target_container.create_item(
-                body=bucket_doc.model_dump(mode="json")
-            )
+            await target_container.create_item(body=bucket_doc.model_dump(mode="json"))
 
             # Step 2: Update inbox document
             item["classificationMeta"] = classification_meta.model_dump(mode="json")
@@ -301,6 +324,26 @@ async def recategorize_inbox_item(
             item["status"] = "classified"
             item["updatedAt"] = datetime.now(UTC).isoformat()
             await inbox_container.upsert_item(body=item)
+
+            # --- Feedback signal (fire-and-forget) ---
+            try:
+                feedback_doc = FeedbackDocument(
+                    signalType="recategorize",
+                    captureText=item.get("rawText", ""),
+                    originalBucket=old_bucket or "",
+                    correctedBucket=body.new_bucket,
+                    captureTraceId=item.get("captureTraceId"),
+                )
+                fb_container = cosmos_manager.get_container("Feedback")
+                await fb_container.create_item(
+                    body=feedback_doc.model_dump(mode="json")
+                )
+            except Exception:
+                logger.warning(
+                    "Failed to write feedback signal for recategorize on item %s",
+                    item_id,
+                    exc_info=True,
+                )
 
             # Step 3: Delete old bucket document (non-fatal)
             if old_filed_id and old_bucket:

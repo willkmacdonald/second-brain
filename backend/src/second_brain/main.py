@@ -51,6 +51,7 @@ from second_brain.api.health import router as health_router  # noqa: E402
 from second_brain.api.inbox import router as inbox_router  # noqa: E402
 from second_brain.api.investigate import router as investigate_router  # noqa: E402
 from second_brain.api.errands import router as errands_router  # noqa: E402
+from second_brain.api.feedback import router as feedback_router  # noqa: E402
 from second_brain.api.tasks import router as tasks_router  # noqa: E402
 from second_brain.api.telemetry import router as telemetry_router  # noqa: E402
 from second_brain.auth import APIKeyMiddleware  # noqa: E402
@@ -906,6 +907,7 @@ app.include_router(errands_router)
 app.include_router(tasks_router)
 app.include_router(telemetry_router)
 app.include_router(investigate_router)
+app.include_router(feedback_router)
 
 if __name__ == "__main__":
     import uvicorn

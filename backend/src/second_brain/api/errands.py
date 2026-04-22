@@ -16,7 +16,10 @@ from azure.cosmos.exceptions import CosmosResourceNotFoundError
 from fastapi import APIRouter, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field
 
-from second_brain.models.documents import AffinityRuleDocument
+from second_brain.models.documents import (
+    AffinityRuleDocument,
+    FeedbackDocument,
+)
 from second_brain.processing.admin_handoff import (
     process_admin_capture,
     process_admin_captures_batch,
@@ -395,6 +398,24 @@ async def route_errand_item(
 
     # Delete from unrouted
     await container.delete_item(item=item_id, partition_key="unrouted")
+
+    # --- Feedback signal (fire-and-forget) ---
+    try:
+        feedback_doc = FeedbackDocument(
+            signalType="errand_reroute",
+            captureText=item_name,
+            originalBucket="unrouted",
+            correctedBucket=body.destinationSlug,
+            captureTraceId=None,
+        )
+        fb_container = cosmos_manager.get_container("Feedback")
+        await fb_container.create_item(body=feedback_doc.model_dump(mode="json"))
+    except Exception:
+        logger.warning(
+            "Failed to write feedback signal for errand re-route %s",
+            item_id,
+            exc_info=True,
+        )
 
     # Optionally save an affinity rule
     if body.saveRule:
