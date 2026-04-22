@@ -1,23 +1,29 @@
 """Investigation agent tools for App Insights observability queries.
 
 Uses the class-based tool pattern to bind LogsQueryClient references to @tool
-functions. InvestigationTools provides 4 tools: trace_lifecycle, recent_errors,
-system_health, and usage_patterns.
+functions. InvestigationTools provides 6 tools: trace_lifecycle, recent_errors,
+system_health, usage_patterns, query_feedback_signals, and
+promote_to_golden_dataset.
 
 Each tool returns JSON strings for the Investigation Agent to format into
 human-readable answers. Tools never raise -- they catch exceptions and return
 JSON error messages.
 """
 
+from __future__ import annotations
+
 import json
 import logging
-from datetime import timedelta
-from typing import Annotated
+from collections import Counter
+from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING, Annotated
 
 from agent_framework import tool
+from azure.cosmos.exceptions import CosmosResourceNotFoundError
 from azure.monitor.query.aio import LogsQueryClient
 from pydantic import Field
 
+from second_brain.models.documents import GoldenDatasetDocument
 from second_brain.observability.queries import (
     query_capture_trace,
     query_enhanced_system_health,
@@ -25,6 +31,9 @@ from second_brain.observability.queries import (
     query_recent_failures_filtered,
     query_usage_patterns,
 )
+
+if TYPE_CHECKING:
+    from second_brain.db.cosmos import CosmosManager
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +44,14 @@ TIME_RANGE_MAP: dict[str, tuple[str, timedelta]] = {
     "24h": ("24h", timedelta(hours=24)),
     "3d": ("3d", timedelta(days=3)),
     "7d": ("7d", timedelta(days=7)),
+}
+
+# Feedback time range strings -> timedelta days
+_FEEDBACK_TIME_MAP: dict[str, int] = {
+    "24h": 1,
+    "3d": 3,
+    "7d": 7,
+    "30d": 30,
 }
 
 # Allowed group_by values for usage_patterns
@@ -70,9 +87,11 @@ class InvestigationTools:
         self,
         logs_client: LogsQueryClient,
         workspace_id: str,
+        cosmos_manager: CosmosManager | None = None,
     ) -> None:
         self._logs_client = logs_client
         self._workspace_id = workspace_id
+        self._cosmos_manager = cosmos_manager
 
     # ------------------------------------------------------------------
     # Tool 1: trace_lifecycle
@@ -333,3 +352,225 @@ class InvestigationTools:
                 "usage_patterns error: %s", exc, exc_info=True, extra=log_extra
             )
             return json.dumps({"error": f"Failed to query usage patterns: {exc}"})
+
+    # ------------------------------------------------------------------
+    # Tool 5: query_feedback_signals
+    # ------------------------------------------------------------------
+
+    @tool(approval_mode="never_require")
+    async def query_feedback_signals(
+        self,
+        signal_type: Annotated[
+            str | None,
+            Field(
+                description=(
+                    "Filter by signal type: 'recategorize', "
+                    "'hitl_bucket', 'errand_reroute', "
+                    "'thumbs_up', 'thumbs_down'. "
+                    "Pass null for all types."
+                )
+            ),
+        ] = None,
+        time_range: Annotated[
+            str,
+            Field(
+                description=("Time range: '24h', '3d', '7d', '30d'. Defaults to '7d'.")
+            ),
+        ] = "7d",
+        limit: Annotated[
+            int,
+            Field(description=("Maximum number of signals to return. Defaults to 20.")),
+        ] = 20,
+    ) -> str:
+        """Query quality feedback signals from the Feedback database.
+
+        Returns recent signals showing classification corrections,
+        HITL resolutions, and explicit user ratings. Includes a
+        misclassification summary with bucket transition counts
+        when recategorize signals are present.
+        """
+        log_extra: dict = {"component": "investigation_agent"}
+        logger.info(
+            "query_feedback_signals called: signal_type=%s time_range=%s limit=%d",
+            signal_type,
+            time_range,
+            limit,
+            extra=log_extra,
+        )
+
+        try:
+            if self._cosmos_manager is None:
+                return json.dumps(
+                    {"error": ("Feedback data unavailable (Cosmos not configured)")}
+                )
+
+            # Calculate cutoff
+            days = _FEEDBACK_TIME_MAP.get(time_range, 7)
+            cutoff = datetime.now(UTC) - timedelta(days=days)
+            cutoff_str = cutoff.isoformat()
+
+            # Build parameterized query
+            query = (
+                "SELECT * FROM c WHERE c.userId = @userId AND c.createdAt >= @cutoff"
+            )
+            parameters: list[dict[str, str]] = [
+                {"name": "@userId", "value": "will"},
+                {"name": "@cutoff", "value": cutoff_str},
+            ]
+
+            if signal_type is not None:
+                query += " AND c.signalType = @signalType"
+                parameters.append({"name": "@signalType", "value": signal_type})
+
+            query += " ORDER BY c.createdAt DESC"
+
+            container = self._cosmos_manager.get_container("Feedback")
+            items_iter = container.query_items(
+                query=query,
+                parameters=parameters,
+                partition_key="will",
+            )
+
+            # Collect up to limit results
+            signals: list[dict] = []
+            async for item in items_iter:
+                signals.append(item)
+                if len(signals) >= limit:
+                    break
+
+            # Build misclassification summary from recategorize
+            transitions: Counter[str] = Counter()
+            for sig in signals:
+                if sig.get("signalType") == "recategorize" and sig.get(
+                    "correctedBucket"
+                ):
+                    key = f"{sig['originalBucket']} -> {sig['correctedBucket']}"
+                    transitions[key] += 1
+
+            return json.dumps(
+                {
+                    "signals": signals,
+                    "total": len(signals),
+                    "misclassification_summary": dict(transitions),
+                    "time_range": time_range,
+                },
+                default=str,
+            )
+
+        except Exception as exc:
+            logger.error(
+                "query_feedback_signals error: %s",
+                exc,
+                exc_info=True,
+                extra=log_extra,
+            )
+            return json.dumps({"error": f"Failed to query feedback signals: {exc}"})
+
+    # ------------------------------------------------------------------
+    # Tool 6: promote_to_golden_dataset
+    # ------------------------------------------------------------------
+
+    @tool(approval_mode="never_require")
+    async def promote_to_golden_dataset(
+        self,
+        signal_id: Annotated[
+            str,
+            Field(description=("The ID of the feedback signal to promote.")),
+        ],
+        confirm: Annotated[
+            bool,
+            Field(
+                description=(
+                    "Set to true to confirm promotion after "
+                    "reviewing the preview. First call with "
+                    "false to see the preview."
+                )
+            ),
+        ] = False,
+    ) -> str:
+        """Promote a feedback signal to the golden evaluation dataset.
+
+        Two-step flow: first call with confirm=false to preview,
+        then call with confirm=true after user approves. Returns
+        the signal details for review or the new golden dataset
+        entry ID on confirmation.
+        """
+        log_extra: dict = {"component": "investigation_agent"}
+        logger.info(
+            "promote_to_golden_dataset called: signal_id=%s confirm=%s",
+            signal_id,
+            confirm,
+            extra=log_extra,
+        )
+
+        try:
+            if self._cosmos_manager is None:
+                return json.dumps(
+                    {"error": ("Golden dataset unavailable (Cosmos not configured)")}
+                )
+
+            feedback_container = self._cosmos_manager.get_container("Feedback")
+
+            # Read the signal
+            signal = await feedback_container.read_item(
+                item=signal_id,
+                partition_key="will",
+            )
+
+            if not confirm:
+                # Preview mode -- show what would be promoted
+                expected = signal.get("correctedBucket") or signal.get("originalBucket")
+                return json.dumps(
+                    {
+                        "preview": True,
+                        "signal_id": signal_id,
+                        "captureText": signal.get("captureText"),
+                        "originalBucket": signal.get("originalBucket"),
+                        "correctedBucket": signal.get("correctedBucket"),
+                        "expectedBucket": expected,
+                        "signalType": signal.get("signalType"),
+                        "message": (
+                            "Promote this as a test case with "
+                            f"expected bucket '{expected}'?"
+                        ),
+                    },
+                    default=str,
+                )
+
+            # Confirm mode -- write to GoldenDataset
+            expected_bucket = signal.get("correctedBucket") or signal.get(
+                "originalBucket"
+            )
+            golden_doc = GoldenDatasetDocument(
+                inputText=signal["captureText"],
+                expectedBucket=expected_bucket,
+                source="promoted_feedback",
+                tags=["from_feedback", signal.get("signalType", "")],
+            )
+
+            golden_container = self._cosmos_manager.get_container("GoldenDataset")
+            await golden_container.create_item(
+                body=golden_doc.model_dump(mode="json"),
+            )
+
+            return json.dumps(
+                {
+                    "success": True,
+                    "id": golden_doc.id,
+                    "inputText": golden_doc.inputText,
+                    "expectedBucket": golden_doc.expectedBucket,
+                    "source": golden_doc.source,
+                },
+                default=str,
+            )
+
+        except CosmosResourceNotFoundError:
+            return json.dumps({"error": f"Signal not found: {signal_id}"})
+        except Exception as exc:
+            logger.error(
+                "promote_to_golden_dataset error: %s",
+                exc,
+                exc_info=True,
+                extra=log_extra,
+            )
+            return json.dumps({"error": (f"Failed to promote signal: {exc}")})

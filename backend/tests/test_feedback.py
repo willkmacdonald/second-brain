@@ -440,7 +440,7 @@ async def test_query_feedback_signals_filter_recategorize(
     assert len(data["signals"]) == 2
     # Check the query included signalType filter
     call_args = feedback_container.query_items.call_args
-    query_str = call_args[1].get("query", "") or call_args[0][0] if call_args[0] else ""
+    query_str = call_args[1].get("query", "")
     assert "signalType" in query_str
 
 
