@@ -692,6 +692,7 @@ async def lifespan(app: FastAPI):
                 investigation_tools = InvestigationTools(
                     logs_client=app.state.logs_client,
                     workspace_id=settings.log_analytics_workspace_id,
+                    cosmos_manager=app.state.cosmos_manager,
                 )
                 app.state.investigation_tools_instance = investigation_tools
 
@@ -711,6 +712,8 @@ async def lifespan(app: FastAPI):
                     investigation_tools.recent_errors,
                     investigation_tools.system_health,
                     investigation_tools.usage_patterns,
+                    investigation_tools.query_feedback_signals,
+                    investigation_tools.promote_to_golden_dataset,
                 ]
                 app.state.investigation_rate_limiter = SoftRateLimiter()
 
