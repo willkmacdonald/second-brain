@@ -10,6 +10,7 @@ export interface InboxItemData {
   createdAt: string;
   clarificationText?: string;
   adminProcessingStatus?: string | null;
+  captureTraceId?: string | null;
   classificationMeta: {
     bucket: string;
     confidence: number;

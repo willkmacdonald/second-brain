@@ -33,6 +33,8 @@ export default function InboxScreen() {
   const [selectedItem, setSelectedItem] = useState<InboxItemData | null>(null);
   const [isRecategorizing, setIsRecategorizing] = useState(false);
   const [recategorizeToast, setRecategorizeToast] = useState<string | null>(null);
+  const [feedbackState, setFeedbackState] = useState<"none" | "thumbs_up" | "thumbs_down">("none");
+  const [feedbackToast, setFeedbackToast] = useState<string | null>(null);
   const navigation = useNavigation();
 
   const fetchInbox = useCallback(
@@ -154,6 +156,7 @@ export default function InboxScreen() {
   const handleItemPress = useCallback(
     (item: InboxItemData) => {
       setSelectedItem(item);
+      setFeedbackState("none");
     },
     [],
   );
@@ -229,12 +232,57 @@ export default function InboxScreen() {
     [handleRecategorize],
   );
 
+  const handleFeedback = useCallback(
+    async (type: "thumbs_up" | "thumbs_down") => {
+      const newState = feedbackState === type ? "none" : type;
+      setFeedbackState(newState);
+      if (newState === "none" || !selectedItem) return;
+
+      setFeedbackToast("Feedback recorded");
+
+      // Fire-and-forget per D-02
+      try {
+        await fetch(`${API_BASE_URL}/api/feedback`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            inboxItemId: selectedItem.id,
+            signalType: newState,
+            captureText: selectedItem.rawText ?? "",
+            originalBucket:
+              selectedItem.classificationMeta?.bucket ?? "Unknown",
+            captureTraceId: selectedItem.captureTraceId ?? null,
+          }),
+        });
+      } catch {
+        // Silent failure per D-02 -- do not show error to user
+        void reportError({
+          eventType: "crud_failure",
+          message: "Feedback submit failed",
+          correlationKind: "crud",
+          metadata: { operation: "submit_feedback" },
+        });
+      }
+    },
+    [feedbackState, selectedItem],
+  );
+
   // Auto-dismiss recategorize toast after 2 seconds
   useEffect(() => {
     if (!recategorizeToast) return;
     const timer = setTimeout(() => setRecategorizeToast(null), 2000);
     return () => clearTimeout(timer);
   }, [recategorizeToast]);
+
+  // Auto-dismiss feedback toast after 2 seconds
+  useEffect(() => {
+    if (!feedbackToast) return;
+    const timer = setTimeout(() => setFeedbackToast(null), 2000);
+    return () => clearTimeout(timer);
+  }, [feedbackToast]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -330,6 +378,51 @@ export default function InboxScreen() {
                 : "N/A"}
             </Text>
 
+            {/* Feedback */}
+            <Text style={styles.detailLabel}>Feedback</Text>
+            <View style={styles.feedbackRow}>
+              <Pressable
+                onPress={() => handleFeedback("thumbs_down")}
+                accessibilityLabel="Rate classification as bad"
+                accessibilityRole="button"
+                accessibilityState={{ selected: feedbackState === "thumbs_down" }}
+                style={({ pressed }) => [
+                  styles.feedbackButton,
+                  feedbackState === "thumbs_down" && styles.feedbackButtonNegative,
+                  pressed && { opacity: 0.7 },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.feedbackIcon,
+                    { opacity: feedbackState === "thumbs_down" ? 1.0 : 0.5 },
+                  ]}
+                >
+                  {"👎"}
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => handleFeedback("thumbs_up")}
+                accessibilityLabel="Rate classification as good"
+                accessibilityRole="button"
+                accessibilityState={{ selected: feedbackState === "thumbs_up" }}
+                style={({ pressed }) => [
+                  styles.feedbackButton,
+                  feedbackState === "thumbs_up" && styles.feedbackButtonPositive,
+                  pressed && { opacity: 0.7 },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.feedbackIcon,
+                    { opacity: feedbackState === "thumbs_up" ? 1.0 : 0.5 },
+                  ]}
+                >
+                  {"👍"}
+                </Text>
+              </Pressable>
+            </View>
+
             {(() => {
               const isPendingItem =
                 selectedItem?.status === "pending" ||
@@ -394,6 +487,12 @@ export default function InboxScreen() {
       {recategorizeToast && (
         <View style={styles.toastBar}>
           <Text style={styles.toastText}>{recategorizeToast}</Text>
+        </View>
+      )}
+
+      {feedbackToast && (
+        <View style={styles.toastBar}>
+          <Text style={styles.toastText}>{feedbackToast}</Text>
         </View>
       )}
     </SafeAreaView>
@@ -469,6 +568,32 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#ccc",
     lineHeight: 20,
+  },
+  feedbackRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 4,
+  },
+  feedbackButton: {
+    width: 56,
+    height: 44,
+    backgroundColor: "#2a2a4e",
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  feedbackButtonPositive: {
+    backgroundColor: "rgba(74,222,128,0.2)",
+    borderWidth: 1,
+    borderColor: "#4ade80",
+  },
+  feedbackButtonNegative: {
+    backgroundColor: "rgba(255,107,107,0.2)",
+    borderWidth: 1,
+    borderColor: "#ff6b6b",
+  },
+  feedbackIcon: {
+    fontSize: 22,
   },
   bucketSection: {
     marginTop: 16,
