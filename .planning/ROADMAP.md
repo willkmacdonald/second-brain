@@ -285,7 +285,7 @@ Plans:
 
 Plans:
 - [x] 20-01-PLAN.md -- Feedback API endpoint + implicit signal emit in recategorize, HITL, and errand handlers
-- [ ] 20-02-PLAN.md -- Investigation Agent feedback tools (query_feedback_signals + promote_to_golden_dataset) + portal instructions
+- [x] 20-02-PLAN.md -- Investigation Agent feedback tools (query_feedback_signals + promote_to_golden_dataset) + portal instructions
 - [ ] 20-03-PLAN.md -- Mobile thumbs up/down UI in inbox detail modal
 - [ ] 20-04-PLAN.md -- End-to-end verification checkpoint
 

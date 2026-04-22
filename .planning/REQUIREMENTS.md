@@ -60,7 +60,8 @@ Requirements for v3.1 Observability & Evals milestone. Each maps to roadmap phas
 - [x] **FEED-01**: Implicit quality signals are captured automatically (recategorize = misclassification, HITL bucket pick, errand re-routing)
 - [x] **FEED-02**: User can provide explicit feedback on classifications (thumbs up/down)
 - [x] **FEED-03**: Quality signals can be promoted to golden dataset entries after user confirmation
-- [ ] **FEED-04**: Investigation agent can answer "what are the most common misclassifications?" from signal data
+- [x] **FEED-04
+**: Investigation agent can answer "what are the most common misclassifications?" from signal data
 
 ### Self-Monitoring
 

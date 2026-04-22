@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Observability & Evals
 status: executing
-stopped_at: Completed 20-01-PLAN.md
-last_updated: "2026-04-22T05:43:16Z"
-last_activity: 2026-04-22 -- Phase 20 Plan 01 complete
+stopped_at: Completed 20-02-PLAN.md
+last_updated: "2026-04-22T05:55:22.611Z"
+last_activity: 2026-04-22
 progress:
   total_phases: 14
   completed_phases: 10
   total_plans: 36
-  completed_plans: 32
-  percent: 89
+  completed_plans: 33
+  percent: 92
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 ## Current Position
 
 Phase: 20 (Feedback Collection) — EXECUTING
-Plan: 2 of 4
-Status: Plan 01 complete, ready for Plan 02
-Last activity: 2026-04-22 -- Phase 20 Plan 01 complete (feedback signal infrastructure)
+Plan: 3 of 4
+Status: Ready to execute
+Last activity: 2026-04-22
 
-Progress: [█████████░] 89% (Phase 20: 1/4 plans done)
+Progress: [█████████░] 92%
 
 ## Performance Metrics
 
@@ -164,6 +164,8 @@ v3.0 decisions archived to .planning/milestones/v3.0-ROADMAP.md
 - [Phase 20-01]: Fire-and-forget pattern for inline feedback signal writes per D-02 -- try/except wraps every FeedbackDocument write so failures never block primary actions
 - [Phase 20-01]: POST /api/feedback writes directly (not fire-and-forget) since it IS the primary action
 - [Phase 20-01]: signalType whitelist validation rejects anything outside thumbs_up/thumbs_down on explicit endpoint
+- [Phase 20-02]: Two-step promote flow (preview then confirm) per D-06 -- agent shows preview first, only writes GoldenDatasetDocument after user confirmation
+- [Phase 20-02]: CosmosManager passed as optional param (None default) to InvestigationTools so telemetry-only tools work without Cosmos
 
 ### Pending Todos
 
@@ -191,6 +193,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-04-22T05:43:16Z
-Stopped at: Completed 20-01-PLAN.md
+Last session: 2026-04-22T05:55:22.604Z
+Stopped at: Completed 20-02-PLAN.md
 Resume action: Continue with Phase 20 Plan 02 (signal promotion pipeline)
