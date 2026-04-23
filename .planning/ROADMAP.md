@@ -307,7 +307,7 @@ Plans:
 **Plans:** 7 plans (Wave 1: foundation, Wave 2: tab bar + 4 screen reskins in parallel, Wave 3: human verification)
 
 Plans:
-- [ ] 20.1-01-PLAN.md -- Foundation: theme tokens, useTheme hook, font packages, font loading in root layout
+- [x] 20.1-01-PLAN.md -- Foundation: theme tokens, useTheme hook, font packages, font loading in root layout
 - [ ] 20.1-02-PLAN.md -- Tab bar + shared primitives: Lucide icons, CapsLabel component, ErrorFallback/ApiKeyGate/RoutingPicker reskin
 - [ ] 20.1-03-PLAN.md -- Capture screen reskin: all 3 states (Idle, Listening, Filed) + HITL clarification flow
 - [ ] 20.1-04-PLAN.md -- Inbox screen + InboxItem component reskin: list view + detail modal
@@ -365,6 +365,6 @@ Items not yet scheduled into a milestone or phase.
 | 19.4. Native Span Correlation Tagging | 4/4 | 4/4 | Complete    | 2026-04-20 |
 | 19.4.1. Fix Mobile UX Issues | 0/4 | 4/4 | Complete    | 2026-04-21 |
 | 20. Feedback Collection | v3.1 | 4/4 | Complete    | 2026-04-23 |
-| 20.1. Design Team UI Improvements | v3.1 | 0/7 | Planning complete | - |
+| 20.1. Design Team UI Improvements | v3.1 | 1/7 | In progress | - |
 | 21. Eval Framework | v3.1 | 0/TBD | Not started | - |
 | 22. Self-Monitoring Loop | v3.1 | 0/TBD | Not started | - |
