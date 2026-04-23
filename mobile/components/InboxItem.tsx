@@ -242,7 +242,6 @@ const styles = StyleSheet.create({
     fontSize: 10.5,
     fontFamily: theme.fonts.mono,
     color: theme.colors.textMuted,
-    fontVariantNumeric: "tabular-nums",
   },
   deleteAction: {
     backgroundColor: theme.colors.err,

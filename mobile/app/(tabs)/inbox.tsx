@@ -708,7 +708,6 @@ const styles = StyleSheet.create({
     fontFamily: theme.fonts.mono,
     fontSize: 14,
     color: theme.colors.text,
-    fontVariantNumeric: "tabular-nums",
     marginTop: 4,
   },
   feedbackCloseRow: {

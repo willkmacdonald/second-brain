@@ -1,8 +1,7 @@
 import { useEffect } from "react";
-import { Stack, useNavigationContainerRef } from "expo-router";
+import { Stack, useNavigationContainerRef, SplashScreen } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import * as Sentry from "@sentry/react-native";
-import * as SplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
 import {
   InstrumentSerif_400Regular,
