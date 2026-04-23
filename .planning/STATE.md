@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Observability & Evals
 status: executing
-stopped_at: Completed 21-01-PLAN.md (eval metrics foundation)
-last_updated: "2026-04-23T21:34:49.255Z"
-last_activity: 2026-04-23 -- Plan 21-01 complete (eval metrics foundation)
+stopped_at: Completed 21-02-PLAN.md (dry-run tools & golden dataset)
+last_updated: "2026-04-23T21:41:45.455Z"
+last_activity: 2026-04-23
 progress:
   total_phases: 15
   completed_phases: 12
   total_plans: 48
-  completed_plans: 43
-  percent: 90
+  completed_plans: 44
+  percent: 92
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 ## Current Position
 
 Phase: 21-eval-framework — EXECUTING
-Plan: 2 of 5
-Status: Plan 21-01 complete, ready for Plan 21-02
-Last activity: 2026-04-23 -- Plan 21-01 complete (eval metrics foundation)
+Plan: 3 of 5
+Status: Ready to execute
+Last activity: 2026-04-23
 
-Progress: [█████████░] 90%
+Progress: [█████████░] 92%
 
 ## Performance Metrics
 
@@ -176,6 +176,8 @@ v3.0 decisions archived to .planning/milestones/v3.0-ROADMAP.md
 - [Phase 20.1-06]: Settings grouped iOS-style cards matching SettingsA design (borderRadius 14, hairline borders, CapsLabel headers)
 - [Phase 21]: GoldenDatasetDocument uses optional expectedDestination field (not subclass) to distinguish classifier vs admin eval test cases
 - [Phase 21]: Eval metrics are pure computation functions (list[dict] in, summary dict out, no I/O) -- downstream runner and API import them
+- [Phase 21]: Dry-run tool confidence clamped to [0.0, 1.0] to prevent out-of-range predictions
+- [Phase 21]: DryRunAdminTools includes only 3 eval-relevant tools (add_errand_items, add_task_items, get_routing_context) -- management tools excluded from eval
 
 ### Pending Todos
 
@@ -204,8 +206,8 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-04-23T21:34:49.248Z
-Stopped at: Completed 21-01-PLAN.md (eval metrics foundation)
+Last session: 2026-04-23T21:41:45.448Z
+Stopped at: Completed 21-02-PLAN.md (dry-run tools & golden dataset)
 Resume action: Continue with Phase 20.1 Plan 02 (Tab bar + shared primitives)
 
 **Planned Phase:** 21 (Eval Framework) — 5 plans — 2026-04-23T17:36:44.939Z
