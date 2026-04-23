@@ -106,14 +106,14 @@ export default function StatusScreen() {
           }}
         />
         <View style={styles.spineSection}>
+          <SpineStatusTile segmentId="mobile_ui" />
+          <SpineStatusTile segmentId="mobile_capture" />
           <SpineStatusTile segmentId="backend_api" />
           <SpineStatusTile segmentId="classifier" />
           <SpineStatusTile segmentId="admin" />
           <SpineStatusTile segmentId="investigation" />
-          <SpineStatusTile segmentId="cosmos" />
           <SpineStatusTile segmentId="external_services" />
-          <SpineStatusTile segmentId="mobile_ui" />
-          <SpineStatusTile segmentId="mobile_capture" />
+          <SpineStatusTile segmentId="cosmos" />
         </View>
       </ScrollView>
     </SafeAreaView>
