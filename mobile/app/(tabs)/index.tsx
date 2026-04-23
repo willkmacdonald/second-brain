@@ -38,8 +38,9 @@ import {
   abortRecognition,
 } from "../../lib/speech";
 import { API_BASE_URL, API_KEY, MAX_FOLLOW_UPS } from "../../constants/config";
+import { theme, BucketName } from "../../constants/theme";
 
-const BUCKETS = ["People", "Projects", "Ideas", "Admin"];
+const BUCKETS: BucketName[] = ["People", "Projects", "Ideas", "Admin"];
 const AUTO_RESET_MS = 2500;
 
 interface Toast {
@@ -1053,8 +1054,14 @@ export default function CaptureScreen() {
           ]}
           onPress={() => setMode("voice")}
         >
-          <Text style={styles.toggleIcon}>{"\uD83C\uDF99\uFE0F"}</Text>
-          <Text style={styles.toggleLabel}>Voice</Text>
+          <Text
+            style={[
+              styles.toggleLabel,
+              mode === "voice" && { color: theme.colors.text },
+            ]}
+          >
+            Voice
+          </Text>
         </Pressable>
         <Pressable
           style={[
@@ -1063,8 +1070,14 @@ export default function CaptureScreen() {
           ]}
           onPress={() => setMode("text")}
         >
-          <Text style={styles.toggleIcon}>{"\u270D\uFE0F"}</Text>
-          <Text style={styles.toggleLabel}>Text</Text>
+          <Text
+            style={[
+              styles.toggleLabel,
+              mode === "text" && { color: theme.colors.text },
+            ]}
+          >
+            Text
+          </Text>
         </Pressable>
       </View>
 
@@ -1094,7 +1107,7 @@ export default function CaptureScreen() {
                 </Text>
               </ScrollView>
             )}
-            <ActivityIndicator size="large" color="#4a90d9" />
+            <ActivityIndicator size="large" color={theme.colors.accent} />
             <Text style={styles.processingStageText}>
               {processingStage === "uploading"
                 ? "Uploading..."
@@ -1171,7 +1184,7 @@ export default function CaptureScreen() {
               value={thought}
               onChangeText={setThought}
               placeholder="What's on your mind?"
-              placeholderTextColor="#666"
+              placeholderTextColor={theme.colors.textFaint}
               multiline
               autoFocus
               textAlignVertical="top"
@@ -1234,7 +1247,7 @@ export default function CaptureScreen() {
               value={followUpText}
               onChangeText={setFollowUpText}
               placeholder="Add more context..."
-              placeholderTextColor="#666"
+              placeholderTextColor={theme.colors.textFaint}
               multiline
             />
             <Pressable
@@ -1267,6 +1280,7 @@ export default function CaptureScreen() {
             <View style={styles.bucketRow}>
               {BUCKETS.map((bucket) => {
                 const isTopBucket = hitlTopBuckets.includes(bucket);
+                const bucketColors = theme.colors.buckets[bucket];
                 return (
                   <Pressable
                     key={bucket}
@@ -1274,7 +1288,11 @@ export default function CaptureScreen() {
                     disabled={isResolving}
                     style={({ pressed }) => [
                       isTopBucket
-                        ? styles.bucketButtonPrimary
+                        ? {
+                            ...styles.bucketButtonPrimary,
+                            backgroundColor: bucketColors.bg,
+                            borderColor: bucketColors.dot + "66",
+                          }
                         : styles.bucketButtonSecondary,
                       pressed && styles.bucketPressed,
                       isResolving && styles.bucketDisabled,
@@ -1283,7 +1301,10 @@ export default function CaptureScreen() {
                     <Text
                       style={
                         isTopBucket
-                          ? styles.bucketTextPrimary
+                          ? {
+                              ...styles.bucketTextPrimary,
+                              color: bucketColors.fg,
+                            }
                           : styles.bucketTextSecondary
                       }
                     >
@@ -1307,37 +1328,36 @@ export default function CaptureScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0f0f23",
+    backgroundColor: theme.colors.bg,
   },
   toggleRow: {
     flexDirection: "row",
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 8,
-    gap: 12,
+    gap: 2,
+    backgroundColor: theme.colors.surface,
+    marginHorizontal: 16,
+    borderRadius: 10,
+    padding: 3,
   },
   toggleButton: {
     flex: 1,
-    height: 72,
+    paddingVertical: 8,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#1a1a2e",
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: "transparent",
+    backgroundColor: "transparent",
+    borderRadius: 8,
     overflow: "hidden",
   },
   toggleActive: {
-    borderColor: "#4a90d9",
-  },
-  toggleIcon: {
-    fontSize: 32,
-    marginBottom: 4,
+    backgroundColor: theme.colors.surfaceHi,
   },
   toggleLabel: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "600",
-    color: "#ffffff",
+    color: theme.colors.textMuted,
+    fontFamily: theme.fonts.bodySemiBold,
   },
   contentArea: {
     flex: 1,
@@ -1354,19 +1374,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   toastSuccess: {
-    backgroundColor: "rgba(74, 222, 128, 0.15)",
+    backgroundColor: "rgba(125, 220, 160, 0.15)",
     borderWidth: 1,
-    borderColor: "#4ade80",
+    borderColor: theme.colors.ok,
   },
   toastError: {
-    backgroundColor: "rgba(248, 113, 113, 0.15)",
+    backgroundColor: "rgba(255, 107, 107, 0.15)",
     borderWidth: 1,
-    borderColor: "#f87171",
+    borderColor: theme.colors.err,
   },
   toastText: {
     fontSize: 14,
     fontWeight: "500",
-    color: "#ffffff",
+    color: theme.colors.text,
+    fontFamily: theme.fonts.body,
   },
   traceIdRow: {
     flexDirection: "row",
@@ -1376,12 +1397,12 @@ const styles = StyleSheet.create({
   },
   traceIdText: {
     fontSize: 11,
-    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
-    color: "#999",
+    fontFamily: theme.fonts.mono,
+    color: theme.colors.textDim,
   },
   traceIdHint: {
     fontSize: 10,
-    color: "#666",
+    color: theme.colors.textFaint,
   },
   voiceArea: {
     flex: 1,
@@ -1391,9 +1412,10 @@ const styles = StyleSheet.create({
   timer: {
     fontSize: 48,
     fontWeight: "200",
-    color: "#ffffff",
+    color: theme.colors.text,
     marginBottom: 32,
     fontVariant: ["tabular-nums"],
+    fontFamily: theme.fonts.mono,
   },
   transcriptScroll: {
     maxHeight: 200,
@@ -1404,9 +1426,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   transcriptText: {
-    fontSize: 18,
-    color: "#ccc",
-    lineHeight: 26,
+    fontFamily: theme.fonts.display,
+    fontSize: 26,
+    lineHeight: 34,
+    letterSpacing: -0.4,
+    fontWeight: "400",
+    color: theme.colors.text,
   },
   transcriptProcessingScroll: {
     maxHeight: 160,
@@ -1418,17 +1443,19 @@ const styles = StyleSheet.create({
   },
   transcriptProcessingText: {
     fontSize: 16,
-    color: "#999",
+    color: theme.colors.textDim,
     lineHeight: 24,
     textAlign: "center",
+    fontFamily: theme.fonts.body,
   },
   followUpTranscript: {
     fontSize: 14,
-    color: "#ccc",
+    color: theme.colors.textDim,
     lineHeight: 20,
     textAlign: "center",
     marginBottom: 8,
     paddingHorizontal: 8,
+    fontFamily: theme.fonts.display,
   },
   recordContainer: {
     width: 100,
@@ -1442,18 +1469,21 @@ const styles = StyleSheet.create({
     height: 100,
     borderRadius: 50,
     borderWidth: 3,
-    borderColor: "#ff3b30",
+    borderColor: theme.colors.recording,
   },
   recordButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: "#4a4a6e",
+    width: 86,
+    height: 86,
+    borderRadius: 43,
+    backgroundColor: theme.colors.text,
     alignItems: "center",
     justifyContent: "center",
   },
   recordButtonActive: {
-    backgroundColor: "#ff3b30",
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: theme.colors.recording,
   },
   recordPressed: {
     opacity: 0.7,
@@ -1466,21 +1496,22 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: "#ffffff",
+    backgroundColor: theme.colors.bg,
   },
   recordStopIcon: {
     width: 24,
     height: 24,
-    borderRadius: 4,
-    backgroundColor: "#ffffff",
+    borderRadius: 5,
+    backgroundColor: theme.colors.text,
   },
   voiceHint: {
     fontSize: 14,
-    color: "#666",
+    color: theme.colors.textFaint,
     marginTop: 16,
+    fontFamily: theme.fonts.body,
   },
   textInputContainer: {
-    backgroundColor: "#1a1a2e",
+    backgroundColor: theme.colors.surface,
     borderRadius: 12,
     padding: 12,
     minHeight: 120,
@@ -1488,24 +1519,26 @@ const styles = StyleSheet.create({
   },
   textInput: {
     fontSize: 18,
-    color: "#ffffff",
+    color: theme.colors.text,
     paddingBottom: 40,
     minHeight: 80,
     textAlignVertical: "top",
+    fontFamily: theme.fonts.body,
   },
   sendButton: {
     position: "absolute",
     bottom: 10,
     right: 10,
-    backgroundColor: "#4a90d9",
+    backgroundColor: theme.colors.accent,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
   },
   sendButtonText: {
-    color: "#ffffff",
+    color: theme.colors.text,
     fontSize: 15,
     fontWeight: "600",
+    fontFamily: theme.fonts.bodySemiBold,
   },
   processingArea: {
     flex: 1,
@@ -1514,27 +1547,30 @@ const styles = StyleSheet.create({
   },
   processingStageText: {
     fontSize: 16,
-    color: "#999",
+    color: theme.colors.textDim,
     marginTop: 12,
+    fontFamily: theme.fonts.body,
   },
   agentQuestionBubble: {
-    backgroundColor: "#1a1a2e",
-    borderRadius: 12,
+    backgroundColor: theme.colors.accentDim,
+    borderRadius: 14,
     padding: 14,
     marginBottom: 12,
-    borderLeftWidth: 3,
-    borderLeftColor: "#4a90d9",
+    borderLeftWidth: 2,
+    borderLeftColor: theme.colors.accent,
     alignSelf: "stretch",
   },
   agentQuestionText: {
     fontSize: 15,
-    color: "#ccc",
+    color: theme.colors.text,
     lineHeight: 22,
+    fontFamily: theme.fonts.body,
   },
   followUpHint: {
-    fontSize: 12,
-    color: "#666",
+    fontSize: 11,
+    color: theme.colors.textFaint,
     marginTop: 6,
+    fontFamily: theme.fonts.mono,
   },
   followUpRow: {
     flexDirection: "row",
@@ -1545,16 +1581,17 @@ const styles = StyleSheet.create({
   followUpInput: {
     flex: 1,
     fontSize: 16,
-    color: "#ffffff",
+    color: theme.colors.text,
     padding: 12,
-    backgroundColor: "#1a1a2e",
+    backgroundColor: theme.colors.surface,
     borderRadius: 10,
     maxHeight: 80,
+    fontFamily: theme.fonts.body,
   },
   followUpSendButton: {
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: "#4a90d9",
+    backgroundColor: theme.colors.accent,
     borderRadius: 10,
     justifyContent: "center",
   },
@@ -1565,22 +1602,24 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
   followUpSendText: {
-    color: "#ffffff",
+    color: theme.colors.text,
     fontSize: 15,
     fontWeight: "600",
+    fontFamily: theme.fonts.bodySemiBold,
   },
   sendTextDisabled: {
-    color: "#999",
+    color: theme.colors.textDim,
   },
   hitlContainer: {
     marginTop: 12,
   },
   hitlQuestion: {
     fontSize: 14,
-    color: "#ccc",
+    color: theme.colors.textDim,
     lineHeight: 20,
     marginBottom: 12,
     textAlign: "center",
+    fontFamily: theme.fonts.body,
   },
   bucketRow: {
     flexDirection: "row",
@@ -1589,44 +1628,44 @@ const styles = StyleSheet.create({
   },
   bucketButtonPrimary: {
     flex: 1,
-    backgroundColor: "#4a90d9",
     paddingVertical: 10,
     paddingHorizontal: 4,
-    borderRadius: 8,
+    borderRadius: 12,
     alignItems: "center",
+    borderWidth: StyleSheet.hairlineWidth,
   },
   bucketButtonSecondary: {
     flex: 1,
     backgroundColor: "transparent",
     paddingVertical: 10,
     paddingHorizontal: 4,
-    borderRadius: 8,
+    borderRadius: 12,
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#4a4a6e",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.hairline,
+    opacity: 0.5,
   },
   bucketPressed: {
     opacity: 0.7,
-    backgroundColor: "#4a90d9",
   },
   bucketDisabled: {
     opacity: 0.4,
   },
   bucketTextPrimary: {
     fontSize: 13,
-    fontWeight: "600",
-    color: "#ffffff",
+    fontFamily: theme.fonts.bodySemiBold,
   },
   bucketTextSecondary: {
     fontSize: 13,
-    fontWeight: "600",
-    color: "#888",
+    fontFamily: theme.fonts.bodyMedium,
+    color: theme.colors.textMuted,
   },
   resolvingText: {
     fontSize: 12,
-    color: "#4a90d9",
+    color: theme.colors.accent,
     textAlign: "center",
     marginTop: 8,
+    fontFamily: theme.fonts.body,
   },
   followUpVoiceArea: {
     alignItems: "center",
@@ -1636,19 +1675,20 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: "#333",
+    backgroundColor: theme.colors.surface,
     alignItems: "center",
     justifyContent: "center",
     alignSelf: "center",
     marginTop: 12,
   },
   followUpRecordButtonActive: {
-    backgroundColor: "#e53935",
+    backgroundColor: theme.colors.recording,
   },
   followUpDuration: {
-    color: "#999",
+    color: theme.colors.textDim,
     fontSize: 13,
     textAlign: "center",
     marginTop: 4,
+    fontFamily: theme.fonts.mono,
   },
 });
