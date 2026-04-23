@@ -1,4 +1,5 @@
 import { View, Text, Pressable, StyleSheet } from "react-native";
+import { theme } from "../constants/theme";
 
 interface ErrorFallbackProps {
   error: unknown;
@@ -24,18 +25,36 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0f0f23",
+    backgroundColor: theme.colors.bg,
     justifyContent: "center",
     alignItems: "center",
     padding: 24,
   },
-  title: { color: "#ffffff", fontSize: 20, fontWeight: "bold", marginBottom: 12 },
-  message: { color: "#999999", fontSize: 14, textAlign: "center", marginBottom: 24 },
+  title: {
+    color: theme.colors.text,
+    fontSize: 20,
+    fontWeight: "400",
+    fontFamily: theme.fonts.display,
+    fontStyle: "italic",
+    marginBottom: 12,
+  },
+  message: {
+    color: theme.colors.textDim,
+    fontSize: 14,
+    fontFamily: theme.fonts.body,
+    textAlign: "center",
+    marginBottom: 24,
+  },
   button: {
-    backgroundColor: "#4a90d9",
+    backgroundColor: theme.colors.accent,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
   },
-  buttonText: { color: "#ffffff", fontSize: 16, fontWeight: "600" },
+  buttonText: {
+    color: theme.colors.text,
+    fontSize: 16,
+    fontWeight: "600",
+    fontFamily: theme.fonts.bodySemiBold,
+  },
 });

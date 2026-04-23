@@ -9,6 +9,7 @@ import {
   StyleSheet,
 } from "react-native";
 import { useApiKey } from "../contexts/ApiKeyContext";
+import { theme } from "../constants/theme";
 
 /**
  * Full-screen modal that appears on first launch when no API key is stored.
@@ -40,7 +41,7 @@ export function ApiKeyGate() {
             secureTextEntry
             autoFocus
             placeholder="Paste your API key"
-            placeholderTextColor="#666"
+            placeholderTextColor={theme.colors.textMuted}
             value={inputValue}
             onChangeText={setInputValue}
             autoCapitalize="none"
@@ -70,7 +71,7 @@ export function ApiKeyGate() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0f0f23",
+    backgroundColor: theme.colors.bg,
   },
   content: {
     flex: 1,
@@ -79,13 +80,16 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: "bold",
-    color: "#fff",
+    fontWeight: "400",
+    fontFamily: theme.fonts.display,
+    fontStyle: "italic",
+    color: theme.colors.text,
     textAlign: "center",
   },
   subtitle: {
     fontSize: 15,
-    color: "#888",
+    fontFamily: theme.fonts.body,
+    color: theme.colors.textMuted,
     textAlign: "center",
     marginTop: 8,
     marginBottom: 32,
@@ -93,19 +97,24 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 11,
     fontWeight: "600",
-    color: "#888",
+    fontFamily: theme.fonts.bodySemiBold,
+    color: theme.colors.textMuted,
     textTransform: "uppercase",
+    letterSpacing: 1.4,
     marginBottom: 4,
   },
   input: {
-    backgroundColor: "#1a1a2e",
+    backgroundColor: theme.colors.surfaceHi,
     borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.hairline,
     padding: 14,
-    color: "#fff",
+    color: theme.colors.text,
     fontSize: 15,
+    fontFamily: theme.fonts.body,
   },
   button: {
-    backgroundColor: "#4a90d9",
+    backgroundColor: theme.colors.accent,
     borderRadius: 10,
     paddingVertical: 14,
     marginTop: 16,
@@ -115,13 +124,15 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
   buttonText: {
-    color: "#fff",
+    color: theme.colors.text,
     fontSize: 16,
     fontWeight: "600",
+    fontFamily: theme.fonts.bodySemiBold,
   },
   hint: {
     fontSize: 12,
-    color: "#666",
+    fontFamily: theme.fonts.body,
+    color: theme.colors.textDim,
     textAlign: "center",
     marginTop: 12,
   },

@@ -1,4 +1,5 @@
 import { View, Text, ScrollView, Pressable, StyleSheet } from "react-native";
+import { theme } from "../constants/theme";
 
 interface Destination {
   slug: string;
@@ -46,7 +47,7 @@ export function RoutingPicker({ destinations, onRoute }: RoutingPickerProps) {
           style={[styles.chip, styles.otherChip]}
           onPress={() => onRoute("other")}
         >
-          <Text style={styles.chipText}>Other</Text>
+          <Text style={[styles.chipText, styles.otherChipText]}>Other</Text>
         </Pressable>
       </ScrollView>
     </View>
@@ -63,26 +64,33 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 12,
-    color: "#999",
+    color: theme.colors.textDim,
     fontWeight: "500",
+    fontFamily: theme.fonts.bodyMedium,
   },
   scroll: {
     flexGrow: 0,
   },
   chip: {
-    borderWidth: 1,
-    borderColor: "#4a90d9",
-    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.buckets.Admin.fg + "20",
+    backgroundColor: theme.colors.buckets.Admin.bg,
+    borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 6,
     marginRight: 8,
   },
   chipText: {
     fontSize: 13,
-    color: "#4a90d9",
+    color: theme.colors.buckets.Admin.fg,
     fontWeight: "500",
+    fontFamily: theme.fonts.bodyMedium,
   },
   otherChip: {
-    borderColor: "#666",
+    backgroundColor: "transparent",
+    borderColor: theme.colors.hairline,
+  },
+  otherChipText: {
+    color: theme.colors.textDim,
   },
 });
