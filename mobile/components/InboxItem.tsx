@@ -1,6 +1,13 @@
 import { useRef } from "react";
-import { Pressable, View, Text, StyleSheet, Animated } from "react-native";
+import {
+  Pressable,
+  View,
+  Text,
+  StyleSheet,
+  Animated,
+} from "react-native";
 import { Swipeable } from "react-native-gesture-handler";
+import { theme, BucketName } from "../constants/theme";
 
 export interface InboxItemData {
   id: string;
@@ -76,12 +83,25 @@ function getStatusDotColor(status: string): string | null {
     case "pending":
     case "low_confidence":
     case "misunderstood":
-      return "#f97316"; // Orange -- needs user attention
+      return theme.colors.warn;
     case "unresolved":
-      return "#ef4444"; // Red -- agent gave up
+      return theme.colors.err;
     default:
       return null; // No dot for classified/other
   }
+}
+
+/**
+ * Resolve the bucket name to a theme bucket key for color lookup.
+ * Falls back to Admin colors for unknown buckets.
+ */
+function getBucketColors(bucketName: string): {
+  fg: string;
+  bg: string;
+  dot: string;
+} {
+  const key = bucketName as BucketName;
+  return theme.colors.buckets[key] ?? theme.colors.buckets.Admin;
 }
 
 /**
@@ -93,7 +113,8 @@ export function InboxItem({ item, onPress, onDelete }: InboxItemProps) {
   const swipeableRef = useRef<Swipeable>(null);
   const dotColor = getStatusDotColor(item.status);
   const isMisunderstood = item.status === "misunderstood";
-  const isPending = item.status === "pending" || item.status === "low_confidence";
+  const isPending =
+    item.status === "pending" || item.status === "low_confidence";
   const isUnresolved = item.status === "unresolved";
   const bucketLabel = isMisunderstood
     ? "Needs Clarification"
@@ -102,7 +123,21 @@ export function InboxItem({ item, onPress, onDelete }: InboxItemProps) {
       : isUnresolved
         ? "Unresolved"
         : item.classificationMeta?.bucket ?? "Unknown";
-  const preview = (item.title && item.title !== "Untitled") ? item.title : item.rawText.slice(0, 60);
+  const preview =
+    item.title && item.title !== "Untitled"
+      ? item.title
+      : item.rawText.slice(0, 60);
+
+  // Per-bucket colors for the bucket label
+  const bucketColors = getBucketColors(
+    item.classificationMeta?.bucket ?? "Admin",
+  );
+  const bucketLabelColor =
+    isMisunderstood || isPending
+      ? theme.colors.warn
+      : isUnresolved
+        ? theme.colors.err
+        : bucketColors.fg;
 
   const handleSwipeOpen = () => {
     swipeableRef.current?.close();
@@ -130,14 +165,19 @@ export function InboxItem({ item, onPress, onDelete }: InboxItemProps) {
           </Text>
           <View style={styles.meta}>
             <View style={styles.metaLeft}>
-              <Text style={[styles.bucket, (isPending || isMisunderstood) && styles.bucketPending, isUnresolved && styles.bucketUnresolved]}>
-                {bucketLabel}
+              <Text
+                style={[styles.bucket, { color: bucketLabelColor }]}
+              >
+                {bucketLabel.toLowerCase()}
               </Text>
               {item.adminProcessingStatus === "failed" && (
                 <Text style={styles.processingFailed}>Processing failed</Text>
               )}
+              <Text style={styles.separatorDot}>{"·"}</Text>
+              <Text style={styles.time}>
+                {getRelativeTime(item.createdAt)}
+              </Text>
             </View>
-            <Text style={styles.time}>{getRelativeTime(item.createdAt)}</Text>
           </View>
         </View>
       </Pressable>
@@ -149,11 +189,10 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#1a1a2e",
-    borderRadius: 10,
-    padding: 14,
-    marginHorizontal: 16,
-    marginVertical: 4,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: theme.colors.hairline,
   },
   rowPressed: {
     opacity: 0.7,
@@ -168,14 +207,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   preview: {
-    fontSize: 15,
-    color: "#ffffff",
-    lineHeight: 20,
-    marginBottom: 4,
+    fontSize: 13.5,
+    lineHeight: 19,
+    color: theme.colors.text,
+    letterSpacing: -0.15,
+    fontFamily: theme.fonts.body,
+    marginBottom: 5,
   },
   meta: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
   },
   metaLeft: {
@@ -184,36 +224,34 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   processingFailed: {
-    fontSize: 11,
-    color: "#ef4444",
+    fontSize: 10.5,
+    color: theme.colors.err,
     fontWeight: "500",
+    fontFamily: theme.fonts.mono,
   },
   bucket: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#4a90d9",
+    fontSize: 10.5,
+    fontFamily: theme.fonts.mono,
+    letterSpacing: 0.2,
   },
-  bucketPending: {
-    color: "#f97316",
-  },
-  bucketUnresolved: {
-    color: "#ef4444",
+  separatorDot: {
+    fontSize: 10.5,
+    color: theme.colors.textFaint,
   },
   time: {
-    fontSize: 12,
-    color: "#666",
+    fontSize: 10.5,
+    fontFamily: theme.fonts.mono,
+    color: theme.colors.textMuted,
+    fontVariantNumeric: "tabular-nums",
   },
   deleteAction: {
-    backgroundColor: "#dc2626",
+    backgroundColor: theme.colors.err,
     justifyContent: "center",
     alignItems: "center",
     width: 80,
-    borderRadius: 10,
-    marginVertical: 4,
-    marginRight: 16,
   },
   deleteText: {
-    color: "#ffffff",
+    color: theme.colors.text,
     fontSize: 14,
     fontWeight: "600",
   },
