@@ -46,7 +46,13 @@ async def submit_feedback(request: Request, body: FeedbackRequest) -> dict:
         captureTraceId=body.captureTraceId,
     )
 
-    container = cosmos_manager.get_container("Feedback")
-    await container.create_item(body=feedback_doc.model_dump(mode="json"))
+    try:
+        container = cosmos_manager.get_container("Feedback")
+        await container.create_item(body=feedback_doc.model_dump(mode="json"))
+    except Exception:
+        logger.warning("Failed to write feedback document", exc_info=True)
+        raise HTTPException(
+            status_code=503, detail="Failed to record feedback."
+        ) from None
 
     return {"status": "recorded", "id": feedback_doc.id}
