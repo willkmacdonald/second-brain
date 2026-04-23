@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Observability & Evals
 status: executing
-stopped_at: Completed 20.1-05-PLAN.md (Tasks screen reskin)
-last_updated: "2026-04-23T05:06:41.158Z"
+stopped_at: Completed 20.1-06-PLAN.md (Status + Settings reskin)
+last_updated: "2026-04-23T05:13:15.251Z"
 last_activity: 2026-04-23
 progress:
   total_phases: 15
   completed_phases: 11
   total_plans: 43
-  completed_plans: 40
-  percent: 93
+  completed_plans: 41
+  percent: 95
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 ## Current Position
 
 Phase: 20.1 (Design Team UI Improvements) — EXECUTING
-Plan: 6 of 7
+Plan: 7 of 7
 Status: Ready to execute
 Last activity: 2026-04-23
 
-Progress: [█████████░] 93%
+Progress: [██████████] 95%
 
 ## Performance Metrics
 
@@ -172,6 +172,8 @@ v3.0 decisions archived to .planning/milestones/v3.0-ROADMAP.md
 - [Phase 20.1-04]: Feedback+Close row consolidated into single horizontal row per InboxC_Detail design (thumbs left, close right)
 - [Phase 20.1-05]: TaskRow Done action uses theme.colors.ok (semantic green) matching design palette
 - [Phase 20.1-05]: Processing banner uses accentDim bg only (no explicit border), notification banner uses surface bg with hairline border
+- [Phase 20.1-06]: SpineStatusTile border color tinted by status severity (err=44 alpha, warn=33, default=hairline)
+- [Phase 20.1-06]: Settings grouped iOS-style cards matching SettingsA design (borderRadius 14, hairline borders, CapsLabel headers)
 
 ### Pending Todos
 
@@ -200,8 +202,8 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-04-23T05:06:41.151Z
-Stopped at: Completed 20.1-05-PLAN.md (Tasks screen reskin)
+Last session: 2026-04-23T05:12:39.446Z
+Stopped at: Completed 20.1-06-PLAN.md (Status + Settings reskin)
 Resume action: Continue with Phase 20.1 Plan 02 (Tab bar + shared primitives)
 
 **Planned Phase:** 20.1 (Design Team UI Improvements) — 7 plans — 2026-04-23T03:55:33.676Z
