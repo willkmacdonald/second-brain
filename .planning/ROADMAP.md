@@ -71,6 +71,7 @@ See: .planning/milestones/v3.0-ROADMAP.md
 - [x] **Phase 19.4: Native Span Correlation Tagging** (INSERTED) - Tag all native telemetry rows with capture_trace_id so spine-to-native drill-down works (completed 2026-04-20)
 - [x] **Phase 19.4.1: Fix Mobile UX Issues** (INSERTED) - 4-tab layout, Tasks tab extraction, API key management, error card recency, EAS production build (completed 2026-04-21)
 - [x] **Phase 20: Feedback Collection** - Implicit quality signals, explicit thumbs up/down, golden dataset promotion (completed 2026-04-23)
+- [ ] **Phase 20.1: Design Team UI Improvements** (INSERTED) - Hi-fi visual reskin with design tokens, custom fonts, Lucide icons, per-bucket colors
 - [ ] **Phase 21: Eval Framework** - Golden datasets, deterministic evaluators, score storage, on-demand trigger
 - [ ] **Phase 22: Self-Monitoring Loop** - Automated weekly evals, threshold alerts, push notifications on degradation
 
@@ -289,6 +290,31 @@ Plans:
 - [x] 20-03-PLAN.md -- Mobile thumbs up/down UI in inbox detail modal
 - [x] 20-04-PLAN.md -- End-to-end verification checkpoint
 
+### Phase 20.1: Design Team UI Improvements (INSERTED)
+
+**Goal:** Apply the design team's hi-fi visual overhaul to all mobile screens: new design tokens (colors, typography, spacing), three custom Google Fonts (Instrument Serif, Instrument Sans, JetBrains Mono), Lucide icons, per-bucket muted colors, and refined screen layouts matching the design handoff bundle
+**Requirements**: D-01 through D-15 (from CONTEXT.md -- inserted phase, no formal requirement IDs)
+**Depends on:** Phase 20
+**Success Criteria** (what must be TRUE):
+  1. Theme token system (theme.ts) exports all design colors, font families, and bucket colors from tokens.jsx
+  2. All three custom fonts load before app renders via expo-font
+  3. Tab bar uses Lucide icons with design-matched active/inactive stroke weights
+  4. All screens (Capture, Inbox, Tasks, Status, Settings) use theme tokens exclusively -- zero hardcoded colors from old palette
+  5. Screen titles use Instrument Serif italic at 36px
+  6. Per-bucket colors (People=warm sand, Projects=dusty blue, Ideas=muted violet, Admin=sage) visible in inbox rows, HITL picker, and detail modal
+  7. HITL Clarification flow uses design's bubble + 2x2 bucket grid styling
+  8. Settings uses grouped iOS-style cards with CapsLabel section headers
+**Plans:** 7 plans (Wave 1: foundation, Wave 2: tab bar + 4 screen reskins in parallel, Wave 3: human verification)
+
+Plans:
+- [ ] 20.1-01-PLAN.md -- Foundation: theme tokens, useTheme hook, font packages, font loading in root layout
+- [ ] 20.1-02-PLAN.md -- Tab bar + shared primitives: Lucide icons, CapsLabel component, ErrorFallback/ApiKeyGate/RoutingPicker reskin
+- [ ] 20.1-03-PLAN.md -- Capture screen reskin: all 3 states (Idle, Listening, Filed) + HITL clarification flow
+- [ ] 20.1-04-PLAN.md -- Inbox screen + InboxItem component reskin: list view + detail modal
+- [ ] 20.1-05-PLAN.md -- Tasks screen + ErrandRow + TaskRow component reskin
+- [ ] 20.1-06-PLAN.md -- Status + Settings screens + DashboardCards + SpineStatusTile + StatusSectionRenderer reskin
+- [ ] 20.1-07-PLAN.md -- Visual verification checkpoint: static validation + human screen-by-screen review
+
 ### Phase 21: Eval Framework
 **Goal**: Classifier and Admin Agent quality are measured with deterministic metrics against golden datasets
 **Depends on**: Phase 20 (feedback data for signals), Phase 16 (Cosmos containers)
@@ -325,7 +351,7 @@ Items not yet scheduled into a milestone or phase.
 - v1.0: 1 -> 2 -> 3 -> 4 -> 4.1 -> 4.2 -> 4.3 -> 5 (complete)
 - v2.0: 6 -> 7 -> 8 -> 9 -> 9.1 (complete)
 - v3.0: 10 -> 11 -> 11.1 -> 12 -> 12.1 -> 12.2 -> 12.3 -> 12.3.1 -> 12.5 -> 13 -> 14 -> 15 (complete)
-- v3.1: 16 -> 16.1 -> 17 -> 17.3 -> 17.4 -> 18 -> 19 -> 19.4.1 -> 20 -> 21 -> 22
+- v3.1: 16 -> 16.1 -> 17 -> 17.3 -> 17.4 -> 18 -> 19 -> 19.4.1 -> 20 -> 20.1 -> 21 -> 22
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -339,5 +365,6 @@ Items not yet scheduled into a milestone or phase.
 | 19.4. Native Span Correlation Tagging | 4/4 | 4/4 | Complete    | 2026-04-20 |
 | 19.4.1. Fix Mobile UX Issues | 0/4 | 4/4 | Complete    | 2026-04-21 |
 | 20. Feedback Collection | v3.1 | 4/4 | Complete    | 2026-04-23 |
+| 20.1. Design Team UI Improvements | v3.1 | 0/7 | Planning complete | - |
 | 21. Eval Framework | v3.1 | 0/TBD | Not started | - |
 | 22. Self-Monitoring Loop | v3.1 | 0/TBD | Not started | - |
