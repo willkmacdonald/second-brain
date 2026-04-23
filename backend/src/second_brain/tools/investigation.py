@@ -1,9 +1,10 @@
 """Investigation agent tools for App Insights observability queries.
 
 Uses the class-based tool pattern to bind LogsQueryClient references to @tool
-functions. InvestigationTools provides 6 tools: trace_lifecycle, recent_errors,
-system_health, usage_patterns, query_feedback_signals, and
-promote_to_golden_dataset.
+functions. InvestigationTools provides 9 tools: trace_lifecycle, recent_errors,
+system_health, usage_patterns, query_feedback_signals,
+promote_to_golden_dataset, run_classifier_eval, run_admin_eval,
+and get_eval_results.
 
 Each tool returns JSON strings for the Investigation Agent to format into
 human-readable answers. Tools never raise -- they catch exceptions and return
@@ -12,17 +13,22 @@ JSON error messages.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from collections import Counter
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Annotated
+from uuid import uuid4
 
 from agent_framework import tool
 from azure.cosmos.exceptions import CosmosResourceNotFoundError
 from azure.monitor.query.aio import LogsQueryClient
 from pydantic import Field
 
+from second_brain.api.eval import _eval_runs
+from second_brain.eval.runner import run_admin_eval as _run_admin_eval
+from second_brain.eval.runner import run_classifier_eval as _run_classifier_eval
 from second_brain.models.documents import GoldenDatasetDocument
 from second_brain.observability.queries import (
     query_capture_trace,
@@ -33,6 +39,8 @@ from second_brain.observability.queries import (
 )
 
 if TYPE_CHECKING:
+    from agent_framework.azure import AzureAIAgentClient
+
     from second_brain.db.cosmos import CosmosManager
 
 logger = logging.getLogger(__name__)
@@ -88,10 +96,14 @@ class InvestigationTools:
         logs_client: LogsQueryClient,
         workspace_id: str,
         cosmos_manager: CosmosManager | None = None,
+        classifier_client: AzureAIAgentClient | None = None,
+        admin_client: AzureAIAgentClient | None = None,
     ) -> None:
         self._logs_client = logs_client
         self._workspace_id = workspace_id
         self._cosmos_manager = cosmos_manager
+        self._classifier_client = classifier_client
+        self._admin_client = admin_client
 
     # ------------------------------------------------------------------
     # Tool 1: trace_lifecycle
@@ -574,3 +586,262 @@ class InvestigationTools:
                 extra=log_extra,
             )
             return json.dumps({"error": (f"Failed to promote signal: {exc}")})
+
+    # ------------------------------------------------------------------
+    # Tool 7: run_classifier_eval
+    # ------------------------------------------------------------------
+
+    @tool(approval_mode="never_require")
+    async def run_classifier_eval(self) -> str:
+        """Trigger a classifier evaluation run against the golden dataset.
+
+        Starts a background eval run that sends each golden dataset
+        entry through the Classifier agent and measures accuracy.
+        Returns the run ID for status checking. The eval takes 3-5
+        minutes for 50 cases. Check status with get_eval_results.
+        """
+        log_extra: dict = {"component": "investigation_agent"}
+        logger.info("run_classifier_eval called", extra=log_extra)
+
+        try:
+            if self._classifier_client is None:
+                return json.dumps({"error": "Classifier client not available"})
+            if self._cosmos_manager is None:
+                return json.dumps({"error": "Cosmos not configured"})
+
+            # Single in-flight check
+            for rid, run in _eval_runs.items():
+                if (
+                    run.get("eval_type") == "classifier"
+                    and run.get("status") == "running"
+                ):
+                    return json.dumps(
+                        {
+                            "status": "already_running",
+                            "run_id": rid,
+                            "progress": run.get("progress", "unknown"),
+                        }
+                    )
+
+            run_id = str(uuid4())
+            _eval_runs[run_id] = {
+                "status": "running",
+                "eval_type": "classifier",
+                "started_at": datetime.now(UTC).isoformat(),
+            }
+            asyncio.create_task(
+                _run_classifier_eval(
+                    run_id=run_id,
+                    cosmos_manager=self._cosmos_manager,
+                    classifier_client=self._classifier_client,
+                    runs_dict=_eval_runs,
+                )
+            )
+            return json.dumps(
+                {
+                    "status": "started",
+                    "run_id": run_id,
+                    "message": (
+                        "Classifier eval started. Use get_eval_results "
+                        "to check progress and see results when complete."
+                    ),
+                }
+            )
+        except Exception as exc:
+            logger.error(
+                "run_classifier_eval error: %s",
+                exc,
+                exc_info=True,
+                extra=log_extra,
+            )
+            return json.dumps({"error": f"Failed to start classifier eval: {exc}"})
+
+    # ------------------------------------------------------------------
+    # Tool 8: run_admin_eval
+    # ------------------------------------------------------------------
+
+    @tool(approval_mode="never_require")
+    async def run_admin_eval(
+        self,
+        routing_context: Annotated[
+            str,
+            Field(
+                description=(
+                    "Fixed routing context (destinations and affinity "
+                    "rules) for deterministic eval. Required per D-13."
+                )
+            ),
+        ],
+    ) -> str:
+        """Trigger an admin agent evaluation run against the golden dataset.
+
+        Starts a background eval run that sends each golden dataset
+        entry through the Admin agent with dry-run tools and measures
+        routing accuracy. Returns the run ID for status checking.
+        """
+        log_extra: dict = {"component": "investigation_agent"}
+        logger.info("run_admin_eval called", extra=log_extra)
+
+        try:
+            if self._admin_client is None:
+                return json.dumps({"error": "Admin client not available"})
+            if self._cosmos_manager is None:
+                return json.dumps({"error": "Cosmos not configured"})
+
+            # Single in-flight check
+            for rid, run in _eval_runs.items():
+                if (
+                    run.get("eval_type") == "admin_agent"
+                    and run.get("status") == "running"
+                ):
+                    return json.dumps(
+                        {
+                            "status": "already_running",
+                            "run_id": rid,
+                            "progress": run.get("progress", "unknown"),
+                        }
+                    )
+
+            run_id = str(uuid4())
+            _eval_runs[run_id] = {
+                "status": "running",
+                "eval_type": "admin_agent",
+                "started_at": datetime.now(UTC).isoformat(),
+            }
+            asyncio.create_task(
+                _run_admin_eval(
+                    run_id=run_id,
+                    cosmos_manager=self._cosmos_manager,
+                    admin_client=self._admin_client,
+                    routing_context=routing_context,
+                    runs_dict=_eval_runs,
+                )
+            )
+            return json.dumps(
+                {
+                    "status": "started",
+                    "run_id": run_id,
+                    "message": (
+                        "Admin eval started. Use get_eval_results "
+                        "to check progress and see results when complete."
+                    ),
+                }
+            )
+        except Exception as exc:
+            logger.error(
+                "run_admin_eval error: %s",
+                exc,
+                exc_info=True,
+                extra=log_extra,
+            )
+            return json.dumps({"error": f"Failed to start admin eval: {exc}"})
+
+    # ------------------------------------------------------------------
+    # Tool 9: get_eval_results
+    # ------------------------------------------------------------------
+
+    @tool(approval_mode="never_require")
+    async def get_eval_results(
+        self,
+        eval_type: Annotated[
+            str | None,
+            Field(
+                description=(
+                    "Filter by eval type: 'classifier' or "
+                    "'admin_agent'. Pass null for all types."
+                )
+            ),
+        ] = None,
+        limit: Annotated[
+            int,
+            Field(description=("Maximum number of results to return. Default 3.")),
+        ] = 3,
+    ) -> str:
+        """Get recent eval results and any in-progress run status.
+
+        Queries the EvalResults Cosmos container for completed eval
+        results, and checks for any currently running evals. Returns
+        accuracy tables and per-bucket breakdowns for the investigation
+        agent to format as markdown (D-07).
+        """
+        log_extra: dict = {"component": "investigation_agent"}
+        logger.info(
+            "get_eval_results called: eval_type=%s limit=%d",
+            eval_type,
+            limit,
+            extra=log_extra,
+        )
+
+        try:
+            # Check for in-progress runs
+            in_progress: list[dict] = []
+            for rid, run in _eval_runs.items():
+                if run.get("status") == "running" and (
+                    eval_type is None or run.get("eval_type") == eval_type
+                ):
+                    in_progress.append(
+                        {
+                            "run_id": rid,
+                            "eval_type": run.get("eval_type"),
+                            "progress": run.get("progress", "unknown"),
+                            "started_at": run.get("started_at"),
+                        }
+                    )
+
+            # Query stored results from Cosmos
+            stored_results: list[dict] = []
+            if self._cosmos_manager is not None:
+                try:
+                    container = self._cosmos_manager.get_container("EvalResults")
+
+                    query = "SELECT * FROM c WHERE c.userId = @userId"
+                    parameters: list[dict[str, str]] = [
+                        {"name": "@userId", "value": "will"},
+                    ]
+
+                    if eval_type is not None:
+                        query += " AND c.evalType = @evalType"
+                        parameters.append({"name": "@evalType", "value": eval_type})
+
+                    query += " ORDER BY c.runTimestamp DESC"
+
+                    async for item in container.query_items(
+                        query=query,
+                        parameters=parameters,
+                    ):
+                        stored_results.append(
+                            {
+                                "id": item["id"],
+                                "evalType": item.get("evalType"),
+                                "runTimestamp": item.get("runTimestamp"),
+                                "datasetSize": item.get("datasetSize"),
+                                "aggregateScores": item.get("aggregateScores"),
+                                "modelDeployment": item.get("modelDeployment"),
+                            }
+                        )
+                        if len(stored_results) >= limit:
+                            break
+                except Exception as cosmos_exc:
+                    logger.warning(
+                        "Failed to query eval results from Cosmos: %s",
+                        cosmos_exc,
+                        extra=log_extra,
+                    )
+
+            return json.dumps(
+                {
+                    "in_progress": in_progress,
+                    "results": stored_results,
+                    "count": len(stored_results),
+                },
+                default=str,
+            )
+
+        except Exception as exc:
+            logger.error(
+                "get_eval_results error: %s",
+                exc,
+                exc_info=True,
+                extra=log_extra,
+            )
+            return json.dumps({"error": f"Failed to get eval results: {exc}"})

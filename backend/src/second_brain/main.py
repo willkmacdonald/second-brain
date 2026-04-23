@@ -47,6 +47,7 @@ from second_brain.agents.middleware import (  # noqa: E402
     ToolTimingMiddleware,
 )
 from second_brain.api.capture import router as capture_router  # noqa: E402
+from second_brain.api.eval import router as eval_router  # noqa: E402
 from second_brain.api.health import router as health_router  # noqa: E402
 from second_brain.api.inbox import router as inbox_router  # noqa: E402
 from second_brain.api.investigate import router as investigate_router  # noqa: E402
@@ -693,6 +694,8 @@ async def lifespan(app: FastAPI):
                     logs_client=app.state.logs_client,
                     workspace_id=settings.log_analytics_workspace_id,
                     cosmos_manager=app.state.cosmos_manager,
+                    classifier_client=app.state.classifier_client,
+                    admin_client=getattr(app.state, "admin_client", None),
                 )
                 app.state.investigation_tools_instance = investigation_tools
 
@@ -714,6 +717,9 @@ async def lifespan(app: FastAPI):
                     investigation_tools.usage_patterns,
                     investigation_tools.query_feedback_signals,
                     investigation_tools.promote_to_golden_dataset,
+                    investigation_tools.run_classifier_eval,
+                    investigation_tools.run_admin_eval,
+                    investigation_tools.get_eval_results,
                 ]
                 app.state.investigation_rate_limiter = SoftRateLimiter()
 
@@ -911,6 +917,7 @@ app.include_router(tasks_router)
 app.include_router(telemetry_router)
 app.include_router(investigate_router)
 app.include_router(feedback_router)
+app.include_router(eval_router)
 
 if __name__ == "__main__":
     import uvicorn

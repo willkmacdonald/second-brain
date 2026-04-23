@@ -1,4 +1,4 @@
-"""Tests for the eval runner (classifier and admin agent evaluation).
+"""Tests for the eval runner, API endpoint, and investigation tools.
 
 Tests cover:
 - Classifier eval with golden dataset entries (mocked Cosmos + agent)
@@ -7,15 +7,31 @@ Tests cover:
 - Progress tracking in runs_dict
 - Agent timeout handling (individual case marked ERROR, run continues)
 - Top-level exception handling (run marked as failed)
+- POST /api/eval/run returns 202 with runId
+- POST /api/eval/run with invalid eval_type returns 400
+- POST /api/eval/run with same type already running returns 409
+- GET /api/eval/status/{run_id} returns run status
+- GET /api/eval/status/unknown returns 404
+- Investigation tool run_classifier_eval returns started JSON
+- Investigation tool get_eval_results queries Cosmos and returns formatted results
 """
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock
+import json
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
+from fastapi import FastAPI
 
+from second_brain.api.eval import _eval_runs
+from second_brain.api.eval import router as eval_router
+from second_brain.auth import APIKeyMiddleware
 from second_brain.eval.runner import run_classifier_eval
+from second_brain.tools.investigation import InvestigationTools
+
+TEST_API_KEY = "test-eval-api-key-12345"
 
 
 def _mock_golden_query(items: list[dict]):
@@ -145,6 +161,11 @@ def _make_admin_agent_mock(dest_map: dict[str, str]):
 
     mock_client.get_response = AsyncMock(side_effect=fake_get_response)
     return mock_client
+
+
+# ======================================================================
+# Eval Runner Tests (from Plan 03)
+# ======================================================================
 
 
 @pytest.mark.asyncio
@@ -322,3 +343,275 @@ async def test_classifier_eval_catches_toplevel_exception() -> None:
 
     assert runs["test-run-6"]["status"] == "failed"
     assert "Cosmos is down" in runs["test-run-6"]["error"]
+
+
+# ======================================================================
+# Eval API Endpoint Tests (Plan 04)
+# ======================================================================
+
+
+@pytest.fixture
+def eval_app() -> FastAPI:
+    """FastAPI app with eval router and mocked app state."""
+    app = FastAPI()
+    app.include_router(eval_router)
+    app.state.api_key = TEST_API_KEY
+    app.state.cosmos_manager = MagicMock()
+    app.state.classifier_client = AsyncMock()
+    app.state.admin_client = AsyncMock()
+    app.state.background_tasks = set()
+    app.add_middleware(APIKeyMiddleware)
+    return app
+
+
+@pytest.fixture(autouse=True)
+def _clear_eval_runs():
+    """Clear _eval_runs dict before each test to avoid cross-test leakage."""
+    _eval_runs.clear()
+    yield
+    _eval_runs.clear()
+
+
+@pytest.mark.asyncio
+async def test_eval_run_returns_202(eval_app: FastAPI) -> None:
+    """POST /api/eval/run returns 202 with runId for classifier eval."""
+    transport = httpx.ASGITransport(app=eval_app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        with patch(
+            "second_brain.api.eval.run_classifier_eval",
+            new_callable=AsyncMock,
+        ):
+            response = await client.post(
+                "/api/eval/run",
+                json={"eval_type": "classifier"},
+                headers={"Authorization": f"Bearer {TEST_API_KEY}"},
+            )
+
+    assert response.status_code == 202
+    data = response.json()
+    assert "runId" in data
+    assert data["status"] == "running"
+    assert data["evalType"] == "classifier"
+
+
+@pytest.mark.asyncio
+async def test_eval_run_invalid_type_returns_400(
+    eval_app: FastAPI,
+) -> None:
+    """POST /api/eval/run with invalid eval_type returns 400."""
+    transport = httpx.ASGITransport(app=eval_app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/api/eval/run",
+            json={"eval_type": "unknown"},
+            headers={"Authorization": f"Bearer {TEST_API_KEY}"},
+        )
+
+    assert response.status_code == 400
+    assert "Invalid eval_type" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_eval_run_duplicate_returns_409(
+    eval_app: FastAPI,
+) -> None:
+    """POST /api/eval/run with same type already running returns 409."""
+    # Pre-populate a running eval
+    _eval_runs["existing-run"] = {
+        "status": "running",
+        "eval_type": "classifier",
+    }
+
+    transport = httpx.ASGITransport(app=eval_app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/api/eval/run",
+            json={"eval_type": "classifier"},
+            headers={"Authorization": f"Bearer {TEST_API_KEY}"},
+        )
+
+    assert response.status_code == 409
+    assert "already running" in response.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
+async def test_eval_status_returns_run(eval_app: FastAPI) -> None:
+    """GET /api/eval/status/{run_id} returns run status."""
+    _eval_runs["test-status-run"] = {
+        "status": "completed",
+        "eval_type": "classifier",
+        "accuracy": 0.95,
+    }
+
+    transport = httpx.ASGITransport(app=eval_app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get(
+            "/api/eval/status/test-status-run",
+            headers={"Authorization": f"Bearer {TEST_API_KEY}"},
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["runId"] == "test-status-run"
+    assert data["status"] == "completed"
+    assert data["accuracy"] == 0.95
+
+
+@pytest.mark.asyncio
+async def test_eval_status_unknown_returns_404(
+    eval_app: FastAPI,
+) -> None:
+    """GET /api/eval/status/unknown returns 404."""
+    transport = httpx.ASGITransport(app=eval_app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get(
+            "/api/eval/status/nonexistent-run",
+            headers={"Authorization": f"Bearer {TEST_API_KEY}"},
+        )
+
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_admin_eval_requires_routing_context(
+    eval_app: FastAPI,
+) -> None:
+    """POST /api/eval/run for admin_agent without routing_context returns 400."""
+    transport = httpx.ASGITransport(app=eval_app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/api/eval/run",
+            json={"eval_type": "admin_agent"},
+            headers={"Authorization": f"Bearer {TEST_API_KEY}"},
+        )
+
+    assert response.status_code == 400
+    assert "routing_context" in response.json()["detail"]
+
+
+# ======================================================================
+# Investigation Tool Tests (Plan 04)
+# ======================================================================
+
+
+@pytest.fixture
+def investigation_tools_with_eval() -> InvestigationTools:
+    """InvestigationTools with mock clients for eval tools."""
+    logs_client = MagicMock()
+    cosmos_manager = MagicMock()
+    classifier_client = AsyncMock()
+    admin_client = AsyncMock()
+    return InvestigationTools(
+        logs_client=logs_client,
+        workspace_id="test-workspace-id",
+        cosmos_manager=cosmos_manager,
+        classifier_client=classifier_client,
+        admin_client=admin_client,
+    )
+
+
+@pytest.mark.asyncio
+async def test_investigation_run_classifier_eval_starts(
+    investigation_tools_with_eval: InvestigationTools,
+) -> None:
+    """Investigation run_classifier_eval tool returns started JSON."""
+    result_json = await investigation_tools_with_eval.run_classifier_eval()
+    result = json.loads(result_json)
+
+    assert result["status"] == "started"
+    assert "run_id" in result
+    assert "Classifier eval started" in result["message"]
+
+
+@pytest.mark.asyncio
+async def test_investigation_run_classifier_eval_no_client() -> None:
+    """Investigation run_classifier_eval without client returns error."""
+    logs_client = MagicMock()
+    tools = InvestigationTools(
+        logs_client=logs_client,
+        workspace_id="test-workspace-id",
+        cosmos_manager=MagicMock(),
+        classifier_client=None,
+    )
+
+    result_json = await tools.run_classifier_eval()
+    result = json.loads(result_json)
+    assert "error" in result
+    assert "not available" in result["error"]
+
+
+@pytest.mark.asyncio
+async def test_investigation_run_classifier_eval_already_running(
+    investigation_tools_with_eval: InvestigationTools,
+) -> None:
+    """Investigation run_classifier_eval with existing run returns already_running."""
+    _eval_runs["existing-classifier"] = {
+        "status": "running",
+        "eval_type": "classifier",
+        "progress": "5/10",
+    }
+
+    result_json = await investigation_tools_with_eval.run_classifier_eval()
+    result = json.loads(result_json)
+    assert result["status"] == "already_running"
+    assert result["run_id"] == "existing-classifier"
+
+
+@pytest.mark.asyncio
+async def test_investigation_get_eval_results(
+    investigation_tools_with_eval: InvestigationTools,
+) -> None:
+    """Investigation get_eval_results queries Cosmos and returns results."""
+    # Mock Cosmos query
+    eval_items = [
+        {
+            "id": "result-1",
+            "userId": "will",
+            "evalType": "classifier",
+            "runTimestamp": "2026-04-23T12:00:00Z",
+            "datasetSize": 50,
+            "aggregateScores": {"accuracy": 0.92, "total": 50, "correct": 46},
+            "modelDeployment": "gpt-4o",
+            "individualResults": [{"should": "be stripped"}],
+        },
+    ]
+    cosmos = investigation_tools_with_eval._cosmos_manager
+    eval_container = MagicMock()
+    eval_container.query_items.return_value = _mock_golden_query(eval_items)()
+    cosmos.get_container = MagicMock(return_value=eval_container)
+
+    result_json = await investigation_tools_with_eval.get_eval_results()
+    result = json.loads(result_json)
+
+    assert result["count"] == 1
+    assert len(result["results"]) == 1
+    assert result["results"][0]["evalType"] == "classifier"
+    assert result["results"][0]["aggregateScores"]["accuracy"] == 0.92
+    # individualResults should NOT be in the response
+    assert "individualResults" not in result["results"][0]
+
+
+@pytest.mark.asyncio
+async def test_investigation_get_eval_results_with_in_progress(
+    investigation_tools_with_eval: InvestigationTools,
+) -> None:
+    """Investigation get_eval_results includes in-progress runs."""
+    _eval_runs["running-eval"] = {
+        "status": "running",
+        "eval_type": "classifier",
+        "progress": "3/10",
+        "started_at": "2026-04-23T12:00:00Z",
+    }
+
+    # Mock empty Cosmos results
+    cosmos = investigation_tools_with_eval._cosmos_manager
+    eval_container = MagicMock()
+    eval_container.query_items.return_value = _mock_golden_query([])()
+    cosmos.get_container = MagicMock(return_value=eval_container)
+
+    result_json = await investigation_tools_with_eval.get_eval_results()
+    result = json.loads(result_json)
+
+    assert len(result["in_progress"]) == 1
+    assert result["in_progress"][0]["run_id"] == "running-eval"
+    assert result["in_progress"][0]["progress"] == "3/10"
