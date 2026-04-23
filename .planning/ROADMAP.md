@@ -70,7 +70,7 @@ See: .planning/milestones/v3.0-ROADMAP.md
 - [x] **Phase 19: Claude Code MCP Tool** - Standalone MCP server for App Insights queries from Claude Code (completed 2026-04-14)
 - [x] **Phase 19.4: Native Span Correlation Tagging** (INSERTED) - Tag all native telemetry rows with capture_trace_id so spine-to-native drill-down works (completed 2026-04-20)
 - [x] **Phase 19.4.1: Fix Mobile UX Issues** (INSERTED) - 4-tab layout, Tasks tab extraction, API key management, error card recency, EAS production build (completed 2026-04-21)
-- [ ] **Phase 20: Feedback Collection** - Implicit quality signals, explicit thumbs up/down, golden dataset promotion
+- [x] **Phase 20: Feedback Collection** - Implicit quality signals, explicit thumbs up/down, golden dataset promotion (completed 2026-04-23)
 - [ ] **Phase 21: Eval Framework** - Golden datasets, deterministic evaluators, score storage, on-demand trigger
 - [ ] **Phase 22: Self-Monitoring Loop** - Automated weekly evals, threshold alerts, push notifications on degradation
 
@@ -286,8 +286,8 @@ Plans:
 Plans:
 - [x] 20-01-PLAN.md -- Feedback API endpoint + implicit signal emit in recategorize, HITL, and errand handlers
 - [x] 20-02-PLAN.md -- Investigation Agent feedback tools (query_feedback_signals + promote_to_golden_dataset) + portal instructions
-- [ ] 20-03-PLAN.md -- Mobile thumbs up/down UI in inbox detail modal
-- [ ] 20-04-PLAN.md -- End-to-end verification checkpoint
+- [x] 20-03-PLAN.md -- Mobile thumbs up/down UI in inbox detail modal
+- [x] 20-04-PLAN.md -- End-to-end verification checkpoint
 
 ### Phase 21: Eval Framework
 **Goal**: Classifier and Admin Agent quality are measured with deterministic metrics against golden datasets
@@ -338,6 +338,6 @@ Items not yet scheduled into a milestone or phase.
 | 19. Claude Code MCP Tool | 2/2 | Complete    | 2026-04-14 | - |
 | 19.4. Native Span Correlation Tagging | 4/4 | 4/4 | Complete    | 2026-04-20 |
 | 19.4.1. Fix Mobile UX Issues | 0/4 | 4/4 | Complete    | 2026-04-21 |
-| 20. Feedback Collection | v3.1 | 1/4 | In Progress | - |
+| 20. Feedback Collection | v3.1 | 4/4 | Complete    | 2026-04-23 |
 | 21. Eval Framework | v3.1 | 0/TBD | Not started | - |
 | 22. Self-Monitoring Loop | v3.1 | 0/TBD | Not started | - |
