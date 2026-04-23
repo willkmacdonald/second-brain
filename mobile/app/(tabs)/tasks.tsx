@@ -10,6 +10,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "expo-router";
 import { API_BASE_URL, API_KEY } from "../../constants/config";
 import { reportError } from "../../lib/telemetry";
+import { theme } from "../../constants/theme";
 import { StatusSectionRenderer } from "../../components/StatusSectionRenderer";
 import { ErrandRow } from "../../components/ErrandRow";
 import { TaskRow } from "../../components/TaskRow";
@@ -413,7 +414,7 @@ export default function TasksScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#4a90d9" />
+          <ActivityIndicator size="large" color={theme.colors.accent} />
         </View>
       </SafeAreaView>
     );
@@ -445,7 +446,7 @@ export default function TasksScreen() {
             ))}
             {processingCount > 0 && (
               <View style={styles.processingBanner}>
-                <ActivityIndicator size="small" color="#4a90d9" />
+                <ActivityIndicator size="small" color={theme.colors.accent} />
                 <Text style={styles.processingText}>
                   Processing {processingCount} new capture
                   {processingCount !== 1 ? "s" : ""}...
@@ -508,20 +509,23 @@ export default function TasksScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0f0f23",
+    backgroundColor: theme.colors.bg,
   },
   screenHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 4,
+    paddingHorizontal: 20,
+    paddingTop: 14,
+    paddingBottom: 12,
   },
   screenTitle: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#ffffff",
+    fontFamily: theme.fonts.display,
+    fontSize: 36,
+    fontWeight: "400",
+    fontStyle: "italic",
+    letterSpacing: -0.8,
+    color: theme.colors.text,
   },
   loadingContainer: {
     flex: 1,
@@ -538,14 +542,13 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: "#666",
+    fontFamily: theme.fonts.body,
+    color: theme.colors.textMuted,
   },
   processingBanner: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#1a1a2e",
-    borderWidth: 1,
-    borderColor: "#4a90d9",
+    backgroundColor: theme.colors.accentDim,
     borderRadius: 10,
     padding: 12,
     marginHorizontal: 16,
@@ -555,16 +558,17 @@ const styles = StyleSheet.create({
   },
   processingText: {
     fontSize: 14,
-    color: "#4a90d9",
+    fontFamily: theme.fonts.body,
+    color: theme.colors.accent,
     fontWeight: "500",
   },
   notificationBanner: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: "rgba(74, 144, 217, 0.15)",
-    borderWidth: 1,
-    borderColor: "#4a90d9",
+    backgroundColor: theme.colors.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.hairline,
     borderRadius: 10,
     padding: 12,
     marginHorizontal: 16,
@@ -574,13 +578,15 @@ const styles = StyleSheet.create({
   },
   notificationText: {
     fontSize: 14,
-    color: "#ffffff",
+    fontFamily: theme.fonts.body,
+    color: theme.colors.text,
     flex: 1,
     lineHeight: 20,
   },
   dismissText: {
     fontSize: 13,
-    color: "#4a90d9",
+    fontFamily: theme.fonts.bodySemiBold,
+    color: theme.colors.accent,
     fontWeight: "600",
   },
 });
