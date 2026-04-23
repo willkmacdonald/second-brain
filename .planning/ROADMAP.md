@@ -71,7 +71,7 @@ See: .planning/milestones/v3.0-ROADMAP.md
 - [x] **Phase 19.4: Native Span Correlation Tagging** (INSERTED) - Tag all native telemetry rows with capture_trace_id so spine-to-native drill-down works (completed 2026-04-20)
 - [x] **Phase 19.4.1: Fix Mobile UX Issues** (INSERTED) - 4-tab layout, Tasks tab extraction, API key management, error card recency, EAS production build (completed 2026-04-21)
 - [x] **Phase 20: Feedback Collection** - Implicit quality signals, explicit thumbs up/down, golden dataset promotion (completed 2026-04-23)
-- [ ] **Phase 20.1: Design Team UI Improvements** (INSERTED) - Hi-fi visual reskin with design tokens, custom fonts, Lucide icons, per-bucket colors
+- [x] **Phase 20.1: Design Team UI Improvements** (INSERTED) - Hi-fi visual reskin with design tokens, custom fonts, Lucide icons, per-bucket colors (completed 2026-04-23)
 - [ ] **Phase 21: Eval Framework** - Golden datasets, deterministic evaluators, score storage, on-demand trigger
 - [ ] **Phase 22: Self-Monitoring Loop** - Automated weekly evals, threshold alerts, push notifications on degradation
 
@@ -304,16 +304,16 @@ Plans:
   6. Per-bucket colors (People=warm sand, Projects=dusty blue, Ideas=muted violet, Admin=sage) visible in inbox rows, HITL picker, and detail modal
   7. HITL Clarification flow uses design's bubble + 2x2 bucket grid styling
   8. Settings uses grouped iOS-style cards with CapsLabel section headers
-**Plans:** 7 plans (Wave 1: foundation, Wave 2: tab bar + 4 screen reskins in parallel, Wave 3: human verification)
+**Plans:** 7/7 plans complete
 
 Plans:
 - [x] 20.1-01-PLAN.md -- Foundation: theme tokens, useTheme hook, font packages, font loading in root layout
-- [ ] 20.1-02-PLAN.md -- Tab bar + shared primitives: Lucide icons, CapsLabel component, ErrorFallback/ApiKeyGate/RoutingPicker reskin
-- [ ] 20.1-03-PLAN.md -- Capture screen reskin: all 3 states (Idle, Listening, Filed) + HITL clarification flow
-- [ ] 20.1-04-PLAN.md -- Inbox screen + InboxItem component reskin: list view + detail modal
-- [ ] 20.1-05-PLAN.md -- Tasks screen + ErrandRow + TaskRow component reskin
-- [ ] 20.1-06-PLAN.md -- Status + Settings screens + DashboardCards + SpineStatusTile + StatusSectionRenderer reskin
-- [ ] 20.1-07-PLAN.md -- Visual verification checkpoint: static validation + human screen-by-screen review
+- [x] 20.1-02-PLAN.md -- Tab bar + shared primitives: Lucide icons, CapsLabel component, ErrorFallback/ApiKeyGate/RoutingPicker reskin
+- [x] 20.1-03-PLAN.md -- Capture screen reskin: all 3 states (Idle, Listening, Filed) + HITL clarification flow
+- [x] 20.1-04-PLAN.md -- Inbox screen + InboxItem component reskin: list view + detail modal
+- [x] 20.1-05-PLAN.md -- Tasks screen + ErrandRow + TaskRow component reskin
+- [x] 20.1-06-PLAN.md -- Status + Settings screens + DashboardCards + SpineStatusTile + StatusSectionRenderer reskin
+- [x] 20.1-07-PLAN.md -- Visual verification checkpoint: static validation + human screen-by-screen review
 
 ### Phase 21: Eval Framework
 **Goal**: Classifier and Admin Agent quality are measured with deterministic metrics against golden datasets
@@ -365,6 +365,6 @@ Items not yet scheduled into a milestone or phase.
 | 19.4. Native Span Correlation Tagging | 4/4 | 4/4 | Complete    | 2026-04-20 |
 | 19.4.1. Fix Mobile UX Issues | 0/4 | 4/4 | Complete    | 2026-04-21 |
 | 20. Feedback Collection | v3.1 | 4/4 | Complete    | 2026-04-23 |
-| 20.1. Design Team UI Improvements | v3.1 | 1/7 | In progress | - |
+| 20.1. Design Team UI Improvements | v3.1 | 7/7 | Complete    | 2026-04-23 |
 | 21. Eval Framework | v3.1 | 0/TBD | Not started | - |
 | 22. Self-Monitoring Loop | v3.1 | 0/TBD | Not started | - |

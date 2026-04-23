@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Observability & Evals
-status: executing
+status: ready_to_plan
 stopped_at: Completed 20.1-06-PLAN.md (Status + Settings reskin)
 last_updated: "2026-04-23T05:13:15.251Z"
 last_activity: 2026-04-23
 progress:
   total_phases: 15
-  completed_phases: 11
+  completed_phases: 12
   total_plans: 43
   completed_plans: 41
-  percent: 95
+  percent: 80
 ---
 
 # Project State
@@ -25,9 +25,9 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 
 ## Current Position
 
-Phase: 20.1 (Design Team UI Improvements) — EXECUTING
-Plan: 7 of 7
-Status: Ready to execute
+Phase: 21
+Plan: Not started
+Status: Ready to plan
 Last activity: 2026-04-23
 
 Progress: [██████████] 95%
@@ -36,7 +36,7 @@ Progress: [██████████] 95%
 
 **Velocity (v3.0):**
 
-- Total plans completed: 45
+- Total plans completed: 52
 - Average duration: 3.1 min
 - Timeline: 2026-03-01 to 2026-03-23 (22 days)
 
