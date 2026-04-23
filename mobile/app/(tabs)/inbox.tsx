@@ -12,12 +12,14 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useFocusEffect } from "expo-router";
 import { API_BASE_URL, API_KEY } from "../../constants/config";
+import { theme, BucketName } from "../../constants/theme";
+import { CapsLabel } from "../../components/CapsLabel";
 import { reportError } from "../../lib/telemetry";
 import { InboxItem } from "../../components/InboxItem";
 import type { InboxItemData } from "../../components/InboxItem";
 
 const PAGE_SIZE = 20;
-const BUCKETS = ["People", "Projects", "Ideas", "Admin"];
+const BUCKETS: BucketName[] = ["People", "Projects", "Ideas", "Admin"];
 
 /**
  * Inbox screen displaying all recent captures with classification status.
@@ -32,9 +34,14 @@ export default function InboxScreen() {
   const [hasMore, setHasMore] = useState(true);
   const [selectedItem, setSelectedItem] = useState<InboxItemData | null>(null);
   const [isRecategorizing, setIsRecategorizing] = useState(false);
-  const [recategorizeToast, setRecategorizeToast] = useState<string | null>(null);
-  const [feedbackState, setFeedbackState] = useState<"none" | "thumbs_up" | "thumbs_down">("none");
+  const [recategorizeToast, setRecategorizeToast] = useState<string | null>(
+    null,
+  );
+  const [feedbackState, setFeedbackState] = useState<
+    "none" | "thumbs_up" | "thumbs_down"
+  >("none");
   const [feedbackToast, setFeedbackToast] = useState<string | null>(null);
+  const [activeFilter, setActiveFilter] = useState<string>("All");
   const navigation = useNavigation();
 
   const fetchInbox = useCallback(
@@ -93,7 +100,10 @@ export default function InboxScreen() {
   // Derive badge count from items state so it always reflects current data
   useEffect(() => {
     const isPendingStatus = (s: string) =>
-      s === "pending" || s === "low_confidence" || s === "unresolved" || s === "misunderstood";
+      s === "pending" ||
+      s === "low_confidence" ||
+      s === "unresolved" ||
+      s === "misunderstood";
     const pendingCount = items.filter((i) => isPendingStatus(i.status)).length;
     navigation.setOptions({
       tabBarBadge: pendingCount > 0 ? pendingCount : undefined,
@@ -153,13 +163,10 @@ export default function InboxScreen() {
     [fetchInbox],
   );
 
-  const handleItemPress = useCallback(
-    (item: InboxItemData) => {
-      setSelectedItem(item);
-      setFeedbackState("none");
-    },
-    [],
-  );
+  const handleItemPress = useCallback((item: InboxItemData) => {
+    setSelectedItem(item);
+    setFeedbackState("none");
+  }, []);
 
   const handleRecategorize = useCallback(
     async (itemId: string, newBucket: string) => {
@@ -284,11 +291,58 @@ export default function InboxScreen() {
     return () => clearTimeout(timer);
   }, [feedbackToast]);
 
+  // Filter items by bucket when a filter pill is active
+  const filteredItems =
+    activeFilter === "All"
+      ? items
+      : items.filter(
+          (i) => i.classificationMeta?.bucket === activeFilter,
+        );
+
+  // Resolve selected item's bucket for per-bucket styling
+  const selectedBucket =
+    (selectedItem?.classificationMeta?.bucket as BucketName) ?? null;
+
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.heading}>Inbox</Text>
+      {/* Header row with serif heading + item count */}
+      <View style={styles.headerRow}>
+        <Text style={styles.heading}>Inbox</Text>
+        <CapsLabel>{items.length} items</CapsLabel>
+      </View>
+
+      {/* Filter pills */}
+      <View style={styles.filterRow}>
+        {["All", ...BUCKETS].map((filter) => {
+          const isActive = activeFilter === filter;
+          return (
+            <Pressable
+              key={filter}
+              onPress={() => setActiveFilter(filter)}
+              style={[
+                styles.filterPill,
+                isActive
+                  ? styles.filterPillActive
+                  : styles.filterPillInactive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.filterPillText,
+                  isActive
+                    ? styles.filterPillTextActive
+                    : styles.filterPillTextInactive,
+                ]}
+              >
+                {filter}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
       <FlatList
-        data={items}
+        data={filteredItems}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <InboxItem
@@ -301,7 +355,7 @@ export default function InboxScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            tintColor="#4a90d9"
+            tintColor={theme.colors.accent}
           />
         }
         onEndReached={handleLoadMore}
@@ -314,7 +368,9 @@ export default function InboxScreen() {
             </Text>
           </View>
         }
-        contentContainerStyle={items.length === 0 ? styles.emptyContainer : undefined}
+        contentContainerStyle={
+          filteredItems.length === 0 ? styles.emptyContainer : undefined
+        }
       />
 
       {/* Detail card modal for all items */}
@@ -332,75 +388,74 @@ export default function InboxScreen() {
             style={styles.detailCard}
             onStartShouldSetResponder={() => true}
           >
-            <Text style={styles.detailLabel}>Captured Text</Text>
+            <CapsLabel>Captured</CapsLabel>
             <Text style={styles.detailText}>{selectedItem?.rawText}</Text>
 
             {selectedItem?.classificationMeta ? (
               <>
                 <View style={styles.detailRow}>
                   <View style={styles.detailCol}>
-                    <Text style={styles.detailLabel}>Bucket</Text>
+                    <CapsLabel style={{ marginTop: 16 }}>Bucket</CapsLabel>
                     <Text style={styles.detailValue}>
                       {selectedItem.classificationMeta.bucket}
                     </Text>
                   </View>
                   <View style={styles.detailCol}>
-                    <Text style={styles.detailLabel}>Confidence</Text>
-                    <Text style={styles.detailValue}>
-                      {Math.round(selectedItem.classificationMeta.confidence * 100)}%
+                    <CapsLabel style={{ marginTop: 16 }}>Confidence</CapsLabel>
+                    <Text style={styles.confidenceValue}>
+                      {Math.round(
+                        selectedItem.classificationMeta.confidence * 100,
+                      )}
+                      %
                     </Text>
                   </View>
                 </View>
-                <Text style={styles.detailLabel}>Agent Chain</Text>
+                <CapsLabel style={{ marginTop: 16 }}>Agent Chain</CapsLabel>
                 <Text style={styles.detailValue}>
-                  {selectedItem.classificationMeta.agentChain?.join(" -> ") ?? "N/A"}
+                  {selectedItem.classificationMeta.agentChain?.join(" -> ") ??
+                    "N/A"}
                 </Text>
               </>
             ) : (
               <>
-                <Text style={styles.detailLabel}>Status</Text>
-                <Text style={[styles.detailValue, { color: selectedItem?.status === "unresolved" ? "#ef4444" : "#f97316" }]}>
-                  {selectedItem?.status === "unresolved" ? "Unresolved" : "Needs Clarification"}
+                <CapsLabel style={{ marginTop: 12 }}>Status</CapsLabel>
+                <Text
+                  style={[
+                    styles.detailValue,
+                    {
+                      color:
+                        selectedItem?.status === "unresolved"
+                          ? theme.colors.err
+                          : theme.colors.warn,
+                    },
+                  ]}
+                >
+                  {selectedItem?.status === "unresolved"
+                    ? "Unresolved"
+                    : "Needs Clarification"}
                 </Text>
                 {selectedItem?.clarificationText && (
                   <>
-                    <Text style={styles.detailLabel}>Agent Question</Text>
-                    <Text style={styles.detailValue}>{selectedItem.clarificationText}</Text>
+                    <CapsLabel style={{ marginTop: 12 }}>
+                      Agent Question
+                    </CapsLabel>
+                    <Text style={styles.detailValue}>
+                      {selectedItem.clarificationText}
+                    </Text>
                   </>
                 )}
               </>
             )}
 
-            <Text style={styles.detailLabel}>Timestamp</Text>
+            <CapsLabel style={{ marginTop: 12 }}>Timestamp</CapsLabel>
             <Text style={styles.detailValue}>
               {selectedItem?.createdAt
                 ? new Date(selectedItem.createdAt).toLocaleString()
                 : "N/A"}
             </Text>
 
-            {/* Feedback */}
-            <Text style={styles.detailLabel}>Feedback</Text>
-            <View style={styles.feedbackRow}>
-              <Pressable
-                onPress={() => handleFeedback("thumbs_down")}
-                accessibilityLabel="Rate classification as bad"
-                accessibilityRole="button"
-                accessibilityState={{ selected: feedbackState === "thumbs_down" }}
-                style={({ pressed }) => [
-                  styles.feedbackButton,
-                  feedbackState === "thumbs_down" && styles.feedbackButtonNegative,
-                  pressed && { opacity: 0.7 },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.feedbackIcon,
-                    { opacity: feedbackState === "thumbs_down" ? 1.0 : 0.5 },
-                  ]}
-                >
-                  {"👎"}
-                </Text>
-              </Pressable>
+            {/* Feedback + Close row */}
+            <View style={styles.feedbackCloseRow}>
               <Pressable
                 onPress={() => handleFeedback("thumbs_up")}
                 accessibilityLabel="Rate classification as good"
@@ -408,18 +463,50 @@ export default function InboxScreen() {
                 accessibilityState={{ selected: feedbackState === "thumbs_up" }}
                 style={({ pressed }) => [
                   styles.feedbackButton,
-                  feedbackState === "thumbs_up" && styles.feedbackButtonPositive,
+                  feedbackState === "thumbs_up" &&
+                    styles.feedbackButtonPositive,
                   pressed && { opacity: 0.7 },
                 ]}
               >
                 <Text
                   style={[
                     styles.feedbackIcon,
-                    { opacity: feedbackState === "thumbs_up" ? 1.0 : 0.5 },
+                    {
+                      opacity: feedbackState === "thumbs_up" ? 1.0 : 0.5,
+                    },
                   ]}
                 >
                   {"👍"}
                 </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => handleFeedback("thumbs_down")}
+                accessibilityLabel="Rate classification as bad"
+                accessibilityRole="button"
+                accessibilityState={{
+                  selected: feedbackState === "thumbs_down",
+                }}
+                style={({ pressed }) => [
+                  styles.feedbackButton,
+                  feedbackState === "thumbs_down" &&
+                    styles.feedbackButtonNegative,
+                  pressed && { opacity: 0.7 },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.feedbackIcon,
+                    {
+                      opacity: feedbackState === "thumbs_down" ? 1.0 : 0.5,
+                    },
+                  ]}
+                >
+                  {"👎"}
+                </Text>
+              </Pressable>
+              <View style={{ flex: 1 }} />
+              <Pressable onPress={() => setSelectedItem(null)}>
+                <Text style={styles.closeButtonText}>Close</Text>
               </Pressable>
             </View>
 
@@ -430,18 +517,17 @@ export default function InboxScreen() {
                 selectedItem?.status === "misunderstood" ||
                 selectedItem?.status === "unresolved";
               const isClassifiedItem = selectedItem?.status === "classified";
-              // Always show bucket buttons -- all items can be manually categorized
 
               return (
                 <View style={styles.bucketSection}>
-                  <Text style={styles.detailLabel}>
+                  <CapsLabel>
                     {isClassifiedItem ? "Move to bucket" : "File to bucket"}
-                  </Text>
+                  </CapsLabel>
                   <View style={styles.bucketRow}>
                     {BUCKETS.map((bucket) => {
                       const isCurrent =
-                        !isPendingItem &&
-                        selectedItem?.classificationMeta?.bucket === bucket;
+                        !isPendingItem && selectedBucket === bucket;
+                      const bucketColors = theme.colors.buckets[bucket];
                       return (
                         <Pressable
                           key={bucket}
@@ -453,7 +539,17 @@ export default function InboxScreen() {
                           disabled={isCurrent || isRecategorizing}
                           style={({ pressed }) => [
                             styles.bucketButton,
-                            isCurrent && styles.bucketButtonCurrent,
+                            isCurrent
+                              ? {
+                                  backgroundColor: bucketColors.bg,
+                                  borderWidth: StyleSheet.hairlineWidth,
+                                  borderColor: bucketColors.dot + "66",
+                                }
+                              : {
+                                  backgroundColor: "transparent",
+                                  borderWidth: StyleSheet.hairlineWidth,
+                                  borderColor: theme.colors.hairline,
+                                },
                             pressed && !isCurrent && styles.bucketButtonPressed,
                             isRecategorizing && styles.bucketButtonDisabled,
                           ]}
@@ -461,7 +557,11 @@ export default function InboxScreen() {
                           <Text
                             style={[
                               styles.bucketButtonText,
-                              isCurrent && styles.bucketButtonTextCurrent,
+                              {
+                                color: isCurrent
+                                  ? bucketColors.fg
+                                  : theme.colors.textDim,
+                              },
                             ]}
                           >
                             {bucket}
@@ -473,13 +573,6 @@ export default function InboxScreen() {
                 </View>
               );
             })()}
-
-            <Pressable
-              style={styles.closeButton}
-              onPress={() => setSelectedItem(null)}
-            >
-              <Text style={styles.closeButtonText}>Close</Text>
-            </Pressable>
           </View>
         </Pressable>
       </Modal>
@@ -502,15 +595,52 @@ export default function InboxScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0f0f23",
+    backgroundColor: theme.colors.bg,
   },
-  heading: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: "#ffffff",
-    paddingHorizontal: 16,
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
     paddingTop: 8,
     paddingBottom: 12,
+  },
+  heading: {
+    fontFamily: theme.fonts.display,
+    fontSize: 36,
+    fontWeight: "400",
+    fontStyle: "italic",
+    letterSpacing: -0.8,
+    color: theme.colors.text,
+  },
+  filterRow: {
+    flexDirection: "row",
+    paddingHorizontal: 20,
+    paddingBottom: 14,
+    gap: 6,
+  },
+  filterPill: {
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+  },
+  filterPillActive: {
+    backgroundColor: theme.colors.surfaceHi,
+  },
+  filterPillInactive: {
+    backgroundColor: "transparent",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.hairline,
+  },
+  filterPillText: {
+    fontSize: 12,
+    fontFamily: theme.fonts.bodyMedium,
+  },
+  filterPillTextActive: {
+    color: theme.colors.text,
+  },
+  filterPillTextInactive: {
+    color: theme.colors.textMuted,
   },
   empty: {
     alignItems: "center",
@@ -523,12 +653,14 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 20,
     fontWeight: "600",
-    color: "#ffffff",
+    fontFamily: theme.fonts.bodySemiBold,
+    color: theme.colors.text,
     marginBottom: 8,
   },
   emptySubtitle: {
     fontSize: 14,
-    color: "#666",
+    fontFamily: theme.fonts.body,
+    color: theme.colors.textMuted,
   },
   modalOverlay: {
     flex: 1,
@@ -537,81 +669,94 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   detailCard: {
-    backgroundColor: "#1a1a2e",
-    borderRadius: 16,
-    padding: 20,
+    backgroundColor: theme.colors.surface,
+    borderRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.hairline,
+    padding: 18,
     width: "85%",
     maxHeight: "70%",
-  },
-  detailLabel: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "#666",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    marginTop: 12,
-    marginBottom: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 20 },
+    shadowOpacity: 0.5,
+    shadowRadius: 40,
+    elevation: 20,
   },
   detailText: {
     fontSize: 15,
-    color: "#ffffff",
+    color: theme.colors.text,
     lineHeight: 22,
+    letterSpacing: -0.2,
+    fontFamily: theme.fonts.body,
+    marginTop: 6,
   },
   detailRow: {
     flexDirection: "row",
-    gap: 16,
+    gap: 18,
   },
   detailCol: {
     flex: 1,
   },
   detailValue: {
     fontSize: 14,
-    color: "#ccc",
+    color: theme.colors.text,
     lineHeight: 20,
-  },
-  feedbackRow: {
-    flexDirection: "row",
-    gap: 12,
+    fontFamily: theme.fonts.body,
     marginTop: 4,
   },
+  confidenceValue: {
+    fontFamily: theme.fonts.mono,
+    fontSize: 14,
+    color: theme.colors.text,
+    fontVariantNumeric: "tabular-nums",
+    marginTop: 4,
+  },
+  feedbackCloseRow: {
+    flexDirection: "row",
+    gap: 10,
+    alignItems: "center",
+    marginTop: 16,
+  },
   feedbackButton: {
-    width: 56,
-    height: 44,
-    backgroundColor: "#2a2a4e",
-    borderRadius: 12,
+    width: 36,
+    height: 32,
+    borderRadius: 9,
+    backgroundColor: theme.colors.surfaceHi,
     alignItems: "center",
     justifyContent: "center",
   },
   feedbackButtonPositive: {
-    backgroundColor: "rgba(74,222,128,0.2)",
+    backgroundColor: "rgba(125,220,160,0.2)",
     borderWidth: 1,
-    borderColor: "#4ade80",
+    borderColor: theme.colors.ok,
   },
   feedbackButtonNegative: {
     backgroundColor: "rgba(255,107,107,0.2)",
     borderWidth: 1,
-    borderColor: "#ff6b6b",
+    borderColor: theme.colors.err,
   },
   feedbackIcon: {
-    fontSize: 22,
+    fontSize: 14,
+  },
+  closeButtonText: {
+    fontSize: 12,
+    color: theme.colors.accent,
+    fontWeight: "600",
+    fontFamily: theme.fonts.bodySemiBold,
   },
   bucketSection: {
     marginTop: 16,
   },
   bucketRow: {
     flexDirection: "row",
-    gap: 8,
-    marginTop: 4,
+    gap: 6,
+    marginTop: 8,
   },
   bucketButton: {
     flex: 1,
-    backgroundColor: "#2a2a4e",
-    paddingVertical: 10,
-    borderRadius: 8,
+    paddingVertical: 8,
+    borderRadius: 9,
     alignItems: "center",
-  },
-  bucketButtonCurrent: {
-    backgroundColor: "#4a90d9",
   },
   bucketButtonPressed: {
     opacity: 0.7,
@@ -620,40 +765,26 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
   bucketButtonText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#ccc",
-  },
-  bucketButtonTextCurrent: {
-    color: "#ffffff",
-  },
-  closeButton: {
-    marginTop: 20,
-    backgroundColor: "#2a2a4e",
-    paddingVertical: 10,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  closeButtonText: {
-    color: "#4a90d9",
-    fontSize: 15,
-    fontWeight: "600",
+    fontSize: 11.5,
+    fontWeight: "500",
+    fontFamily: theme.fonts.bodyMedium,
   },
   toastBar: {
     position: "absolute",
     bottom: 40,
     left: 20,
     right: 20,
-    backgroundColor: "#1a1a2e",
+    backgroundColor: theme.colors.surface,
     borderRadius: 10,
     padding: 12,
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#4a90d9",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.accent,
   },
   toastText: {
-    color: "#4ade80",
+    color: theme.colors.ok,
     fontSize: 14,
     fontWeight: "500",
+    fontFamily: theme.fonts.bodyMedium,
   },
 });
