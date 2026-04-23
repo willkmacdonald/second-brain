@@ -14,6 +14,7 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+
 from second_brain.eval.runner import run_classifier_eval
 
 
@@ -112,7 +113,7 @@ def _make_classifier_agent_mock(bucket_map: dict[str, tuple[str, float]]):
     async def fake_get_response(*, messages, options):
         text = messages[0].text
         bucket, confidence = bucket_map.get(text, ("Admin", 0.5))
-        tool_fn = options.tools[0]
+        tool_fn = options["tools"][0]
         await tool_fn(
             text=text,
             bucket=bucket,
@@ -136,7 +137,7 @@ def _make_admin_agent_mock(dest_map: dict[str, str]):
         text = messages[0].text
         destination = dest_map.get(text, "unrouted")
         # Find add_errand_items tool (first tool in list)
-        add_errand_fn = options.tools[0]
+        add_errand_fn = options["tools"][0]
         await add_errand_fn(
             items=[{"name": text[:30], "destination": destination}],
         )
@@ -235,7 +236,7 @@ async def test_classifier_eval_updates_progress() -> None:
         # Record progress at each call
         if "test-run-4" in original_runs:
             progress_snapshots.append(original_runs["test-run-4"].get("progress", ""))
-        tool_fn = options.tools[0]
+        tool_fn = options["tools"][0]
         await tool_fn(
             text=messages[0].text,
             bucket="Admin",
@@ -272,7 +273,7 @@ async def test_classifier_eval_handles_timeout() -> None:
         call_count += 1
         if call_count == 2:
             raise TimeoutError("Agent timed out")
-        tool_fn = options.tools[0]
+        tool_fn = options["tools"][0]
         await tool_fn(
             text=messages[0].text,
             bucket="Admin",
@@ -294,9 +295,10 @@ async def test_classifier_eval_handles_timeout() -> None:
 
     # Should still complete despite one timeout
     assert runs["test-run-5"]["status"] == "completed"
-    # 2 correct + 1 error = total 3, correct 2
+    # Mock always predicts "Admin": case-1 (Admin) correct, case-2 timeout
+    # (ERROR), case-3 (Ideas) wrong -> 1 correct out of 3
     assert runs["test-run-5"]["total"] == 3
-    assert runs["test-run-5"]["correct"] == 2
+    assert runs["test-run-5"]["correct"] == 1
 
 
 @pytest.mark.asyncio
