@@ -2,7 +2,10 @@ import { useState, useCallback } from "react";
 import { View, Text, Pressable, ScrollView, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, router } from "expo-router";
+import { Settings, Search } from "lucide-react-native";
+
 import { API_BASE_URL, API_KEY } from "../../constants/config";
+import { theme } from "../../constants/theme";
 import {
   DashboardCards,
   type DashboardData,
@@ -82,14 +85,14 @@ export default function StatusScreen() {
         <Text style={styles.screenTitle}>Status</Text>
         <View style={{ flexDirection: "row", gap: 16, alignItems: "center" }}>
           <Pressable onPress={() => router.push("/settings")} hitSlop={8}>
-            <Text style={styles.headerIcon}>{"\u2699\uFE0F"}</Text>
+            <Settings size={22} color={theme.colors.textDim} strokeWidth={1.6} />
           </Pressable>
           <Pressable onPress={() => router.push("/investigate")} hitSlop={8}>
-            <Text style={styles.headerIcon}>{"\uD83D\uDD0D"}</Text>
+            <Search size={22} color={theme.colors.textDim} strokeWidth={1.6} />
           </Pressable>
         </View>
       </View>
-      <ScrollView>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
         <DashboardCards
           data={dashboardData}
           onErrorPress={() => {
@@ -102,14 +105,16 @@ export default function StatusScreen() {
             });
           }}
         />
-        <SpineStatusTile segmentId="backend_api" />
-        <SpineStatusTile segmentId="classifier" />
-        <SpineStatusTile segmentId="admin" />
-        <SpineStatusTile segmentId="investigation" />
-        <SpineStatusTile segmentId="cosmos" />
-        <SpineStatusTile segmentId="external_services" />
-        <SpineStatusTile segmentId="mobile_ui" />
-        <SpineStatusTile segmentId="mobile_capture" />
+        <View style={styles.spineSection}>
+          <SpineStatusTile segmentId="backend_api" />
+          <SpineStatusTile segmentId="classifier" />
+          <SpineStatusTile segmentId="admin" />
+          <SpineStatusTile segmentId="investigation" />
+          <SpineStatusTile segmentId="cosmos" />
+          <SpineStatusTile segmentId="external_services" />
+          <SpineStatusTile segmentId="mobile_ui" />
+          <SpineStatusTile segmentId="mobile_capture" />
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -118,23 +123,29 @@ export default function StatusScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0f0f23",
+    backgroundColor: theme.colors.bg,
   },
   screenHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingTop: 8,
     paddingBottom: 4,
   },
   screenTitle: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#ffffff",
+    fontFamily: theme.fonts.display,
+    fontSize: 36,
+    fontWeight: "400",
+    fontStyle: "italic",
+    letterSpacing: -0.8,
+    color: theme.colors.text,
   },
-  headerIcon: {
-    fontSize: 22,
-    color: "#4a90d9",
+  scrollContent: {
+    paddingBottom: 24,
+  },
+  spineSection: {
+    paddingHorizontal: 16,
+    marginTop: 8,
   },
 });

@@ -6,16 +6,21 @@ import {
   Text,
   TextInput,
   Pressable,
-  Platform,
   StyleSheet,
 } from "react-native";
 import { Stack } from "expo-router";
+import { ChevronRight } from "lucide-react-native";
+
 import { useApiKey } from "../contexts/ApiKeyContext";
 import { API_BASE_URL } from "../constants/config";
+import { theme } from "../constants/theme";
+import { CapsLabel } from "../components/CapsLabel";
 
 /**
  * Settings screen with API key display/editing and app info.
  * Pushed from Status screen gear icon or root navigation.
+ *
+ * Grouped iOS-style card layout per D-13 design spec.
  */
 export default function SettingsScreen() {
   const { apiKey, setApiKey } = useApiKey();
@@ -54,60 +59,83 @@ export default function SettingsScreen() {
       <Stack.Screen
         options={{
           headerShown: true,
-          headerTitle: "Settings",
-          headerStyle: { backgroundColor: "#0f0f23" },
-          headerTintColor: "#ffffff",
+          headerTitle: "",
+          headerStyle: { backgroundColor: theme.colors.bg },
+          headerTintColor: theme.colors.text,
+          headerShadowVisible: false,
         }}
       />
 
       <ScrollView style={styles.scroll}>
-        {/* API Configuration Section */}
-        <Text style={styles.sectionTitle}>API Configuration</Text>
+        {/* Settings heading */}
+        <Text style={styles.heading}>Settings</Text>
 
-        <Text style={styles.label}>API KEY</Text>
-        {!isEditing ? (
-          <View style={styles.displayRow}>
-            <Text style={styles.maskedKey}>{maskedKey}</Text>
-            <Pressable onPress={handleChange}>
-              <Text style={styles.changeButton}>Change</Text>
-            </Pressable>
+        {/* Account section */}
+        <View style={styles.sectionWrapper}>
+          <View style={styles.sectionLabelContainer}>
+            <CapsLabel>Account</CapsLabel>
           </View>
-        ) : (
-          <View>
-            <TextInput
-              style={styles.input}
-              secureTextEntry
-              placeholder="Enter API key"
-              placeholderTextColor="#666"
-              value={editValue}
-              onChangeText={setEditValue}
-              autoCapitalize="none"
-              autoCorrect={false}
-              autoFocus
-            />
-            <View style={styles.buttonRow}>
-              <Pressable style={styles.cancelButton} onPress={handleCancel}>
-                <Text style={styles.cancelText}>Cancel</Text>
-              </Pressable>
-              <Pressable style={styles.saveButton} onPress={handleSave}>
-                <Text style={styles.saveText}>Save</Text>
-              </Pressable>
+          <View style={styles.sectionCard}>
+            {!isEditing ? (
+              <>
+                <Pressable style={styles.row} onPress={handleChange}>
+                  <Text style={styles.rowTitle}>API key</Text>
+                  <Text style={styles.rowValue}>{maskedKey}</Text>
+                  <ChevronRight size={11} color={theme.colors.textFaint} strokeWidth={1.8} />
+                </Pressable>
+                <View style={styles.rowSeparator} />
+                <View style={styles.row}>
+                  <Text style={styles.rowTitle}>Signed in as</Text>
+                  <Text style={styles.rowValue}>will</Text>
+                  <ChevronRight size={11} color={theme.colors.textFaint} strokeWidth={1.8} />
+                </View>
+              </>
+            ) : (
+              <View style={styles.editContainer}>
+                <TextInput
+                  style={styles.input}
+                  secureTextEntry
+                  placeholder="Enter API key"
+                  placeholderTextColor={theme.colors.textMuted}
+                  value={editValue}
+                  onChangeText={setEditValue}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoFocus
+                />
+                <View style={styles.buttonRow}>
+                  <Pressable style={styles.cancelButton} onPress={handleCancel}>
+                    <Text style={styles.cancelText}>Cancel</Text>
+                  </Pressable>
+                  <Pressable style={styles.saveButton} onPress={handleSave}>
+                    <Text style={styles.saveText}>Save</Text>
+                  </Pressable>
+                </View>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* About section */}
+        <View style={[styles.sectionWrapper, { marginTop: 18 }]}>
+          <View style={styles.sectionLabelContainer}>
+            <CapsLabel>About</CapsLabel>
+          </View>
+          <View style={styles.sectionCard}>
+            <View style={styles.row}>
+              <Text style={styles.rowTitle}>Version</Text>
+              <Text style={styles.rowValue}>1.0.0</Text>
+              <ChevronRight size={11} color={theme.colors.textFaint} strokeWidth={1.8} />
+            </View>
+            <View style={styles.rowSeparator} />
+            <View style={styles.row}>
+              <Text style={styles.rowTitle}>API</Text>
+              <Text style={styles.rowValue} numberOfLines={1}>
+                {API_BASE_URL}
+              </Text>
+              <ChevronRight size={11} color={theme.colors.textFaint} strokeWidth={1.8} />
             </View>
           </View>
-        )}
-
-        {/* About Section */}
-        <Text style={[styles.sectionTitle, { marginTop: 32 }]}>About</Text>
-
-        <View style={styles.aboutRow}>
-          <Text style={styles.aboutLabel}>Version</Text>
-          <Text style={styles.aboutValue}>1.0.0</Text>
-        </View>
-        <View style={styles.aboutRow}>
-          <Text style={styles.aboutLabel}>API</Text>
-          <Text style={styles.aboutValue} numberOfLines={1}>
-            {API_BASE_URL}
-          </Text>
         </View>
       </ScrollView>
 
@@ -121,56 +149,75 @@ export default function SettingsScreen() {
   );
 }
 
-const monoFont = Platform.select({ ios: "Menlo", android: "monospace" });
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0f0f23",
+    backgroundColor: theme.colors.bg,
   },
   scroll: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: 4,
   },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#fff",
-    marginBottom: 12,
+  heading: {
+    fontFamily: theme.fonts.display,
+    fontSize: 36,
+    fontWeight: "400",
+    fontStyle: "italic",
+    letterSpacing: -0.8,
+    color: theme.colors.text,
+    paddingHorizontal: 20,
+    paddingBottom: 14,
   },
-  label: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "#888",
-    textTransform: "uppercase",
-    marginBottom: 4,
+  sectionWrapper: {
+    marginTop: 0,
   },
-  displayRow: {
-    backgroundColor: "#1a1a2e",
-    borderRadius: 10,
-    padding: 14,
-    marginTop: 4,
+  sectionLabelContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 6,
+  },
+  sectionCard: {
+    marginHorizontal: 16,
+    backgroundColor: theme.colors.surface,
+    borderRadius: 14,
+    overflow: "hidden",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.hairline,
+  },
+  row: {
+    paddingVertical: 13,
+    paddingHorizontal: 14,
     flexDirection: "row",
     alignItems: "center",
   },
-  maskedKey: {
-    fontSize: 15,
-    color: "#ccc",
-    flex: 1,
-    fontFamily: monoFont,
+  rowSeparator: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: theme.colors.hairline,
+    marginLeft: 14,
   },
-  changeButton: {
-    color: "#4a90d9",
+  rowTitle: {
+    flex: 1,
     fontSize: 14,
-    fontWeight: "600",
+    color: theme.colors.text,
+    letterSpacing: -0.15,
+    fontFamily: theme.fonts.body,
+  },
+  rowValue: {
+    fontSize: 13,
+    color: theme.colors.textDim,
+    marginRight: 8,
+    fontFamily: theme.fonts.mono,
+  },
+  editContainer: {
+    padding: 14,
   },
   input: {
-    backgroundColor: "#1a1a2e",
+    backgroundColor: theme.colors.surfaceHi,
     borderRadius: 10,
     padding: 14,
-    color: "#fff",
+    color: theme.colors.text,
     fontSize: 15,
-    marginTop: 4,
+    fontFamily: theme.fonts.body,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.hairline,
   },
   buttonRow: {
     flexDirection: "row",
@@ -178,62 +225,45 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   cancelButton: {
-    backgroundColor: "#2a2a4e",
+    backgroundColor: theme.colors.surfaceHi,
     borderRadius: 8,
     paddingVertical: 10,
     paddingHorizontal: 16,
   },
   cancelText: {
-    color: "#ccc",
+    color: theme.colors.textDim,
     fontSize: 14,
     fontWeight: "600",
+    fontFamily: theme.fonts.body,
   },
   saveButton: {
-    backgroundColor: "#4a90d9",
+    backgroundColor: theme.colors.accent,
     borderRadius: 8,
     paddingVertical: 10,
     paddingHorizontal: 16,
   },
   saveText: {
-    color: "#fff",
+    color: theme.colors.bg,
     fontSize: 14,
     fontWeight: "600",
-  },
-  aboutRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: "#1a1a2e",
-    borderRadius: 10,
-    padding: 14,
-    marginBottom: 8,
-  },
-  aboutLabel: {
-    fontSize: 14,
-    color: "#888",
-  },
-  aboutValue: {
-    fontSize: 14,
-    color: "#ccc",
-    flex: 1,
-    textAlign: "right",
-    marginLeft: 16,
+    fontFamily: theme.fonts.body,
   },
   toast: {
     position: "absolute",
     bottom: 100,
     left: 32,
     right: 32,
-    backgroundColor: "rgba(74, 222, 128, 0.15)",
-    borderColor: "#4ade80",
+    backgroundColor: theme.colors.ok + "22",
+    borderColor: theme.colors.ok,
     borderWidth: 1,
     borderRadius: 10,
     padding: 12,
     alignItems: "center",
   },
   toastText: {
-    color: "#4ade80",
+    color: theme.colors.ok,
     fontSize: 14,
     fontWeight: "600",
+    fontFamily: theme.fonts.body,
   },
 });
