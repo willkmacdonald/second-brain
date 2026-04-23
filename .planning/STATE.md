@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Observability & Evals
 status: executing
-stopped_at: Phase 20.1 context gathered
-last_updated: "2026-04-23T04:41:02.933Z"
-last_activity: 2026-04-23 -- Phase --phase execution started
+stopped_at: Completed 20.1-02-PLAN.md (Tab bar + shared primitives)
+last_updated: "2026-04-23T04:49:52.712Z"
+last_activity: 2026-04-23
 progress:
   total_phases: 15
   completed_phases: 11
   total_plans: 43
-  completed_plans: 35
-  percent: 81
+  completed_plans: 37
+  percent: 86
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 ## Current Position
 
 Phase: 20.1 (Design Team UI Improvements) — EXECUTING
-Plan: 2 of 7
-Status: Executing Phase 20.1
-Last activity: 2026-04-23 -- Plan 01 (Foundation) complete
+Plan: 3 of 7
+Status: Ready to execute
+Last activity: 2026-04-23
 
-Progress: [█████████░] 94%
+Progress: [█████████░] 86%
 
 ## Performance Metrics
 
@@ -167,6 +167,7 @@ v3.0 decisions archived to .planning/milestones/v3.0-ROADMAP.md
 - [Phase 20-02]: Two-step promote flow (preview then confirm) per D-06 -- agent shows preview first, only writes GoldenDatasetDocument after user confirmation
 - [Phase 20-02]: CosmosManager passed as optional param (None default) to InvestigationTools so telemetry-only tools work without Cosmos
 - [Phase 20-03]: captureTraceId added to InboxItemData interface to match backend response and enable feedback correlation
+- [Phase 20.1-02]: RoutingPicker uses Admin bucket colors as default since destinations are Admin-domain items
 
 ### Pending Todos
 
@@ -195,8 +196,8 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-04-23T04:44:28Z
-Stopped at: Completed 20.1-01-PLAN.md (Foundation)
+Last session: 2026-04-23T04:49:51.345Z
+Stopped at: Completed 20.1-02-PLAN.md (Tab bar + shared primitives)
 Resume action: Continue with Phase 20.1 Plan 02 (Tab bar + shared primitives)
 
 **Planned Phase:** 20.1 (Design Team UI Improvements) — 7 plans — 2026-04-23T03:55:33.676Z
