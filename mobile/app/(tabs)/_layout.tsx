@@ -1,4 +1,7 @@
 import { Tabs } from "expo-router";
+import { StyleSheet } from "react-native";
+import { Mic, Inbox, CheckSquare, Sparkles } from "lucide-react-native";
+import { theme } from "../../constants/theme";
 
 export default function TabLayout() {
   return (
@@ -6,20 +9,31 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: "#0f0f23",
-          borderTopColor: "#1a1a2e",
+          backgroundColor: "rgba(10,10,18,0.85)",
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: theme.colors.hairline,
+          height: 70,
+          paddingTop: 6,
         },
-        tabBarActiveTintColor: "#4a90d9",
-        tabBarInactiveTintColor: "#666",
+        tabBarActiveTintColor: theme.colors.text,
+        tabBarInactiveTintColor: theme.colors.textMuted,
+        tabBarLabelStyle: {
+          fontFamily: theme.fonts.bodyMedium,
+          fontSize: 10.5,
+          letterSpacing: -0.1,
+        },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
           title: "Capture",
-          tabBarIcon: ({ color }) => (
-            // Simple unicode icon -- no icon library needed for MVP
-            <TabIcon label={"\u270F"} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <Mic
+              size={22}
+              color={color}
+              strokeWidth={focused ? 1.8 : 1.4}
+            />
           ),
         }}
       />
@@ -27,8 +41,12 @@ export default function TabLayout() {
         name="inbox"
         options={{
           title: "Inbox",
-          tabBarIcon: ({ color }) => (
-            <TabIcon label={"\uD83D\uDCC2"} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <Inbox
+              size={22}
+              color={color}
+              strokeWidth={focused ? 1.8 : 1.4}
+            />
           ),
           // Badge count set dynamically via navigation.setOptions in InboxScreen
           tabBarBadge: undefined,
@@ -38,8 +56,12 @@ export default function TabLayout() {
         name="tasks"
         options={{
           title: "Tasks",
-          tabBarIcon: ({ color }) => (
-            <TabIcon label={"\u2705"} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <CheckSquare
+              size={22}
+              color={color}
+              strokeWidth={focused ? 1.8 : 1.4}
+            />
           ),
         }}
       />
@@ -47,16 +69,15 @@ export default function TabLayout() {
         name="status"
         options={{
           title: "Status",
-          tabBarIcon: ({ color }) => (
-            <TabIcon label={"\uD83D\uDCCA"} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <Sparkles
+              size={22}
+              color={color}
+              strokeWidth={focused ? 1.8 : 1.4}
+            />
           ),
         }}
       />
     </Tabs>
   );
-}
-
-function TabIcon({ label, color }: { label: string; color: string }) {
-  const { Text } = require("react-native");
-  return <Text style={{ fontSize: 20, color }}>{label}</Text>;
 }
