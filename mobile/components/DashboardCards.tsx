@@ -1,5 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { theme } from "../constants/theme";
+
 export interface DashboardData {
   captureCount: number | null;
   successRate: number | null;
@@ -85,35 +87,42 @@ const styles = StyleSheet.create({
   },
   card: {
     flex: 1,
-    backgroundColor: "#1a1a2e",
+    backgroundColor: theme.colors.surface,
     borderRadius: 12,
     padding: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.hairline,
   },
   cardError: {
-    borderColor: "#ff6b6b",
+    borderColor: theme.colors.err + "33",
     borderWidth: 1,
   },
   label: {
-    color: "#888888",
-    fontSize: 11,
+    color: theme.colors.textMuted,
+    fontSize: 10,
+    fontFamily: theme.fonts.mono,
     textTransform: "uppercase",
+    letterSpacing: 1.4,
+    fontWeight: "600",
     marginBottom: 4,
   },
   value: {
-    color: "#ffffff",
+    color: theme.colors.text,
     fontSize: 18,
     fontWeight: "600",
+    fontFamily: theme.fonts.body,
   },
   errorText: {
-    color: "#ff6b6b",
+    color: theme.colors.err,
     fontSize: 14,
   },
   noErrorText: {
-    color: "#4a90d9",
+    color: theme.colors.accent,
   },
   recencyText: {
-    color: "#ff6b6b",
-    fontSize: 11,
+    color: theme.colors.err,
+    fontSize: 10.5,
+    fontFamily: theme.fonts.mono,
     opacity: 0.7,
     marginTop: 2,
   },

@@ -1,4 +1,7 @@
-import { Pressable, View, Text, StyleSheet } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { ChevronDown, ChevronRight } from "lucide-react-native";
+
+import { theme } from "../constants/theme";
 
 export interface SectionConfig {
   type: "errand" | string;
@@ -45,7 +48,11 @@ export function StatusSectionRenderer({
         )}
         <Text style={styles.headerCount}> ({section.count})</Text>
       </View>
-      <Text style={styles.chevron}>{isExpanded ? "\u25BC" : "\u25B6"}</Text>
+      {isExpanded ? (
+        <ChevronDown size={14} color={theme.colors.textMuted} strokeWidth={1.8} />
+      ) : (
+        <ChevronRight size={14} color={theme.colors.textMuted} strokeWidth={1.8} />
+      )}
     </Pressable>
   );
 }
@@ -55,7 +62,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: "#16162b",
+    backgroundColor: theme.colors.surface,
     paddingHorizontal: 16,
     paddingVertical: 14,
     marginTop: 4,
@@ -68,23 +75,21 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#ffffff",
+    fontFamily: theme.fonts.bodySemiBold,
+    color: theme.colors.text,
   },
   headerCount: {
-    fontSize: 16,
-    color: "#999",
-  },
-  chevron: {
-    fontSize: 12,
-    color: "#666",
+    fontSize: 10.5,
+    fontFamily: theme.fonts.mono,
+    color: theme.colors.textMuted,
   },
   unroutedHeader: {
     borderLeftWidth: 3,
-    borderLeftColor: "#f59e0b",
-    backgroundColor: "#1a1a10",
+    borderLeftColor: theme.colors.warn,
+    backgroundColor: theme.colors.surfaceHi,
   },
   onlineTagContainer: {
-    backgroundColor: "rgba(74, 144, 217, 0.15)",
+    backgroundColor: theme.colors.accentDim,
     borderRadius: 8,
     paddingHorizontal: 6,
     paddingVertical: 2,
@@ -93,7 +98,8 @@ const styles = StyleSheet.create({
   onlineTag: {
     fontSize: 10,
     fontWeight: "700",
-    color: "#4a90d9",
+    fontFamily: theme.fonts.mono,
+    color: theme.colors.accent,
     letterSpacing: 0.5,
   },
 });

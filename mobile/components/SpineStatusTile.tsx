@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
+
+import { theme } from "../constants/theme";
 import {
   fetchSpineStatus,
   SegmentStatus,
@@ -8,11 +10,18 @@ import {
 } from "../lib/spine";
 
 const COLOR: Record<SegmentStatus, string> = {
-  green: "#3a7d3a",
-  yellow: "#c89010",
-  red: "#b33b3b",
-  stale: "#555",
+  green: theme.colors.ok,
+  yellow: theme.colors.warn,
+  red: theme.colors.err,
+  stale: theme.colors.textMuted,
 };
+
+/** Border color per status — hairline default, tinted for warn/err. */
+function tileBorderColor(status: SegmentStatus): string {
+  if (status === "red") return theme.colors.err + "44";
+  if (status === "yellow") return theme.colors.warn + "33";
+  return theme.colors.hairline;
+}
 
 interface Props {
   segmentId: string;
@@ -51,46 +60,87 @@ export function SpineStatusTile({ segmentId }: Props) {
 
   if (error) {
     return (
-      <View style={[styles.tile, { borderColor: COLOR.stale }]}>
+      <View style={[styles.tile, { borderColor: theme.colors.hairline }]}>
         <Text style={styles.title}>Spine unreachable</Text>
-        <Text style={styles.headline}>{error}</Text>
+        <Text style={styles.role}>{error}</Text>
       </View>
     );
   }
 
   if (!segment) {
     return (
-      <View style={[styles.tile, { borderColor: COLOR.stale }]}>
+      <View style={[styles.tile, { borderColor: theme.colors.hairline }]}>
         <Text style={styles.title}>Loading…</Text>
       </View>
     );
   }
 
   return (
-    <Pressable onPress={handlePress} style={[styles.tile, { borderColor: COLOR[segment.status] }]}>
+    <Pressable onPress={handlePress} style={[styles.tile, { borderColor: tileBorderColor(segment.status) }]}>
       <View style={styles.row}>
         <Text style={styles.title}>{segment.name}</Text>
-        <Text style={[styles.status, { color: COLOR[segment.status] }]}>
-          {segment.status.toUpperCase()}
-        </Text>
+        <View style={styles.dotRow}>
+          <View
+            style={[
+              styles.dot,
+              { backgroundColor: COLOR[segment.status] },
+              segment.status === "green" && styles.dotGlow,
+            ]}
+          />
+        </View>
       </View>
-      <Text style={styles.headline}>{segment.headline}</Text>
-      <Text style={styles.freshness}>{segment.freshness_seconds}s ago</Text>
+      <Text style={styles.role}>{segment.headline}</Text>
+      <Text style={styles.statusLine}>{segment.freshness_seconds}s ago</Text>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   tile: {
-    padding: 16,
-    backgroundColor: "#1a2028",
-    borderWidth: 2,
-    borderRadius: 8,
-    marginBottom: 12,
+    padding: 12,
+    backgroundColor: theme.colors.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 12,
+    marginBottom: 8,
   },
-  row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  title: { fontSize: 16, fontWeight: "600", color: "#e6e6e6" },
-  status: { fontSize: 12 },
-  headline: { color: "#bbb", marginTop: 8, fontSize: 14 },
-  freshness: { color: "#666", marginTop: 8, fontSize: 11 },
+  row: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  title: {
+    fontSize: 12.5,
+    fontWeight: "500",
+    fontFamily: theme.fonts.bodyMedium,
+    letterSpacing: -0.15,
+    color: theme.colors.text,
+  },
+  dotRow: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  dot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  dotGlow: {
+    shadowColor: theme.colors.ok,
+    shadowRadius: 3,
+    shadowOpacity: 0.22,
+    shadowOffset: { width: 0, height: 0 },
+  },
+  role: {
+    color: theme.colors.textMuted,
+    fontSize: 10.5,
+    fontFamily: theme.fonts.body,
+    marginTop: 4,
+    lineHeight: 14,
+  },
+  statusLine: {
+    fontFamily: theme.fonts.mono,
+    fontSize: 10.5,
+    color: theme.colors.textDim,
+    marginTop: 6,
+  },
 });
