@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import { View, Text, StyleSheet, Animated } from "react-native";
 import { Swipeable } from "react-native-gesture-handler";
+import { theme } from "../constants/theme";
 
 interface TaskRowProps {
   item: { id: string; name: string };
@@ -49,29 +50,34 @@ export function TaskRow({ item, onDelete }: TaskRowProps) {
 
 const styles = StyleSheet.create({
   row: {
-    backgroundColor: "#1a1a2e",
-    borderRadius: 10,
+    backgroundColor: theme.colors.surface,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.hairline,
     padding: 14,
     marginHorizontal: 16,
     marginVertical: 2,
   },
   itemName: {
-    fontSize: 15,
-    color: "#ffffff",
-    lineHeight: 20,
+    fontFamily: theme.fonts.body,
+    fontSize: 13.5,
+    color: theme.colors.text,
+    lineHeight: 19,
+    letterSpacing: -0.15,
   },
   deleteAction: {
-    backgroundColor: "#16a34a",
+    backgroundColor: theme.colors.ok,
     justifyContent: "center",
     alignItems: "center",
     width: 80,
-    borderRadius: 10,
+    borderRadius: 12,
     marginVertical: 2,
     marginRight: 16,
   },
   deleteText: {
-    color: "#ffffff",
+    color: theme.colors.text,
     fontSize: 14,
+    fontFamily: theme.fonts.bodySemiBold,
     fontWeight: "600",
   },
 });
