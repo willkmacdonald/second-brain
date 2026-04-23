@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Observability & Evals
-status: planning
-stopped_at: Phase 21 context gathered
-last_updated: "2026-04-23T16:29:39.484Z"
-last_activity: 2026-04-23
+status: executing
+stopped_at: Completed 21-01-PLAN.md (eval metrics foundation)
+last_updated: "2026-04-23T21:34:49.255Z"
+last_activity: 2026-04-23 -- Plan 21-01 complete (eval metrics foundation)
 progress:
   total_phases: 15
   completed_phases: 12
-  total_plans: 43
-  completed_plans: 42
-  percent: 98
+  total_plans: 48
+  completed_plans: 43
+  percent: 90
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-05)
 
 **Core value:** One-tap capture from a phone instantly routes through an agent that classifies, files, and clarifies -- with zero organizational effort.
-**Current focus:** Phase --phase — 20.1
+**Current focus:** Phase 21 — Eval Framework
 
 ## Current Position
 
-Phase: 21
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-04-23
+Phase: 21-eval-framework — EXECUTING
+Plan: 2 of 5
+Status: Plan 21-01 complete, ready for Plan 21-02
+Last activity: 2026-04-23 -- Plan 21-01 complete (eval metrics foundation)
 
-Progress: [██████████] 95%
+Progress: [█████████░] 90%
 
 ## Performance Metrics
 
@@ -174,6 +174,8 @@ v3.0 decisions archived to .planning/milestones/v3.0-ROADMAP.md
 - [Phase 20.1-05]: Processing banner uses accentDim bg only (no explicit border), notification banner uses surface bg with hairline border
 - [Phase 20.1-06]: SpineStatusTile border color tinted by status severity (err=44 alpha, warn=33, default=hairline)
 - [Phase 20.1-06]: Settings grouped iOS-style cards matching SettingsA design (borderRadius 14, hairline borders, CapsLabel headers)
+- [Phase 21]: GoldenDatasetDocument uses optional expectedDestination field (not subclass) to distinguish classifier vs admin eval test cases
+- [Phase 21]: Eval metrics are pure computation functions (list[dict] in, summary dict out, no I/O) -- downstream runner and API import them
 
 ### Pending Todos
 
@@ -202,8 +204,8 @@ None.
 
 ## Session Continuity
 
-Last session: --stopped-at
-Stopped at: Phase 21 context gathered
+Last session: 2026-04-23T21:34:49.248Z
+Stopped at: Completed 21-01-PLAN.md (eval metrics foundation)
 Resume action: Continue with Phase 20.1 Plan 02 (Tab bar + shared primitives)
 
-**Planned Phase:** 20.1 (Design Team UI Improvements) — 7 plans — 2026-04-23T03:55:33.676Z
+**Planned Phase:** 21 (Eval Framework) — 5 plans — 2026-04-23T17:36:44.939Z

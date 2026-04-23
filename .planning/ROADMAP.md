@@ -328,7 +328,7 @@ Plans:
 **Plans:** 5 plans (Wave 1: metrics + dry-run tools in parallel, Wave 2: eval runner, Wave 3: API + investigation tools, Wave 4: portal instructions + end-to-end verify)
 
 Plans:
-- [ ] 21-01-PLAN.md -- Eval types + metrics: GoldenDatasetDocument extension, eval metrics module, unit tests
+- [x] 21-01-PLAN.md -- Eval types + metrics: GoldenDatasetDocument extension, eval metrics module, unit tests
 - [ ] 21-02-PLAN.md -- Dry-run tools + seed script: EvalClassifierTools, DryRunAdminTools, golden dataset export/import
 - [ ] 21-03-PLAN.md -- Eval runner: classifier and admin eval orchestration with mocked tests
 - [ ] 21-04-PLAN.md -- API endpoint + investigation tools + main.py wiring: /api/eval/run, status polling, eval @tools

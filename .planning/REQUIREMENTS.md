@@ -50,7 +50,8 @@ Requirements for v3.1 Observability & Evals milestone. Each maps to roadmap phas
 ### Eval Framework
 
 - [x] **EVAL-01**: Golden dataset of 50+ test captures with known-correct bucket labels evaluates Classifier accuracy
-- [ ] **EVAL-02**: Classifier eval reports per-bucket precision/recall, overall accuracy, and confidence calibration
+- [x] **EVAL-02
+**: Classifier eval reports per-bucket precision/recall, overall accuracy, and confidence calibration
 - [ ] **EVAL-03**: Admin Agent eval measures routing accuracy by destination and tool usage correctness
 - [x] **EVAL-04**: Eval results are stored with timestamps for trend tracking (Cosmos + App Insights)
 - [ ] **EVAL-05**: User can trigger an eval run on-demand from mobile or Claude Code
