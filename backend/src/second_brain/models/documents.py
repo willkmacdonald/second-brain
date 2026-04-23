@@ -187,6 +187,9 @@ class GoldenDatasetDocument(BaseModel):
     expectedBucket: str  # Known-correct bucket label
     source: str  # "manual", "promoted_feedback", "synthetic"
     tags: list[str] = Field(default_factory=list)  # "edge_case", "voice", "recipe"
+    expectedDestination: str | None = (
+        None  # For admin eval: known-correct destination slug
+    )
     createdAt: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updatedAt: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
