@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Observability & Evals
 status: executing
-stopped_at: Completed 21-03-PLAN.md (eval runner)
-last_updated: "2026-04-23T21:50:16.562Z"
+stopped_at: Completed 21-04-PLAN.md (eval API + investigation tools)
+last_updated: "2026-04-23T22:01:53.199Z"
 last_activity: 2026-04-23
 progress:
   total_phases: 15
   completed_phases: 12
   total_plans: 48
-  completed_plans: 45
-  percent: 94
+  completed_plans: 46
+  percent: 96
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 ## Current Position
 
 Phase: 21-eval-framework — EXECUTING
-Plan: 4 of 5
+Plan: 5 of 5
 Status: Ready to execute
 Last activity: 2026-04-23
 
-Progress: [█████████░] 94%
+Progress: [██████████] 96%
 
 ## Performance Metrics
 
@@ -179,6 +179,7 @@ v3.0 decisions archived to .planning/milestones/v3.0-ROADMAP.md
 - [Phase 21]: Dry-run tool confidence clamped to [0.0, 1.0] to prevent out-of-range predictions
 - [Phase 21]: DryRunAdminTools includes only 3 eval-relevant tools (add_errand_items, add_task_items, get_routing_context) -- management tools excluded from eval
 - ChatOptions is a dict subclass in agent_framework -- bracket notation required for tool access in test mocks
+- Investigation eval tools import _eval_runs from api.eval module and call runner functions directly (no HTTP roundtrip)
 
 ### Pending Todos
 
@@ -207,8 +208,8 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-04-23T21:50:16.555Z
-Stopped at: Completed 21-03-PLAN.md (eval runner)
+Last session: 2026-04-23T22:01:53.192Z
+Stopped at: Completed 21-04-PLAN.md (eval API + investigation tools)
 Resume action: Continue with Phase 20.1 Plan 02 (Tab bar + shared primitives)
 
 **Planned Phase:** 21 (Eval Framework) — 5 plans — 2026-04-23T17:36:44.939Z

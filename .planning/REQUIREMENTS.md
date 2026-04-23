@@ -55,7 +55,8 @@ Requirements for v3.1 Observability & Evals milestone. Each maps to roadmap phas
 - [x] **EVAL-03
 **: Admin Agent eval measures routing accuracy by destination and tool usage correctness
 - [x] **EVAL-04**: Eval results are stored with timestamps for trend tracking (Cosmos + App Insights)
-- [ ] **EVAL-05**: User can trigger an eval run on-demand from mobile or Claude Code
+- [x] **EVAL-05
+**: User can trigger an eval run on-demand from mobile or Claude Code
 
 ### Feedback & Signals
 
