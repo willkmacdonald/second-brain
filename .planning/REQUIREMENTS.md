@@ -127,10 +127,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FEED-03 | Phase 20 | Complete |
 | FEED-04 | Phase 20 | Complete |
 | EVAL-01 | Phase 21 | Complete |
-| EVAL-02 | Phase 21 | Pending |
-| EVAL-03 | Phase 21 | Pending |
+| EVAL-02 | Phase 21 | Complete |
+| EVAL-03 | Phase 21 | Complete |
 | EVAL-04 | Phase 21 | Complete |
-| EVAL-05 | Phase 21 | Pending |
+| EVAL-05 | Phase 21 | Complete |
 | MON-01 | Phase 22 | Pending |
 | MON-02 | Phase 22 | Pending |
 | MON-03 | Phase 22 | Pending |

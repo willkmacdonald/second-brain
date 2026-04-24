@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Observability & Evals
 status: executing
-stopped_at: Completed 21-04-PLAN.md (eval API + investigation tools)
-last_updated: "2026-04-23T22:01:53.199Z"
-last_activity: 2026-04-23
+stopped_at: Completed 21-05-PLAN.md (portal instructions + E2E verification)
+last_updated: "2026-04-24T03:56:56.021Z"
+last_activity: 2026-04-24
 progress:
   total_phases: 15
-  completed_phases: 12
+  completed_phases: 14
   total_plans: 48
-  completed_plans: 46
-  percent: 96
+  completed_plans: 48
+  percent: 100
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-05)
 
 **Core value:** One-tap capture from a phone instantly routes through an agent that classifies, files, and clarifies -- with zero organizational effort.
-**Current focus:** Phase 21 — Eval Framework
+**Current focus:** Phase 21 — Eval Framework (COMPLETE)
 
 ## Current Position
 
-Phase: 21-eval-framework — EXECUTING
-Plan: 5 of 5
-Status: Ready to execute
-Last activity: 2026-04-23
+Phase: 21-eval-framework — COMPLETE
+Plan: 5 of 5 (all complete)
+Status: Phase complete
+Last activity: 2026-04-24
 
-Progress: [██████████] 96%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -180,6 +180,7 @@ v3.0 decisions archived to .planning/milestones/v3.0-ROADMAP.md
 - [Phase 21]: DryRunAdminTools includes only 3 eval-relevant tools (add_errand_items, add_task_items, get_routing_context) -- management tools excluded from eval
 - ChatOptions is a dict subclass in agent_framework -- bracket notation required for tool access in test mocks
 - Investigation eval tools import _eval_runs from api.eval module and call runner functions directly (no HTTP roundtrip)
+- [Phase 21]: Classifier accuracy tuning out of scope for eval framework phase -- framework measures quality, does not improve it
 
 ### Pending Todos
 
@@ -208,8 +209,8 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-04-23T22:01:53.192Z
-Stopped at: Completed 21-04-PLAN.md (eval API + investigation tools)
-Resume action: Continue with Phase 20.1 Plan 02 (Tab bar + shared primitives)
+Last session: 2026-04-24T03:56:00Z
+Stopped at: Completed 21-05-PLAN.md (portal instructions + E2E verification) — Phase 21 complete
+Resume action: Begin Phase 22 (Self-Monitoring Loop)
 
 **Planned Phase:** 21 (Eval Framework) — 5 plans — 2026-04-23T17:36:44.939Z

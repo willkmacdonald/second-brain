@@ -72,7 +72,7 @@ See: .planning/milestones/v3.0-ROADMAP.md
 - [x] **Phase 19.4.1: Fix Mobile UX Issues** (INSERTED) - 4-tab layout, Tasks tab extraction, API key management, error card recency, EAS production build (completed 2026-04-21)
 - [x] **Phase 20: Feedback Collection** - Implicit quality signals, explicit thumbs up/down, golden dataset promotion (completed 2026-04-23)
 - [x] **Phase 20.1: Design Team UI Improvements** (INSERTED) - Hi-fi visual reskin with design tokens, custom fonts, Lucide icons, per-bucket colors (completed 2026-04-23)
-- [ ] **Phase 21: Eval Framework** - Golden datasets, deterministic evaluators, score storage, on-demand trigger
+- [x] **Phase 21: Eval Framework** - Golden datasets, deterministic evaluators, score storage, on-demand trigger (completed 2026-04-23)
 - [ ] **Phase 22: Self-Monitoring Loop** - Automated weekly evals, threshold alerts, push notifications on degradation
 
 ## Phase Details
@@ -329,10 +329,10 @@ Plans:
 
 Plans:
 - [x] 21-01-PLAN.md -- Eval types + metrics: GoldenDatasetDocument extension, eval metrics module, unit tests
-- [ ] 21-02-PLAN.md -- Dry-run tools + seed script: EvalClassifierTools, DryRunAdminTools, golden dataset export/import
-- [ ] 21-03-PLAN.md -- Eval runner: classifier and admin eval orchestration with mocked tests
-- [ ] 21-04-PLAN.md -- API endpoint + investigation tools + main.py wiring: /api/eval/run, status polling, eval @tools
-- [ ] 21-05-PLAN.md -- Portal instructions + end-to-end verification checkpoint
+- [x] 21-02-PLAN.md -- Dry-run tools + seed script: EvalClassifierTools, DryRunAdminTools, golden dataset export/import
+- [x] 21-03-PLAN.md -- Eval runner: classifier and admin eval orchestration with mocked tests
+- [x] 21-04-PLAN.md -- API endpoint + investigation tools + main.py wiring: /api/eval/run, status polling, eval @tools
+- [x] 21-05-PLAN.md -- Portal instructions + end-to-end verification checkpoint
 
 ### Phase 22: Self-Monitoring Loop
 **Goal**: The system detects its own quality degradation and alerts the user before captures go wrong
@@ -373,5 +373,5 @@ Items not yet scheduled into a milestone or phase.
 | 19.4.1. Fix Mobile UX Issues | 0/4 | 4/4 | Complete    | 2026-04-21 |
 | 20. Feedback Collection | v3.1 | 4/4 | Complete    | 2026-04-23 |
 | 20.1. Design Team UI Improvements | v3.1 | 7/7 | Complete    | 2026-04-23 |
-| 21. Eval Framework | v3.1 | 0/5 | Not started | - |
+| 21. Eval Framework | v3.1 | 5/5 | Complete | 2026-04-23 |
 | 22. Self-Monitoring Loop | v3.1 | 0/TBD | Not started | - |
