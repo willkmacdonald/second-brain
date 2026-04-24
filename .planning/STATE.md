@@ -206,6 +206,7 @@ None.
 
 - Phase 19.4.1 inserted after Phase 19.4: fix mobile UX issues (URGENT)
 - Phase 20.1 inserted after Phase 20: Design team UI improvements (URGENT)
+- Phase 21.1 inserted after Phase 21: Migrate Eval to Foundry Native Platform (URGENT) -- replace custom eval runner/dry-run tools with Foundry's native agent target evaluation, built-in evaluators (IntentResolution, ToolCallAccuracy, TaskAdherence), and custom code-based scorer; aligns with guiding principle of leveraging Foundry before building custom
 
 ## Session Continuity
 

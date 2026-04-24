@@ -334,6 +334,16 @@ Plans:
 - [x] 21-04-PLAN.md -- API endpoint + investigation tools + main.py wiring: /api/eval/run, status polling, eval @tools
 - [x] 21-05-PLAN.md -- Portal instructions + end-to-end verification checkpoint
 
+### Phase 21.1: Migrate Eval to Foundry Native Platform (INSERTED)
+
+**Goal:** [Urgent work - to be planned]
+**Requirements**: TBD
+**Depends on:** Phase 21
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 21.1 to break down)
+
 ### Phase 22: Self-Monitoring Loop
 **Goal**: The system detects its own quality degradation and alerts the user before captures go wrong
 **Depends on**: Phase 21
