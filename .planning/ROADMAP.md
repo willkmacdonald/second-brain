@@ -325,7 +325,7 @@ Plans:
   3. Admin Agent eval measures routing accuracy by destination and tool usage correctness
   4. Eval results are stored with timestamps in Cosmos and logged to App Insights for trend tracking
   5. User can trigger an eval run on-demand from mobile or Claude Code and see results
-**Plans:** 5 plans (Wave 1: metrics + dry-run tools in parallel, Wave 2: eval runner, Wave 3: API + investigation tools, Wave 4: portal instructions + end-to-end verify)
+**Plans:** 5/5 plans complete
 
 Plans:
 - [x] 21-01-PLAN.md -- Eval types + metrics: GoldenDatasetDocument extension, eval metrics module, unit tests
@@ -373,5 +373,5 @@ Items not yet scheduled into a milestone or phase.
 | 19.4.1. Fix Mobile UX Issues | 0/4 | 4/4 | Complete    | 2026-04-21 |
 | 20. Feedback Collection | v3.1 | 4/4 | Complete    | 2026-04-23 |
 | 20.1. Design Team UI Improvements | v3.1 | 7/7 | Complete    | 2026-04-23 |
-| 21. Eval Framework | v3.1 | 5/5 | Complete | 2026-04-23 |
+| 21. Eval Framework | v3.1 | 5/5 | Complete    | 2026-04-24 |
 | 22. Self-Monitoring Loop | v3.1 | 0/TBD | Not started | - |
