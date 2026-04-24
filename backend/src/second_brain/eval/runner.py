@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
@@ -32,6 +34,49 @@ if TYPE_CHECKING:
     from second_brain.db.cosmos import CosmosManager
 
 logger = logging.getLogger(__name__)
+
+MAX_RETRIES = 3
+
+
+def _parse_retry_after(exc: Exception) -> int | None:
+    """Extract retry-after seconds from a rate-limit error message."""
+    match = re.search(r"retry after (\d+) seconds", str(exc), re.IGNORECASE)
+    return int(match.group(1)) if match else None
+
+
+async def _call_with_retry(
+    coro_factory: Callable[[], object],
+    *,
+    max_retries: int = MAX_RETRIES,
+    run_id: str,
+    case_index: int,
+    runs_dict: dict,
+) -> None:
+    """Call an async factory with retry on rate-limit errors."""
+    for attempt in range(max_retries + 1):
+        try:
+            async with asyncio.timeout(60):
+                await coro_factory()  # type: ignore[misc]
+            return
+        except Exception as exc:
+            retry_after = _parse_retry_after(exc)
+            if retry_after is not None and attempt < max_retries:
+                logger.warning(
+                    "Rate-limited on case %d (attempt %d/%d), retrying in %ds",
+                    case_index,
+                    attempt + 1,
+                    max_retries + 1,
+                    retry_after,
+                    extra={
+                        "component": "eval",
+                        "eval_run_id": run_id,
+                    },
+                )
+                progress = runs_dict[run_id].get("progress", "?")
+                runs_dict[run_id]["progress"] = f"{progress} (waiting {retry_after}s)"
+                await asyncio.sleep(retry_after)
+                continue
+            raise
 
 
 async def run_classifier_eval(
@@ -94,10 +139,14 @@ async def run_classifier_eval(
                     },
                 )
 
-                async with asyncio.timeout(60):
-                    await classifier_client.get_response(
-                        messages=messages, options=options
-                    )
+                await _call_with_retry(
+                    lambda m=messages, o=options: classifier_client.get_response(
+                        messages=m, options=o
+                    ),
+                    run_id=run_id,
+                    case_index=i,
+                    runs_dict=runs_dict,
+                )
 
                 result = {
                     "input": case["inputText"][:100],
@@ -235,8 +284,14 @@ async def run_admin_eval(
                     ],
                 )
 
-                async with asyncio.timeout(60):
-                    await admin_client.get_response(messages=messages, options=options)
+                await _call_with_retry(
+                    lambda m=messages, o=options: admin_client.get_response(
+                        messages=m, options=o
+                    ),
+                    run_id=run_id,
+                    case_index=i,
+                    runs_dict=runs_dict,
+                )
 
                 # Read prediction: primary destination
                 predicted = (

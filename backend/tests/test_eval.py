@@ -615,3 +615,74 @@ async def test_investigation_get_eval_results_with_in_progress(
     assert len(result["in_progress"]) == 1
     assert result["in_progress"][0]["run_id"] == "running-eval"
     assert result["in_progress"][0]["progress"] == "3/10"
+
+
+# ======================================================================
+# Retry Logic Tests
+# ======================================================================
+
+
+@pytest.mark.asyncio
+async def test_classifier_eval_retries_on_rate_limit() -> None:
+    """Rate-limited cases are retried instead of marked as ERROR."""
+    cosmos = _make_mock_cosmos(MIXED_GOLDEN)
+    runs: dict = {}
+
+    call_count = 0
+
+    async def fake_get_response(*, messages, options):
+        nonlocal call_count
+        call_count += 1
+        if call_count <= 2:
+            raise Exception(
+                "exceeded the token rate limit. Please retry after 1 seconds."
+            )
+        tool_fn = options["tools"][0]
+        await tool_fn(
+            text=messages[0].text,
+            bucket="Admin",
+            confidence=0.9,
+            status="classified",
+        )
+        return MagicMock()
+
+    mock_client = AsyncMock()
+    mock_client.get_response = AsyncMock(side_effect=fake_get_response)
+
+    await run_classifier_eval(
+        run_id="retry-test",
+        cosmos_manager=cosmos,
+        classifier_client=mock_client,
+        runs_dict=runs,
+    )
+
+    assert runs["retry-test"]["status"] == "completed"
+    assert call_count > 2
+
+
+@pytest.mark.asyncio
+async def test_classifier_eval_exhausts_retries() -> None:
+    """After max retries on rate-limit, case is marked ERROR."""
+    cosmos = _make_mock_cosmos(MIXED_GOLDEN)
+    runs: dict = {}
+
+    async def always_rate_limit(*, messages, options):
+        raise Exception("exceeded the token rate limit. Please retry after 0 seconds.")
+
+    mock_client = AsyncMock()
+    mock_client.get_response = AsyncMock(side_effect=always_rate_limit)
+
+    await run_classifier_eval(
+        run_id="exhaust-test",
+        cosmos_manager=cosmos,
+        classifier_client=mock_client,
+        runs_dict=runs,
+    )
+
+    assert runs["exhaust-test"]["status"] == "completed"
+    eval_container = cosmos.get_container("EvalResults")
+    written_doc = eval_container.create_item.call_args[1]["body"]
+    error_results = [
+        r for r in written_doc["individualResults"] if r["predicted"] == "ERROR"
+    ]
+    assert len(error_results) > 0
