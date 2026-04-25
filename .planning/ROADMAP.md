@@ -73,6 +73,7 @@ See: .planning/milestones/v3.0-ROADMAP.md
 - [x] **Phase 20: Feedback Collection** - Implicit quality signals, explicit thumbs up/down, golden dataset promotion (completed 2026-04-23)
 - [x] **Phase 20.1: Design Team UI Improvements** (INSERTED) - Hi-fi visual reskin with design tokens, custom fonts, Lucide icons, per-bucket colors (completed 2026-04-23)
 - [x] **Phase 21: Eval Framework** - Golden datasets, deterministic evaluators, score storage, on-demand trigger (completed 2026-04-23)
+- [ ] **Phase 21.1: Migrate Eval to Foundry Native Platform** (INSERTED) - Replace custom eval with Foundry agent target evaluation, custom code-based evaluators, built-in AI evaluators
 - [ ] **Phase 22: Self-Monitoring Loop** - Automated weekly evals, threshold alerts, push notifications on degradation
 
 ## Phase Details
@@ -336,13 +337,22 @@ Plans:
 
 ### Phase 21.1: Migrate Eval to Foundry Native Platform (INSERTED)
 
-**Goal:** [Urgent work - to be planned]
-**Requirements**: TBD
+**Goal:** Replace the custom eval framework (runner, dry-run tools, metrics, API endpoint) with Azure AI Foundry's native evaluation platform -- agent target evaluation, custom code-based evaluators (bucket accuracy, routing accuracy), built-in AI evaluators (IntentResolution, ToolCallAccuracy, TaskAdherence), and Foundry-native result storage
+**Requirements**: EVAL-01, EVAL-02, EVAL-03, EVAL-04, EVAL-05 (re-satisfied via Foundry-native implementation)
 **Depends on:** Phase 21
-**Plans:** 0 plans
+**Success Criteria** (what must be TRUE):
+  1. Custom eval code is deleted (runner.py, dry_run_tools.py, metrics.py, api/eval.py) with no remaining references
+  2. Two custom code-based evaluators registered in Foundry (classifier_bucket_accuracy, admin_routing_accuracy) with deterministic grade() functions
+  3. Built-in evaluators (IntentResolution, ToolCallAccuracy, TaskAdherence) run alongside custom evaluators
+  4. Investigation tools (run_classifier_eval, run_admin_eval, get_eval_results) call Foundry SDK directly -- no HTTP API endpoint
+  5. Eval results live in Foundry (not Cosmos EvalResults) and are visible in the Foundry portal Evaluation tab
+  6. Foundry Tracing page shows agent runs with Input/Output content
+  7. Golden dataset seed script has foundry-export subcommand producing JSONL
+**Plans:** 2 plans
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 21.1 to break down)
+- [ ] 21.1-01-PLAN.md -- Foundry eval module + code cleanup + investigation tool rewire + AIProjectClient init
+- [ ] 21.1-02-PLAN.md -- JSONL export subcommand + portal instructions update + tracing config + verification checkpoint
 
 ### Phase 22: Self-Monitoring Loop
 **Goal**: The system detects its own quality degradation and alerts the user before captures go wrong
@@ -368,7 +378,7 @@ Items not yet scheduled into a milestone or phase.
 - v1.0: 1 -> 2 -> 3 -> 4 -> 4.1 -> 4.2 -> 4.3 -> 5 (complete)
 - v2.0: 6 -> 7 -> 8 -> 9 -> 9.1 (complete)
 - v3.0: 10 -> 11 -> 11.1 -> 12 -> 12.1 -> 12.2 -> 12.3 -> 12.3.1 -> 12.5 -> 13 -> 14 -> 15 (complete)
-- v3.1: 16 -> 16.1 -> 17 -> 17.3 -> 17.4 -> 18 -> 19 -> 19.4.1 -> 20 -> 20.1 -> 21 -> 22
+- v3.1: 16 -> 16.1 -> 17 -> 17.3 -> 17.4 -> 18 -> 19 -> 19.4.1 -> 20 -> 20.1 -> 21 -> 21.1 -> 22
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -384,4 +394,5 @@ Items not yet scheduled into a milestone or phase.
 | 20. Feedback Collection | v3.1 | 4/4 | Complete    | 2026-04-23 |
 | 20.1. Design Team UI Improvements | v3.1 | 7/7 | Complete    | 2026-04-23 |
 | 21. Eval Framework | v3.1 | 5/5 | Complete    | 2026-04-24 |
+| 21.1. Migrate Eval to Foundry Native | v3.1 | 0/2 | Not started | - |
 | 22. Self-Monitoring Loop | v3.1 | 0/TBD | Not started | - |
