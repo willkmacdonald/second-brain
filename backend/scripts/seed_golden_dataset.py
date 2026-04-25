@@ -1,9 +1,10 @@
 """Export Inbox items for curation and import curated entries as GoldenDatasetDocuments.
 
-Two subcommands:
+Three subcommands:
 
-  export  -- Query Inbox container for recent captures, write JSON for human review.
-  import  -- Read curated JSON (approved entries only), write GoldenDatasetDocuments.
+  export          -- Query Inbox for recent captures, write JSON.
+  import          -- Read curated JSON, write GoldenDatasetDocuments.
+  foundry-export  -- Export golden dataset as JSONL for Foundry.
 
 Prerequisites:
   - Run ``az login`` first (uses DefaultAzureCredential)
@@ -15,6 +16,9 @@ Usage:
 
   # Import curated (approved) entries as golden dataset
   python3 backend/scripts/seed_golden_dataset.py import --file golden_dataset.json
+
+  # Export golden dataset as JSONL for Foundry evaluation upload
+  python3 backend/scripts/seed_golden_dataset.py foundry-export --eval-type classifier
 """
 
 from __future__ import annotations
@@ -182,6 +186,71 @@ async def import_golden(file_path: str) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Foundry-export subcommand
+# ---------------------------------------------------------------------------
+
+
+async def foundry_export(eval_type: str, output: str) -> None:
+    """Export golden dataset entries as JSONL for Foundry evaluation upload.
+
+    Produces one JSON object per line.  Schema depends on *eval_type*:
+
+    * **classifier** -- ``{"query": ..., "expected_bucket": ...}``
+    * **admin_agent** -- ``{"query": ..., "expected_destination": ...}``
+      (only entries with a non-null ``expectedDestination`` are included)
+    """
+    endpoint = os.environ.get("COSMOS_ENDPOINT")
+    if not endpoint:
+        logger.error("COSMOS_ENDPOINT environment variable is not set")
+        sys.exit(1)
+
+    credential = DefaultAzureCredential()
+    client = CosmosClient(url=endpoint, credential=credential)
+
+    try:
+        database = client.get_database_client(DATABASE_NAME)
+        container = database.get_container_client("GoldenDataset")
+
+        query = "SELECT * FROM c WHERE c.userId = @userId"
+        parameters: list[dict[str, object]] = [
+            {"name": "@userId", "value": "will"},
+        ]
+
+        count = 0
+        with open(output, "w", encoding="utf-8") as f:
+            async for item in container.query_items(
+                query=query,
+                parameters=parameters,
+                partition_key="will",
+            ):
+                if eval_type == "admin_agent":
+                    dest = item.get("expectedDestination")
+                    if not dest:
+                        continue
+                    line = {
+                        "query": item.get("inputText", ""),
+                        "expected_destination": dest,
+                    }
+                else:
+                    line = {
+                        "query": item.get("inputText", ""),
+                        "expected_bucket": item.get("expectedBucket", ""),
+                    }
+
+                f.write(json.dumps(line, ensure_ascii=False) + "\n")
+                count += 1
+
+        logger.info("Exported %d entries to %s", count, output)
+
+    except Exception:
+        logger.exception("Failed to export golden dataset as JSONL")
+        sys.exit(1)
+    finally:
+        await client.close()
+        await credential.close()
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
@@ -224,6 +293,28 @@ def build_parser() -> argparse.ArgumentParser:
         help="Path to curated JSON file with approved entries",
     )
 
+    # foundry-export
+    foundry_export_parser = subparsers.add_parser(
+        "foundry-export",
+        help="Export golden dataset entries as JSONL for Foundry evaluation upload",
+    )
+    foundry_export_parser.add_argument(
+        "--eval-type",
+        type=str,
+        choices=["classifier", "admin_agent"],
+        default="classifier",
+        help="Eval type determines JSONL schema (default: classifier)",
+    )
+    foundry_export_parser.add_argument(
+        "--output",
+        type=str,
+        default="backend/scripts/golden_dataset_foundry.jsonl",
+        help=(
+            "Output JSONL file path "
+            "(default: backend/scripts/golden_dataset_foundry.jsonl)"
+        ),
+    )
+
     return parser
 
 
@@ -234,3 +325,5 @@ if __name__ == "__main__":
         asyncio.run(export_inbox(limit=args.limit, output=args.output))
     elif args.command == "import":
         asyncio.run(import_golden(file_path=args.file))
+    elif args.command == "foundry-export":
+        asyncio.run(foundry_export(eval_type=args.eval_type, output=args.output))
