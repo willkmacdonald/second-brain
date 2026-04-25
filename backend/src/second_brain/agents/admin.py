@@ -13,13 +13,13 @@ import logging
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from agent_framework.azure import AzureAIAgentClient
+    from agent_framework.azure import DurableAIAgentClient
 
 logger = logging.getLogger(__name__)
 
 
 async def ensure_admin_agent(
-    foundry_client: AzureAIAgentClient,
+    foundry_client: DurableAIAgentClient,
     stored_agent_id: str,
 ) -> str:
     """Ensure the Admin agent exists in Foundry.
@@ -32,7 +32,7 @@ async def ensure_admin_agent(
     capture flow). The caller should catch exceptions.
 
     Args:
-        foundry_client: Initialized AzureAIAgentClient instance.
+        foundry_client: Initialized DurableAIAgentClient instance.
         stored_agent_id: Agent ID from AZURE_AI_ADMIN_AGENT_ID env var.
 
     Returns:
@@ -40,9 +40,7 @@ async def ensure_admin_agent(
     """
     if stored_agent_id:
         try:
-            agent_info = await foundry_client.agents_client.get_agent(
-                stored_agent_id
-            )
+            agent_info = await foundry_client.agents_client.get_agent(stored_agent_id)
             logger.info(
                 "Admin agent loaded: id=%s name=%s",
                 agent_info.id,
@@ -51,8 +49,7 @@ async def ensure_admin_agent(
             return stored_agent_id
         except Exception:
             logger.warning(
-                "Stored Admin agent ID %s not found in Foundry, "
-                "creating new agent",
+                "Stored Admin agent ID %s not found in Foundry, creating new agent",
                 stored_agent_id,
             )
 

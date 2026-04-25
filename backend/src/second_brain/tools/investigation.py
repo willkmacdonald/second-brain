@@ -46,7 +46,7 @@ from second_brain.observability.queries import (
 )
 
 if TYPE_CHECKING:
-    from agent_framework.azure import AzureAIAgentClient
+    from agent_framework.azure import DurableAIAgentClient
     from azure.ai.projects import AIProjectClient
 
     from second_brain.db.cosmos import CosmosManager
@@ -137,8 +137,8 @@ class InvestigationTools:
         logs_client: LogsQueryClient,
         workspace_id: str,
         cosmos_manager: CosmosManager | None = None,
-        classifier_client: AzureAIAgentClient | None = None,
-        admin_client: AzureAIAgentClient | None = None,
+        classifier_client: DurableAIAgentClient | None = None,
+        admin_client: DurableAIAgentClient | None = None,
         project_client: AIProjectClient | None = None,
     ) -> None:
         self._logs_client = logs_client

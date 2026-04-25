@@ -13,13 +13,13 @@ import logging
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from agent_framework.azure import AzureAIAgentClient
+    from agent_framework.azure import DurableAIAgentClient
 
 logger = logging.getLogger(__name__)
 
 
 async def ensure_investigation_agent(
-    foundry_client: AzureAIAgentClient,
+    foundry_client: DurableAIAgentClient,
     stored_agent_id: str,
 ) -> str:
     """Ensure the Investigation agent exists in Foundry.
@@ -32,7 +32,7 @@ async def ensure_investigation_agent(
     The caller should catch exceptions.
 
     Args:
-        foundry_client: Initialized AzureAIAgentClient instance.
+        foundry_client: Initialized DurableAIAgentClient instance.
         stored_agent_id: Agent ID from AZURE_AI_INVESTIGATION_AGENT_ID
             env var.
 

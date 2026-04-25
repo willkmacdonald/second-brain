@@ -13,12 +13,13 @@ import logging
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from agent_framework.azure import AzureAIAgentClient
+    from agent_framework.azure import DurableAIAgentClient
 
 logger = logging.getLogger(__name__)
 
+
 async def ensure_classifier_agent(
-    foundry_client: AzureAIAgentClient,
+    foundry_client: DurableAIAgentClient,
     stored_agent_id: str,
 ) -> str:
     """Ensure the Classifier agent exists in Foundry.
@@ -30,7 +31,7 @@ async def ensure_classifier_agent(
     lifespan and crashes the app (hard dependency per CONTEXT.md).
 
     Args:
-        foundry_client: Initialized AzureAIAgentClient instance.
+        foundry_client: Initialized DurableAIAgentClient instance.
         stored_agent_id: Agent ID from AZURE_AI_CLASSIFIER_AGENT_ID env var.
 
     Returns:
@@ -38,9 +39,7 @@ async def ensure_classifier_agent(
     """
     if stored_agent_id:
         try:
-            agent_info = await foundry_client.agents_client.get_agent(
-                stored_agent_id
-            )
+            agent_info = await foundry_client.agents_client.get_agent(stored_agent_id)
             logger.info(
                 "Classifier agent loaded: id=%s name=%s",
                 agent_info.id,
@@ -49,8 +48,7 @@ async def ensure_classifier_agent(
             return stored_agent_id
         except Exception:
             logger.warning(
-                "Stored agent ID %s not found in Foundry, "
-                "creating new agent",
+                "Stored agent ID %s not found in Foundry, creating new agent",
                 stored_agent_id,
             )
 

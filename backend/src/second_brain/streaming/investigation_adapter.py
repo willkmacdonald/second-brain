@@ -24,7 +24,7 @@ from collections import deque
 from collections.abc import AsyncGenerator
 
 from agent_framework import ChatOptions, Message
-from agent_framework.azure import AzureAIAgentClient
+from agent_framework.azure import DurableAIAgentClient
 from opentelemetry import trace
 
 from second_brain.streaming.sse import encode_sse
@@ -67,7 +67,7 @@ class SoftRateLimiter:
 
 
 async def stream_investigation(
-    client: AzureAIAgentClient,
+    client: DurableAIAgentClient,
     question: str,
     tools: list,
     thread_id: str | None = None,
@@ -80,7 +80,7 @@ async def stream_investigation(
     the Classifier adapter which suppresses text as reasoning.
 
     Args:
-        client: AzureAIAgentClient configured for the Investigation
+        client: DurableAIAgentClient configured for the Investigation
             Agent.
         question: The user's natural-language question.
         tools: List of @tool-decorated functions from

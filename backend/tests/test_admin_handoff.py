@@ -43,7 +43,7 @@ def mock_admin_tools():
 
 @pytest.fixture
 def mock_admin_client(mock_admin_tools):
-    """Mock AzureAIAgentClient for non-streaming calls.
+    """Mock DurableAIAgentClient for non-streaming calls.
 
     When get_response is called, increments the first tool's
     invocation_count to simulate the framework auto-executing the tool.
@@ -439,9 +439,7 @@ class TestProcessAdminCaptureNoToolCall:
         )
         assert last_body["adminProcessingStatus"] == "failed"
 
-    async def test_intermediate_tool_retry_succeeds(
-        self, mock_cosmos_manager
-    ):
+    async def test_intermediate_tool_retry_succeeds(self, mock_cosmos_manager):
         """Agent calls fetch_recipe_url, retry succeeds with add_errand_items.
 
         First call: only fetch_recipe_url. Retry: add_errand_items called.

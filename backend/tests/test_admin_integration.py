@@ -6,6 +6,7 @@ environment variables are not set.
 Run manually: pytest tests/test_admin_integration.py -v -m integration
 """
 
+import contextlib
 import os
 
 import pytest
@@ -24,12 +25,12 @@ _has_cosmos = bool(os.environ.get("COSMOS_ENDPOINT"))
 )
 async def test_admin_agent_exists_in_foundry():
     """Admin Agent can be fetched from Foundry by stored agent_id."""
-    from agent_framework.azure import AzureAIAgentClient
+    from agent_framework.azure import DurableAIAgentClient
     from azure.identity.aio import DefaultAzureCredential
 
     credential = DefaultAzureCredential()
     try:
-        client = AzureAIAgentClient(
+        client = DurableAIAgentClient(
             credential=credential,
             project_endpoint=os.environ["AZURE_AI_PROJECT_ENDPOINT"],
             model_deployment_name="gpt-4o",
@@ -96,11 +97,7 @@ async def test_add_errand_items_writes_to_cosmos():
         if manager.containers:
             container = manager.get_container("Errands")
             for destination, item_id in created_items:
-                try:
-                    await container.delete_item(
-                        item=item_id, partition_key=destination
-                    )
-                except Exception:
-                    pass
+                with contextlib.suppress(Exception):
+                    await container.delete_item(item=item_id, partition_key=destination)
         await manager.close()
         await credential.close()

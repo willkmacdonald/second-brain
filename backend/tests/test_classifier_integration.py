@@ -15,7 +15,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from agent_framework import ChatOptions, Message
-from agent_framework.azure import AzureAIAgentClient
+from agent_framework.azure import DurableAIAgentClient
 from azure.identity.aio import DefaultAzureCredential
 
 from second_brain.db.cosmos import CONTAINER_NAMES
@@ -73,7 +73,7 @@ async def test_classifier_agent_classifies_text() -> None:
             classification_threshold=0.6,
         )
 
-        client = AzureAIAgentClient(
+        client = DurableAIAgentClient(
             credential=credential,
             project_endpoint=endpoint,
             agent_id=agent_id,
@@ -114,7 +114,7 @@ async def test_classifier_agent_id_is_valid() -> None:
     credential = DefaultAzureCredential()
 
     try:
-        client = AzureAIAgentClient(
+        client = DurableAIAgentClient(
             credential=credential,
             project_endpoint=endpoint,
             model_deployment_name="gpt-4o",

@@ -5,7 +5,7 @@ import logging
 from collections.abc import Callable
 
 from agent_framework import Message
-from agent_framework.azure import AzureAIAgentClient
+from agent_framework.azure import DurableAIAgentClient
 
 logger = logging.getLogger(__name__)
 
@@ -13,10 +13,10 @@ MAX_CONSECUTIVE_FAILURES = 3
 
 
 async def agent_warmup_loop(
-    clients: list[tuple[str, AzureAIAgentClient]],
+    clients: list[tuple[str, DurableAIAgentClient]],
     interval_seconds: int,
-    client_factories: dict[str, Callable[[], AzureAIAgentClient]] | None = None,
-    on_recreate: Callable[[str, AzureAIAgentClient], None] | None = None,
+    client_factories: dict[str, Callable[[], DurableAIAgentClient]] | None = None,
+    on_recreate: Callable[[str, DurableAIAgentClient], None] | None = None,
 ) -> None:
     """Ping agents periodically to keep them warm.
 
@@ -27,7 +27,7 @@ async def agent_warmup_loop(
         clients: List of (name, client) tuples to ping.
         interval_seconds: Seconds between ping rounds.
         client_factories: Optional dict mapping agent name to a callable that
-            returns a fresh AzureAIAgentClient. Used for self-healing.
+            returns a fresh DurableAIAgentClient. Used for self-healing.
         on_recreate: Optional callback invoked with (name, new_client) after
             successful client recreation, so the caller can update app.state.
     """
