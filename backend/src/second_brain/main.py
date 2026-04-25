@@ -507,6 +507,31 @@ async def lifespan(app: FastAPI):
             )
             raise  # Fail fast -- backend is useless without Foundry
 
+        # --- Foundry Project Client (for evaluations) ---
+        try:
+            from azure.ai.projects import AIProjectClient
+            from azure.identity import (
+                DefaultAzureCredential as SyncDefaultAzureCredential,
+            )
+
+            sync_credential = SyncDefaultAzureCredential()
+            project_client = AIProjectClient(
+                endpoint=settings.azure_ai_project_endpoint,
+                credential=sync_credential,
+            )
+            app.state.project_client = project_client
+            logger.info(
+                "Foundry project client initialized: %s",
+                settings.azure_ai_project_endpoint,
+            )
+        except Exception:
+            logger.warning(
+                "Could not initialize Foundry project client "
+                "(eval features unavailable)",
+                exc_info=True,
+            )
+            app.state.project_client = None
+
         # --- Classifier Agent Registration (fail fast) ---
         classifier_agent_id = await ensure_classifier_agent(
             foundry_client=foundry_client,
@@ -695,6 +720,7 @@ async def lifespan(app: FastAPI):
                     cosmos_manager=app.state.cosmos_manager,
                     classifier_client=app.state.classifier_client,
                     admin_client=getattr(app.state, "admin_client", None),
+                    project_client=getattr(app.state, "project_client", None),
                 )
                 app.state.investigation_tools_instance = investigation_tools
 
