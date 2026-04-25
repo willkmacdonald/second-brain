@@ -4,8 +4,9 @@ version = "0.1.0"
 description = "The Active Second Brain - FastAPI backend with Azure AI Foundry Agent Service"
 requires-python = ">=3.12"
 dependencies = [
-    # Agent Framework -- Foundry integration
+    # Agent Framework -- Foundry integration (1.2.0 split DurableAIAgentClient into separate package)
     "agent-framework-azure-ai",
+    "agent-framework-durabletask",
     # Azure OpenAI (direct dep for transcribe_audio -- transitive via azure-ai-agents)
     "openai",
     # Azure services
