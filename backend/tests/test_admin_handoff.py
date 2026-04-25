@@ -43,7 +43,7 @@ def mock_admin_tools():
 
 @pytest.fixture
 def mock_admin_client(mock_admin_tools):
-    """Mock DurableAIAgentClient for non-streaming calls.
+    """Mock AzureAIAgentClient for non-streaming calls.
 
     When get_response is called, increments the first tool's
     invocation_count to simulate the framework auto-executing the tool.

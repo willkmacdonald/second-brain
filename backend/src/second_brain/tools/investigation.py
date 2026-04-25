@@ -4,7 +4,7 @@ Uses the class-based tool pattern to bind LogsQueryClient references to @tool
 functions. InvestigationTools provides 9 tools: trace_lifecycle, recent_errors,
 system_health, usage_patterns, query_feedback_signals,
 promote_to_golden_dataset, run_classifier_eval, run_admin_eval,
-and get_eval_results. Eval tools use Foundry SDK via eval/foundry.py.
+and get_eval_results.
 
 Each tool returns JSON strings for the Investigation Agent to format into
 human-readable answers. Tools never raise -- they catch exceptions and return
@@ -19,23 +19,16 @@ import logging
 from collections import Counter
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Annotated
+from uuid import uuid4
 
 from agent_framework import tool
 from azure.cosmos.exceptions import CosmosResourceNotFoundError
 from azure.monitor.query.aio import LogsQueryClient
 from pydantic import Field
 
-from second_brain.eval.foundry import (
-    get_eval_results_from_foundry,
-    list_recent_eval_runs,
-    poll_eval_run,
-)
-from second_brain.eval.foundry import (
-    run_admin_eval as _run_admin_foundry,
-)
-from second_brain.eval.foundry import (
-    run_classifier_eval as _run_classifier_foundry,
-)
+from second_brain.api.eval import _eval_runs
+from second_brain.eval.runner import run_admin_eval as _run_admin_eval
+from second_brain.eval.runner import run_classifier_eval as _run_classifier_eval
 from second_brain.models.documents import GoldenDatasetDocument
 from second_brain.observability.queries import (
     query_capture_trace,
@@ -46,45 +39,11 @@ from second_brain.observability.queries import (
 )
 
 if TYPE_CHECKING:
-    from agent_framework.azure import DurableAIAgentClient
-    from azure.ai.projects import AIProjectClient
+    from agent_framework.azure import AzureAIAgentClient
 
     from second_brain.db.cosmos import CosmosManager
 
 logger = logging.getLogger(__name__)
-
-# In-flight Foundry eval runs cache (eval_id -> {run_id, status, ...})
-# Source of truth remains Foundry via stable eval names/run prefixes.
-_foundry_eval_runs: dict[str, dict] = {}
-
-
-async def _poll_and_update(
-    project_client: AIProjectClient,
-    eval_id: str,
-    run_id: str,
-    runs_dict: dict,
-) -> None:
-    """Background task: poll Foundry eval run until completion."""
-    try:
-        result = await poll_eval_run(project_client, eval_id, run_id)
-        runs_dict[eval_id]["status"] = result.get("status", "unknown")
-        runs_dict[eval_id]["report_url"] = result.get("report_url")
-        logger.info(
-            "Eval run completed: eval_id=%s status=%s",
-            eval_id,
-            result.get("status"),
-            extra={"component": "eval"},
-        )
-    except Exception as exc:
-        runs_dict[eval_id]["status"] = "failed"
-        runs_dict[eval_id]["error"] = str(exc)
-        logger.error(
-            "Eval poll failed: %s",
-            exc,
-            exc_info=True,
-            extra={"component": "eval"},
-        )
-
 
 # User-friendly time range strings -> (KQL duration literal, timedelta)
 TIME_RANGE_MAP: dict[str, tuple[str, timedelta]] = {
@@ -137,16 +96,14 @@ class InvestigationTools:
         logs_client: LogsQueryClient,
         workspace_id: str,
         cosmos_manager: CosmosManager | None = None,
-        classifier_client: DurableAIAgentClient | None = None,
-        admin_client: DurableAIAgentClient | None = None,
-        project_client: AIProjectClient | None = None,
+        classifier_client: AzureAIAgentClient | None = None,
+        admin_client: AzureAIAgentClient | None = None,
     ) -> None:
         self._logs_client = logs_client
         self._workspace_id = workspace_id
         self._cosmos_manager = cosmos_manager
         self._classifier_client = classifier_client
         self._admin_client = admin_client
-        self._project_client = project_client
 
     # ------------------------------------------------------------------
     # Tool 1: trace_lifecycle
@@ -636,37 +593,24 @@ class InvestigationTools:
 
     @tool(approval_mode="never_require")
     async def run_classifier_eval(self) -> str:
-        """Trigger a classifier evaluation run via Foundry SDK.
+        """Trigger a classifier evaluation run against the golden dataset.
 
-        Starts a Foundry eval run that scores golden dataset entries
-        using custom and built-in evaluators. Returns eval_id and
-        run_id for status checking. Check results with get_eval_results.
+        Starts a background eval run that sends each golden dataset
+        entry through the Classifier agent and measures accuracy.
+        Returns the run ID for status checking. The eval takes 3-5
+        minutes for 50 cases. Check status with get_eval_results.
         """
         log_extra: dict = {"component": "investigation_agent"}
         logger.info("run_classifier_eval called", extra=log_extra)
 
         try:
-            if self._project_client is None:
-                return json.dumps({"error": "Foundry project client not available"})
+            if self._classifier_client is None:
+                return json.dumps({"error": "Classifier client not available"})
             if self._cosmos_manager is None:
                 return json.dumps({"error": "Cosmos not configured"})
 
-            # In-flight check: Foundry first, then local cache
-            recent = await list_recent_eval_runs(
-                self._project_client,
-                eval_type="classifier",
-                limit=1,
-            )
-            for r in recent:
-                if r.get("status") == "running":
-                    return json.dumps(
-                        {
-                            "status": "already_running",
-                            "eval_id": r["eval_id"],
-                            "run_id": r["run_id"],
-                        }
-                    )
-            for eid, run in _foundry_eval_runs.items():
+            # Single in-flight check
+            for rid, run in _eval_runs.items():
                 if (
                     run.get("eval_type") == "classifier"
                     and run.get("status") == "running"
@@ -674,41 +618,32 @@ class InvestigationTools:
                     return json.dumps(
                         {
                             "status": "already_running",
-                            "eval_id": eid,
-                            "run_id": run.get("run_id"),
+                            "run_id": rid,
+                            "progress": run.get("progress", "unknown"),
                         }
                     )
 
-            result = await _run_classifier_foundry(
-                project_client=self._project_client,
-                cosmos_manager=self._cosmos_manager,
-                classifier_client=self._classifier_client,
-            )
-
-            if result.get("eval_id"):
-                _foundry_eval_runs[result["eval_id"]] = {
-                    "run_id": result["run_id"],
-                    "status": result["status"],
-                    "eval_type": "classifier",
-                    "started_at": datetime.now(UTC).isoformat(),
-                }
-                asyncio.create_task(
-                    _poll_and_update(
-                        self._project_client,
-                        result["eval_id"],
-                        result["run_id"],
-                        _foundry_eval_runs,
-                    )
+            run_id = str(uuid4())
+            _eval_runs[run_id] = {
+                "status": "running",
+                "eval_type": "classifier",
+                "started_at": datetime.now(UTC).isoformat(),
+            }
+            asyncio.create_task(
+                _run_classifier_eval(
+                    run_id=run_id,
+                    cosmos_manager=self._cosmos_manager,
+                    classifier_client=self._classifier_client,
+                    runs_dict=_eval_runs,
                 )
-
+            )
             return json.dumps(
                 {
                     "status": "started",
-                    "eval_id": result.get("eval_id"),
-                    "run_id": result.get("run_id"),
-                    "execution_mode": result.get("execution_mode"),
+                    "run_id": run_id,
                     "message": (
-                        "Classifier eval started. Use get_eval_results to check."
+                        "Classifier eval started. Use get_eval_results "
+                        "to check progress and see results when complete."
                     ),
                 }
             )
@@ -729,46 +664,32 @@ class InvestigationTools:
     async def run_admin_eval(
         self,
         routing_context: Annotated[
-            str | None,
+            str,
             Field(
                 description=(
-                    "Optional fixed routing context. If omitted, "
-                    "Foundry eval builds it from Cosmos."
+                    "Fixed routing context (destinations and affinity "
+                    "rules) for deterministic eval. Required per D-13."
                 )
             ),
-        ] = None,
+        ],
     ) -> str:
-        """Trigger an admin agent evaluation run via Foundry SDK.
+        """Trigger an admin agent evaluation run against the golden dataset.
 
-        Starts a Foundry eval run that scores golden dataset entries
-        for routing accuracy using custom and built-in evaluators.
-        Returns eval_id and run_id for status checking.
+        Starts a background eval run that sends each golden dataset
+        entry through the Admin agent with dry-run tools and measures
+        routing accuracy. Returns the run ID for status checking.
         """
         log_extra: dict = {"component": "investigation_agent"}
         logger.info("run_admin_eval called", extra=log_extra)
 
         try:
-            if self._project_client is None:
-                return json.dumps({"error": "Foundry project client not available"})
+            if self._admin_client is None:
+                return json.dumps({"error": "Admin client not available"})
             if self._cosmos_manager is None:
                 return json.dumps({"error": "Cosmos not configured"})
 
-            # In-flight check: Foundry first, then local cache
-            recent = await list_recent_eval_runs(
-                self._project_client,
-                eval_type="admin_agent",
-                limit=1,
-            )
-            for r in recent:
-                if r.get("status") == "running":
-                    return json.dumps(
-                        {
-                            "status": "already_running",
-                            "eval_id": r["eval_id"],
-                            "run_id": r["run_id"],
-                        }
-                    )
-            for eid, run in _foundry_eval_runs.items():
+            # Single in-flight check
+            for rid, run in _eval_runs.items():
                 if (
                     run.get("eval_type") == "admin_agent"
                     and run.get("status") == "running"
@@ -776,40 +697,34 @@ class InvestigationTools:
                     return json.dumps(
                         {
                             "status": "already_running",
-                            "eval_id": eid,
-                            "run_id": run.get("run_id"),
+                            "run_id": rid,
+                            "progress": run.get("progress", "unknown"),
                         }
                     )
 
-            result = await _run_admin_foundry(
-                project_client=self._project_client,
-                cosmos_manager=self._cosmos_manager,
-                admin_client=self._admin_client,
-            )
-
-            if result.get("eval_id"):
-                _foundry_eval_runs[result["eval_id"]] = {
-                    "run_id": result["run_id"],
-                    "status": result["status"],
-                    "eval_type": "admin_agent",
-                    "started_at": datetime.now(UTC).isoformat(),
-                }
-                asyncio.create_task(
-                    _poll_and_update(
-                        self._project_client,
-                        result["eval_id"],
-                        result["run_id"],
-                        _foundry_eval_runs,
-                    )
+            run_id = str(uuid4())
+            _eval_runs[run_id] = {
+                "status": "running",
+                "eval_type": "admin_agent",
+                "started_at": datetime.now(UTC).isoformat(),
+            }
+            asyncio.create_task(
+                _run_admin_eval(
+                    run_id=run_id,
+                    cosmos_manager=self._cosmos_manager,
+                    admin_client=self._admin_client,
+                    routing_context=routing_context,
+                    runs_dict=_eval_runs,
                 )
-
+            )
             return json.dumps(
                 {
                     "status": "started",
-                    "eval_id": result.get("eval_id"),
-                    "run_id": result.get("run_id"),
-                    "execution_mode": result.get("execution_mode"),
-                    "message": ("Admin eval started. Use get_eval_results to check."),
+                    "run_id": run_id,
+                    "message": (
+                        "Admin eval started. Use get_eval_results "
+                        "to check progress and see results when complete."
+                    ),
                 }
             )
         except Exception as exc:
@@ -842,11 +757,12 @@ class InvestigationTools:
             Field(description=("Maximum number of results to return. Default 3.")),
         ] = 3,
     ) -> str:
-        """Get recent eval results from Foundry and any in-progress runs.
+        """Get recent eval results and any in-progress run status.
 
-        Queries Foundry for completed eval results using stable eval
-        names (restart-safe). Returns accuracy, per-bucket breakdown,
-        and failures for the investigation agent to format as markdown.
+        Queries the EvalResults Cosmos container for completed eval
+        results, and checks for any currently running evals. Returns
+        accuracy tables and per-bucket breakdowns for the investigation
+        agent to format as markdown (D-07).
         """
         log_extra: dict = {"component": "investigation_agent"}
         logger.info(
@@ -857,66 +773,66 @@ class InvestigationTools:
         )
 
         try:
-            if self._project_client is None:
-                return json.dumps({"error": "Foundry project client not available"})
-
-            # Discover runs from Foundry (restart-safe)
-            recent_runs = await list_recent_eval_runs(
-                self._project_client,
-                eval_type=eval_type,
-                limit=limit,
-            )
-
-            # Merge cache for just-started runs not yet in Foundry
-            for eid, run in _foundry_eval_runs.items():
-                if eval_type and run.get("eval_type") != eval_type:
-                    continue
-                already = any(r["eval_id"] == eid for r in recent_runs)
-                if not already:
-                    recent_runs.append(
+            # Check for in-progress runs
+            in_progress: list[dict] = []
+            for rid, run in _eval_runs.items():
+                if run.get("status") == "running" and (
+                    eval_type is None or run.get("eval_type") == eval_type
+                ):
+                    in_progress.append(
                         {
-                            "eval_id": eid,
-                            "run_id": run.get("run_id", ""),
-                            "name": "",
-                            "status": run.get("status", "unknown"),
-                            "created_at": run.get("started_at", ""),
-                            "report_url": run.get("report_url"),
-                            "eval_name": "",
+                            "run_id": rid,
+                            "eval_type": run.get("eval_type"),
+                            "progress": run.get("progress", "unknown"),
+                            "started_at": run.get("started_at"),
                         }
                     )
 
-            # Separate in-progress from completed
-            in_progress: list[dict] = []
-            completed: list[dict] = []
+            # Query stored results from Cosmos
+            stored_results: list[dict] = []
+            if self._cosmos_manager is not None:
+                try:
+                    container = self._cosmos_manager.get_container("EvalResults")
 
-            for r in recent_runs[:limit]:
-                if r.get("status") == "running":
-                    in_progress.append(r)
-                elif r.get("status") == "completed":
-                    # Get detailed results
-                    try:
-                        details = await get_eval_results_from_foundry(
-                            self._project_client,
-                            r["eval_id"],
-                            r["run_id"],
+                    query = "SELECT * FROM c WHERE c.userId = @userId"
+                    parameters: list[dict[str, str]] = [
+                        {"name": "@userId", "value": "will"},
+                    ]
+
+                    if eval_type is not None:
+                        query += " AND c.evalType = @evalType"
+                        parameters.append({"name": "@evalType", "value": eval_type})
+
+                    query += " ORDER BY c.runTimestamp DESC"
+
+                    async for item in container.query_items(
+                        query=query,
+                        parameters=parameters,
+                    ):
+                        stored_results.append(
+                            {
+                                "id": item["id"],
+                                "evalType": item.get("evalType"),
+                                "runTimestamp": item.get("runTimestamp"),
+                                "datasetSize": item.get("datasetSize"),
+                                "aggregateScores": item.get("aggregateScores"),
+                                "modelDeployment": item.get("modelDeployment"),
+                            }
                         )
-                        completed.append(details)
-                    except Exception as detail_exc:
-                        logger.warning(
-                            "Failed to get details for %s: %s",
-                            r["run_id"],
-                            detail_exc,
-                            extra=log_extra,
-                        )
-                        completed.append(r)
-                else:
-                    completed.append(r)
+                        if len(stored_results) >= limit:
+                            break
+                except Exception as cosmos_exc:
+                    logger.warning(
+                        "Failed to query eval results from Cosmos: %s",
+                        cosmos_exc,
+                        extra=log_extra,
+                    )
 
             return json.dumps(
                 {
                     "in_progress": in_progress,
-                    "results": completed,
-                    "count": len(completed),
+                    "results": stored_results,
+                    "count": len(stored_results),
                 },
                 default=str,
             )

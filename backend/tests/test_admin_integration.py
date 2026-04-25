@@ -25,12 +25,12 @@ _has_cosmos = bool(os.environ.get("COSMOS_ENDPOINT"))
 )
 async def test_admin_agent_exists_in_foundry():
     """Admin Agent can be fetched from Foundry by stored agent_id."""
-    from agent_framework.azure import DurableAIAgentClient
+    from agent_framework.azure import AzureAIAgentClient
     from azure.identity.aio import DefaultAzureCredential
 
     credential = DefaultAzureCredential()
     try:
-        client = DurableAIAgentClient(
+        client = AzureAIAgentClient(
             credential=credential,
             project_endpoint=os.environ["AZURE_AI_PROJECT_ENDPOINT"],
             model_deployment_name="gpt-4o",

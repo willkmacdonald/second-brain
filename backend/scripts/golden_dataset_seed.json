@@ -1,0 +1,177 @@
+[
+  {
+    "inputText": "buy milk and eggs from the store",
+    "expectedBucket": "Admin",
+    "source": "manual",
+    "tags": ["errands"],
+    "_review_status": "approved"
+  },
+  {
+    "inputText": "pick up dry cleaning tomorrow",
+    "expectedBucket": "Admin",
+    "source": "manual",
+    "tags": ["errands"],
+    "_review_status": "approved"
+  },
+  {
+    "inputText": "schedule dentist appointment for next week",
+    "expectedBucket": "Admin",
+    "source": "manual",
+    "tags": ["tasks"],
+    "_review_status": "approved"
+  },
+  {
+    "inputText": "get ground beef and onions for tacos tonight",
+    "expectedBucket": "Admin",
+    "source": "manual",
+    "tags": ["errands"],
+    "_review_status": "approved"
+  },
+  {
+    "inputText": "renew car registration before end of month",
+    "expectedBucket": "Admin",
+    "source": "manual",
+    "tags": ["tasks"],
+    "_review_status": "approved"
+  },
+  {
+    "inputText": "call the plumber about the leaky faucet",
+    "expectedBucket": "Admin",
+    "source": "manual",
+    "tags": ["tasks"],
+    "_review_status": "approved"
+  },
+  {
+    "inputText": "return the Amazon package that arrived damaged",
+    "expectedBucket": "Admin",
+    "source": "manual",
+    "tags": ["tasks"],
+    "_review_status": "approved"
+  },
+  {
+    "inputText": "need to get birthday present for Sarah",
+    "expectedBucket": "Admin",
+    "source": "manual",
+    "tags": ["errands"],
+    "_review_status": "approved"
+  },
+  {
+    "inputText": "had a great conversation with Mike about his new startup idea in AI healthcare",
+    "expectedBucket": "People",
+    "source": "manual",
+    "tags": ["people"],
+    "_review_status": "approved"
+  },
+  {
+    "inputText": "met Jessica at the conference, she works at Google on search infrastructure",
+    "expectedBucket": "People",
+    "source": "manual",
+    "tags": ["people"],
+    "_review_status": "approved"
+  },
+  {
+    "inputText": "Tom mentioned he's moving to London next month for a new role at DeepMind",
+    "expectedBucket": "People",
+    "source": "manual",
+    "tags": ["people"],
+    "_review_status": "approved"
+  },
+  {
+    "inputText": "caught up with David, he recommended reading The Innovator's Dilemma",
+    "expectedBucket": "People",
+    "source": "manual",
+    "tags": ["people"],
+    "_review_status": "approved"
+  },
+  {
+    "inputText": "Lisa from the yoga class is a physical therapist, might be useful contact",
+    "expectedBucket": "People",
+    "source": "manual",
+    "tags": ["people"],
+    "_review_status": "approved"
+  },
+  {
+    "inputText": "working on the second brain app, need to add evaluation framework for classifier accuracy",
+    "expectedBucket": "Projects",
+    "source": "manual",
+    "tags": ["projects"],
+    "_review_status": "approved"
+  },
+  {
+    "inputText": "the home renovation project needs a new timeline, contractor said kitchen cabinets delayed",
+    "expectedBucket": "Projects",
+    "source": "manual",
+    "tags": ["projects"],
+    "_review_status": "approved"
+  },
+  {
+    "inputText": "started building a custom standing desk with adjustable height mechanism",
+    "expectedBucket": "Projects",
+    "source": "manual",
+    "tags": ["projects"],
+    "_review_status": "approved"
+  },
+  {
+    "inputText": "the garden project is coming along, tomatoes and peppers are sprouting",
+    "expectedBucket": "Projects",
+    "source": "manual",
+    "tags": ["projects"],
+    "_review_status": "approved"
+  },
+  {
+    "inputText": "need to finish the photo book project from last year's vacation before the deadline",
+    "expectedBucket": "Projects",
+    "source": "manual",
+    "tags": ["projects"],
+    "_review_status": "approved"
+  },
+  {
+    "inputText": "what if you could use ambient sound patterns to detect mood and adjust smart home lighting automatically",
+    "expectedBucket": "Ideas",
+    "source": "manual",
+    "tags": ["ideas"],
+    "_review_status": "approved"
+  },
+  {
+    "inputText": "idea for an app that matches people with similar reading lists for book club recommendations",
+    "expectedBucket": "Ideas",
+    "source": "manual",
+    "tags": ["ideas"],
+    "_review_status": "approved"
+  },
+  {
+    "inputText": "thinking about a service that converts podcast episodes into structured study notes with spaced repetition",
+    "expectedBucket": "Ideas",
+    "source": "manual",
+    "tags": ["ideas"],
+    "_review_status": "approved"
+  },
+  {
+    "inputText": "could build a tool that analyzes git commit patterns to predict developer burnout risk",
+    "expectedBucket": "Ideas",
+    "source": "manual",
+    "tags": ["ideas"],
+    "_review_status": "approved"
+  },
+  {
+    "inputText": "interesting concept: a personal CRM that automatically enriches contacts from email signatures and LinkedIn",
+    "expectedBucket": "Ideas",
+    "source": "manual",
+    "tags": ["ideas"],
+    "_review_status": "approved"
+  },
+  {
+    "inputText": "pick up prescription from CVS pharmacy",
+    "expectedBucket": "Admin",
+    "source": "manual",
+    "tags": ["errands"],
+    "_review_status": "approved"
+  },
+  {
+    "inputText": "James is interested in collaborating on the open source project, he has experience with Rust",
+    "expectedBucket": "People",
+    "source": "manual",
+    "tags": ["people"],
+    "_review_status": "approved"
+  }
+]

@@ -194,6 +194,28 @@ class GoldenDatasetDocument(BaseModel):
     updatedAt: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
+class EvalResultsDocument(BaseModel):
+    """Single eval run with aggregate scores and individual case results.
+
+    Partition key: /userId
+    """
+
+    id: str = Field(default_factory=lambda: str(uuid4()))
+    userId: str = "will"
+    evalType: str  # "classifier" or "admin_agent"
+    runTimestamp: datetime  # When the eval started
+    datasetSize: int  # How many test cases were evaluated
+    aggregateScores: (
+        dict  # e.g., {"accuracy": 0.92, "precision": {...}, "recall": {...}}
+    )
+    individualResults: list[
+        dict
+    ]  # e.g., [{"input": "...", "expected": "...", "actual": "...", "correct": True}]
+    modelDeployment: str  # "gpt-4o" or similar
+    notes: str | None = None  # Optional annotation
+    createdAt: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
 CONTAINER_MODELS: dict[str, type[BaseDocument]] = {
     "Inbox": InboxDocument,
     "People": PeopleDocument,

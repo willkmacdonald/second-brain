@@ -15,7 +15,7 @@ from collections.abc import AsyncGenerator, Mapping
 from uuid import uuid4
 
 from agent_framework import ChatOptions, Message
-from agent_framework.azure import DurableAIAgentClient
+from agent_framework.azure import AzureAIAgentClient
 from opentelemetry import trace
 
 from second_brain.spine.cosmos_request_id import trace_headers
@@ -152,7 +152,7 @@ async def _safety_net_file_as_misunderstood(
 
 
 async def stream_text_capture(
-    client: DurableAIAgentClient,
+    client: AzureAIAgentClient,
     user_text: str,
     tools: list,
     thread_id: str,
@@ -351,7 +351,7 @@ async def stream_text_capture(
 
 
 async def stream_voice_capture(
-    client: DurableAIAgentClient,
+    client: AzureAIAgentClient,
     blob_url: str,
     tools: list,
     thread_id: str,
@@ -555,7 +555,7 @@ async def stream_voice_capture(
 
 
 async def stream_follow_up_capture(
-    client: DurableAIAgentClient,
+    client: AzureAIAgentClient,
     follow_up_text: str,
     foundry_thread_id: str,
     original_inbox_item_id: str,

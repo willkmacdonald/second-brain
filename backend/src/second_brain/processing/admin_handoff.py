@@ -12,7 +12,7 @@ import logging
 import time
 
 from agent_framework import ChatOptions, Message
-from agent_framework.azure import DurableAIAgentClient
+from agent_framework.azure import AzureAIAgentClient
 from azure.cosmos.exceptions import CosmosResourceNotFoundError
 from opentelemetry import trace
 
@@ -138,7 +138,7 @@ async def _mark_inbox_failed(
 
 
 async def process_admin_capture(
-    admin_client: DurableAIAgentClient,
+    admin_client: AzureAIAgentClient,
     admin_tools: list,
     cosmos_manager: CosmosManager,
     inbox_item_id: str,
@@ -161,7 +161,7 @@ async def process_admin_capture(
     it never raises (all exceptions are caught and logged).
 
     Args:
-        admin_client: DurableAIAgentClient configured for the Admin Agent.
+        admin_client: AzureAIAgentClient configured for the Admin Agent.
         admin_tools: List of tool functions
             (e.g., [admin_tools.add_errand_items]).
         cosmos_manager: CosmosManager for inbox status updates.
@@ -415,7 +415,7 @@ async def process_admin_capture(
 
 
 async def process_admin_captures_batch(
-    admin_client: DurableAIAgentClient,
+    admin_client: AzureAIAgentClient,
     admin_tools: list,
     cosmos_manager: CosmosManager,
     admin_items: list[dict],
@@ -431,7 +431,7 @@ async def process_admin_captures_batch(
     it never raises (all exceptions are caught internally by process_admin_capture).
 
     Args:
-        admin_client: DurableAIAgentClient configured for the Admin Agent.
+        admin_client: AzureAIAgentClient configured for the Admin Agent.
         admin_tools: List of tool functions for the Admin Agent.
         cosmos_manager: CosmosManager for inbox status updates.
         admin_items: List of dicts with "inbox_item_id" and "raw_text" keys.

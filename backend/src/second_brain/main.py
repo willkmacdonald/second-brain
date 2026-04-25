@@ -30,7 +30,7 @@ from agent_framework.observability import enable_instrumentation  # noqa: E402
 # and gen_ai.operation.duration as OTel metrics for every get_response() call.
 enable_instrumentation()
 
-from agent_framework.azure import DurableAIAgentClient  # noqa: E402
+from agent_framework.azure import AzureAIAgentClient  # noqa: E402
 from azure.identity.aio import (  # noqa: E402
     DefaultAzureCredential as AsyncDefaultAzureCredential,
     get_bearer_token_provider,
@@ -47,6 +47,7 @@ from second_brain.agents.middleware import (  # noqa: E402
     ToolTimingMiddleware,
 )
 from second_brain.api.capture import router as capture_router  # noqa: E402
+from second_brain.api.eval import router as eval_router  # noqa: E402
 from second_brain.api.health import router as health_router  # noqa: E402
 from second_brain.api.inbox import router as inbox_router  # noqa: E402
 from second_brain.api.investigate import router as investigate_router  # noqa: E402
@@ -482,14 +483,14 @@ async def lifespan(app: FastAPI):
 
         # --- Foundry Agent Service (fail fast) ---
         try:
-            foundry_client = DurableAIAgentClient(
+            foundry_client = AzureAIAgentClient(
                 credential=credential,
                 project_endpoint=settings.azure_ai_project_endpoint,
                 # model_deployment_name needed for constructor validation
                 # when no agent_id is provided (Phase 7 sets agent_id)
                 model_deployment_name="gpt-4o",
             )
-            # DurableAIAgentClient is a lazy client -- construction alone does
+            # AzureAIAgentClient is a lazy client -- construction alone does
             # NOT make a network call, so wrong credentials would pass
             # silently. Force an auth round-trip to genuinely validate
             # connectivity + RBAC.
@@ -506,31 +507,6 @@ async def lifespan(app: FastAPI):
                 exc_info=True,
             )
             raise  # Fail fast -- backend is useless without Foundry
-
-        # --- Foundry Project Client (for evaluations) ---
-        try:
-            from azure.ai.projects import AIProjectClient
-            from azure.identity import (
-                DefaultAzureCredential as SyncDefaultAzureCredential,
-            )
-
-            sync_credential = SyncDefaultAzureCredential()
-            project_client = AIProjectClient(
-                endpoint=settings.azure_ai_project_endpoint,
-                credential=sync_credential,
-            )
-            app.state.project_client = project_client
-            logger.info(
-                "Foundry project client initialized: %s",
-                settings.azure_ai_project_endpoint,
-            )
-        except Exception:
-            logger.warning(
-                "Could not initialize Foundry project client "
-                "(eval features unavailable)",
-                exc_info=True,
-            )
-            app.state.project_client = None
 
         # --- Classifier Agent Registration (fail fast) ---
         classifier_agent_id = await ensure_classifier_agent(
@@ -582,10 +558,10 @@ async def lifespan(app: FastAPI):
             app.state.blob_manager = None
             app.state.transcription_tools = None
 
-        # --- Classifier DurableAIAgentClient (with middleware) ---
+        # --- Classifier AzureAIAgentClient (with middleware) ---
         # Separate client from the probe client -- this one has agent_id set
         # and should_cleanup_agent=False to persist the agent across restarts
-        classifier_client = DurableAIAgentClient(
+        classifier_client = AzureAIAgentClient(
             credential=credential,
             project_endpoint=settings.azure_ai_project_endpoint,
             agent_id=classifier_agent_id,
@@ -625,8 +601,8 @@ async def lifespan(app: FastAPI):
             admin_tools = AdminTools(cosmos_manager=cosmos_mgr)
             app.state.admin_tools = admin_tools
 
-            # --- Admin DurableAIAgentClient (separate from Classifier) ---
-            admin_client = DurableAIAgentClient(
+            # --- Admin AzureAIAgentClient (separate from Classifier) ---
+            admin_client = AzureAIAgentClient(
                 credential=credential,
                 project_endpoint=settings.azure_ai_project_endpoint,
                 agent_id=admin_agent_id,
@@ -720,11 +696,10 @@ async def lifespan(app: FastAPI):
                     cosmos_manager=app.state.cosmos_manager,
                     classifier_client=app.state.classifier_client,
                     admin_client=getattr(app.state, "admin_client", None),
-                    project_client=getattr(app.state, "project_client", None),
                 )
                 app.state.investigation_tools_instance = investigation_tools
 
-                investigation_client = DurableAIAgentClient(
+                investigation_client = AzureAIAgentClient(
                     credential=credential,
                     project_endpoint=settings.azure_ai_project_endpoint,
                     agent_id=investigation_agent_id,
@@ -801,8 +776,8 @@ async def lifespan(app: FastAPI):
 
             # Factory functions for self-healing: recreate agent clients on
             # consecutive warmup failures without manual Container App restart.
-            def _make_classifier_client() -> DurableAIAgentClient:
-                return DurableAIAgentClient(
+            def _make_classifier_client() -> AzureAIAgentClient:
+                return AzureAIAgentClient(
                     credential=credential,
                     project_endpoint=settings.azure_ai_project_endpoint,
                     agent_id=classifier_agent_id,
@@ -813,13 +788,13 @@ async def lifespan(app: FastAPI):
                     ],
                 )
 
-            warmup_factories: dict[str, Callable[[], DurableAIAgentClient]] = {
+            warmup_factories: dict[str, Callable[[], AzureAIAgentClient]] = {
                 "classifier": _make_classifier_client,
             }
             if app.state.admin_client is not None:
 
-                def _make_admin_client() -> DurableAIAgentClient:
-                    return DurableAIAgentClient(
+                def _make_admin_client() -> AzureAIAgentClient:
+                    return AzureAIAgentClient(
                         credential=credential,
                         project_endpoint=settings.azure_ai_project_endpoint,
                         agent_id=app.state.admin_agent_id,
@@ -833,8 +808,8 @@ async def lifespan(app: FastAPI):
                 warmup_factories["admin"] = _make_admin_client
             if getattr(app.state, "investigation_client", None) is not None:
 
-                def _make_investigation_client() -> DurableAIAgentClient:
-                    return DurableAIAgentClient(
+                def _make_investigation_client() -> AzureAIAgentClient:
+                    return AzureAIAgentClient(
                         credential=credential,
                         project_endpoint=settings.azure_ai_project_endpoint,
                         agent_id=app.state.investigation_agent_id,
@@ -847,7 +822,7 @@ async def lifespan(app: FastAPI):
 
                 warmup_factories["investigation"] = _make_investigation_client
 
-            def _on_recreate(name: str, new_client: DurableAIAgentClient) -> None:
+            def _on_recreate(name: str, new_client: AzureAIAgentClient) -> None:
                 """Update app.state with the recreated client."""
                 attr = f"{name}_client"
                 setattr(app.state, attr, new_client)
@@ -942,6 +917,7 @@ app.include_router(tasks_router)
 app.include_router(telemetry_router)
 app.include_router(investigate_router)
 app.include_router(feedback_router)
+app.include_router(eval_router)
 
 if __name__ == "__main__":
     import uvicorn
