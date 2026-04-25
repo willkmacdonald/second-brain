@@ -13,6 +13,8 @@ dependencies = [
     "azure-identity",
     "azure-keyvault-secrets",
     "azure-monitor-query>=2.0.0",
+    # Azure AI Foundry project SDK (evaluations, datasets)
+    "azure-ai-projects>=2.0.0",
     "azure-storage-blob",
     # Observability -- Application Insights via OTel distro
     "azure-monitor-opentelemetry>=1.8.6",

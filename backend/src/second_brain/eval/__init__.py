@@ -1,1 +1,1 @@
-# Eval framework for Classifier and Admin Agent quality measurement.
+# Foundry-native evaluation for Classifier and Admin Agent quality measurement.
