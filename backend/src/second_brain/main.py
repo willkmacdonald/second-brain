@@ -47,7 +47,6 @@ from second_brain.agents.middleware import (  # noqa: E402
     ToolTimingMiddleware,
 )
 from second_brain.api.capture import router as capture_router  # noqa: E402
-from second_brain.api.eval import router as eval_router  # noqa: E402
 from second_brain.api.health import router as health_router  # noqa: E402
 from second_brain.api.inbox import router as inbox_router  # noqa: E402
 from second_brain.api.investigate import router as investigate_router  # noqa: E402
@@ -917,7 +916,6 @@ app.include_router(tasks_router)
 app.include_router(telemetry_router)
 app.include_router(investigate_router)
 app.include_router(feedback_router)
-app.include_router(eval_router)
 
 if __name__ == "__main__":
     import uvicorn
