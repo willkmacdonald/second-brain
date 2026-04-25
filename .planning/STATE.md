@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Observability & Evals
-status: ready_to_plan
-stopped_at: Completed 21-05-PLAN.md (portal instructions + E2E verification)
-last_updated: "2026-04-24T03:56:56.021Z"
-last_activity: 2026-04-24
+status: executing
+stopped_at: Completed 21.1-01-PLAN.md (Foundry eval module + rewired investigation tools + deleted old eval code)
+last_updated: "2026-04-25T03:13:32.354Z"
+last_activity: 2026-04-25 -- Phase --phase execution started
 progress:
-  total_phases: 15
-  completed_phases: 15
-  total_plans: 48
+  total_phases: 16
+  completed_phases: 13
+  total_plans: 50
   completed_plans: 48
-  percent: 100
+  percent: 96
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-05)
 
 **Core value:** One-tap capture from a phone instantly routes through an agent that classifies, files, and clarifies -- with zero organizational effort.
-**Current focus:** Phase 21 — Eval Framework (COMPLETE)
+**Current focus:** Phase --phase — 21.1
 
 ## Current Position
 
-Phase: 22
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-04-24
+Phase: --phase (21.1) — EXECUTING
+Plan: 1 of --name
+Status: Executing Phase --phase
+Last activity: 2026-04-25 -- Phase --phase execution started
 
-Progress: [██████████] 100%
+Progress: [██████████] 96%
 
 ## Performance Metrics
 
@@ -181,6 +181,9 @@ v3.0 decisions archived to .planning/milestones/v3.0-ROADMAP.md
 - ChatOptions is a dict subclass in agent_framework -- bracket notation required for tool access in test mocks
 - Investigation eval tools import _eval_runs from api.eval module and call runner functions directly (no HTTP roundtrip)
 - [Phase 21]: Classifier accuracy tuning out of scope for eval framework phase -- framework measures quality, does not improve it
+- Phase 21.1-01: AIProjectClient uses sync DefaultAzureCredential wrapped in asyncio.to_thread() for Foundry eval SDK calls
+- Phase 21.1-01: Custom code-based evaluators (grade() functions) support dual-mode: direct target output_items and app-mediated tool_calls JSONL
+- Phase 21.1-01: Foundry project client init non-fatal (eval not on critical capture path)
 
 ### Pending Todos
 
@@ -210,8 +213,8 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-04-24T03:56:00Z
-Stopped at: Completed 21-05-PLAN.md (portal instructions + E2E verification) — Phase 21 complete
+Last session: 2026-04-25T03:13:32.346Z
+Stopped at: Completed 21.1-01-PLAN.md (Foundry eval module + rewired investigation tools + deleted old eval code)
 Resume action: Begin Phase 22 (Self-Monitoring Loop)
 
-**Planned Phase:** 21 (Eval Framework) — 5 plans — 2026-04-23T17:36:44.939Z
+**Planned Phase:** 21.1 (Migrate Eval to Foundry Native Platform) — 2 plans — 2026-04-25T02:01:36.643Z
