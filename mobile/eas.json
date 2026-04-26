@@ -13,7 +13,7 @@
       }
     },
     "preview": {
-      "autoIncrement": "version",
+      "autoIncrement": true,
       "distribution": "internal",
       "channel": "preview",
       "env": {

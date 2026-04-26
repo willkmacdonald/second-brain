@@ -1,0 +1,163 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Second Brain — Mobile Design Exploration</title>
+  <meta name="viewport" content="width=1440" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    html, body { margin: 0; padding: 0; background: #efece6; font-family: "Instrument Sans", -apple-system, system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+  </style>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" src="lib/design-canvas.jsx"></script>
+  <script type="text/babel" src="screens/tokens.jsx"></script>
+  <script type="text/babel" src="screens/icons.jsx"></script>
+  <script type="text/babel" src="screens/shell.jsx"></script>
+  <script type="text/babel" src="screens/capture.jsx"></script>
+  <script type="text/babel" src="screens/inbox.jsx"></script>
+  <script type="text/babel" src="screens/other.jsx"></script>
+  <script type="text/babel" src="screens/tasks-unified.jsx"></script>
+
+  <script type="text/babel">
+    const { useState } = React;
+
+    // ─── Design-system swatches, shown on the canvas ─────────────
+    function Palette() {
+      const sw = (c, n, sub) => (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ width: 64, height: 64, borderRadius: 12, background: c, border: '0.5px solid rgba(0,0,0,0.08)' }} />
+          <div style={{ fontSize: 11, color: '#222', fontFamily: 'ui-monospace, Menlo, monospace' }}>{n}</div>
+          <div style={{ fontSize: 10, color: '#888', fontFamily: 'ui-monospace, Menlo, monospace', marginTop: -4 }}>{sub}</div>
+        </div>
+      );
+      return (
+        <div style={{ width: 820, padding: 32, background: '#13131f', borderRadius: 20, color: '#eee' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 16, marginBottom: 20 }}>
+            <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: -0.4 }}>Second Brain · Design System</div>
+            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>Dark, calm, spartan — a tool, not a dopamine machine.</div>
+          </div>
+
+          <div style={{ fontSize: 10, letterSpacing: 1.4, color: 'rgba(255,255,255,0.4)', fontFamily:'ui-monospace', textTransform:'uppercase', marginBottom: 12 }}>Surfaces</div>
+          <div style={{ display: 'flex', gap: 16, marginBottom: 24 }}>
+            {sw(SB.bg,'Canvas','#0a0a12')}
+            {sw(SB.surface,'Surface','#13131f')}
+            {sw(SB.surfaceHi,'Elevated','#1b1b2a')}
+            {sw(SB.text,'Text','#f0f0f5')}
+            {sw(SB.accent,'Accent','#7a9eff')}
+            {sw(SB.recording,'Recording','#ff5b5b')}
+          </div>
+
+          <div style={{ fontSize: 10, letterSpacing: 1.4, color: 'rgba(255,255,255,0.4)', fontFamily:'ui-monospace', textTransform:'uppercase', marginBottom: 12 }}>Bucket palette</div>
+          <div style={{ display: 'flex', gap: 12, marginBottom: 24 }}>
+            {Object.entries(SB.buckets).map(([name, b]) => (
+              <div key={name} style={{ padding: 14, borderRadius: 14, background: b.bg, border: `0.5px solid ${b.dot}55`, width: 170 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <BucketIconLine bucket={name} size={16} color={b.fg} />
+                  <span style={{ color: b.fg, fontSize: 13, fontWeight: 600, letterSpacing: -0.2 }}>{name}</span>
+                </div>
+                <div style={{ marginTop: 8, fontSize: 10, color: 'rgba(255,255,255,0.4)', fontFamily:'ui-monospace' }}>fg {b.fg}</div>
+                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', fontFamily:'ui-monospace' }}>dot {b.dot}</div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ fontSize: 10, letterSpacing: 1.4, color: 'rgba(255,255,255,0.4)', fontFamily:'ui-monospace', textTransform:'uppercase', marginBottom: 12 }}>Three type directions</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+            {[
+              { key: 'V1 · System', fam: TYPE.system, tag: 'iOS-native, familiar' },
+              { key: 'V2 · Mono-accent', fam: TYPE.mono, tag: 'Technical, agent-forward' },
+              { key: 'V3 · Serif', fam: TYPE.serif, tag: 'Editorial, literary' },
+            ].map(v => (
+              <div key={v.key} style={{ background: '#0a0a12', borderRadius: 12, padding: 16 }}>
+                <div style={{ fontSize: 10, letterSpacing: 1.2, color: 'rgba(255,255,255,0.35)', textTransform:'uppercase', fontFamily: v.fam.label }}>{v.key}</div>
+                <div style={{ marginTop: 8, fontFamily: v.fam.display, fontSize: 28, letterSpacing: -0.6, fontWeight: 600, fontStyle: v.fam.display.includes('serif')?'italic':'normal' }}>What's on your mind?</div>
+                <div style={{ marginTop: 6, fontFamily: v.fam.body, fontSize: 13, color: 'rgba(255,255,255,0.6)', lineHeight: 1.45 }}>Talk to Don about the medtech research engine.</div>
+                <div style={{ marginTop: 8, fontFamily: v.fam.mono, fontSize: 10.5, color: '#7a9eff', letterSpacing: 0.3 }}>projects · 85%</div>
+                <div style={{ marginTop: 14, fontSize: 10, color: 'rgba(255,255,255,0.35)', fontStyle: 'italic' }}>{v.tag}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // ─── Intro card on the canvas ─────────────────────────────
+    function Intro() {
+      return (
+        <div style={{ width: 520, padding: 32, background: '#fff', borderRadius: 20, border: '0.5px solid rgba(0,0,0,0.06)', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+          <div style={{ fontSize: 11, letterSpacing: 1.6, textTransform: 'uppercase', color: '#999', fontFamily: 'ui-monospace, Menlo, monospace' }}>Hi-fi exploration · v1</div>
+          <h1 style={{ margin: '10px 0 12px', fontSize: 34, letterSpacing: -0.8, fontWeight: 600 }}>Second Brain</h1>
+          <p style={{ margin: 0, fontSize: 15, lineHeight: 1.5, color: '#333' }}>
+            An exocortex for the mobile moment: capture in one tap, let agents classify into four buckets (People, Projects, Ideas, Admin), resurface as a morning briefing.
+          </p>
+          <p style={{ margin: '12px 0 0', fontSize: 13, lineHeight: 1.5, color: '#666' }}>
+            Built on a dark, calm system — everything is a single tool designed for trust and speed. Each section below explores a key screen across multiple directions. Drag artboards to reorder; double-click a title to rename; tap any artboard to focus.
+          </p>
+          <div style={{ marginTop: 20, display: 'flex', gap: 16, fontSize: 11, fontFamily: 'ui-monospace, Menlo, monospace', color: '#888' }}>
+            <span>📱 iPhone 16 · 320 × 660</span>
+            <span>🎨 3 type directions</span>
+            <span>🪣 4 buckets</span>
+          </div>
+        </div>
+      );
+    }
+
+    // ─── App ─────────────────────────────────────────────────
+    function App() {
+      return (
+        <DesignCanvas>
+          <DCSection id="intro" title="Second Brain" subtitle="Mobile · Agent-driven capture · Four buckets">
+            <DCArtboard id="intro-card" label="Project brief" width={520} height={380}>
+              <Intro />
+            </DCArtboard>
+            <DCArtboard id="system" label="Design system" width={820} height={620}>
+              <Palette />
+            </DCArtboard>
+          </DCSection>
+
+          <DCSection id="capture" title="Capture — the hero moment" subtitle="One tap. One thought. Three frames of the flow: idle → listening → filed.">
+            <DCArtboard id="cap-d" label="1 · Idle" width={320} height={660}><CaptureA_Idle typefaces={TYPE.serif}/></DCArtboard>
+            <DCArtboard id="cap-b" label="2 · Listening · Live transcript" width={320} height={660}><CaptureB_Listening typefaces={TYPE.serif}/></DCArtboard>
+            <DCArtboard id="cap-c" label="3 · Filed · Post-capture" width={320} height={660}><CaptureD_Confirm typefaces={TYPE.serif}/></DCArtboard>
+          </DCSection>
+
+          <DCSection id="hitl" title="Agent clarification (HITL)" subtitle="When confidence is low, the agent asks — not with a modal, but inline.">
+            <DCArtboard id="hitl-a" label="A · Inline clarification" width={320} height={660}><HITL_Clarify typefaces={TYPE.serif}/></DCArtboard>
+          </DCSection>
+
+          <DCSection id="inbox" title="Inbox — classified captures" subtitle="Three ways to show the day's thoughts: a clean list, a timeline, a detail modal.">
+            <DCArtboard id="inbox-a" label="A · Clean list" width={320} height={660}><InboxA_List typefaces={TYPE.serif}/></DCArtboard>
+            <DCArtboard id="inbox-c" label="B · Detail · Recategorize" width={320} height={660}><InboxC_Detail typefaces={TYPE.serif}/></DCArtboard>
+          </DCSection>
+
+          <DCSection id="digest" title="Daily digest — the reason this exists" subtitle="Captures mean nothing if they don't resurface. A morning briefing: what matters, what's stuck, what's won.">
+            <DCArtboard id="digest-a" label="A · Morning briefing" width={320} height={660}><DigestA_Briefing typefaces={TYPE.serif}/></DCArtboard>
+          </DCSection>
+
+          <DCSection id="tasks" title="Tasks — one screen, three views" subtitle="Unified: segmented toggle switches the same task pool between Where (by destination), Today (priority-ordered), and Proposals (agent suggestions). Each artboard shows a different starting view.">
+            <DCArtboard id="tasks-where" label="Where · by destination" width={320} height={660}><TasksUnified typefaces={TYPE.serif} defaultView="destination"/></DCArtboard>
+            <DCArtboard id="tasks-today" label="Today · priority-ordered" width={320} height={660}><TasksUnified typefaces={TYPE.serif} defaultView="today"/></DCArtboard>
+            <DCArtboard id="tasks-proposals" label="Proposals · agent" width={320} height={660}><TasksUnified typefaces={TYPE.serif} defaultView="proposals"/></DCArtboard>
+          </DCSection>
+
+          <DCSection id="meta" title="Trust surface — status & settings" subtitle="An agent system you have to trust. These surfaces make it legible.">
+            <DCArtboard id="status-a" label="Status · Agent health" width={320} height={660}><StatusA typefaces={TYPE.serif}/></DCArtboard>
+            <DCArtboard id="settings-a" label="Settings" width={320} height={660}><SettingsA typefaces={TYPE.serif}/></DCArtboard>
+          </DCSection>
+        </DesignCanvas>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+  </script>
+</body>
+</html>

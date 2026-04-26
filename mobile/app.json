@@ -71,7 +71,8 @@
           "project": "react-native"
         }
       ],
-      "@sentry/react-native"
+      "@sentry/react-native",
+      "expo-font"
     ],
     "web": {
       "bundler": "metro"
