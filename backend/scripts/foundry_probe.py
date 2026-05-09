@@ -99,8 +99,8 @@ def _build_client() -> FoundryChatClient:
         )
     model = os.environ.get("FOUNDRY_MODEL", "gpt-4o")
     return FoundryChatClient(
-        endpoint=endpoint,
-        model_deployment_name=model,
+        project_endpoint=endpoint,
+        model=model,
         credential=AzureCliCredential(),
     )
 
@@ -264,7 +264,7 @@ async def streaming_shape() -> Path:
     session = AgentSession()
     # GA SDK: agent.run(stream=True) returns a ResponseStream (async iterable)
     async for update in agent.run(
-        messages=[{"role": "user", "content": "Please echo back: probe one"}],
+        messages="Please echo back: probe one",
         session=session,
         stream=True,
     ):
@@ -319,7 +319,7 @@ async def tool_call_extraction() -> Path:
 
     session = AgentSession()
     response: AgentResponse = await agent.run(
-        messages=[{"role": "user", "content": "Please echo back: probe two"}],
+        messages="Please echo back: probe two",
         session=session,
     )
 
@@ -396,7 +396,7 @@ async def tool_choice_required() -> Path:
     try:
         s1 = AgentSession()
         r1 = await agent.run(
-            messages=[{"role": "user", "content": baseline_input}],
+            messages=baseline_input,
             session=s1,
             options=ChatOptions(tool_choice="auto"),
         )
@@ -417,7 +417,7 @@ async def tool_choice_required() -> Path:
     try:
         s2 = AgentSession()
         r2 = await agent.run(
-            messages=[{"role": "user", "content": baseline_input}],
+            messages=baseline_input,
             session=s2,
             options=ChatOptions(tool_choice="required"),
         )
@@ -438,7 +438,7 @@ async def tool_choice_required() -> Path:
     try:
         s3 = AgentSession()
         r3 = await agent.run(
-            messages=[{"role": "user", "content": baseline_input}],
+            messages=baseline_input,
             session=s3,
             options=ChatOptions(
                 tool_choice={"type": "function", "function": {"name": "echo_back"}}
@@ -489,12 +489,7 @@ async def session_rehydration() -> Path:
     session = AgentSession()
     turn_one_updates: list[str] = []
     async for upd in agent.run(
-        messages=[
-            {
-                "role": "user",
-                "content": "Remember the magic word PINEAPPLE for later.",
-            }
-        ],
+        messages="Remember the magic word PINEAPPLE for later.",
         session=session,
         stream=True,
     ):
@@ -513,12 +508,7 @@ async def session_rehydration() -> Path:
     # Turn 2 — round-trip the SAME session object
     turn_two_updates: list[str] = []
     async for upd in agent.run(
-        messages=[
-            {
-                "role": "user",
-                "content": "What was the magic word I told you to remember?",
-            }
-        ],
+        messages="What was the magic word I told you to remember?",
         session=session,
         stream=True,
     ):
@@ -628,8 +618,8 @@ async def auth_probe() -> Path:
             "AZURE_AI_PROJECT_ENDPOINT", ""
         )
         client = FoundryChatClient(
-            endpoint=inv_endpoint,
-            model_deployment_name=os.environ.get("FOUNDRY_MODEL", "gpt-4o"),
+            project_endpoint=inv_endpoint,
+            model=os.environ.get("FOUNDRY_MODEL", "gpt-4o"),
             credential=cred,
         )
         agent = Agent(
@@ -639,7 +629,7 @@ async def auth_probe() -> Path:
         )
         s = AgentSession()
         response = await agent.run(
-            messages=[{"role": "user", "content": "Say hello."}],
+            messages="Say hello.",
             session=s,
         )
         invocation_outcome = {
