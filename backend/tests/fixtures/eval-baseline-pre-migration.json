@@ -1,0 +1,64 @@
+{
+  "captured_at": "2026-05-09T18:42:52Z",
+  "deployed_against": "brain.willmacdonald.com (RC, agent-framework-azure-ai==1.0.0rc2)",
+  "model_deployment": "gpt-4o",
+  "framework_version": "agent-framework-azure-ai==1.0.0rc2",
+  "admin_routing_context_seed": "Costco: olive oil; Amazon: diapers",
+  "golden_dataset_note": "Classifier: 26 cases seeded (all prior runs show 26). Admin: 0 cases seeded (no expectedDestination in GoldenDataset). Plan EVAL-01 aspirational target was 50 classifier cases but actual seeded dataset has 26. Admin baseline requires seeding admin test cases before Phase 24 can use the ±2pp gate.",
+  "classifier": {
+    "runId": "9383e038-017c-4277-9e1d-4b5fe74c9b36",
+    "status": "completed",
+    "result_id": "1862031b-ab22-4a5e-88ec-a627ab021ad9",
+    "accuracy": 0.9615384615384616,
+    "total": 26,
+    "correct": 25,
+    "evalType": "classifier",
+    "aggregateScores": {
+      "accuracy": 0.9615384615384616,
+      "total": 26,
+      "correct": 25,
+      "precision": {
+        "Admin": 1,
+        "Ideas": 1,
+        "People": 0.8571428571428571,
+        "Projects": 1
+      },
+      "recall": {
+        "Admin": 0.9,
+        "Ideas": 1,
+        "People": 1,
+        "Projects": 1
+      },
+      "calibration": [
+        {
+          "bin": "0.6-0.8",
+          "count": 1,
+          "avg_confidence": 0.7,
+          "actual_accuracy": 1
+        },
+        {
+          "bin": "0.8-1.0",
+          "count": 25,
+          "avg_confidence": 0.882,
+          "actual_accuracy": 0.96
+        }
+      ]
+    }
+  },
+  "admin": {
+    "runId": "b876a461-8a45-48f5-b2b5-e94c7c91f105",
+    "status": "failed",
+    "error": "No admin test cases found in golden dataset",
+    "evalType": "admin_agent",
+    "routing_accuracy": null,
+    "total": 0,
+    "correct": 0,
+    "aggregateScores": {
+      "routing_accuracy": 0.0,
+      "total": 0,
+      "correct": 0,
+      "per_destination": {}
+    },
+    "note": "GoldenDataset contains zero cases with expectedDestination. Admin eval baseline requires seeding admin test cases first. The runner correctly reports empty dataset (eval/runner.py:261-267). Phase 24 admin eval gate (task group 23.2) must seed admin golden dataset cases before the ±2pp gate can produce a meaningful signal."
+  }
+}
