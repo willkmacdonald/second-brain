@@ -1,0 +1,13 @@
+{
+  "stage_a": {
+    "endpoint": "POST /api/capture",
+    "body": {
+      "text": "Save this recipe for chocolate chip cookies: https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/"
+    }
+  },
+  "stage_b": {
+    "endpoint": "GET /api/errands",
+    "note": "Triggers admin agent processing for the item filed in stage A"
+  },
+  "trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+}

@@ -1,0 +1,13 @@
+{
+  "stage_a": {
+    "endpoint": "POST /api/capture",
+    "body": {
+      "text": "Add a new destination called Home Depot tagged with hardware"
+    }
+  },
+  "stage_b": {
+    "endpoint": "GET /api/errands",
+    "note": "Triggers admin agent processing for the item filed in stage A"
+  },
+  "trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e"
+}

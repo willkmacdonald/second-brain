@@ -1,0 +1,13 @@
+{
+  "stage_a": {
+    "endpoint": "POST /api/capture",
+    "body": {
+      "text": "Pick up apples and bread from the grocery store on the way home"
+    }
+  },
+  "stage_b": {
+    "endpoint": "GET /api/errands",
+    "note": "Triggers admin agent processing for the item filed in stage A"
+  },
+  "trace_id": "2a0819ba-2d2b-47f3-a47f-9c4f19146244"
+}

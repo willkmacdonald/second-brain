@@ -1,0 +1,1874 @@
+[
+  {
+    "TimeGenerated": "2026-05-09 17:46:01.903815+00:00",
+    "ItemType": "Request",
+    "Name": "POST /api/capture",
+    "ResultCode": "200",
+    "DurationMs": 6143,
+    "OperationId": "6a2ca1aeb56e1d2dd22f01fd651f3e09",
+    "ParentId": "6a2ca1aeb56e1d2dd22f01fd651f3e09",
+    "Id": "8cee5448a7267d96",
+    "Properties": {
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "dcad2121-e026-4326-ac3b-bcd449cd88fa",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:01.904962+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/capture http receive",
+    "ResultCode": "0",
+    "DurationMs": 6142,
+    "OperationId": "6a2ca1aeb56e1d2dd22f01fd651f3e09",
+    "ParentId": "8cee5448a7267d96",
+    "Id": "c3f1e75b45ed4424",
+    "Properties": {
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "dcad2121-e026-4326-ac3b-bcd449cd88fa",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:01.905058+00:00",
+    "ItemType": "Dependency",
+    "Name": "capture_text",
+    "ResultCode": "0",
+    "DurationMs": 6090,
+    "OperationId": "6a2ca1aeb56e1d2dd22f01fd651f3e09",
+    "ParentId": "8cee5448a7267d96",
+    "Id": "9e425498272aef64",
+    "Properties": {
+      "_MS.ResourceAttributeId": "dcad2121-e026-4326-ac3b-bcd449cd88fa",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "capture.type": "text",
+      "capture.thread_id": "thread-a0598e98-ab22-448f-9627-5395d4567442",
+      "capture.run_id": "run-f1ecb58f-8bd6-44e7-8324-9da651b4aeb5",
+      "capture.outcome": "classified",
+      "capture.split_count": "1",
+      "capture.buckets": "Admin",
+      "capture.bucket": "Admin",
+      "capture.confidence": "0.9"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:01.967278+00:00",
+    "ItemType": "Dependency",
+    "Name": "chat unknown",
+    "ResultCode": "0",
+    "DurationMs": 3182,
+    "OperationId": "6a2ca1aeb56e1d2dd22f01fd651f3e09",
+    "ParentId": "9e425498272aef64",
+    "Id": "1d40037df3973a0d",
+    "Properties": {
+      "_MS.ResourceAttributeId": "dcad2121-e026-4326-ac3b-bcd449cd88fa",
+      "gen_ai.input.messages": "[REDACTED]",
+      "gen_ai.request.choice.count": "1",
+      "gen_ai.operation.name": "chat",
+      "gen_ai.provider.name": "azure.ai",
+      "gen_ai.request.model": "unknown",
+      "gen_ai.response.id": "run_s8O7qzxIwSSwxiqb1I9rKrJu",
+      "gen_ai.response.model": "gpt-4o",
+      "gen_ai.output.messages": "[REDACTED]",
+      "_MS.GenAIContentId": "[REDACTED]",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:01.967605+00:00",
+    "ItemType": "Dependency",
+    "Name": "create_thread",
+    "ResultCode": "0",
+    "DurationMs": 621,
+    "OperationId": "6a2ca1aeb56e1d2dd22f01fd651f3e09",
+    "ParentId": "9e425498272aef64",
+    "Id": "f27470ad3d8ed39c",
+    "Properties": {
+      "_MS.ResourceAttributeId": "a13763c9-4af8-4aee-a45a-c580859db807",
+      "gen_ai.operation.name": "create_thread",
+      "az.namespace": "Microsoft.CognitiveServices",
+      "gen_ai.system": "az.ai.agents",
+      "gen_ai.thread.id": "thread_JMj3ThFZssoYpmUMM1Ofu7sa",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:01.968767+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/projects/second-brain/threads",
+    "ResultCode": "200",
+    "DurationMs": 619,
+    "OperationId": "6a2ca1aeb56e1d2dd22f01fd651f3e09",
+    "ParentId": "f27470ad3d8ed39c",
+    "Id": "519ca6672655c267",
+    "Properties": {
+      "_MS.ResourceAttributeId": "a13763c9-4af8-4aee-a45a-c580859db807",
+      "az.client_request_id": "f1f18746-4bce-11f1-87ad-6e77c0e7f82e",
+      "component": "http",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:02.588665+00:00",
+    "ItemType": "Dependency",
+    "Name": "process_thread_run",
+    "ResultCode": "0",
+    "DurationMs": 2561,
+    "OperationId": "6a2ca1aeb56e1d2dd22f01fd651f3e09",
+    "ParentId": "9e425498272aef64",
+    "Id": "f7ba0a775f7d2ee3",
+    "Properties": {
+      "_MS.ResourceAttributeId": "dcad2121-e026-4326-ac3b-bcd449cd88fa",
+      "gen_ai.operation.name": "process_thread_run",
+      "gen_ai.response.model": "gpt-4o",
+      "az.namespace": "Microsoft.CognitiveServices",
+      "gen_ai.system": "az.ai.agents",
+      "gen_ai.agent.id": "asst_Fnjkq5RVrvdFIOSqbreAwxuq",
+      "gen_ai.thread.run.status": "requires_action",
+      "gen_ai.thread.run.id": "run_s8O7qzxIwSSwxiqb1I9rKrJu",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:02.589250+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/projects/second-brain/threads/thread_JMj3ThFZssoYpmUMM1Ofu7sa/runs",
+    "ResultCode": "200",
+    "DurationMs": 633,
+    "OperationId": "6a2ca1aeb56e1d2dd22f01fd651f3e09",
+    "ParentId": "f7ba0a775f7d2ee3",
+    "Id": "f5965a6f94d3b78d",
+    "Properties": {
+      "_MS.ResourceAttributeId": "a13763c9-4af8-4aee-a45a-c580859db807",
+      "az.client_request_id": "f2504b28-4bce-11f1-87ad-6e77c0e7f82e",
+      "component": "http",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:05.149944+00:00",
+    "ItemType": "Dependency",
+    "Name": "tool_file_capture",
+    "ResultCode": "0",
+    "DurationMs": 58,
+    "OperationId": "6a2ca1aeb56e1d2dd22f01fd651f3e09",
+    "ParentId": "9e425498272aef64",
+    "Id": "89168b1e9aac6262",
+    "Properties": {
+      "_MS.ResourceAttributeId": "dcad2121-e026-4326-ac3b-bcd449cd88fa",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "tool.name": "file_capture",
+      "tool.duration_ms": "58.39143198681995"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:05.150113+00:00",
+    "ItemType": "Dependency",
+    "Name": "execute_tool file_capture",
+    "ResultCode": "0",
+    "DurationMs": 58,
+    "OperationId": "6a2ca1aeb56e1d2dd22f01fd651f3e09",
+    "ParentId": "89168b1e9aac6262",
+    "Id": "1d7481f427c6bb67",
+    "Properties": {
+      "_MS.ResourceAttributeId": "dcad2121-e026-4326-ac3b-bcd449cd88fa",
+      "_MS.GenAIContentId": "[REDACTED]",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "gen_ai.tool.call.result": "{\"bucket\": \"Admin\", \"confidence\": 0.9, \"item_id\": \"79bfb8f2-ea34-4a1a-817c-027527cc8560\"}",
+      "agent_framework.function.invocation.duration": "0.05810443399241194"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:05.150324+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.create_item",
+    "ResultCode": "0",
+    "DurationMs": 30,
+    "OperationId": "6a2ca1aeb56e1d2dd22f01fd651f3e09",
+    "ParentId": "1d7481f427c6bb67",
+    "Id": "12bba14b65781c13",
+    "Properties": {
+      "_MS.ResourceAttributeId": "dcad2121-e026-4326-ac3b-bcd449cd88fa",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:05.150834+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/Inbox/docs/",
+    "ResultCode": "201",
+    "DurationMs": 29,
+    "OperationId": "6a2ca1aeb56e1d2dd22f01fd651f3e09",
+    "ParentId": "12bba14b65781c13",
+    "Id": "bff02609490db0b2",
+    "Properties": {
+      "_MS.ResourceAttributeId": "dcad2121-e026-4326-ac3b-bcd449cd88fa",
+      "component": "http",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:05.180236+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.create_item",
+    "ResultCode": "0",
+    "DurationMs": 28,
+    "OperationId": "6a2ca1aeb56e1d2dd22f01fd651f3e09",
+    "ParentId": "1d7481f427c6bb67",
+    "Id": "0fb8e985f729a563",
+    "Properties": {
+      "_MS.ResourceAttributeId": "dcad2121-e026-4326-ac3b-bcd449cd88fa",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:05.180726+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/Admin/docs/",
+    "ResultCode": "201",
+    "DurationMs": 27,
+    "OperationId": "6a2ca1aeb56e1d2dd22f01fd651f3e09",
+    "ParentId": "0fb8e985f729a563",
+    "Id": "a1ed346efc629d0b",
+    "Properties": {
+      "_MS.ResourceAttributeId": "dcad2121-e026-4326-ac3b-bcd449cd88fa",
+      "component": "http",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:05.208117+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "6a2ca1aeb56e1d2dd22f01fd651f3e09",
+    "ParentId": "1d7481f427c6bb67",
+    "Id": "",
+    "Properties": {
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/tools/classification.py",
+      "code.function.name": "_write_to_cosmos",
+      "code.line.number": "249",
+      "capture_trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "component": "classifier"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:05.208908+00:00",
+    "ItemType": "Dependency",
+    "Name": "chat unknown",
+    "ResultCode": "0",
+    "DurationMs": 2785,
+    "OperationId": "6a2ca1aeb56e1d2dd22f01fd651f3e09",
+    "ParentId": "9e425498272aef64",
+    "Id": "46bf482231b42c4d",
+    "Properties": {
+      "_MS.ResourceAttributeId": "dcad2121-e026-4326-ac3b-bcd449cd88fa",
+      "gen_ai.input.messages": "[REDACTED]",
+      "gen_ai.request.choice.count": "1",
+      "gen_ai.operation.name": "chat",
+      "gen_ai.provider.name": "azure.ai",
+      "gen_ai.request.model": "unknown",
+      "gen_ai.response.id": "run_s8O7qzxIwSSwxiqb1I9rKrJu",
+      "gen_ai.response.model": "gpt-4o",
+      "gen_ai.usage.input_tokens": "5442",
+      "gen_ai.usage.output_tokens": "46",
+      "gen_ai.output.messages": "[REDACTED]",
+      "_MS.GenAIContentId": "[REDACTED]",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:05.209161+00:00",
+    "ItemType": "Dependency",
+    "Name": "RunsOperations.list",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "6a2ca1aeb56e1d2dd22f01fd651f3e09",
+    "ParentId": "9e425498272aef64",
+    "Id": "cea5ccfa774b7904",
+    "Properties": {
+      "_MS.ResourceAttributeId": "dcad2121-e026-4326-ac3b-bcd449cd88fa",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:05.209658+00:00",
+    "ItemType": "Dependency",
+    "Name": "GET /api/projects/second-brain/threads/thread_JMj3ThFZssoYpmUMM1Ofu7sa/runs",
+    "ResultCode": "200",
+    "DurationMs": 228,
+    "OperationId": "6a2ca1aeb56e1d2dd22f01fd651f3e09",
+    "ParentId": "9e425498272aef64",
+    "Id": "0411329a4edfc30c",
+    "Properties": {
+      "_MS.ResourceAttributeId": "dcad2121-e026-4326-ac3b-bcd449cd88fa",
+      "az.client_request_id": "f3e02328-4bce-11f1-87ad-6e77c0e7f82e",
+      "component": "http",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:05.439155+00:00",
+    "ItemType": "Dependency",
+    "Name": "submit_tool_outputs",
+    "ResultCode": "0",
+    "DurationMs": 329,
+    "OperationId": "6a2ca1aeb56e1d2dd22f01fd651f3e09",
+    "ParentId": "9e425498272aef64",
+    "Id": "15ca4299d921852e",
+    "Properties": {
+      "_MS.ResourceAttributeId": "dcad2121-e026-4326-ac3b-bcd449cd88fa",
+      "gen_ai.operation.name": "submit_tool_outputs",
+      "az.namespace": "Microsoft.CognitiveServices",
+      "gen_ai.system": "az.ai.agents",
+      "gen_ai.thread.id": "thread_JMj3ThFZssoYpmUMM1Ofu7sa",
+      "gen_ai.thread.run.id": "run_s8O7qzxIwSSwxiqb1I9rKrJu",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:07.564283+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "6a2ca1aeb56e1d2dd22f01fd651f3e09",
+    "ParentId": "9e425498272aef64",
+    "Id": "",
+    "Properties": {
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/streaming/adapter.py",
+      "code.function.name": "stream_text_capture",
+      "code.line.number": "214",
+      "capture_trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "component": "classifier",
+      "reasoning_text": "Filed",
+      "agent_run_id": "run-f1ecb58f-8bd6-44e7-8324-9da651b4aeb5",
+      "chunk_index": "0"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:07.570116+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "6a2ca1aeb56e1d2dd22f01fd651f3e09",
+    "ParentId": "9e425498272aef64",
+    "Id": "",
+    "Properties": {
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/streaming/adapter.py",
+      "code.function.name": "stream_text_capture",
+      "code.line.number": "214",
+      "capture_trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "component": "classifier",
+      "reasoning_text": " to",
+      "agent_run_id": "run-f1ecb58f-8bd6-44e7-8324-9da651b4aeb5",
+      "chunk_index": "1"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:07.578784+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "6a2ca1aeb56e1d2dd22f01fd651f3e09",
+    "ParentId": "9e425498272aef64",
+    "Id": "",
+    "Properties": {
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/streaming/adapter.py",
+      "code.function.name": "stream_text_capture",
+      "code.line.number": "214",
+      "capture_trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "component": "classifier",
+      "reasoning_text": " Admin",
+      "agent_run_id": "run-f1ecb58f-8bd6-44e7-8324-9da651b4aeb5",
+      "chunk_index": "2"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:07.583928+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "6a2ca1aeb56e1d2dd22f01fd651f3e09",
+    "ParentId": "9e425498272aef64",
+    "Id": "",
+    "Properties": {
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/streaming/adapter.py",
+      "code.function.name": "stream_text_capture",
+      "code.line.number": "214",
+      "capture_trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "component": "classifier",
+      "reasoning_text": " (",
+      "agent_run_id": "run-f1ecb58f-8bd6-44e7-8324-9da651b4aeb5",
+      "chunk_index": "3"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:07.595807+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "6a2ca1aeb56e1d2dd22f01fd651f3e09",
+    "ParentId": "9e425498272aef64",
+    "Id": "",
+    "Properties": {
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/streaming/adapter.py",
+      "code.function.name": "stream_text_capture",
+      "code.line.number": "214",
+      "capture_trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "component": "classifier",
+      "reasoning_text": "0",
+      "agent_run_id": "run-f1ecb58f-8bd6-44e7-8324-9da651b4aeb5",
+      "chunk_index": "4"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:07.602703+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "6a2ca1aeb56e1d2dd22f01fd651f3e09",
+    "ParentId": "9e425498272aef64",
+    "Id": "",
+    "Properties": {
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/streaming/adapter.py",
+      "code.function.name": "stream_text_capture",
+      "code.line.number": "214",
+      "capture_trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "component": "classifier",
+      "reasoning_text": ".",
+      "agent_run_id": "run-f1ecb58f-8bd6-44e7-8324-9da651b4aeb5",
+      "chunk_index": "5"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:07.608410+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "6a2ca1aeb56e1d2dd22f01fd651f3e09",
+    "ParentId": "9e425498272aef64",
+    "Id": "",
+    "Properties": {
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/streaming/adapter.py",
+      "code.function.name": "stream_text_capture",
+      "code.line.number": "214",
+      "capture_trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "component": "classifier",
+      "reasoning_text": "9",
+      "agent_run_id": "run-f1ecb58f-8bd6-44e7-8324-9da651b4aeb5",
+      "chunk_index": "6"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:07.614931+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "6a2ca1aeb56e1d2dd22f01fd651f3e09",
+    "ParentId": "9e425498272aef64",
+    "Id": "",
+    "Properties": {
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/streaming/adapter.py",
+      "code.function.name": "stream_text_capture",
+      "code.line.number": "214",
+      "capture_trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "component": "classifier",
+      "reasoning_text": ").",
+      "agent_run_id": "run-f1ecb58f-8bd6-44e7-8324-9da651b4aeb5",
+      "chunk_index": "7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:07.994888+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.create_item",
+    "ResultCode": "0",
+    "DurationMs": 30,
+    "OperationId": "6a2ca1aeb56e1d2dd22f01fd651f3e09",
+    "ParentId": "8cee5448a7267d96",
+    "Id": "0334f879fc417ce5",
+    "Properties": {
+      "_MS.ResourceAttributeId": "dcad2121-e026-4326-ac3b-bcd449cd88fa",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:11.563300+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "e8783f41afb60cecd6c6571d4c01f580",
+    "ParentId": "642315a4541c39b3",
+    "Id": "",
+    "Properties": {
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/processing/admin_handoff.py",
+      "code.function.name": "process_admin_capture",
+      "code.line.number": "257",
+      "capture_trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "component": "admin_agent"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:55.397303+00:00",
+    "ItemType": "Dependency",
+    "Name": "admin_agent_process",
+    "ResultCode": "0",
+    "DurationMs": 3509,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "4df0119f0780cacc",
+    "Id": "f5a1536f47c8fc6b",
+    "Properties": {
+      "_MS.ResourceAttributeId": "2fabd8c8-7e55-469c-98c9-6656b0c28b9b",
+      "admin.inbox_item_id": "79bfb8f2-ea34-4a1a-817c-027527cc8560",
+      "admin.raw_text_length": "60",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "admin.tool_invoked": "False",
+      "admin.output_tool_invoked": "False",
+      "admin.outcome": "no_tool_call"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:55.397468+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.read_item",
+    "ResultCode": "0",
+    "DurationMs": 25,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "f5a1536f47c8fc6b",
+    "Id": "8070664db72ee458",
+    "Properties": {
+      "_MS.ResourceAttributeId": "58b85449-a769-4c75-9159-4b458c593507",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:55.398143+00:00",
+    "ItemType": "Dependency",
+    "Name": "GET /dbs/second-brain/colls/Inbox/docs/79bfb8f2-ea34-4a1a-817c-027527cc8560/",
+    "ResultCode": "200",
+    "DurationMs": 24,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "8070664db72ee458",
+    "Id": "46efc2b96894f5c2",
+    "Properties": {
+      "_MS.ResourceAttributeId": "58b85449-a769-4c75-9159-4b458c593507",
+      "component": "http",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:55.422668+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.upsert_item",
+    "ResultCode": "0",
+    "DurationMs": 27,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "f5a1536f47c8fc6b",
+    "Id": "110d4603668b4d5a",
+    "Properties": {
+      "_MS.ResourceAttributeId": "58b85449-a769-4c75-9159-4b458c593507",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:55.423202+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/Inbox/docs/",
+    "ResultCode": "200",
+    "DurationMs": 26,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "110d4603668b4d5a",
+    "Id": "2df199c0df928b6d",
+    "Properties": {
+      "_MS.ResourceAttributeId": "58b85449-a769-4c75-9159-4b458c593507",
+      "component": "http",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:55.449367+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.query_items",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "f5a1536f47c8fc6b",
+    "Id": "435274fb5f3798b5",
+    "Properties": {
+      "_MS.ResourceAttributeId": "58b85449-a769-4c75-9159-4b458c593507",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:55.450997+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/Destinations/docs/",
+    "ResultCode": "200",
+    "DurationMs": 36,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "f5a1536f47c8fc6b",
+    "Id": "dc7fc8b813456244",
+    "Properties": {
+      "_MS.ResourceAttributeId": "58b85449-a769-4c75-9159-4b458c593507",
+      "component": "http",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:55.488062+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.query_items",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "f5a1536f47c8fc6b",
+    "Id": "f5304f3d45c8e5c6",
+    "Properties": {
+      "_MS.ResourceAttributeId": "58b85449-a769-4c75-9159-4b458c593507",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:55.488581+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/AffinityRules/docs/",
+    "ResultCode": "200",
+    "DurationMs": 39,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "f5a1536f47c8fc6b",
+    "Id": "99b33c88a6d5eeb0",
+    "Properties": {
+      "_MS.ResourceAttributeId": "58b85449-a769-4c75-9159-4b458c593507",
+      "component": "http",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:55.528393+00:00",
+    "ItemType": "Dependency",
+    "Name": "chat unknown",
+    "ResultCode": "0",
+    "DurationMs": 3280,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "f5a1536f47c8fc6b",
+    "Id": "5ccf86f5d78e1209",
+    "Properties": {
+      "_MS.ResourceAttributeId": "2fabd8c8-7e55-469c-98c9-6656b0c28b9b",
+      "gen_ai.input.messages": "[REDACTED]",
+      "gen_ai.request.choice.count": "1",
+      "gen_ai.operation.name": "chat",
+      "gen_ai.provider.name": "azure.ai",
+      "gen_ai.request.model": "unknown",
+      "gen_ai.response.id": "run_0Tuh0YOgk2TGc9yTrLZTEzxZ",
+      "gen_ai.response.model": "gpt-4o",
+      "gen_ai.usage.input_tokens": "2754",
+      "gen_ai.usage.output_tokens": "53",
+      "gen_ai.output.messages": "[REDACTED]",
+      "_MS.GenAIContentId": "[REDACTED]",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:55.528697+00:00",
+    "ItemType": "Dependency",
+    "Name": "create_thread",
+    "ResultCode": "0",
+    "DurationMs": 555,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "5ccf86f5d78e1209",
+    "Id": "3b38920a08ba4902",
+    "Properties": {
+      "_MS.ResourceAttributeId": "58b85449-a769-4c75-9159-4b458c593507",
+      "gen_ai.operation.name": "create_thread",
+      "az.namespace": "Microsoft.CognitiveServices",
+      "gen_ai.system": "az.ai.agents",
+      "gen_ai.thread.id": "thread_qjgBbA36n3QNxHhBKykl4bnH",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:55.529290+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/projects/second-brain/threads",
+    "ResultCode": "200",
+    "DurationMs": 554,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "3b38920a08ba4902",
+    "Id": "5b0d674b65a0e4b7",
+    "Properties": {
+      "_MS.ResourceAttributeId": "58b85449-a769-4c75-9159-4b458c593507",
+      "az.client_request_id": "11de4cb0-4bcf-11f1-87ad-6e77c0e7f82e",
+      "component": "http",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:56.083724+00:00",
+    "ItemType": "Dependency",
+    "Name": "process_thread_run",
+    "ResultCode": "0",
+    "DurationMs": 2724,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "5ccf86f5d78e1209",
+    "Id": "f60fcb636bb0c0b0",
+    "Properties": {
+      "_MS.ResourceAttributeId": "2fabd8c8-7e55-469c-98c9-6656b0c28b9b",
+      "gen_ai.operation.name": "process_thread_run",
+      "gen_ai.response.model": "gpt-4o",
+      "gen_ai.usage.input_tokens": "2754",
+      "gen_ai.usage.output_tokens": "53",
+      "az.namespace": "Microsoft.CognitiveServices",
+      "gen_ai.system": "az.ai.agents",
+      "gen_ai.agent.id": "asst_17oFXNHNq7kzmspQGMUrgERM",
+      "gen_ai.message.id": "[REDACTED]",
+      "gen_ai.thread.run.status": "completed",
+      "gen_ai.thread.run.id": "run_0Tuh0YOgk2TGc9yTrLZTEzxZ",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:56.084334+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/projects/second-brain/threads/thread_qjgBbA36n3QNxHhBKykl4bnH/runs",
+    "ResultCode": "200",
+    "DurationMs": 1092,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "f60fcb636bb0c0b0",
+    "Id": "6aea066da87ce4f1",
+    "Properties": {
+      "_MS.ResourceAttributeId": "2fabd8c8-7e55-469c-98c9-6656b0c28b9b",
+      "az.client_request_id": "1232ff3a-4bcf-11f1-87ad-6e77c0e7f82e",
+      "component": "http",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:58.808759+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "f5a1536f47c8fc6b",
+    "Id": "",
+    "Properties": {
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/processing/admin_handoff.py",
+      "code.function.name": "process_admin_capture",
+      "code.line.number": "257",
+      "capture_trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "component": "admin_agent"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:58.809111+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.read_item",
+    "ResultCode": "0",
+    "DurationMs": 25,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "f5a1536f47c8fc6b",
+    "Id": "18460bd9503f32ea",
+    "Properties": {
+      "_MS.ResourceAttributeId": "2fabd8c8-7e55-469c-98c9-6656b0c28b9b",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:58.809688+00:00",
+    "ItemType": "Dependency",
+    "Name": "GET /dbs/second-brain/colls/Inbox/docs/79bfb8f2-ea34-4a1a-817c-027527cc8560/",
+    "ResultCode": "200",
+    "DurationMs": 25,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "18460bd9503f32ea",
+    "Id": "98f24c12b242f0bb",
+    "Properties": {
+      "_MS.ResourceAttributeId": "2fabd8c8-7e55-469c-98c9-6656b0c28b9b",
+      "component": "http",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:58.834709+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.upsert_item",
+    "ResultCode": "0",
+    "DurationMs": 24,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "f5a1536f47c8fc6b",
+    "Id": "ad21d7aedecd136a",
+    "Properties": {
+      "_MS.ResourceAttributeId": "2fabd8c8-7e55-469c-98c9-6656b0c28b9b",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:58.835226+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/Inbox/docs/",
+    "ResultCode": "200",
+    "DurationMs": 24,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "ad21d7aedecd136a",
+    "Id": "786ab7e7ea7a6767",
+    "Properties": {
+      "_MS.ResourceAttributeId": "2fabd8c8-7e55-469c-98c9-6656b0c28b9b",
+      "component": "http",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:58.859285+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.create_item",
+    "ResultCode": "0",
+    "DurationMs": 19,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "f5a1536f47c8fc6b",
+    "Id": "6179374f1d142574",
+    "Properties": {
+      "_MS.ResourceAttributeId": "2fabd8c8-7e55-469c-98c9-6656b0c28b9b",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:58.859723+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/spine_events/docs/",
+    "ResultCode": "201",
+    "DurationMs": 19,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "6179374f1d142574",
+    "Id": "2ba820efcd36dc21",
+    "Properties": {
+      "_MS.ResourceAttributeId": "2fabd8c8-7e55-469c-98c9-6656b0c28b9b",
+      "component": "http",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:58.878759+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.upsert_item",
+    "ResultCode": "0",
+    "DurationMs": 28,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "f5a1536f47c8fc6b",
+    "Id": "342611b351ecaafa",
+    "Properties": {
+      "_MS.ResourceAttributeId": "2fabd8c8-7e55-469c-98c9-6656b0c28b9b",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:58.879942+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/spine_correlation/docs/",
+    "ResultCode": "201",
+    "DurationMs": 26,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "342611b351ecaafa",
+    "Id": "84cf27169849658d",
+    "Properties": {
+      "_MS.ResourceAttributeId": "2fabd8c8-7e55-469c-98c9-6656b0c28b9b",
+      "component": "http",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:50:45.437778+00:00",
+    "ItemType": "Dependency",
+    "Name": "admin_agent_process",
+    "ResultCode": "0",
+    "DurationMs": 4120,
+    "OperationId": "d35bbfd86b6caa2187ac984847b604b1",
+    "ParentId": "64a569161461deca",
+    "Id": "8a535e43763b8033",
+    "Properties": {
+      "_MS.ResourceAttributeId": "658b1f58-ba49-4e20-92ac-8013b669d3d6",
+      "admin.inbox_item_id": "79bfb8f2-ea34-4a1a-817c-027527cc8560",
+      "admin.raw_text_length": "60",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "admin.tool_invoked": "False",
+      "admin.output_tool_invoked": "False",
+      "admin.outcome": "no_tool_call"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:50:49.448667+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "d35bbfd86b6caa2187ac984847b604b1",
+    "ParentId": "8a535e43763b8033",
+    "Id": "",
+    "Properties": {
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/processing/admin_handoff.py",
+      "code.function.name": "process_admin_capture",
+      "code.line.number": "257",
+      "capture_trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "component": "admin_agent"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:50:49.449007+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.read_item",
+    "ResultCode": "0",
+    "DurationMs": 26,
+    "OperationId": "d35bbfd86b6caa2187ac984847b604b1",
+    "ParentId": "8a535e43763b8033",
+    "Id": "a4492a9dd43d539c",
+    "Properties": {
+      "_MS.ResourceAttributeId": "658b1f58-ba49-4e20-92ac-8013b669d3d6",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:50:49.449509+00:00",
+    "ItemType": "Dependency",
+    "Name": "GET /dbs/second-brain/colls/Inbox/docs/79bfb8f2-ea34-4a1a-817c-027527cc8560/",
+    "ResultCode": "200",
+    "DurationMs": 25,
+    "OperationId": "d35bbfd86b6caa2187ac984847b604b1",
+    "ParentId": "a4492a9dd43d539c",
+    "Id": "d5e2b00733d2aefe",
+    "Properties": {
+      "_MS.ResourceAttributeId": "658b1f58-ba49-4e20-92ac-8013b669d3d6",
+      "component": "http",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:50:49.475134+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.upsert_item",
+    "ResultCode": "0",
+    "DurationMs": 23,
+    "OperationId": "d35bbfd86b6caa2187ac984847b604b1",
+    "ParentId": "8a535e43763b8033",
+    "Id": "a35de44d2ae579ac",
+    "Properties": {
+      "_MS.ResourceAttributeId": "658b1f58-ba49-4e20-92ac-8013b669d3d6",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:50:49.475992+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/Inbox/docs/",
+    "ResultCode": "200",
+    "DurationMs": 22,
+    "OperationId": "d35bbfd86b6caa2187ac984847b604b1",
+    "ParentId": "a35de44d2ae579ac",
+    "Id": "79ecf14a657028cd",
+    "Properties": {
+      "_MS.ResourceAttributeId": "658b1f58-ba49-4e20-92ac-8013b669d3d6",
+      "component": "http",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:50:49.498794+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.create_item",
+    "ResultCode": "0",
+    "DurationMs": 29,
+    "OperationId": "d35bbfd86b6caa2187ac984847b604b1",
+    "ParentId": "8a535e43763b8033",
+    "Id": "3923a64f4418aecd",
+    "Properties": {
+      "_MS.ResourceAttributeId": "658b1f58-ba49-4e20-92ac-8013b669d3d6",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:50:49.499250+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/spine_events/docs/",
+    "ResultCode": "201",
+    "DurationMs": 29,
+    "OperationId": "d35bbfd86b6caa2187ac984847b604b1",
+    "ParentId": "3923a64f4418aecd",
+    "Id": "2dda0f896b0961de",
+    "Properties": {
+      "_MS.ResourceAttributeId": "658b1f58-ba49-4e20-92ac-8013b669d3d6",
+      "component": "http",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:50:49.528239+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.upsert_item",
+    "ResultCode": "0",
+    "DurationMs": 30,
+    "OperationId": "d35bbfd86b6caa2187ac984847b604b1",
+    "ParentId": "8a535e43763b8033",
+    "Id": "0e44f58dd0adddf5",
+    "Properties": {
+      "_MS.ResourceAttributeId": "658b1f58-ba49-4e20-92ac-8013b669d3d6",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:50:49.528727+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/spine_correlation/docs/",
+    "ResultCode": "201",
+    "DurationMs": 29,
+    "OperationId": "d35bbfd86b6caa2187ac984847b604b1",
+    "ParentId": "0e44f58dd0adddf5",
+    "Id": "1718f4d878c62c12",
+    "Properties": {
+      "_MS.ResourceAttributeId": "658b1f58-ba49-4e20-92ac-8013b669d3d6",
+      "component": "http",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:27.717203+00:00",
+    "ItemType": "Dependency",
+    "Name": "admin_agent_process",
+    "ResultCode": "0",
+    "DurationMs": 2950,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "73d8d9353375771a",
+    "Id": "08b2d98c7c7a9907",
+    "Properties": {
+      "admin.inbox_item_id": "79bfb8f2-ea34-4a1a-817c-027527cc8560",
+      "admin.raw_text_length": "60",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "admin.tool_invoked": "False",
+      "admin.output_tool_invoked": "False",
+      "admin.outcome": "no_tool_call",
+      "_MS.ResourceAttributeId": "264524a3-33aa-4eba-9d0f-ea89948a8e1f"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:27.717360+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.read_item",
+    "ResultCode": "0",
+    "DurationMs": 26,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "08b2d98c7c7a9907",
+    "Id": "0f5a1932978906e3",
+    "Properties": {
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "_MS.ResourceAttributeId": "264524a3-33aa-4eba-9d0f-ea89948a8e1f"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:27.743930+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.upsert_item",
+    "ResultCode": "0",
+    "DurationMs": 24,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "08b2d98c7c7a9907",
+    "Id": "d0b6ba197ceb66d1",
+    "Properties": {
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "_MS.ResourceAttributeId": "264524a3-33aa-4eba-9d0f-ea89948a8e1f"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:28.053817+00:00",
+    "ItemType": "Dependency",
+    "Name": "process_thread_run",
+    "ResultCode": "0",
+    "DurationMs": 2513,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "0e65a47850db731c",
+    "Id": "843896eb121a4dd8",
+    "Properties": {
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "az.namespace": "Microsoft.CognitiveServices",
+      "gen_ai.system": "az.ai.agents",
+      "gen_ai.operation.name": "process_thread_run",
+      "gen_ai.agent.id": "asst_17oFXNHNq7kzmspQGMUrgERM",
+      "gen_ai.message.id": "[REDACTED]",
+      "gen_ai.thread.run.status": "completed",
+      "gen_ai.thread.run.id": "run_h8JjB4S4DGLebu79ZW1nXjln",
+      "gen_ai.response.model": "gpt-4o",
+      "gen_ai.usage.input_tokens": "2788",
+      "gen_ai.usage.output_tokens": "68",
+      "_MS.ResourceAttributeId": "264524a3-33aa-4eba-9d0f-ea89948a8e1f"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:28.054538+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/projects/second-brain/threads/thread_wqLVHcp3ufLkogFOKNB5TNrS/runs",
+    "ResultCode": "200",
+    "DurationMs": 759,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "843896eb121a4dd8",
+    "Id": "2e3eb16cec5ac6d4",
+    "Properties": {
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "component": "http",
+      "az.client_request_id": "435b728a-4bd0-11f1-87ad-6e77c0e7f82e",
+      "_MS.ResourceAttributeId": "264524a3-33aa-4eba-9d0f-ea89948a8e1f"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:30.567909+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "08b2d98c7c7a9907",
+    "Id": "",
+    "Properties": {
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/processing/admin_handoff.py",
+      "code.function.name": "process_admin_capture",
+      "code.line.number": "257",
+      "capture_trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "component": "admin_agent"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:30.568186+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.read_item",
+    "ResultCode": "0",
+    "DurationMs": 24,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "08b2d98c7c7a9907",
+    "Id": "d89d8fb6ebb6fb2b",
+    "Properties": {
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "_MS.ResourceAttributeId": "264524a3-33aa-4eba-9d0f-ea89948a8e1f"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:30.568666+00:00",
+    "ItemType": "Dependency",
+    "Name": "GET /dbs/second-brain/colls/Inbox/docs/79bfb8f2-ea34-4a1a-817c-027527cc8560/",
+    "ResultCode": "200",
+    "DurationMs": 23,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "d89d8fb6ebb6fb2b",
+    "Id": "07adc41eeef7f143",
+    "Properties": {
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "component": "http",
+      "_MS.ResourceAttributeId": "264524a3-33aa-4eba-9d0f-ea89948a8e1f"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:30.592403+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.upsert_item",
+    "ResultCode": "0",
+    "DurationMs": 26,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "08b2d98c7c7a9907",
+    "Id": "f52a6cbcbbb6513f",
+    "Properties": {
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "_MS.ResourceAttributeId": "264524a3-33aa-4eba-9d0f-ea89948a8e1f"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:30.593013+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/Inbox/docs/",
+    "ResultCode": "200",
+    "DurationMs": 26,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "f52a6cbcbbb6513f",
+    "Id": "c016880bfff46f19",
+    "Properties": {
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "component": "http",
+      "_MS.ResourceAttributeId": "264524a3-33aa-4eba-9d0f-ea89948a8e1f"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:30.618978+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.create_item",
+    "ResultCode": "0",
+    "DurationMs": 21,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "08b2d98c7c7a9907",
+    "Id": "4d9fd48cc6174a02",
+    "Properties": {
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "_MS.ResourceAttributeId": "264524a3-33aa-4eba-9d0f-ea89948a8e1f"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:30.619409+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/spine_events/docs/",
+    "ResultCode": "201",
+    "DurationMs": 21,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "4d9fd48cc6174a02",
+    "Id": "18058c1efdbdb7ae",
+    "Properties": {
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "component": "http",
+      "_MS.ResourceAttributeId": "264524a3-33aa-4eba-9d0f-ea89948a8e1f"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:30.640522+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.upsert_item",
+    "ResultCode": "0",
+    "DurationMs": 27,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "08b2d98c7c7a9907",
+    "Id": "6b53e1f779cf4d29",
+    "Properties": {
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "_MS.ResourceAttributeId": "264524a3-33aa-4eba-9d0f-ea89948a8e1f"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:30.640976+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/spine_correlation/docs/",
+    "ResultCode": "201",
+    "DurationMs": 26,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "6b53e1f779cf4d29",
+    "Id": "a1784507ce6f7a33",
+    "Properties": {
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "component": "http",
+      "_MS.ResourceAttributeId": "264524a3-33aa-4eba-9d0f-ea89948a8e1f"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:00:19.220161+00:00",
+    "ItemType": "Dependency",
+    "Name": "process_thread_run",
+    "ResultCode": "0",
+    "DurationMs": 2532,
+    "OperationId": "2ead8edf060027c36c0bf2323b24efe3",
+    "ParentId": "bf2e06cc32770dfd",
+    "Id": "306a6ac84ad19a22",
+    "Properties": {
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "az.namespace": "Microsoft.CognitiveServices",
+      "gen_ai.system": "az.ai.agents",
+      "gen_ai.operation.name": "process_thread_run",
+      "gen_ai.agent.id": "asst_17oFXNHNq7kzmspQGMUrgERM",
+      "gen_ai.message.id": "[REDACTED]",
+      "gen_ai.thread.run.status": "completed",
+      "gen_ai.thread.run.id": "run_aKgpNZT454Q9T3g9Nxj2nvSN",
+      "gen_ai.response.model": "gpt-4o",
+      "gen_ai.usage.input_tokens": "2788",
+      "gen_ai.usage.output_tokens": "60",
+      "_MS.ResourceAttributeId": "e794d129-9f65-4273-b7d6-1b1f403960eb"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:00:19.220881+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/projects/second-brain/threads/thread_cksWYMVMaCFhXWkRuq39Qf6D/runs",
+    "ResultCode": "200",
+    "DurationMs": 527,
+    "OperationId": "2ead8edf060027c36c0bf2323b24efe3",
+    "ParentId": "306a6ac84ad19a22",
+    "Id": "e995023cf9822a93",
+    "Properties": {
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "component": "http",
+      "az.client_request_id": "f0e7e730-4bd0-11f1-87ad-6e77c0e7f82e",
+      "_MS.ResourceAttributeId": "d4ae6ca9-6f30-4f62-aef9-f66e342aed61"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:00:21.753040+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "2ead8edf060027c36c0bf2323b24efe3",
+    "ParentId": "da31aa330425127e",
+    "Id": "",
+    "Properties": {
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/processing/admin_handoff.py",
+      "code.function.name": "process_admin_capture",
+      "code.line.number": "257",
+      "capture_trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "component": "admin_agent"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:00:21.753283+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.read_item",
+    "ResultCode": "0",
+    "DurationMs": 23,
+    "OperationId": "2ead8edf060027c36c0bf2323b24efe3",
+    "ParentId": "da31aa330425127e",
+    "Id": "0f0d7a52219f11be",
+    "Properties": {
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "_MS.ResourceAttributeId": "e794d129-9f65-4273-b7d6-1b1f403960eb"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:00:21.753726+00:00",
+    "ItemType": "Dependency",
+    "Name": "GET /dbs/second-brain/colls/Inbox/docs/79bfb8f2-ea34-4a1a-817c-027527cc8560/",
+    "ResultCode": "200",
+    "DurationMs": 23,
+    "OperationId": "2ead8edf060027c36c0bf2323b24efe3",
+    "ParentId": "0f0d7a52219f11be",
+    "Id": "2673dc47668fdccd",
+    "Properties": {
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "component": "http",
+      "_MS.ResourceAttributeId": "e794d129-9f65-4273-b7d6-1b1f403960eb"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:00:21.777037+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.upsert_item",
+    "ResultCode": "0",
+    "DurationMs": 32,
+    "OperationId": "2ead8edf060027c36c0bf2323b24efe3",
+    "ParentId": "da31aa330425127e",
+    "Id": "fce0667dd5ce83ec",
+    "Properties": {
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "_MS.ResourceAttributeId": "e794d129-9f65-4273-b7d6-1b1f403960eb"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:00:21.777535+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/Inbox/docs/",
+    "ResultCode": "200",
+    "DurationMs": 31,
+    "OperationId": "2ead8edf060027c36c0bf2323b24efe3",
+    "ParentId": "fce0667dd5ce83ec",
+    "Id": "20cc67402f71aba3",
+    "Properties": {
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "component": "http",
+      "_MS.ResourceAttributeId": "e794d129-9f65-4273-b7d6-1b1f403960eb"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:00:21.809289+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.create_item",
+    "ResultCode": "0",
+    "DurationMs": 30,
+    "OperationId": "2ead8edf060027c36c0bf2323b24efe3",
+    "ParentId": "da31aa330425127e",
+    "Id": "82a897afe2fcc81e",
+    "Properties": {
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "_MS.ResourceAttributeId": "e794d129-9f65-4273-b7d6-1b1f403960eb"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:00:21.809806+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/spine_events/docs/",
+    "ResultCode": "201",
+    "DurationMs": 30,
+    "OperationId": "2ead8edf060027c36c0bf2323b24efe3",
+    "ParentId": "82a897afe2fcc81e",
+    "Id": "1fc45edc52883219",
+    "Properties": {
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "component": "http",
+      "_MS.ResourceAttributeId": "e794d129-9f65-4273-b7d6-1b1f403960eb"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:00:21.839976+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.upsert_item",
+    "ResultCode": "0",
+    "DurationMs": 31,
+    "OperationId": "2ead8edf060027c36c0bf2323b24efe3",
+    "ParentId": "da31aa330425127e",
+    "Id": "ad705202983c622e",
+    "Properties": {
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "_MS.ResourceAttributeId": "e794d129-9f65-4273-b7d6-1b1f403960eb"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:00:21.840543+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/spine_correlation/docs/",
+    "ResultCode": "201",
+    "DurationMs": 30,
+    "OperationId": "2ead8edf060027c36c0bf2323b24efe3",
+    "ParentId": "ad705202983c622e",
+    "Id": "e355a7dd578207f0",
+    "Properties": {
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "component": "http",
+      "_MS.ResourceAttributeId": "e794d129-9f65-4273-b7d6-1b1f403960eb"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:05:30.854479+00:00",
+    "ItemType": "Dependency",
+    "Name": "admin_agent_process",
+    "ResultCode": "0",
+    "DurationMs": 3620,
+    "OperationId": "6c86b13c8d752505a4fda858eeacd72d",
+    "ParentId": "7328191c9f71ea7e",
+    "Id": "9986c3bbc929b33b",
+    "Properties": {
+      "admin.inbox_item_id": "79bfb8f2-ea34-4a1a-817c-027527cc8560",
+      "admin.raw_text_length": "60",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "admin.tool_invoked": "False",
+      "admin.output_tool_invoked": "False",
+      "admin.outcome": "no_tool_call",
+      "_MS.ResourceAttributeId": "8cd51796-482c-4ba7-8607-99334a631319"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:05:31.557500+00:00",
+    "ItemType": "Dependency",
+    "Name": "process_thread_run",
+    "ResultCode": "0",
+    "DurationMs": 2810,
+    "OperationId": "6c86b13c8d752505a4fda858eeacd72d",
+    "ParentId": "73ea957281f60b2c",
+    "Id": "2e2c3e85c9e670e4",
+    "Properties": {
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "az.namespace": "Microsoft.CognitiveServices",
+      "gen_ai.system": "az.ai.agents",
+      "gen_ai.operation.name": "process_thread_run",
+      "gen_ai.agent.id": "asst_17oFXNHNq7kzmspQGMUrgERM",
+      "gen_ai.message.id": "[REDACTED]",
+      "gen_ai.thread.run.status": "completed",
+      "gen_ai.thread.run.id": "run_6Xc2Mnnu4tbIXH9d0HIdTAXw",
+      "gen_ai.response.model": "gpt-4o",
+      "gen_ai.usage.input_tokens": "2788",
+      "gen_ai.usage.output_tokens": "62",
+      "_MS.ResourceAttributeId": "8cd51796-482c-4ba7-8607-99334a631319"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:05:31.558312+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/projects/second-brain/threads/thread_cYrKjG1nuwXPibgpLRfFtQFS/runs",
+    "ResultCode": "200",
+    "DurationMs": 676,
+    "OperationId": "6c86b13c8d752505a4fda858eeacd72d",
+    "ParentId": "2e2c3e85c9e670e4",
+    "Id": "f5d74b80f3302894",
+    "Properties": {
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "component": "http",
+      "az.client_request_id": "ab12ceb8-4bd1-11f1-87ad-6e77c0e7f82e",
+      "_MS.ResourceAttributeId": "8cd51796-482c-4ba7-8607-99334a631319"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:05:34.368266+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "6c86b13c8d752505a4fda858eeacd72d",
+    "ParentId": "9986c3bbc929b33b",
+    "Id": "",
+    "Properties": {
+      "capture_trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "component": "admin_agent",
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/processing/admin_handoff.py",
+      "code.function.name": "process_admin_capture",
+      "code.line.number": "257"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:05:34.368513+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.read_item",
+    "ResultCode": "0",
+    "DurationMs": 25,
+    "OperationId": "6c86b13c8d752505a4fda858eeacd72d",
+    "ParentId": "9986c3bbc929b33b",
+    "Id": "4e78ef69fb140bad",
+    "Properties": {
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "_MS.ResourceAttributeId": "8cd51796-482c-4ba7-8607-99334a631319"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:05:34.368945+00:00",
+    "ItemType": "Dependency",
+    "Name": "GET /dbs/second-brain/colls/Inbox/docs/79bfb8f2-ea34-4a1a-817c-027527cc8560/",
+    "ResultCode": "200",
+    "DurationMs": 24,
+    "OperationId": "6c86b13c8d752505a4fda858eeacd72d",
+    "ParentId": "4e78ef69fb140bad",
+    "Id": "10e82da40333ea19",
+    "Properties": {
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "component": "http",
+      "_MS.ResourceAttributeId": "8cd51796-482c-4ba7-8607-99334a631319"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:05:34.393804+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.upsert_item",
+    "ResultCode": "0",
+    "DurationMs": 27,
+    "OperationId": "6c86b13c8d752505a4fda858eeacd72d",
+    "ParentId": "9986c3bbc929b33b",
+    "Id": "c2841f4fbfba6158",
+    "Properties": {
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "_MS.ResourceAttributeId": "8cd51796-482c-4ba7-8607-99334a631319"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:05:34.394350+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/Inbox/docs/",
+    "ResultCode": "200",
+    "DurationMs": 26,
+    "OperationId": "6c86b13c8d752505a4fda858eeacd72d",
+    "ParentId": "c2841f4fbfba6158",
+    "Id": "34521924b929a4e3",
+    "Properties": {
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "component": "http",
+      "_MS.ResourceAttributeId": "8cd51796-482c-4ba7-8607-99334a631319"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:05:34.420903+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.create_item",
+    "ResultCode": "0",
+    "DurationMs": 26,
+    "OperationId": "6c86b13c8d752505a4fda858eeacd72d",
+    "ParentId": "9986c3bbc929b33b",
+    "Id": "a460797d5bc2be17",
+    "Properties": {
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "_MS.ResourceAttributeId": "8cd51796-482c-4ba7-8607-99334a631319"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:05:34.421518+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/spine_events/docs/",
+    "ResultCode": "201",
+    "DurationMs": 25,
+    "OperationId": "6c86b13c8d752505a4fda858eeacd72d",
+    "ParentId": "a460797d5bc2be17",
+    "Id": "72dcf41bb5501ccd",
+    "Properties": {
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "component": "http",
+      "_MS.ResourceAttributeId": "8cd51796-482c-4ba7-8607-99334a631319"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:05:34.447032+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.upsert_item",
+    "ResultCode": "0",
+    "DurationMs": 27,
+    "OperationId": "6c86b13c8d752505a4fda858eeacd72d",
+    "ParentId": "9986c3bbc929b33b",
+    "Id": "f7804b7bc6fcdf9e",
+    "Properties": {
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "_MS.ResourceAttributeId": "8cd51796-482c-4ba7-8607-99334a631319"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:10:35.134110+00:00",
+    "ItemType": "Dependency",
+    "Name": "admin_agent_process",
+    "ResultCode": "0",
+    "DurationMs": 3659,
+    "OperationId": "9b1d028097f4c57c16afdac02d6c0d07",
+    "ParentId": "a3aeef40dffd6aff",
+    "Id": "71a77cedddf84d06",
+    "Properties": {
+      "admin.inbox_item_id": "79bfb8f2-ea34-4a1a-817c-027527cc8560",
+      "admin.raw_text_length": "60",
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "admin.tool_invoked": "False",
+      "admin.output_tool_invoked": "False",
+      "admin.outcome": "no_tool_call",
+      "_MS.ResourceAttributeId": "5cd0f327-6a34-4053-ad88-abf1ca45bf35"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:10:35.134244+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.read_item",
+    "ResultCode": "0",
+    "DurationMs": 36,
+    "OperationId": "9b1d028097f4c57c16afdac02d6c0d07",
+    "ParentId": "71a77cedddf84d06",
+    "Id": "aea6c8b09391f004",
+    "Properties": {
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "_MS.ResourceAttributeId": "5cd0f327-6a34-4053-ad88-abf1ca45bf35"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:10:35.134659+00:00",
+    "ItemType": "Dependency",
+    "Name": "GET /dbs/second-brain/colls/Inbox/docs/79bfb8f2-ea34-4a1a-817c-027527cc8560/",
+    "ResultCode": "200",
+    "DurationMs": 36,
+    "OperationId": "9b1d028097f4c57c16afdac02d6c0d07",
+    "ParentId": "aea6c8b09391f004",
+    "Id": "ffd2fa555e0b4818",
+    "Properties": {
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "component": "http",
+      "_MS.ResourceAttributeId": "5cd0f327-6a34-4053-ad88-abf1ca45bf35"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:10:35.170823+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.upsert_item",
+    "ResultCode": "0",
+    "DurationMs": 30,
+    "OperationId": "9b1d028097f4c57c16afdac02d6c0d07",
+    "ParentId": "71a77cedddf84d06",
+    "Id": "d4614379e6763ad4",
+    "Properties": {
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "_MS.ResourceAttributeId": "5cd0f327-6a34-4053-ad88-abf1ca45bf35"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:10:35.171280+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/Inbox/docs/",
+    "ResultCode": "200",
+    "DurationMs": 29,
+    "OperationId": "9b1d028097f4c57c16afdac02d6c0d07",
+    "ParentId": "d4614379e6763ad4",
+    "Id": "e37a7b3806ccd165",
+    "Properties": {
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "component": "http",
+      "_MS.ResourceAttributeId": "5cd0f327-6a34-4053-ad88-abf1ca45bf35"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:10:35.200819+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.query_items",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "9b1d028097f4c57c16afdac02d6c0d07",
+    "ParentId": "71a77cedddf84d06",
+    "Id": "7a0ea12e81b983fb",
+    "Properties": {
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "_MS.ResourceAttributeId": "5cd0f327-6a34-4053-ad88-abf1ca45bf35"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:10:35.965811+00:00",
+    "ItemType": "Dependency",
+    "Name": "process_thread_run",
+    "ResultCode": "0",
+    "DurationMs": 2597,
+    "OperationId": "9b1d028097f4c57c16afdac02d6c0d07",
+    "ParentId": "b91a99e72c3a6974",
+    "Id": "c69175f96ce15dd7",
+    "Properties": {
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "az.namespace": "Microsoft.CognitiveServices",
+      "gen_ai.system": "az.ai.agents",
+      "gen_ai.operation.name": "process_thread_run",
+      "gen_ai.agent.id": "asst_17oFXNHNq7kzmspQGMUrgERM",
+      "gen_ai.message.id": "[REDACTED]",
+      "gen_ai.thread.run.status": "completed",
+      "gen_ai.thread.run.id": "run_p8HpejRVQ9QtiFMYZeKrOgDR",
+      "gen_ai.response.model": "gpt-4o",
+      "gen_ai.usage.input_tokens": "2788",
+      "gen_ai.usage.output_tokens": "55",
+      "_MS.ResourceAttributeId": "5cd0f327-6a34-4053-ad88-abf1ca45bf35"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:10:35.966593+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/projects/second-brain/threads/thread_KPRTs62lUmiOj3fuIhxd54c5/runs",
+    "ResultCode": "200",
+    "DurationMs": 640,
+    "OperationId": "9b1d028097f4c57c16afdac02d6c0d07",
+    "ParentId": "c69175f96ce15dd7",
+    "Id": "d36412aed6cba0aa",
+    "Properties": {
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "component": "http",
+      "az.client_request_id": "6083d42c-4bd2-11f1-87ad-6e77c0e7f82e",
+      "_MS.ResourceAttributeId": "5cd0f327-6a34-4053-ad88-abf1ca45bf35"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:10:38.563936+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "9b1d028097f4c57c16afdac02d6c0d07",
+    "ParentId": "71a77cedddf84d06",
+    "Id": "",
+    "Properties": {
+      "capture_trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "component": "admin_agent",
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/processing/admin_handoff.py",
+      "code.function.name": "process_admin_capture",
+      "code.line.number": "257"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:10:38.564215+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.read_item",
+    "ResultCode": "0",
+    "DurationMs": 26,
+    "OperationId": "9b1d028097f4c57c16afdac02d6c0d07",
+    "ParentId": "71a77cedddf84d06",
+    "Id": "339ec89d9fabf6a2",
+    "Properties": {
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "_MS.ResourceAttributeId": "5cd0f327-6a34-4053-ad88-abf1ca45bf35"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:10:38.564674+00:00",
+    "ItemType": "Dependency",
+    "Name": "GET /dbs/second-brain/colls/Inbox/docs/79bfb8f2-ea34-4a1a-817c-027527cc8560/",
+    "ResultCode": "200",
+    "DurationMs": 25,
+    "OperationId": "9b1d028097f4c57c16afdac02d6c0d07",
+    "ParentId": "339ec89d9fabf6a2",
+    "Id": "11f63ac7fdfc8ed0",
+    "Properties": {
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "component": "http",
+      "_MS.ResourceAttributeId": "5cd0f327-6a34-4053-ad88-abf1ca45bf35"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:10:38.590301+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.upsert_item",
+    "ResultCode": "0",
+    "DurationMs": 31,
+    "OperationId": "9b1d028097f4c57c16afdac02d6c0d07",
+    "ParentId": "71a77cedddf84d06",
+    "Id": "979a54c3e5f663b8",
+    "Properties": {
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "_MS.ResourceAttributeId": "5cd0f327-6a34-4053-ad88-abf1ca45bf35"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:10:38.590988+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/Inbox/docs/",
+    "ResultCode": "200",
+    "DurationMs": 31,
+    "OperationId": "9b1d028097f4c57c16afdac02d6c0d07",
+    "ParentId": "979a54c3e5f663b8",
+    "Id": "8a331c37e8f24759",
+    "Properties": {
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "component": "http",
+      "_MS.ResourceAttributeId": "5cd0f327-6a34-4053-ad88-abf1ca45bf35"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:10:38.622235+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.create_item",
+    "ResultCode": "0",
+    "DurationMs": 22,
+    "OperationId": "9b1d028097f4c57c16afdac02d6c0d07",
+    "ParentId": "71a77cedddf84d06",
+    "Id": "beadbc6ea0347085",
+    "Properties": {
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "_MS.ResourceAttributeId": "5cd0f327-6a34-4053-ad88-abf1ca45bf35"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:10:38.622683+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/spine_events/docs/",
+    "ResultCode": "201",
+    "DurationMs": 21,
+    "OperationId": "9b1d028097f4c57c16afdac02d6c0d07",
+    "ParentId": "beadbc6ea0347085",
+    "Id": "e0d31dfb1c91bb7b",
+    "Properties": {
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "component": "http",
+      "_MS.ResourceAttributeId": "5cd0f327-6a34-4053-ad88-abf1ca45bf35"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:10:38.643964+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.upsert_item",
+    "ResultCode": "0",
+    "DurationMs": 149,
+    "OperationId": "9b1d028097f4c57c16afdac02d6c0d07",
+    "ParentId": "71a77cedddf84d06",
+    "Id": "a5af93cdcfbf3a88",
+    "Properties": {
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "_MS.ResourceAttributeId": "5cd0f327-6a34-4053-ad88-abf1ca45bf35"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:10:38.644427+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/spine_correlation/docs/",
+    "ResultCode": "201",
+    "DurationMs": 149,
+    "OperationId": "9b1d028097f4c57c16afdac02d6c0d07",
+    "ParentId": "a5af93cdcfbf3a88",
+    "Id": "aaffab89ba3916c9",
+    "Properties": {
+      "capture.trace_id": "95f0bf52-2a11-46bd-8371-05da81b36d5e",
+      "component": "http",
+      "_MS.ResourceAttributeId": "5cd0f327-6a34-4053-ad88-abf1ca45bf35"
+    }
+  }
+]

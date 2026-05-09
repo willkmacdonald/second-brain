@@ -1,0 +1,4 @@
+{"data": {"type": "STEP_START", "stepName": "Classifying"}}
+{"data": {"type": "STEP_END", "stepName": "Classifying"}}
+{"data": {"type": "CLASSIFIED", "value": {"inboxItemId": "57a9d14d-fe12-4b90-9c15-222a691331c9", "bucket": "Admin", "confidence": 0.9}}}
+{"data": {"type": "COMPLETE", "threadId": "thread-8b6383bf-d790-42c3-b5e8-cac02b248470", "runId": "run-1e04ad5a-a19d-4e6a-8b10-6593c6e623b7"}}

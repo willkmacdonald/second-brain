@@ -1,0 +1,13 @@
+{
+  "stage_a": {
+    "endpoint": "POST /api/capture",
+    "body": {
+      "text": "When I mention tools route to Home Depot"
+    }
+  },
+  "stage_b": {
+    "endpoint": "GET /api/errands",
+    "note": "Triggers admin agent processing for the item filed in stage A"
+  },
+  "trace_id": "b446e961-fe93-4001-8bc1-0a0639fec112"
+}

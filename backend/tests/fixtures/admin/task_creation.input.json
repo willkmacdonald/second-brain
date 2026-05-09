@@ -1,0 +1,13 @@
+{
+  "stage_a": {
+    "endpoint": "POST /api/capture",
+    "body": {
+      "text": "Book the veterinarian appointment for the cats next Tuesday"
+    }
+  },
+  "stage_b": {
+    "endpoint": "GET /api/errands",
+    "note": "Triggers admin agent processing for the item filed in stage A"
+  },
+  "trace_id": "640b17f1-0bc7-41b7-8f18-74f618cb7b9b"
+}

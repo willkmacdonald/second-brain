@@ -1,0 +1,2645 @@
+[
+  {
+    "TimeGenerated": "2026-05-09 17:45:38.722288+00:00",
+    "ItemType": "Request",
+    "Name": "POST /api/capture",
+    "ResultCode": "200",
+    "DurationMs": 4985,
+    "OperationId": "2debe3bcf82885e9db12459994d043aa",
+    "ParentId": "2debe3bcf82885e9db12459994d043aa",
+    "Id": "513eb248ba198ede",
+    "Properties": {
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "f86d8f89-f3f6-4a90-ad38-bb0c373a5958",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:45:38.723730+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/capture http receive",
+    "ResultCode": "0",
+    "DurationMs": 4983,
+    "OperationId": "2debe3bcf82885e9db12459994d043aa",
+    "ParentId": "513eb248ba198ede",
+    "Id": "fbec16a2ec733bad",
+    "Properties": {
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "f86d8f89-f3f6-4a90-ad38-bb0c373a5958",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:45:38.723839+00:00",
+    "ItemType": "Dependency",
+    "Name": "capture_text",
+    "ResultCode": "0",
+    "DurationMs": 4928,
+    "OperationId": "2debe3bcf82885e9db12459994d043aa",
+    "ParentId": "513eb248ba198ede",
+    "Id": "77b957ade73a76d3",
+    "Properties": {
+      "_MS.ResourceAttributeId": "f86d8f89-f3f6-4a90-ad38-bb0c373a5958",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "capture.type": "text",
+      "capture.thread_id": "thread-ab310247-5d87-4ba2-b179-4384e7b69b32",
+      "capture.run_id": "run-3ff6ffd7-6882-4c92-aa01-30d57a6b14d8",
+      "capture.outcome": "classified",
+      "capture.split_count": "1",
+      "capture.buckets": "Admin",
+      "capture.bucket": "Admin",
+      "capture.confidence": "0.9"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:45:38.787237+00:00",
+    "ItemType": "Dependency",
+    "Name": "chat unknown",
+    "ResultCode": "0",
+    "DurationMs": 2566,
+    "OperationId": "2debe3bcf82885e9db12459994d043aa",
+    "ParentId": "77b957ade73a76d3",
+    "Id": "d8304cb08af963d1",
+    "Properties": {
+      "_MS.ResourceAttributeId": "f86d8f89-f3f6-4a90-ad38-bb0c373a5958",
+      "gen_ai.input.messages": "[REDACTED]",
+      "gen_ai.request.choice.count": "1",
+      "gen_ai.operation.name": "chat",
+      "gen_ai.provider.name": "azure.ai",
+      "gen_ai.request.model": "unknown",
+      "gen_ai.response.id": "run_qOjyF4g2IbTq1peQYFKXemQc",
+      "gen_ai.response.model": "gpt-4o",
+      "gen_ai.output.messages": "[REDACTED]",
+      "_MS.GenAIContentId": "[REDACTED]",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:45:38.787605+00:00",
+    "ItemType": "Dependency",
+    "Name": "create_thread",
+    "ResultCode": "0",
+    "DurationMs": 263,
+    "OperationId": "2debe3bcf82885e9db12459994d043aa",
+    "ParentId": "77b957ade73a76d3",
+    "Id": "377bf609abd621bd",
+    "Properties": {
+      "_MS.ResourceAttributeId": "78d3177f-2296-4f9c-ac20-a28da16fb475",
+      "gen_ai.operation.name": "create_thread",
+      "az.namespace": "Microsoft.CognitiveServices",
+      "gen_ai.system": "az.ai.agents",
+      "gen_ai.thread.id": "thread_ajuU1NeiDLv8NSHIix3YCbu7",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:45:38.788403+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/projects/second-brain/threads",
+    "ResultCode": "200",
+    "DurationMs": 262,
+    "OperationId": "2debe3bcf82885e9db12459994d043aa",
+    "ParentId": "377bf609abd621bd",
+    "Id": "5008af6b127d0ecf",
+    "Properties": {
+      "_MS.ResourceAttributeId": "78d3177f-2296-4f9c-ac20-a28da16fb475",
+      "az.client_request_id": "e42088f6-4bce-11f1-87ad-6e77c0e7f82e",
+      "component": "http",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:45:39.050762+00:00",
+    "ItemType": "Dependency",
+    "Name": "process_thread_run",
+    "ResultCode": "0",
+    "DurationMs": 2303,
+    "OperationId": "2debe3bcf82885e9db12459994d043aa",
+    "ParentId": "77b957ade73a76d3",
+    "Id": "09263b74263e0ebc",
+    "Properties": {
+      "_MS.ResourceAttributeId": "f86d8f89-f3f6-4a90-ad38-bb0c373a5958",
+      "gen_ai.operation.name": "process_thread_run",
+      "gen_ai.response.model": "gpt-4o",
+      "az.namespace": "Microsoft.CognitiveServices",
+      "gen_ai.system": "az.ai.agents",
+      "gen_ai.agent.id": "asst_Fnjkq5RVrvdFIOSqbreAwxuq",
+      "gen_ai.thread.run.status": "requires_action",
+      "gen_ai.thread.run.id": "run_qOjyF4g2IbTq1peQYFKXemQc",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:45:39.051339+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/projects/second-brain/threads/thread_ajuU1NeiDLv8NSHIix3YCbu7/runs",
+    "ResultCode": "200",
+    "DurationMs": 601,
+    "OperationId": "2debe3bcf82885e9db12459994d043aa",
+    "ParentId": "09263b74263e0ebc",
+    "Id": "9e009d03df25f86f",
+    "Properties": {
+      "_MS.ResourceAttributeId": "f86d8f89-f3f6-4a90-ad38-bb0c373a5958",
+      "az.client_request_id": "e448b1b4-4bce-11f1-87ad-6e77c0e7f82e",
+      "component": "http",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:45:41.497750+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "2debe3bcf82885e9db12459994d043aa",
+    "ParentId": "d96a5b1b13f343ed",
+    "Id": "",
+    "Properties": {
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/tools/classification.py",
+      "code.function.name": "_write_to_cosmos",
+      "code.line.number": "249",
+      "capture_trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "component": "classifier"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:45:41.803770+00:00",
+    "ItemType": "Dependency",
+    "Name": "submit_tool_outputs",
+    "ResultCode": "0",
+    "DurationMs": 417,
+    "OperationId": "2debe3bcf82885e9db12459994d043aa",
+    "ParentId": "77b957ade73a76d3",
+    "Id": "326168fad0518da0",
+    "Properties": {
+      "_MS.ResourceAttributeId": "f86d8f89-f3f6-4a90-ad38-bb0c373a5958",
+      "gen_ai.operation.name": "submit_tool_outputs",
+      "az.namespace": "Microsoft.CognitiveServices",
+      "gen_ai.system": "az.ai.agents",
+      "gen_ai.thread.id": "thread_ajuU1NeiDLv8NSHIix3YCbu7",
+      "gen_ai.thread.run.id": "run_qOjyF4g2IbTq1peQYFKXemQc",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:45:43.402515+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "2debe3bcf82885e9db12459994d043aa",
+    "ParentId": "77b957ade73a76d3",
+    "Id": "",
+    "Properties": {
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/streaming/adapter.py",
+      "code.function.name": "stream_text_capture",
+      "code.line.number": "214",
+      "capture_trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "component": "classifier",
+      "reasoning_text": "Filed",
+      "agent_run_id": "run-3ff6ffd7-6882-4c92-aa01-30d57a6b14d8",
+      "chunk_index": "0"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:45:43.404754+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "2debe3bcf82885e9db12459994d043aa",
+    "ParentId": "77b957ade73a76d3",
+    "Id": "",
+    "Properties": {
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/streaming/adapter.py",
+      "code.function.name": "stream_text_capture",
+      "code.line.number": "214",
+      "capture_trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "component": "classifier",
+      "reasoning_text": " to",
+      "agent_run_id": "run-3ff6ffd7-6882-4c92-aa01-30d57a6b14d8",
+      "chunk_index": "1"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:45:43.405522+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "2debe3bcf82885e9db12459994d043aa",
+    "ParentId": "77b957ade73a76d3",
+    "Id": "",
+    "Properties": {
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/streaming/adapter.py",
+      "code.function.name": "stream_text_capture",
+      "code.line.number": "214",
+      "capture_trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "component": "classifier",
+      "reasoning_text": " Admin",
+      "agent_run_id": "run-3ff6ffd7-6882-4c92-aa01-30d57a6b14d8",
+      "chunk_index": "2"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:45:43.408817+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "2debe3bcf82885e9db12459994d043aa",
+    "ParentId": "77b957ade73a76d3",
+    "Id": "",
+    "Properties": {
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/streaming/adapter.py",
+      "code.function.name": "stream_text_capture",
+      "code.line.number": "214",
+      "capture_trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "component": "classifier",
+      "reasoning_text": " (",
+      "agent_run_id": "run-3ff6ffd7-6882-4c92-aa01-30d57a6b14d8",
+      "chunk_index": "3"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:45:43.412731+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "2debe3bcf82885e9db12459994d043aa",
+    "ParentId": "77b957ade73a76d3",
+    "Id": "",
+    "Properties": {
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/streaming/adapter.py",
+      "code.function.name": "stream_text_capture",
+      "code.line.number": "214",
+      "capture_trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "component": "classifier",
+      "reasoning_text": "0",
+      "agent_run_id": "run-3ff6ffd7-6882-4c92-aa01-30d57a6b14d8",
+      "chunk_index": "4"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:45:43.417329+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "2debe3bcf82885e9db12459994d043aa",
+    "ParentId": "77b957ade73a76d3",
+    "Id": "",
+    "Properties": {
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/streaming/adapter.py",
+      "code.function.name": "stream_text_capture",
+      "code.line.number": "214",
+      "capture_trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "component": "classifier",
+      "reasoning_text": ".",
+      "agent_run_id": "run-3ff6ffd7-6882-4c92-aa01-30d57a6b14d8",
+      "chunk_index": "5"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:45:43.424061+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "2debe3bcf82885e9db12459994d043aa",
+    "ParentId": "77b957ade73a76d3",
+    "Id": "",
+    "Properties": {
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/streaming/adapter.py",
+      "code.function.name": "stream_text_capture",
+      "code.line.number": "214",
+      "capture_trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "component": "classifier",
+      "reasoning_text": "9",
+      "agent_run_id": "run-3ff6ffd7-6882-4c92-aa01-30d57a6b14d8",
+      "chunk_index": "6"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:45:43.431082+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "2debe3bcf82885e9db12459994d043aa",
+    "ParentId": "77b957ade73a76d3",
+    "Id": "",
+    "Properties": {
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/streaming/adapter.py",
+      "code.function.name": "stream_text_capture",
+      "code.line.number": "214",
+      "capture_trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "component": "classifier",
+      "reasoning_text": ").",
+      "agent_run_id": "run-3ff6ffd7-6882-4c92-aa01-30d57a6b14d8",
+      "chunk_index": "7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:45:48.279511+00:00",
+    "ItemType": "Dependency",
+    "Name": "process_thread_run",
+    "ResultCode": "0",
+    "DurationMs": 2769,
+    "OperationId": "7462a941a5168d0eed032c58a2f31eac",
+    "ParentId": "ebfc15e9d4d29016",
+    "Id": "a25202705981a9ca",
+    "Properties": {
+      "_MS.ResourceAttributeId": "ced32ac7-4d1c-4961-9ce1-50517a7df8b2",
+      "gen_ai.operation.name": "process_thread_run",
+      "gen_ai.response.model": "gpt-4o",
+      "az.namespace": "Microsoft.CognitiveServices",
+      "gen_ai.system": "az.ai.agents",
+      "gen_ai.agent.id": "asst_17oFXNHNq7kzmspQGMUrgERM",
+      "gen_ai.thread.run.status": "requires_action",
+      "gen_ai.thread.run.id": "run_icaWrMqNjxu0z3oxvnn11e98",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:45:48.280205+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/projects/second-brain/threads/thread_bTA0grs1SWR3tbGAyoBHnFSZ/runs",
+    "ResultCode": "200",
+    "DurationMs": 904,
+    "OperationId": "7462a941a5168d0eed032c58a2f31eac",
+    "ParentId": "a25202705981a9ca",
+    "Id": "1f4f14ef0a67bbb5",
+    "Properties": {
+      "_MS.ResourceAttributeId": "685be16a-3a3e-47a9-8b4f-24788a527e64",
+      "az.client_request_id": "e9c8e6f4-4bce-11f1-87ad-6e77c0e7f82e",
+      "component": "http",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:45:51.049122+00:00",
+    "ItemType": "Dependency",
+    "Name": "tool_fetch_recipe_url",
+    "ResultCode": "0",
+    "DurationMs": 16007,
+    "OperationId": "7462a941a5168d0eed032c58a2f31eac",
+    "ParentId": "016c63eecacbd5cc",
+    "Id": "8586e6c6c4355c5e",
+    "Properties": {
+      "_MS.ResourceAttributeId": "dcad2121-e026-4326-ac3b-bcd449cd88fa",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "tool.name": "fetch_recipe_url",
+      "tool.duration_ms": "16007.30283698067"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:45:51.049370+00:00",
+    "ItemType": "Dependency",
+    "Name": "execute_tool fetch_recipe_url",
+    "ResultCode": "0",
+    "DurationMs": 16007,
+    "OperationId": "7462a941a5168d0eed032c58a2f31eac",
+    "ParentId": "8586e6c6c4355c5e",
+    "Id": "a374a0d23bf411cc",
+    "Properties": {
+      "_MS.ResourceAttributeId": "dcad2121-e026-4326-ac3b-bcd449cd88fa",
+      "_MS.GenAIContentId": "[REDACTED]",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "gen_ai.tool.call.result": "PAGE TEXT:\nTitle: Best Chocolate Chip Cookies\n\nURL Source: https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/\n\nMarkdown Content:\n# Best Chocolate Chip Cookies Recipe (with Video)\n[Skip to content](https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/#main)\n\n[Allrecipes](https://www.allrecipes.com/)\n\nSave\n\n Rate \n\n*   Search   Please fill out this field.    Search the site   Please fill out this field.    \n*   [Newsletters](https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/#)\n*   [Sweepstakes](https://www.allrecipes.com/sweepstakes)\n*   [My Saves](https://www.myrecipes.com/)\n\n[Allrecipes](https://www.allrecipes.com/)\n\nSearch \n\n Please fill out this field. \n\n*   [Dinners](https://www.allrecipes.com/recipes/17562/dinner/)\n\nDinners \n    *   [5-Ingredient Dinners](https://www.allrecipes.com/recipes/17057/everyday-cooking/more-meal-ideas/5-ingredients/main-dishes/)\n    *   [One-Pot Meals](https://www.allrecipes.com/recipes/15436/everyday-cooking/one-pot-meals/)\n    *   [Quick & Easy](https://www.allrecipes.com/recipes/1947/everyday-cooking/quick-and-easy/)\n    *   [30-Minute Meals](https://www.allrecipes.com/recipes/455/everyday-cooking/more-meal-ideas/30-minute-meals/)\n    *   [Family Dinners](https://www.allrecipes.com/recipes/17889/everyday-cooking/family-friendly/family-dinners/)\n    *   [Soups, Stews & Chili](https://www.allrecipes.com/recipes/94/soups-stews-and-chili/)\n    *   [Comfort Food](https://www.allrecipes.com/recipes/16099/everyday-cooking/comfort-food/)\n    *   [Main Dishes](https://www.allrecipes.com/recipes/80/main-dish/)\n    *   [Sheet Pan Dinners](https://www.allrecipes.com/recipes/22992/everyday-cooking/sheet-pan-dinners/)\n    *   [View All](https://www.allrecipes.com/recipes/17562/dinner/)\n\n*   [Meals](https://www.allrecipes.com/recipes-a-z-6735880)\n\nMeals \n    *   [Breakfast & Brunch](https://www.allrecipes.com/recipes/78/breakfast-and-brunch/)\n    *   [Lunch](https://www.allrecipes.com/recipes/17561/lunch/)\n    *   [Healthy](https://www.allrecipes.com/recipes/84/healthy-recipes/)\n    *   [Appetizers & Snacks](https://www.allrecipes.com/recipes/76/appetizers-and-snacks/)\n    *   [Salads](https://www.allrecipes.com/recipes/96/salad/)\n    *   [Side Dishes](https://www.allrecipes.com/recipes/81/side-dish/)\n    *   [Soups](https://www.allrecipes.com/recipes/16369/soups-stews-and-chili/soup/)\n    *   [Bread](https://www.allrecipes.com/recipes/156/bread/)\n    *   [Drinks](https://www.allrecipes.com/recipes/77/drinks/)\n    *   [Desserts](https://www.allrecipes.com/recipes/79/desserts/)\n    *   [View All](https://www.allrecipes.com/recipes-a-z-6735880)\n\n*   [Ingredients](https://www.allrecipes.com/ingredients-a-z-6740416)\n\nIngredients \n    *   [Chicken](https://www.allrecipes.com/recipes/201/meat-and-poultry/chicken/)\n    *   [Beef](https://www.allrecipes.com/recipes/200/meat-and-poultry/beef/)\n    *   [Pork](https://www.allrecipes.com/recipes/205/meat-and-poultry/pork/)\n    *   [Seafood](https://www.allrecipes.com/recipes/93/seafood/)\n    *   [Pasta](https://www.allrecipes.com/recipes/95/pasta-and-noodles/)\n    *   [Fruits](https://www.allrecipes.com/recipes/1058/fruits-and-vegetables/fruits/)\n    *   [Vegetables](https://www.allrecipes.com/recipes/1059/fruits-and-vegetables/vegetables/)\n    *   [View All](https://www.allrecipes.com/ingredients-a-z-6740416)\n\n*   [Occasions](https://www.allrecipes.com/recipes/85/holidays-and-events/)\n\nOccasions \n    *   [Cinco de Mayo Recipes](https://www.allrecipes.com/recipes/1509/holidays-and-events/cinco-de-mayo/)\n    *   [Mother's Day Recipes](https://www.allrecipes.com/recipes/1445/holidays-and-events/mothers-day/)\n    *   [Memorial Day Recipes](https://www.allrecipes.com/recipes/1502/holidays-and-events/memorial-day/)\n    *   [View All](https://www.allrecipes.com/recipes/85/holidays-and-events/)\n\n*   [Cuisines](https://www.allrecipes.com/cuisine-a-z-6740455)\n\nCuisines \n    *   [Mexican](https://www.allrecipes.com/recipes/728/world-cuisine/latin-american/mexican/)\n    *   [Italian](https://www.allrecipes.com/recipes/723/world-cuisine/european/italian/)\n    *   [Chinese](https://www.allrecipes.com/recipes/695/world-cuisine/asian/chinese/)\n    *   [Indian](https://www.allrecipes.com/recipes/233/world-cuisine/asian/indian/)\n    *   [German](https://www.allrecipes.com/recipes/722/world-cuisine/european/german/)\n    *   [Greek](https://www.allrecipes.com/recipes/731/world-cuisine/european/greek/)\n    *   [Filipino](https://www.allrecipes.com/recipes/696/world-cuisine/asian/filipino/)\n    *   [Japanese](https://www.allrecipes.com/recipes/699/world-cuisine/asian/japanese/)\n    *   [View All](https://www.allrecipes.com/cuisine-a-z-6740455)\n\n*   [Kitchen Tips](https://www.allrecipes.com/in-the-kitchen-6653922)\n\nKitchen Tips \n    *   [Instant Pot](https://www.allrecipes.com/recipes/22882/everyday-cooking/instant-pot/)\n    *   [Air Fryer](https://www.allrecipes.com/recipes/23070/everyday-cooking/cookware-and-equipment/air-fryer/)\n    *   [Slow Cooker](https://www.allrecipes.com/recipes/253/everyday-cooking/slow-cooker/)\n    *   [Our Favorite Products](https://www.allrecipes.com/food-news-trends/product-reviews/)\n    *   [BBQ & Grilling](https://www.allrecipes.com/recipes/88/bbq-grilling/)\n    *   [Cooking by Equipment](https://www.allrecipes.com/recipes/17583/everyday-cooking/cookware-and-equipment/)\n    *   [Ingredient Substitutions](https://www.allrecipes.com/kitchen-tips/all-about-ingredients/substitutions/)\n    *   [View All](https://www.allrecipes.com/in-the-kitchen-6653922)\n\n*   [News](https://www.allrecipes.com/food-news-trends/)\n\nNews \n    *   [Celebrity & Entertainment](https://www.allrecipes.com/food-news-trends/celebrity-entertainment/)\n    *   [Fast Food](https://www.allrecipes.com/fast-food-8672832)\n    *   [Grocery](https://www.allrecipes.com/grocery-8672835)\n    *   [Recalls](https://www.allrecipes.com/food-news-trends/recalls/)\n    *   [Trends](https://www.allrecipes.com/food-news-trends/trends/)\n    *   [View All](https://www.allrecipes.com/food-news-trends/)\n\n*   [Features](https://www.allrecipes.com/recipes/1642/everyday-cooking/)\n\nFeatures \n    *   [Dinner Fix](https://www.allrecipes.com/kitchen-tips/how-to/dinner-fix/)\n    *   [Sweet Spot](https://www.allrecipes.com/kitchen-tips/how-to/sweet-spot/)\n    *   [In the Kitchen](https://www.allrecipes.com/kitchen-tips/in-the-kitchen/)\n\n*   [Video](https://www.allrecipes.com/video)\n*   [About Us](https://www.allrecipes.com/about-us-6648102)\n\nAbout Us \n    *   [About Allrecipes](https://www.allrecipes.com/about-us-6648102)\n    *   [Allstars](https://www.allrecipes.com/allstars-8661275)\n    *   [How to Add a Recipe](https://www.allrecipes.com/article/how-to-submit-recipes/)\n\n*   [GET THE MAGAZINE](https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/#)\n\n*   [Log In to Allrecipes Account](https://www.allrecipes.com/authentication/login?regSource=3675&relativeRedirectUrl=%2Frecipe%2F10813%2Fbest-chocolate-chip-cookies%2F)\n*   Allrecipes Account\n\nAllrecipes Account \n    *   [Add a Recipe](https://www.allrecipes.com/account/add-recipe)\n    *   [Account Settings](https://www.allrecipes.com/account/settings)\n    *   [Help](https://support.people.inc/hc/en-us/categories/360003648613-Allrecipes)\n    *   [Log Out](https://www.allrecipes.com/authentication/logout?relativeRedirectUrl=%2Frecipe%2F10813%2Fbest-chocolate-chip-cookies%2F)\n\n*   Magazine\n\nMagazine \n    *   [Manage Your Subscription](https://w1.buysub.com/servlet/CSGateway?cds_mag_code=ALR)\n    *   [Get Help](https://www.magazines.com/customer-care)\n\n*   [Newsletters](https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/#)\n*   [Sweepstakes](https://www.allrecipes.com/sweepstakes)\n*   [](https://www.myrecipes.com/)\n\nFollow Us\n\n*   [](https://www.facebook.com/allrecipes)\n*   [](https://www.instagram.com/allrecipes/)\n*   [](https://www.pinterest.com/allrecipes/)\n*   [](https://www.tiktok.com/@allrecipes)\n*   [](https://www.youtube.com/user/allrecipes/videos)\n*   [](https://flipboard.com/@Allrecipes)\n\n*   [Dinners](https://www.allrecipes.com/recipes/17562/dinner/)\n    *   [5-Ingredient Dinners](https://www.allrecipes.com/recipes/17057/everyday-cooking/more-meal-ideas/5-ingredients/main-dishes/)\n    *   [One-Pot Meals](https://www.allrecipes.com/recipes/15436/everyday-cooking/one-pot-meals/)\n    *   [Quick & Easy](https://www.allrecipes.com/recipes/1947/everyday-cooking/quick-and-easy/)\n    *   [30-Minute Meals](https://www.allrecipes.com/recipes/455/everyday-cooking/more-meal-ideas/30-minute-meals/)\n    *   [Family Dinners](https://www.allrecipes.com/recipes/17889/everyday-cooking/family-friendly/family-dinners/)\n    *   [Soups, Stews & Chili](https://www.allrecipes.com/recipes/94/soups-stews-and-chili/)\n    *   [Comfort Food](https://www.allrecipes.com/recipes/16099/everyday-cooking/comfort-food/)\n    *   [Main Dishes](https://www.allrecipes.com/recipes/80/main-dish/)\n    *   [Sheet Pan Dinners](https://www.allrecipes.com/recipes/22992/everyday-cooking/sheet-pan-dinners/)\n    *   [View All](https://www.allrecipes.com/recipes/17562/dinner/)\n\n*   [Meals](https://www.allrecipes.com/recipes-a-z-6735880)\n    *   [Breakfast & Brunch](https://www.allrecipes.com/recipes/78/breakfast-and-brunch/)\n    *   [Lunch](https://www.allrecipes.com/recipes/17561/lunch/)\n    *   [Healthy](https://www.allrecipes.com/recipes/84/healthy-recipes/)\n    *   [Appetizers & Snacks](https://www.allrecipes.com/recipes/76/appetizers-and-snacks/)\n    *   [Salads](https://www.allrecipes.com/recipes/96/salad/)\n    *   [Side Dishes](https://www.allrecipes.com/recipes/81/side-dish/)\n    *   [Soups](https://www.allrecipes.com/recipes/16369/soups-stews-and-chili/soup/)\n    *   [Bread](https://www.allrecipes.com/recipes/156/bread/)\n    *   [Drinks](https://www.allrecipes.com/recipes/77/drinks/)\n    *   [Desserts](https://www.allrecipes.com/recipes/79/desserts/)\n    *   [View All](https://www.allrecipes.com/recipes-a-z-6735880)\n\n*   [Ingredients](https://www.allrecipes.com/ingredients-a-z-6740416)\n    *   [Chicken](https://www.allrecipes.com/recipes/201/meat-and-poultry/chicken/)\n    *   [Beef](https://www.allrecipes.com/recipes/200/meat-and-poultry/beef/)\n    *   [Pork](https://www.allrecipes.com/recipes/205/meat-and-poultry/pork/)\n    *   [Seafood](https://www.allrecipes.com/recipes/93/seafood/)\n    *   [Pasta](https://www.allrecipes.com/recipes/95/pasta-and-noodles/)\n    *   [Fruits](https://www.allrecipes.com/recipes/1058/fruits-and-vegetables/fruits/)\n    *   [Vegetables](https://www.allrecipes.com/recipes/1059/fruits-and-vegetables/vegetables/)\n    *   [View All](https://www.allrecipes.com/ingredients-a-z-6740416)\n\n*   [Occasions](https://www.allrecipes.com/recipes/85/holidays-and-events/)\n    *   [Cinco de Mayo Recipes](https://www.allrecipes.com/recipes/1509/holidays-and-events/cinco-de-mayo/)\n    *   [Mother's Day Recipes](https://www.allrecipes.com/recipes/1445/holidays-and-events/mothers-day/)\n    *   [Memorial Day Recipes](https://www.allrecipes.com/recipes/1502/holidays-and-events/memorial-day/)\n    *   [View All](https://www.allrecipes.com/recipes/85/holidays-and-events/)\n\n*   [Cuisines](https://www.allrecipes.com/cuisine-a-z-6740455)\n    *   [Mexican](https://www.allrecipes.com/recipes/728/world-cuisine/latin-american/mexican/)\n    *   [Italian](https://www.allrecipes.com/recipes/723/world-cuisine/european/italian/)\n    *   [Chinese](https://www.allrecipes.com/recipes/695/world-cuisine/asian/chinese/)\n    *   [Indian](https://www.allrecipes.com/recipes/233/world-cuisine/asian/indian/)\n    *   [German](https://www.allrecipes.com/recipes/722/world-cuisine/european/german/)\n    *   [Greek](https://www.allrecipes.com/recipes/731/world-cuisine/european/greek/)\n    *   [Filipino](https://www.allrecipes.com/recipes/696/world-cuisine/asian/filipino/)\n    *   [Japanese](https://www.allrecipes.com/recipes/699/world-cuisine/asian/japanese/)\n    *   [View All](https://www.allrecipes.com/cuisin",
+      "agent_framework.function.invocation.duration": "16.006949838949367"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:06.995694+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.create_item",
+    "ResultCode": "0",
+    "DurationMs": 29,
+    "OperationId": "7462a941a5168d0eed032c58a2f31eac",
+    "ParentId": "a374a0d23bf411cc",
+    "Id": "4c8084c57801e30a",
+    "Properties": {
+      "_MS.ResourceAttributeId": "dcad2121-e026-4326-ac3b-bcd449cd88fa",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:06.996261+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/spine_events/docs/",
+    "ResultCode": "201",
+    "DurationMs": 28,
+    "OperationId": "7462a941a5168d0eed032c58a2f31eac",
+    "ParentId": "4c8084c57801e30a",
+    "Id": "e1a593df382232eb",
+    "Properties": {
+      "_MS.ResourceAttributeId": "dcad2121-e026-4326-ac3b-bcd449cd88fa",
+      "component": "http",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:07.025096+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.upsert_item",
+    "ResultCode": "0",
+    "DurationMs": 31,
+    "OperationId": "7462a941a5168d0eed032c58a2f31eac",
+    "ParentId": "a374a0d23bf411cc",
+    "Id": "65216e594e7f15df",
+    "Properties": {
+      "_MS.ResourceAttributeId": "dcad2121-e026-4326-ac3b-bcd449cd88fa",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:07.025618+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/spine_correlation/docs/",
+    "ResultCode": "201",
+    "DurationMs": 31,
+    "OperationId": "7462a941a5168d0eed032c58a2f31eac",
+    "ParentId": "65216e594e7f15df",
+    "Id": "64d234f0eacfba1c",
+    "Properties": {
+      "_MS.ResourceAttributeId": "dcad2121-e026-4326-ac3b-bcd449cd88fa",
+      "component": "http",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:07.056693+00:00",
+    "ItemType": "Dependency",
+    "Name": "chat unknown",
+    "ResultCode": "0",
+    "DurationMs": 3516,
+    "OperationId": "7462a941a5168d0eed032c58a2f31eac",
+    "ParentId": "016c63eecacbd5cc",
+    "Id": "819ce4d65360e2b5",
+    "Properties": {
+      "_MS.ResourceAttributeId": "043fa7b6-2a56-4d50-88cf-b8707ed065e8",
+      "gen_ai.input.messages": "[REDACTED]",
+      "gen_ai.request.choice.count": "1",
+      "gen_ai.operation.name": "chat",
+      "gen_ai.provider.name": "azure.ai",
+      "gen_ai.request.model": "unknown",
+      "gen_ai.response.id": "run_icaWrMqNjxu0z3oxvnn11e98",
+      "gen_ai.response.model": "gpt-4o",
+      "gen_ai.usage.input_tokens": "9143",
+      "gen_ai.usage.output_tokens": "96",
+      "gen_ai.output.messages": "[REDACTED]",
+      "_MS.GenAIContentId": "[REDACTED]",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:10.573311+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "7462a941a5168d0eed032c58a2f31eac",
+    "ParentId": "016c63eecacbd5cc",
+    "Id": "",
+    "Properties": {
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/processing/admin_handoff.py",
+      "code.function.name": "process_admin_capture",
+      "code.line.number": "275",
+      "capture_trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "component": "admin_agent"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:10.573658+00:00",
+    "ItemType": "Dependency",
+    "Name": "chat unknown",
+    "ResultCode": "0",
+    "DurationMs": 2571,
+    "OperationId": "7462a941a5168d0eed032c58a2f31eac",
+    "ParentId": "016c63eecacbd5cc",
+    "Id": "77d585070f048f20",
+    "Properties": {
+      "_MS.ResourceAttributeId": "043fa7b6-2a56-4d50-88cf-b8707ed065e8",
+      "gen_ai.input.messages": "[REDACTED]",
+      "gen_ai.request.choice.count": "1",
+      "gen_ai.operation.name": "chat",
+      "gen_ai.provider.name": "azure.ai",
+      "gen_ai.request.model": "unknown",
+      "gen_ai.response.id": "run_dsbHImZ6b8t5Z6WkbOB6fA55",
+      "gen_ai.response.model": "gpt-4o",
+      "gen_ai.output.messages": "[REDACTED]",
+      "_MS.GenAIContentId": "[REDACTED]",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:10.574056+00:00",
+    "ItemType": "Dependency",
+    "Name": "create_thread",
+    "ResultCode": "0",
+    "DurationMs": 231,
+    "OperationId": "7462a941a5168d0eed032c58a2f31eac",
+    "ParentId": "77d585070f048f20",
+    "Id": "beec8ee8d0be4a58",
+    "Properties": {
+      "_MS.ResourceAttributeId": "043fa7b6-2a56-4d50-88cf-b8707ed065e8",
+      "gen_ai.operation.name": "create_thread",
+      "az.namespace": "Microsoft.CognitiveServices",
+      "gen_ai.system": "az.ai.agents",
+      "gen_ai.thread.id": "thread_uxBkKHeuWA4yzgFhaxf1MukQ",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:10.574612+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/projects/second-brain/threads",
+    "ResultCode": "200",
+    "DurationMs": 231,
+    "OperationId": "7462a941a5168d0eed032c58a2f31eac",
+    "ParentId": "beec8ee8d0be4a58",
+    "Id": "e74cdf7ac55ce96f",
+    "Properties": {
+      "_MS.ResourceAttributeId": "043fa7b6-2a56-4d50-88cf-b8707ed065e8",
+      "az.client_request_id": "f712c3ca-4bce-11f1-87ad-6e77c0e7f82e",
+      "component": "http",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:10.805909+00:00",
+    "ItemType": "Dependency",
+    "Name": "process_thread_run",
+    "ResultCode": "0",
+    "DurationMs": 2338,
+    "OperationId": "7462a941a5168d0eed032c58a2f31eac",
+    "ParentId": "77d585070f048f20",
+    "Id": "9730e5cb6a002005",
+    "Properties": {
+      "_MS.ResourceAttributeId": "043fa7b6-2a56-4d50-88cf-b8707ed065e8",
+      "gen_ai.operation.name": "process_thread_run",
+      "gen_ai.response.model": "gpt-4o",
+      "az.namespace": "Microsoft.CognitiveServices",
+      "gen_ai.system": "az.ai.agents",
+      "gen_ai.agent.id": "asst_17oFXNHNq7kzmspQGMUrgERM",
+      "gen_ai.thread.run.status": "requires_action",
+      "gen_ai.thread.run.id": "run_dsbHImZ6b8t5Z6WkbOB6fA55",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:13.144472+00:00",
+    "ItemType": "Dependency",
+    "Name": "tool_fetch_recipe_url",
+    "ResultCode": "0",
+    "DurationMs": 623,
+    "OperationId": "7462a941a5168d0eed032c58a2f31eac",
+    "ParentId": "016c63eecacbd5cc",
+    "Id": "5f509a39a26c83b5",
+    "Properties": {
+      "_MS.ResourceAttributeId": "043fa7b6-2a56-4d50-88cf-b8707ed065e8",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "tool.name": "fetch_recipe_url",
+      "tool.duration_ms": "623.1330739683472"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:13.144639+00:00",
+    "ItemType": "Dependency",
+    "Name": "execute_tool fetch_recipe_url",
+    "ResultCode": "0",
+    "DurationMs": 623,
+    "OperationId": "7462a941a5168d0eed032c58a2f31eac",
+    "ParentId": "5f509a39a26c83b5",
+    "Id": "520749d6e06779cf",
+    "Properties": {
+      "_MS.ResourceAttributeId": "043fa7b6-2a56-4d50-88cf-b8707ed065e8",
+      "_MS.GenAIContentId": "[REDACTED]",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "gen_ai.tool.call.result": "PAGE TEXT:\nTitle: Best Chocolate Chip Cookies\n\nURL Source: https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/\n\nMarkdown Content:\n# Best Chocolate Chip Cookies Recipe (with Video)\n[Skip to content](https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/#main)\n\n[Allrecipes](https://www.allrecipes.com/)\n\nSave\n\n Rate \n\n*   Search   Please fill out this field.    Search the site   Please fill out this field.    \n*   [Newsletters](https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/#)\n*   [Sweepstakes](https://www.allrecipes.com/sweepstakes)\n*   [My Saves](https://www.myrecipes.com/)\n\n[Allrecipes](https://www.allrecipes.com/)\n\nSearch \n\n Please fill out this field. \n\n*   [Dinners](https://www.allrecipes.com/recipes/17562/dinner/)\n\nDinners \n    *   [5-Ingredient Dinners](https://www.allrecipes.com/recipes/17057/everyday-cooking/more-meal-ideas/5-ingredients/main-dishes/)\n    *   [One-Pot Meals](https://www.allrecipes.com/recipes/15436/everyday-cooking/one-pot-meals/)\n    *   [Quick & Easy](https://www.allrecipes.com/recipes/1947/everyday-cooking/quick-and-easy/)\n    *   [30-Minute Meals](https://www.allrecipes.com/recipes/455/everyday-cooking/more-meal-ideas/30-minute-meals/)\n    *   [Family Dinners](https://www.allrecipes.com/recipes/17889/everyday-cooking/family-friendly/family-dinners/)\n    *   [Soups, Stews & Chili](https://www.allrecipes.com/recipes/94/soups-stews-and-chili/)\n    *   [Comfort Food](https://www.allrecipes.com/recipes/16099/everyday-cooking/comfort-food/)\n    *   [Main Dishes](https://www.allrecipes.com/recipes/80/main-dish/)\n    *   [Sheet Pan Dinners](https://www.allrecipes.com/recipes/22992/everyday-cooking/sheet-pan-dinners/)\n    *   [View All](https://www.allrecipes.com/recipes/17562/dinner/)\n\n*   [Meals](https://www.allrecipes.com/recipes-a-z-6735880)\n\nMeals \n    *   [Breakfast & Brunch](https://www.allrecipes.com/recipes/78/breakfast-and-brunch/)\n    *   [Lunch](https://www.allrecipes.com/recipes/17561/lunch/)\n    *   [Healthy](https://www.allrecipes.com/recipes/84/healthy-recipes/)\n    *   [Appetizers & Snacks](https://www.allrecipes.com/recipes/76/appetizers-and-snacks/)\n    *   [Salads](https://www.allrecipes.com/recipes/96/salad/)\n    *   [Side Dishes](https://www.allrecipes.com/recipes/81/side-dish/)\n    *   [Soups](https://www.allrecipes.com/recipes/16369/soups-stews-and-chili/soup/)\n    *   [Bread](https://www.allrecipes.com/recipes/156/bread/)\n    *   [Drinks](https://www.allrecipes.com/recipes/77/drinks/)\n    *   [Desserts](https://www.allrecipes.com/recipes/79/desserts/)\n    *   [View All](https://www.allrecipes.com/recipes-a-z-6735880)\n\n*   [Ingredients](https://www.allrecipes.com/ingredients-a-z-6740416)\n\nIngredients \n    *   [Chicken](https://www.allrecipes.com/recipes/201/meat-and-poultry/chicken/)\n    *   [Beef](https://www.allrecipes.com/recipes/200/meat-and-poultry/beef/)\n    *   [Pork](https://www.allrecipes.com/recipes/205/meat-and-poultry/pork/)\n    *   [Seafood](https://www.allrecipes.com/recipes/93/seafood/)\n    *   [Pasta](https://www.allrecipes.com/recipes/95/pasta-and-noodles/)\n    *   [Fruits](https://www.allrecipes.com/recipes/1058/fruits-and-vegetables/fruits/)\n    *   [Vegetables](https://www.allrecipes.com/recipes/1059/fruits-and-vegetables/vegetables/)\n    *   [View All](https://www.allrecipes.com/ingredients-a-z-6740416)\n\n*   [Occasions](https://www.allrecipes.com/recipes/85/holidays-and-events/)\n\nOccasions \n    *   [Cinco de Mayo Recipes](https://www.allrecipes.com/recipes/1509/holidays-and-events/cinco-de-mayo/)\n    *   [Mother's Day Recipes](https://www.allrecipes.com/recipes/1445/holidays-and-events/mothers-day/)\n    *   [Memorial Day Recipes](https://www.allrecipes.com/recipes/1502/holidays-and-events/memorial-day/)\n    *   [View All](https://www.allrecipes.com/recipes/85/holidays-and-events/)\n\n*   [Cuisines](https://www.allrecipes.com/cuisine-a-z-6740455)\n\nCuisines \n    *   [Mexican](https://www.allrecipes.com/recipes/728/world-cuisine/latin-american/mexican/)\n    *   [Italian](https://www.allrecipes.com/recipes/723/world-cuisine/european/italian/)\n    *   [Chinese](https://www.allrecipes.com/recipes/695/world-cuisine/asian/chinese/)\n    *   [Indian](https://www.allrecipes.com/recipes/233/world-cuisine/asian/indian/)\n    *   [German](https://www.allrecipes.com/recipes/722/world-cuisine/european/german/)\n    *   [Greek](https://www.allrecipes.com/recipes/731/world-cuisine/european/greek/)\n    *   [Filipino](https://www.allrecipes.com/recipes/696/world-cuisine/asian/filipino/)\n    *   [Japanese](https://www.allrecipes.com/recipes/699/world-cuisine/asian/japanese/)\n    *   [View All](https://www.allrecipes.com/cuisine-a-z-6740455)\n\n*   [Kitchen Tips](https://www.allrecipes.com/in-the-kitchen-6653922)\n\nKitchen Tips \n    *   [Instant Pot](https://www.allrecipes.com/recipes/22882/everyday-cooking/instant-pot/)\n    *   [Air Fryer](https://www.allrecipes.com/recipes/23070/everyday-cooking/cookware-and-equipment/air-fryer/)\n    *   [Slow Cooker](https://www.allrecipes.com/recipes/253/everyday-cooking/slow-cooker/)\n    *   [Our Favorite Products](https://www.allrecipes.com/food-news-trends/product-reviews/)\n    *   [BBQ & Grilling](https://www.allrecipes.com/recipes/88/bbq-grilling/)\n    *   [Cooking by Equipment](https://www.allrecipes.com/recipes/17583/everyday-cooking/cookware-and-equipment/)\n    *   [Ingredient Substitutions](https://www.allrecipes.com/kitchen-tips/all-about-ingredients/substitutions/)\n    *   [View All](https://www.allrecipes.com/in-the-kitchen-6653922)\n\n*   [News](https://www.allrecipes.com/food-news-trends/)\n\nNews \n    *   [Celebrity & Entertainment](https://www.allrecipes.com/food-news-trends/celebrity-entertainment/)\n    *   [Fast Food](https://www.allrecipes.com/fast-food-8672832)\n    *   [Grocery](https://www.allrecipes.com/grocery-8672835)\n    *   [Recalls](https://www.allrecipes.com/food-news-trends/recalls/)\n    *   [Trends](https://www.allrecipes.com/food-news-trends/trends/)\n    *   [View All](https://www.allrecipes.com/food-news-trends/)\n\n*   [Features](https://www.allrecipes.com/recipes/1642/everyday-cooking/)\n\nFeatures \n    *   [Dinner Fix](https://www.allrecipes.com/kitchen-tips/how-to/dinner-fix/)\n    *   [Sweet Spot](https://www.allrecipes.com/kitchen-tips/how-to/sweet-spot/)\n    *   [In the Kitchen](https://www.allrecipes.com/kitchen-tips/in-the-kitchen/)\n\n*   [Video](https://www.allrecipes.com/video)\n*   [About Us](https://www.allrecipes.com/about-us-6648102)\n\nAbout Us \n    *   [About Allrecipes](https://www.allrecipes.com/about-us-6648102)\n    *   [Allstars](https://www.allrecipes.com/allstars-8661275)\n    *   [How to Add a Recipe](https://www.allrecipes.com/article/how-to-submit-recipes/)\n\n*   [GET THE MAGAZINE](https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/#)\n\n*   [Log In to Allrecipes Account](https://www.allrecipes.com/authentication/login?regSource=3675&relativeRedirectUrl=%2Frecipe%2F10813%2Fbest-chocolate-chip-cookies%2F)\n*   Allrecipes Account\n\nAllrecipes Account \n    *   [Add a Recipe](https://www.allrecipes.com/account/add-recipe)\n    *   [Account Settings](https://www.allrecipes.com/account/settings)\n    *   [Help](https://support.people.inc/hc/en-us/categories/360003648613-Allrecipes)\n    *   [Log Out](https://www.allrecipes.com/authentication/logout?relativeRedirectUrl=%2Frecipe%2F10813%2Fbest-chocolate-chip-cookies%2F)\n\n*   Magazine\n\nMagazine \n    *   [Manage Your Subscription](https://w1.buysub.com/servlet/CSGateway?cds_mag_code=ALR)\n    *   [Get Help](https://www.magazines.com/customer-care)\n\n*   [Newsletters](https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/#)\n*   [Sweepstakes](https://www.allrecipes.com/sweepstakes)\n*   [](https://www.myrecipes.com/)\n\nFollow Us\n\n*   [](https://www.facebook.com/allrecipes)\n*   [](https://www.instagram.com/allrecipes/)\n*   [](https://www.pinterest.com/allrecipes/)\n*   [](https://www.tiktok.com/@allrecipes)\n*   [](https://www.youtube.com/user/allrecipes/videos)\n*   [](https://flipboard.com/@Allrecipes)\n\n*   [Dinners](https://www.allrecipes.com/recipes/17562/dinner/)\n    *   [5-Ingredient Dinners](https://www.allrecipes.com/recipes/17057/everyday-cooking/more-meal-ideas/5-ingredients/main-dishes/)\n    *   [One-Pot Meals](https://www.allrecipes.com/recipes/15436/everyday-cooking/one-pot-meals/)\n    *   [Quick & Easy](https://www.allrecipes.com/recipes/1947/everyday-cooking/quick-and-easy/)\n    *   [30-Minute Meals](https://www.allrecipes.com/recipes/455/everyday-cooking/more-meal-ideas/30-minute-meals/)\n    *   [Family Dinners](https://www.allrecipes.com/recipes/17889/everyday-cooking/family-friendly/family-dinners/)\n    *   [Soups, Stews & Chili](https://www.allrecipes.com/recipes/94/soups-stews-and-chili/)\n    *   [Comfort Food](https://www.allrecipes.com/recipes/16099/everyday-cooking/comfort-food/)\n    *   [Main Dishes](https://www.allrecipes.com/recipes/80/main-dish/)\n    *   [Sheet Pan Dinners](https://www.allrecipes.com/recipes/22992/everyday-cooking/sheet-pan-dinners/)\n    *   [View All](https://www.allrecipes.com/recipes/17562/dinner/)\n\n*   [Meals](https://www.allrecipes.com/recipes-a-z-6735880)\n    *   [Breakfast & Brunch](https://www.allrecipes.com/recipes/78/breakfast-and-brunch/)\n    *   [Lunch](https://www.allrecipes.com/recipes/17561/lunch/)\n    *   [Healthy](https://www.allrecipes.com/recipes/84/healthy-recipes/)\n    *   [Appetizers & Snacks](https://www.allrecipes.com/recipes/76/appetizers-and-snacks/)\n    *   [Salads](https://www.allrecipes.com/recipes/96/salad/)\n    *   [Side Dishes](https://www.allrecipes.com/recipes/81/side-dish/)\n    *   [Soups](https://www.allrecipes.com/recipes/16369/soups-stews-and-chili/soup/)\n    *   [Bread](https://www.allrecipes.com/recipes/156/bread/)\n    *   [Drinks](https://www.allrecipes.com/recipes/77/drinks/)\n    *   [Desserts](https://www.allrecipes.com/recipes/79/desserts/)\n    *   [View All](https://www.allrecipes.com/recipes-a-z-6735880)\n\n*   [Ingredients](https://www.allrecipes.com/ingredients-a-z-6740416)\n    *   [Chicken](https://www.allrecipes.com/recipes/201/meat-and-poultry/chicken/)\n    *   [Beef](https://www.allrecipes.com/recipes/200/meat-and-poultry/beef/)\n    *   [Pork](https://www.allrecipes.com/recipes/205/meat-and-poultry/pork/)\n    *   [Seafood](https://www.allrecipes.com/recipes/93/seafood/)\n    *   [Pasta](https://www.allrecipes.com/recipes/95/pasta-and-noodles/)\n    *   [Fruits](https://www.allrecipes.com/recipes/1058/fruits-and-vegetables/fruits/)\n    *   [Vegetables](https://www.allrecipes.com/recipes/1059/fruits-and-vegetables/vegetables/)\n    *   [View All](https://www.allrecipes.com/ingredients-a-z-6740416)\n\n*   [Occasions](https://www.allrecipes.com/recipes/85/holidays-and-events/)\n    *   [Cinco de Mayo Recipes](https://www.allrecipes.com/recipes/1509/holidays-and-events/cinco-de-mayo/)\n    *   [Mother's Day Recipes](https://www.allrecipes.com/recipes/1445/holidays-and-events/mothers-day/)\n    *   [Memorial Day Recipes](https://www.allrecipes.com/recipes/1502/holidays-and-events/memorial-day/)\n    *   [View All](https://www.allrecipes.com/recipes/85/holidays-and-events/)\n\n*   [Cuisines](https://www.allrecipes.com/cuisine-a-z-6740455)\n    *   [Mexican](https://www.allrecipes.com/recipes/728/world-cuisine/latin-american/mexican/)\n    *   [Italian](https://www.allrecipes.com/recipes/723/world-cuisine/european/italian/)\n    *   [Chinese](https://www.allrecipes.com/recipes/695/world-cuisine/asian/chinese/)\n    *   [Indian](https://www.allrecipes.com/recipes/233/world-cuisine/asian/indian/)\n    *   [German](https://www.allrecipes.com/recipes/722/world-cuisine/european/german/)\n    *   [Greek](https://www.allrecipes.com/recipes/731/world-cuisine/european/greek/)\n    *   [Filipino](https://www.allrecipes.com/recipes/696/world-cuisine/asian/filipino/)\n    *   [Japanese](https://www.allrecipes.com/recipes/699/world-cuisine/asian/japanese/)\n    *   [View All](https://www.allrecipes.com/cuisin",
+      "agent_framework.function.invocation.duration": "0.6226318770204671"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:16.356539+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "7462a941a5168d0eed032c58a2f31eac",
+    "ParentId": "016c63eecacbd5cc",
+    "Id": "",
+    "Properties": {
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/processing/admin_handoff.py",
+      "code.function.name": "process_admin_capture",
+      "code.line.number": "308",
+      "capture_trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "component": "admin_agent"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:16.356842+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.read_item",
+    "ResultCode": "0",
+    "DurationMs": 24,
+    "OperationId": "7462a941a5168d0eed032c58a2f31eac",
+    "ParentId": "016c63eecacbd5cc",
+    "Id": "b6f5723b2164fd9b",
+    "Properties": {
+      "_MS.ResourceAttributeId": "08f25810-3c91-43c5-b153-91c07759a55e",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:16.357387+00:00",
+    "ItemType": "Dependency",
+    "Name": "GET /dbs/second-brain/colls/Inbox/docs/d011e868-b3fb-446f-82df-c5c83542db00/",
+    "ResultCode": "200",
+    "DurationMs": 23,
+    "OperationId": "7462a941a5168d0eed032c58a2f31eac",
+    "ParentId": "b6f5723b2164fd9b",
+    "Id": "61a19be6b77d14b4",
+    "Properties": {
+      "_MS.ResourceAttributeId": "08f25810-3c91-43c5-b153-91c07759a55e",
+      "component": "http",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:16.380619+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.upsert_item",
+    "ResultCode": "0",
+    "DurationMs": 30,
+    "OperationId": "7462a941a5168d0eed032c58a2f31eac",
+    "ParentId": "016c63eecacbd5cc",
+    "Id": "72c67f53f3f8f00a",
+    "Properties": {
+      "_MS.ResourceAttributeId": "08f25810-3c91-43c5-b153-91c07759a55e",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:16.381088+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/Inbox/docs/",
+    "ResultCode": "200",
+    "DurationMs": 29,
+    "OperationId": "7462a941a5168d0eed032c58a2f31eac",
+    "ParentId": "72c67f53f3f8f00a",
+    "Id": "7072ff0b94e27437",
+    "Properties": {
+      "_MS.ResourceAttributeId": "08f25810-3c91-43c5-b153-91c07759a55e",
+      "component": "http",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:16.410544+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.create_item",
+    "ResultCode": "0",
+    "DurationMs": 33,
+    "OperationId": "7462a941a5168d0eed032c58a2f31eac",
+    "ParentId": "016c63eecacbd5cc",
+    "Id": "91a50d8961930d29",
+    "Properties": {
+      "_MS.ResourceAttributeId": "08f25810-3c91-43c5-b153-91c07759a55e",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:16.410992+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/spine_events/docs/",
+    "ResultCode": "201",
+    "DurationMs": 32,
+    "OperationId": "7462a941a5168d0eed032c58a2f31eac",
+    "ParentId": "91a50d8961930d29",
+    "Id": "586ff380e53ddda2",
+    "Properties": {
+      "_MS.ResourceAttributeId": "08f25810-3c91-43c5-b153-91c07759a55e",
+      "component": "http",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:16.443350+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.upsert_item",
+    "ResultCode": "0",
+    "DurationMs": 23,
+    "OperationId": "7462a941a5168d0eed032c58a2f31eac",
+    "ParentId": "016c63eecacbd5cc",
+    "Id": "09750e81f3cfc479",
+    "Properties": {
+      "_MS.ResourceAttributeId": "08f25810-3c91-43c5-b153-91c07759a55e",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:38.297204+00:00",
+    "ItemType": "Dependency",
+    "Name": "admin_agent_process",
+    "ResultCode": "0",
+    "DurationMs": 17100,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "4df0119f0780cacc",
+    "Id": "3c11fc6697830a05",
+    "Properties": {
+      "_MS.ResourceAttributeId": "58b85449-a769-4c75-9159-4b458c593507",
+      "admin.inbox_item_id": "d011e868-b3fb-446f-82df-c5c83542db00",
+      "admin.raw_text_length": "68",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "admin.tool_invoked": "True",
+      "admin.output_tool_invoked": "False",
+      "admin.outcome": "failed",
+      "admin.retry": "True"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:38.297398+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.read_item",
+    "ResultCode": "0",
+    "DurationMs": 25,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "3c11fc6697830a05",
+    "Id": "66820ef7e5b73f8b",
+    "Properties": {
+      "_MS.ResourceAttributeId": "fb98f862-2acc-4482-83e9-97529c48711c",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:38.298001+00:00",
+    "ItemType": "Dependency",
+    "Name": "GET /dbs/second-brain/colls/Inbox/docs/d011e868-b3fb-446f-82df-c5c83542db00/",
+    "ResultCode": "200",
+    "DurationMs": 24,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "66820ef7e5b73f8b",
+    "Id": "f99b1a7715a2dd57",
+    "Properties": {
+      "_MS.ResourceAttributeId": "fb98f862-2acc-4482-83e9-97529c48711c",
+      "component": "http",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:38.322859+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.upsert_item",
+    "ResultCode": "0",
+    "DurationMs": 27,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "3c11fc6697830a05",
+    "Id": "3645dafa218379f2",
+    "Properties": {
+      "_MS.ResourceAttributeId": "fb98f862-2acc-4482-83e9-97529c48711c",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:38.323406+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/Inbox/docs/",
+    "ResultCode": "200",
+    "DurationMs": 26,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "3645dafa218379f2",
+    "Id": "c0e5649ba1804a15",
+    "Properties": {
+      "_MS.ResourceAttributeId": "fb98f862-2acc-4482-83e9-97529c48711c",
+      "component": "http",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:38.349817+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.query_items",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "3c11fc6697830a05",
+    "Id": "ac5c47126abfc089",
+    "Properties": {
+      "_MS.ResourceAttributeId": "fb98f862-2acc-4482-83e9-97529c48711c",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:38.350861+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/Destinations/docs/",
+    "ResultCode": "200",
+    "DurationMs": 24,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "3c11fc6697830a05",
+    "Id": "d6f1063d3fb38051",
+    "Properties": {
+      "_MS.ResourceAttributeId": "fb98f862-2acc-4482-83e9-97529c48711c",
+      "component": "http",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:38.375007+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.query_items",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "3c11fc6697830a05",
+    "Id": "39e2284db0d02dc1",
+    "Properties": {
+      "_MS.ResourceAttributeId": "fb98f862-2acc-4482-83e9-97529c48711c",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:38.375548+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/AffinityRules/docs/",
+    "ResultCode": "200",
+    "DurationMs": 24,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "3c11fc6697830a05",
+    "Id": "0aed0111d88ba9b1",
+    "Properties": {
+      "_MS.ResourceAttributeId": "fb98f862-2acc-4482-83e9-97529c48711c",
+      "component": "http",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:38.400230+00:00",
+    "ItemType": "Dependency",
+    "Name": "chat unknown",
+    "ResultCode": "0",
+    "DurationMs": 2622,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "3c11fc6697830a05",
+    "Id": "ac603995febfc68b",
+    "Properties": {
+      "_MS.ResourceAttributeId": "cd2e3047-f15f-42ea-9a22-89b49fa0fac5",
+      "gen_ai.input.messages": "[REDACTED]",
+      "gen_ai.request.choice.count": "1",
+      "gen_ai.operation.name": "chat",
+      "gen_ai.provider.name": "azure.ai",
+      "gen_ai.request.model": "unknown",
+      "gen_ai.response.id": "run_6kxC8CkKsO1NOWX5xYxHdbQx",
+      "gen_ai.response.model": "gpt-4o",
+      "gen_ai.output.messages": "[REDACTED]",
+      "_MS.GenAIContentId": "[REDACTED]",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:38.400536+00:00",
+    "ItemType": "Dependency",
+    "Name": "create_thread",
+    "ResultCode": "0",
+    "DurationMs": 233,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "ac603995febfc68b",
+    "Id": "982e1b80407c8083",
+    "Properties": {
+      "_MS.ResourceAttributeId": "fb98f862-2acc-4482-83e9-97529c48711c",
+      "gen_ai.operation.name": "create_thread",
+      "az.namespace": "Microsoft.CognitiveServices",
+      "gen_ai.system": "az.ai.agents",
+      "gen_ai.thread.id": "thread_lSOhkGlACzmi7HwFrypL1IhS",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:38.401112+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/projects/second-brain/threads",
+    "ResultCode": "200",
+    "DurationMs": 233,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "982e1b80407c8083",
+    "Id": "5e5f613cbf2ef0d2",
+    "Properties": {
+      "_MS.ResourceAttributeId": "fb98f862-2acc-4482-83e9-97529c48711c",
+      "az.client_request_id": "07a8bef6-4bcf-11f1-87ad-6e77c0e7f82e",
+      "component": "http",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:38.634192+00:00",
+    "ItemType": "Dependency",
+    "Name": "process_thread_run",
+    "ResultCode": "0",
+    "DurationMs": 2388,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "ac603995febfc68b",
+    "Id": "1f4e91ad51fa88b3",
+    "Properties": {
+      "_MS.ResourceAttributeId": "cd2e3047-f15f-42ea-9a22-89b49fa0fac5",
+      "gen_ai.operation.name": "process_thread_run",
+      "gen_ai.response.model": "gpt-4o",
+      "az.namespace": "Microsoft.CognitiveServices",
+      "gen_ai.system": "az.ai.agents",
+      "gen_ai.agent.id": "asst_17oFXNHNq7kzmspQGMUrgERM",
+      "gen_ai.thread.run.status": "requires_action",
+      "gen_ai.thread.run.id": "run_6kxC8CkKsO1NOWX5xYxHdbQx",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:38.634853+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/projects/second-brain/threads/thread_lSOhkGlACzmi7HwFrypL1IhS/runs",
+    "ResultCode": "200",
+    "DurationMs": 757,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "1f4e91ad51fa88b3",
+    "Id": "5df6a80d246287c9",
+    "Properties": {
+      "_MS.ResourceAttributeId": "fb98f862-2acc-4482-83e9-97529c48711c",
+      "az.client_request_id": "07cc69be-4bcf-11f1-87ad-6e77c0e7f82e",
+      "component": "http",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:41.022734+00:00",
+    "ItemType": "Dependency",
+    "Name": "tool_fetch_recipe_url",
+    "ResultCode": "0",
+    "DurationMs": 725,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "3c11fc6697830a05",
+    "Id": "b57365bf4eb72ca0",
+    "Properties": {
+      "_MS.ResourceAttributeId": "cd2e3047-f15f-42ea-9a22-89b49fa0fac5",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "tool.name": "fetch_recipe_url",
+      "tool.duration_ms": "724.5666349772364"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:41.022901+00:00",
+    "ItemType": "Dependency",
+    "Name": "execute_tool fetch_recipe_url",
+    "ResultCode": "0",
+    "DurationMs": 724,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "b57365bf4eb72ca0",
+    "Id": "215deb85be14a201",
+    "Properties": {
+      "_MS.ResourceAttributeId": "cd2e3047-f15f-42ea-9a22-89b49fa0fac5",
+      "_MS.GenAIContentId": "[REDACTED]",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "gen_ai.tool.call.result": "PAGE TEXT:\nTitle: Best Chocolate Chip Cookies\n\nURL Source: https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/\n\nMarkdown Content:\n# Best Chocolate Chip Cookies Recipe (with Video)\n[Skip to content](https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/#main)\n\n[Allrecipes](https://www.allrecipes.com/)\n\nSave\n\n Rate \n\n*   Search   Please fill out this field.    Search the site   Please fill out this field.    \n*   [Newsletters](https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/#)\n*   [Sweepstakes](https://www.allrecipes.com/sweepstakes)\n*   [My Saves](https://www.myrecipes.com/)\n\n[Allrecipes](https://www.allrecipes.com/)\n\nSearch \n\n Please fill out this field. \n\n*   [Dinners](https://www.allrecipes.com/recipes/17562/dinner/)\n\nDinners \n    *   [5-Ingredient Dinners](https://www.allrecipes.com/recipes/17057/everyday-cooking/more-meal-ideas/5-ingredients/main-dishes/)\n    *   [One-Pot Meals](https://www.allrecipes.com/recipes/15436/everyday-cooking/one-pot-meals/)\n    *   [Quick & Easy](https://www.allrecipes.com/recipes/1947/everyday-cooking/quick-and-easy/)\n    *   [30-Minute Meals](https://www.allrecipes.com/recipes/455/everyday-cooking/more-meal-ideas/30-minute-meals/)\n    *   [Family Dinners](https://www.allrecipes.com/recipes/17889/everyday-cooking/family-friendly/family-dinners/)\n    *   [Soups, Stews & Chili](https://www.allrecipes.com/recipes/94/soups-stews-and-chili/)\n    *   [Comfort Food](https://www.allrecipes.com/recipes/16099/everyday-cooking/comfort-food/)\n    *   [Main Dishes](https://www.allrecipes.com/recipes/80/main-dish/)\n    *   [Sheet Pan Dinners](https://www.allrecipes.com/recipes/22992/everyday-cooking/sheet-pan-dinners/)\n    *   [View All](https://www.allrecipes.com/recipes/17562/dinner/)\n\n*   [Meals](https://www.allrecipes.com/recipes-a-z-6735880)\n\nMeals \n    *   [Breakfast & Brunch](https://www.allrecipes.com/recipes/78/breakfast-and-brunch/)\n    *   [Lunch](https://www.allrecipes.com/recipes/17561/lunch/)\n    *   [Healthy](https://www.allrecipes.com/recipes/84/healthy-recipes/)\n    *   [Appetizers & Snacks](https://www.allrecipes.com/recipes/76/appetizers-and-snacks/)\n    *   [Salads](https://www.allrecipes.com/recipes/96/salad/)\n    *   [Side Dishes](https://www.allrecipes.com/recipes/81/side-dish/)\n    *   [Soups](https://www.allrecipes.com/recipes/16369/soups-stews-and-chili/soup/)\n    *   [Bread](https://www.allrecipes.com/recipes/156/bread/)\n    *   [Drinks](https://www.allrecipes.com/recipes/77/drinks/)\n    *   [Desserts](https://www.allrecipes.com/recipes/79/desserts/)\n    *   [View All](https://www.allrecipes.com/recipes-a-z-6735880)\n\n*   [Ingredients](https://www.allrecipes.com/ingredients-a-z-6740416)\n\nIngredients \n    *   [Chicken](https://www.allrecipes.com/recipes/201/meat-and-poultry/chicken/)\n    *   [Beef](https://www.allrecipes.com/recipes/200/meat-and-poultry/beef/)\n    *   [Pork](https://www.allrecipes.com/recipes/205/meat-and-poultry/pork/)\n    *   [Seafood](https://www.allrecipes.com/recipes/93/seafood/)\n    *   [Pasta](https://www.allrecipes.com/recipes/95/pasta-and-noodles/)\n    *   [Fruits](https://www.allrecipes.com/recipes/1058/fruits-and-vegetables/fruits/)\n    *   [Vegetables](https://www.allrecipes.com/recipes/1059/fruits-and-vegetables/vegetables/)\n    *   [View All](https://www.allrecipes.com/ingredients-a-z-6740416)\n\n*   [Occasions](https://www.allrecipes.com/recipes/85/holidays-and-events/)\n\nOccasions \n    *   [Cinco de Mayo Recipes](https://www.allrecipes.com/recipes/1509/holidays-and-events/cinco-de-mayo/)\n    *   [Mother's Day Recipes](https://www.allrecipes.com/recipes/1445/holidays-and-events/mothers-day/)\n    *   [Memorial Day Recipes](https://www.allrecipes.com/recipes/1502/holidays-and-events/memorial-day/)\n    *   [View All](https://www.allrecipes.com/recipes/85/holidays-and-events/)\n\n*   [Cuisines](https://www.allrecipes.com/cuisine-a-z-6740455)\n\nCuisines \n    *   [Mexican](https://www.allrecipes.com/recipes/728/world-cuisine/latin-american/mexican/)\n    *   [Italian](https://www.allrecipes.com/recipes/723/world-cuisine/european/italian/)\n    *   [Chinese](https://www.allrecipes.com/recipes/695/world-cuisine/asian/chinese/)\n    *   [Indian](https://www.allrecipes.com/recipes/233/world-cuisine/asian/indian/)\n    *   [German](https://www.allrecipes.com/recipes/722/world-cuisine/european/german/)\n    *   [Greek](https://www.allrecipes.com/recipes/731/world-cuisine/european/greek/)\n    *   [Filipino](https://www.allrecipes.com/recipes/696/world-cuisine/asian/filipino/)\n    *   [Japanese](https://www.allrecipes.com/recipes/699/world-cuisine/asian/japanese/)\n    *   [View All](https://www.allrecipes.com/cuisine-a-z-6740455)\n\n*   [Kitchen Tips](https://www.allrecipes.com/in-the-kitchen-6653922)\n\nKitchen Tips \n    *   [Instant Pot](https://www.allrecipes.com/recipes/22882/everyday-cooking/instant-pot/)\n    *   [Air Fryer](https://www.allrecipes.com/recipes/23070/everyday-cooking/cookware-and-equipment/air-fryer/)\n    *   [Slow Cooker](https://www.allrecipes.com/recipes/253/everyday-cooking/slow-cooker/)\n    *   [Our Favorite Products](https://www.allrecipes.com/food-news-trends/product-reviews/)\n    *   [BBQ & Grilling](https://www.allrecipes.com/recipes/88/bbq-grilling/)\n    *   [Cooking by Equipment](https://www.allrecipes.com/recipes/17583/everyday-cooking/cookware-and-equipment/)\n    *   [Ingredient Substitutions](https://www.allrecipes.com/kitchen-tips/all-about-ingredients/substitutions/)\n    *   [View All](https://www.allrecipes.com/in-the-kitchen-6653922)\n\n*   [News](https://www.allrecipes.com/food-news-trends/)\n\nNews \n    *   [Celebrity & Entertainment](https://www.allrecipes.com/food-news-trends/celebrity-entertainment/)\n    *   [Fast Food](https://www.allrecipes.com/fast-food-8672832)\n    *   [Grocery](https://www.allrecipes.com/grocery-8672835)\n    *   [Recalls](https://www.allrecipes.com/food-news-trends/recalls/)\n    *   [Trends](https://www.allrecipes.com/food-news-trends/trends/)\n    *   [View All](https://www.allrecipes.com/food-news-trends/)\n\n*   [Features](https://www.allrecipes.com/recipes/1642/everyday-cooking/)\n\nFeatures \n    *   [Dinner Fix](https://www.allrecipes.com/kitchen-tips/how-to/dinner-fix/)\n    *   [Sweet Spot](https://www.allrecipes.com/kitchen-tips/how-to/sweet-spot/)\n    *   [In the Kitchen](https://www.allrecipes.com/kitchen-tips/in-the-kitchen/)\n\n*   [Video](https://www.allrecipes.com/video)\n*   [About Us](https://www.allrecipes.com/about-us-6648102)\n\nAbout Us \n    *   [About Allrecipes](https://www.allrecipes.com/about-us-6648102)\n    *   [Allstars](https://www.allrecipes.com/allstars-8661275)\n    *   [How to Add a Recipe](https://www.allrecipes.com/article/how-to-submit-recipes/)\n\n*   [GET THE MAGAZINE](https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/#)\n\n*   [Log In to Allrecipes Account](https://www.allrecipes.com/authentication/login?regSource=3675&relativeRedirectUrl=%2Frecipe%2F10813%2Fbest-chocolate-chip-cookies%2F)\n*   Allrecipes Account\n\nAllrecipes Account \n    *   [Add a Recipe](https://www.allrecipes.com/account/add-recipe)\n    *   [Account Settings](https://www.allrecipes.com/account/settings)\n    *   [Help](https://support.people.inc/hc/en-us/categories/360003648613-Allrecipes)\n    *   [Log Out](https://www.allrecipes.com/authentication/logout?relativeRedirectUrl=%2Frecipe%2F10813%2Fbest-chocolate-chip-cookies%2F)\n\n*   Magazine\n\nMagazine \n    *   [Manage Your Subscription](https://w1.buysub.com/servlet/CSGateway?cds_mag_code=ALR)\n    *   [Get Help](https://www.magazines.com/customer-care)\n\n*   [Newsletters](https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/#)\n*   [Sweepstakes](https://www.allrecipes.com/sweepstakes)\n*   [](https://www.myrecipes.com/)\n\nFollow Us\n\n*   [](https://www.facebook.com/allrecipes)\n*   [](https://www.instagram.com/allrecipes/)\n*   [](https://www.pinterest.com/allrecipes/)\n*   [](https://www.tiktok.com/@allrecipes)\n*   [](https://www.youtube.com/user/allrecipes/videos)\n*   [](https://flipboard.com/@Allrecipes)\n\n*   [Dinners](https://www.allrecipes.com/recipes/17562/dinner/)\n    *   [5-Ingredient Dinners](https://www.allrecipes.com/recipes/17057/everyday-cooking/more-meal-ideas/5-ingredients/main-dishes/)\n    *   [One-Pot Meals](https://www.allrecipes.com/recipes/15436/everyday-cooking/one-pot-meals/)\n    *   [Quick & Easy](https://www.allrecipes.com/recipes/1947/everyday-cooking/quick-and-easy/)\n    *   [30-Minute Meals](https://www.allrecipes.com/recipes/455/everyday-cooking/more-meal-ideas/30-minute-meals/)\n    *   [Family Dinners](https://www.allrecipes.com/recipes/17889/everyday-cooking/family-friendly/family-dinners/)\n    *   [Soups, Stews & Chili](https://www.allrecipes.com/recipes/94/soups-stews-and-chili/)\n    *   [Comfort Food](https://www.allrecipes.com/recipes/16099/everyday-cooking/comfort-food/)\n    *   [Main Dishes](https://www.allrecipes.com/recipes/80/main-dish/)\n    *   [Sheet Pan Dinners](https://www.allrecipes.com/recipes/22992/everyday-cooking/sheet-pan-dinners/)\n    *   [View All](https://www.allrecipes.com/recipes/17562/dinner/)\n\n*   [Meals](https://www.allrecipes.com/recipes-a-z-6735880)\n    *   [Breakfast & Brunch](https://www.allrecipes.com/recipes/78/breakfast-and-brunch/)\n    *   [Lunch](https://www.allrecipes.com/recipes/17561/lunch/)\n    *   [Healthy](https://www.allrecipes.com/recipes/84/healthy-recipes/)\n    *   [Appetizers & Snacks](https://www.allrecipes.com/recipes/76/appetizers-and-snacks/)\n    *   [Salads](https://www.allrecipes.com/recipes/96/salad/)\n    *   [Side Dishes](https://www.allrecipes.com/recipes/81/side-dish/)\n    *   [Soups](https://www.allrecipes.com/recipes/16369/soups-stews-and-chili/soup/)\n    *   [Bread](https://www.allrecipes.com/recipes/156/bread/)\n    *   [Drinks](https://www.allrecipes.com/recipes/77/drinks/)\n    *   [Desserts](https://www.allrecipes.com/recipes/79/desserts/)\n    *   [View All](https://www.allrecipes.com/recipes-a-z-6735880)\n\n*   [Ingredients](https://www.allrecipes.com/ingredients-a-z-6740416)\n    *   [Chicken](https://www.allrecipes.com/recipes/201/meat-and-poultry/chicken/)\n    *   [Beef](https://www.allrecipes.com/recipes/200/meat-and-poultry/beef/)\n    *   [Pork](https://www.allrecipes.com/recipes/205/meat-and-poultry/pork/)\n    *   [Seafood](https://www.allrecipes.com/recipes/93/seafood/)\n    *   [Pasta](https://www.allrecipes.com/recipes/95/pasta-and-noodles/)\n    *   [Fruits](https://www.allrecipes.com/recipes/1058/fruits-and-vegetables/fruits/)\n    *   [Vegetables](https://www.allrecipes.com/recipes/1059/fruits-and-vegetables/vegetables/)\n    *   [View All](https://www.allrecipes.com/ingredients-a-z-6740416)\n\n*   [Occasions](https://www.allrecipes.com/recipes/85/holidays-and-events/)\n    *   [Cinco de Mayo Recipes](https://www.allrecipes.com/recipes/1509/holidays-and-events/cinco-de-mayo/)\n    *   [Mother's Day Recipes](https://www.allrecipes.com/recipes/1445/holidays-and-events/mothers-day/)\n    *   [Memorial Day Recipes](https://www.allrecipes.com/recipes/1502/holidays-and-events/memorial-day/)\n    *   [View All](https://www.allrecipes.com/recipes/85/holidays-and-events/)\n\n*   [Cuisines](https://www.allrecipes.com/cuisine-a-z-6740455)\n    *   [Mexican](https://www.allrecipes.com/recipes/728/world-cuisine/latin-american/mexican/)\n    *   [Italian](https://www.allrecipes.com/recipes/723/world-cuisine/european/italian/)\n    *   [Chinese](https://www.allrecipes.com/recipes/695/world-cuisine/asian/chinese/)\n    *   [Indian](https://www.allrecipes.com/recipes/233/world-cuisine/asian/indian/)\n    *   [German](https://www.allrecipes.com/recipes/722/world-cuisine/european/german/)\n    *   [Greek](https://www.allrecipes.com/recipes/731/world-cuisine/european/greek/)\n    *   [Filipino](https://www.allrecipes.com/recipes/696/world-cuisine/asian/filipino/)\n    *   [Japanese](https://www.allrecipes.com/recipes/699/world-cuisine/asian/japanese/)\n    *   [View All](https://www.allrecipes.com/cuisin",
+      "agent_framework.function.invocation.duration": "0.7243019359884784"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:41.692523+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.create_item",
+    "ResultCode": "0",
+    "DurationMs": 26,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "215deb85be14a201",
+    "Id": "97deee42646c9685",
+    "Properties": {
+      "_MS.ResourceAttributeId": "cd2e3047-f15f-42ea-9a22-89b49fa0fac5",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:41.693022+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/spine_events/docs/",
+    "ResultCode": "201",
+    "DurationMs": 25,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "97deee42646c9685",
+    "Id": "6728c83d493b9e90",
+    "Properties": {
+      "_MS.ResourceAttributeId": "cd2e3047-f15f-42ea-9a22-89b49fa0fac5",
+      "component": "http",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:41.718329+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.upsert_item",
+    "ResultCode": "0",
+    "DurationMs": 29,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "215deb85be14a201",
+    "Id": "627810b37e304615",
+    "Properties": {
+      "_MS.ResourceAttributeId": "cd2e3047-f15f-42ea-9a22-89b49fa0fac5",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:41.718824+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/spine_correlation/docs/",
+    "ResultCode": "201",
+    "DurationMs": 28,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "627810b37e304615",
+    "Id": "58dd29bb820e1c75",
+    "Properties": {
+      "_MS.ResourceAttributeId": "cd2e3047-f15f-42ea-9a22-89b49fa0fac5",
+      "component": "http",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:41.747547+00:00",
+    "ItemType": "Dependency",
+    "Name": "chat unknown",
+    "ResultCode": "0",
+    "DurationMs": 2502,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "3c11fc6697830a05",
+    "Id": "a73bf52cb9585764",
+    "Properties": {
+      "_MS.ResourceAttributeId": "cd2e3047-f15f-42ea-9a22-89b49fa0fac5",
+      "gen_ai.input.messages": "[REDACTED]",
+      "gen_ai.request.choice.count": "1",
+      "gen_ai.operation.name": "chat",
+      "gen_ai.provider.name": "azure.ai",
+      "gen_ai.request.model": "unknown",
+      "gen_ai.response.id": "run_6kxC8CkKsO1NOWX5xYxHdbQx",
+      "gen_ai.response.model": "gpt-4o",
+      "gen_ai.usage.input_tokens": "9143",
+      "gen_ai.usage.output_tokens": "88",
+      "gen_ai.output.messages": "[REDACTED]",
+      "_MS.GenAIContentId": "[REDACTED]",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:41.747867+00:00",
+    "ItemType": "Dependency",
+    "Name": "RunsOperations.list",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "a73bf52cb9585764",
+    "Id": "8a1a822be912b75b",
+    "Properties": {
+      "_MS.ResourceAttributeId": "cd2e3047-f15f-42ea-9a22-89b49fa0fac5",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:41.748378+00:00",
+    "ItemType": "Dependency",
+    "Name": "GET /api/projects/second-brain/threads/thread_lSOhkGlACzmi7HwFrypL1IhS/runs",
+    "ResultCode": "200",
+    "DurationMs": 223,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "a73bf52cb9585764",
+    "Id": "5eb7930a08a730b2",
+    "Properties": {
+      "_MS.ResourceAttributeId": "cd2e3047-f15f-42ea-9a22-89b49fa0fac5",
+      "az.client_request_id": "09a7805c-4bcf-11f1-87ad-6e77c0e7f82e",
+      "component": "http",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:41.972505+00:00",
+    "ItemType": "Dependency",
+    "Name": "submit_tool_outputs",
+    "ResultCode": "0",
+    "DurationMs": 320,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "a73bf52cb9585764",
+    "Id": "c8f9481a4f7a36ef",
+    "Properties": {
+      "_MS.ResourceAttributeId": "cd2e3047-f15f-42ea-9a22-89b49fa0fac5",
+      "gen_ai.operation.name": "submit_tool_outputs",
+      "az.namespace": "Microsoft.CognitiveServices",
+      "gen_ai.system": "az.ai.agents",
+      "gen_ai.thread.id": "thread_lSOhkGlACzmi7HwFrypL1IhS",
+      "gen_ai.thread.run.id": "run_6kxC8CkKsO1NOWX5xYxHdbQx",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:41.973110+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/projects/second-brain/threads/thread_lSOhkGlACzmi7HwFrypL1IhS/runs/run_6kxC8CkKsO1NOWX5xYxHdbQx/submit_tool_outputs",
+    "ResultCode": "200",
+    "DurationMs": 320,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "c8f9481a4f7a36ef",
+    "Id": "0f616fe94a43541b",
+    "Properties": {
+      "_MS.ResourceAttributeId": "cd2e3047-f15f-42ea-9a22-89b49fa0fac5",
+      "az.client_request_id": "09c9cb12-4bcf-11f1-87ad-6e77c0e7f82e",
+      "component": "http",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:44.249262+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "3c11fc6697830a05",
+    "Id": "",
+    "Properties": {
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/processing/admin_handoff.py",
+      "code.function.name": "process_admin_capture",
+      "code.line.number": "275",
+      "capture_trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "component": "admin_agent"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:44.249666+00:00",
+    "ItemType": "Dependency",
+    "Name": "chat unknown",
+    "ResultCode": "0",
+    "DurationMs": 6009,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "3c11fc6697830a05",
+    "Id": "b43d8c3c95c34183",
+    "Properties": {
+      "_MS.ResourceAttributeId": "55743339-2197-4200-93e8-f4fd6d9406a0",
+      "gen_ai.input.messages": "[REDACTED]",
+      "gen_ai.request.choice.count": "1",
+      "gen_ai.operation.name": "chat",
+      "gen_ai.provider.name": "azure.ai",
+      "gen_ai.request.model": "unknown",
+      "gen_ai.response.id": "run_PUFrzM91o2z8t9ujaC97u6lw",
+      "gen_ai.response.model": "gpt-4o",
+      "gen_ai.output.messages": "[REDACTED]",
+      "_MS.GenAIContentId": "[REDACTED]",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:44.250109+00:00",
+    "ItemType": "Dependency",
+    "Name": "create_thread",
+    "ResultCode": "0",
+    "DurationMs": 218,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "b43d8c3c95c34183",
+    "Id": "6b6bcf21cb1c4955",
+    "Properties": {
+      "_MS.ResourceAttributeId": "cd2e3047-f15f-42ea-9a22-89b49fa0fac5",
+      "gen_ai.operation.name": "create_thread",
+      "az.namespace": "Microsoft.CognitiveServices",
+      "gen_ai.system": "az.ai.agents",
+      "gen_ai.thread.id": "thread_TBDsJdY5sEKabY1AYxWZ11LP",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:44.250709+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/projects/second-brain/threads",
+    "ResultCode": "200",
+    "DurationMs": 217,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "6b6bcf21cb1c4955",
+    "Id": "4cb49143246217a8",
+    "Properties": {
+      "_MS.ResourceAttributeId": "cd2e3047-f15f-42ea-9a22-89b49fa0fac5",
+      "az.client_request_id": "0b255396-4bcf-11f1-87ad-6e77c0e7f82e",
+      "component": "http",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:44.467797+00:00",
+    "ItemType": "Dependency",
+    "Name": "process_thread_run",
+    "ResultCode": "0",
+    "DurationMs": 5790,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "b43d8c3c95c34183",
+    "Id": "13370868817f1ef6",
+    "Properties": {
+      "_MS.ResourceAttributeId": "55743339-2197-4200-93e8-f4fd6d9406a0",
+      "gen_ai.operation.name": "process_thread_run",
+      "gen_ai.response.model": "gpt-4o",
+      "az.namespace": "Microsoft.CognitiveServices",
+      "gen_ai.system": "az.ai.agents",
+      "gen_ai.agent.id": "asst_17oFXNHNq7kzmspQGMUrgERM",
+      "gen_ai.thread.run.status": "requires_action",
+      "gen_ai.thread.run.id": "run_PUFrzM91o2z8t9ujaC97u6lw",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:44.468462+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/projects/second-brain/threads/thread_TBDsJdY5sEKabY1AYxWZ11LP/runs",
+    "ResultCode": "200",
+    "DurationMs": 1039,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "13370868817f1ef6",
+    "Id": "cb727a8a3e29d485",
+    "Properties": {
+      "_MS.ResourceAttributeId": "cd2e3047-f15f-42ea-9a22-89b49fa0fac5",
+      "az.client_request_id": "0b468b2e-4bcf-11f1-87ad-6e77c0e7f82e",
+      "component": "http",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:50.258709+00:00",
+    "ItemType": "Dependency",
+    "Name": "tool_fetch_recipe_url",
+    "ResultCode": "0",
+    "DurationMs": 598,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "3c11fc6697830a05",
+    "Id": "d1f9b6e63445eeb0",
+    "Properties": {
+      "_MS.ResourceAttributeId": "55743339-2197-4200-93e8-f4fd6d9406a0",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "tool.name": "fetch_recipe_url",
+      "tool.duration_ms": "597.9324319632724"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:50.258883+00:00",
+    "ItemType": "Dependency",
+    "Name": "execute_tool fetch_recipe_url",
+    "ResultCode": "0",
+    "DurationMs": 598,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "d1f9b6e63445eeb0",
+    "Id": "5ebb7e649ae89567",
+    "Properties": {
+      "_MS.ResourceAttributeId": "55743339-2197-4200-93e8-f4fd6d9406a0",
+      "_MS.GenAIContentId": "[REDACTED]",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "gen_ai.tool.call.result": "PAGE TEXT:\nTitle: Best Chocolate Chip Cookies\n\nURL Source: https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/\n\nMarkdown Content:\n# Best Chocolate Chip Cookies Recipe (with Video)\n[Skip to content](https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/#main)\n\n[Allrecipes](https://www.allrecipes.com/)\n\nSave\n\n Rate \n\n*   Search   Please fill out this field.    Search the site   Please fill out this field.    \n*   [Newsletters](https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/#)\n*   [Sweepstakes](https://www.allrecipes.com/sweepstakes)\n*   [My Saves](https://www.myrecipes.com/)\n\n[Allrecipes](https://www.allrecipes.com/)\n\nSearch \n\n Please fill out this field. \n\n*   [Dinners](https://www.allrecipes.com/recipes/17562/dinner/)\n\nDinners \n    *   [5-Ingredient Dinners](https://www.allrecipes.com/recipes/17057/everyday-cooking/more-meal-ideas/5-ingredients/main-dishes/)\n    *   [One-Pot Meals](https://www.allrecipes.com/recipes/15436/everyday-cooking/one-pot-meals/)\n    *   [Quick & Easy](https://www.allrecipes.com/recipes/1947/everyday-cooking/quick-and-easy/)\n    *   [30-Minute Meals](https://www.allrecipes.com/recipes/455/everyday-cooking/more-meal-ideas/30-minute-meals/)\n    *   [Family Dinners](https://www.allrecipes.com/recipes/17889/everyday-cooking/family-friendly/family-dinners/)\n    *   [Soups, Stews & Chili](https://www.allrecipes.com/recipes/94/soups-stews-and-chili/)\n    *   [Comfort Food](https://www.allrecipes.com/recipes/16099/everyday-cooking/comfort-food/)\n    *   [Main Dishes](https://www.allrecipes.com/recipes/80/main-dish/)\n    *   [Sheet Pan Dinners](https://www.allrecipes.com/recipes/22992/everyday-cooking/sheet-pan-dinners/)\n    *   [View All](https://www.allrecipes.com/recipes/17562/dinner/)\n\n*   [Meals](https://www.allrecipes.com/recipes-a-z-6735880)\n\nMeals \n    *   [Breakfast & Brunch](https://www.allrecipes.com/recipes/78/breakfast-and-brunch/)\n    *   [Lunch](https://www.allrecipes.com/recipes/17561/lunch/)\n    *   [Healthy](https://www.allrecipes.com/recipes/84/healthy-recipes/)\n    *   [Appetizers & Snacks](https://www.allrecipes.com/recipes/76/appetizers-and-snacks/)\n    *   [Salads](https://www.allrecipes.com/recipes/96/salad/)\n    *   [Side Dishes](https://www.allrecipes.com/recipes/81/side-dish/)\n    *   [Soups](https://www.allrecipes.com/recipes/16369/soups-stews-and-chili/soup/)\n    *   [Bread](https://www.allrecipes.com/recipes/156/bread/)\n    *   [Drinks](https://www.allrecipes.com/recipes/77/drinks/)\n    *   [Desserts](https://www.allrecipes.com/recipes/79/desserts/)\n    *   [View All](https://www.allrecipes.com/recipes-a-z-6735880)\n\n*   [Ingredients](https://www.allrecipes.com/ingredients-a-z-6740416)\n\nIngredients \n    *   [Chicken](https://www.allrecipes.com/recipes/201/meat-and-poultry/chicken/)\n    *   [Beef](https://www.allrecipes.com/recipes/200/meat-and-poultry/beef/)\n    *   [Pork](https://www.allrecipes.com/recipes/205/meat-and-poultry/pork/)\n    *   [Seafood](https://www.allrecipes.com/recipes/93/seafood/)\n    *   [Pasta](https://www.allrecipes.com/recipes/95/pasta-and-noodles/)\n    *   [Fruits](https://www.allrecipes.com/recipes/1058/fruits-and-vegetables/fruits/)\n    *   [Vegetables](https://www.allrecipes.com/recipes/1059/fruits-and-vegetables/vegetables/)\n    *   [View All](https://www.allrecipes.com/ingredients-a-z-6740416)\n\n*   [Occasions](https://www.allrecipes.com/recipes/85/holidays-and-events/)\n\nOccasions \n    *   [Cinco de Mayo Recipes](https://www.allrecipes.com/recipes/1509/holidays-and-events/cinco-de-mayo/)\n    *   [Mother's Day Recipes](https://www.allrecipes.com/recipes/1445/holidays-and-events/mothers-day/)\n    *   [Memorial Day Recipes](https://www.allrecipes.com/recipes/1502/holidays-and-events/memorial-day/)\n    *   [View All](https://www.allrecipes.com/recipes/85/holidays-and-events/)\n\n*   [Cuisines](https://www.allrecipes.com/cuisine-a-z-6740455)\n\nCuisines \n    *   [Mexican](https://www.allrecipes.com/recipes/728/world-cuisine/latin-american/mexican/)\n    *   [Italian](https://www.allrecipes.com/recipes/723/world-cuisine/european/italian/)\n    *   [Chinese](https://www.allrecipes.com/recipes/695/world-cuisine/asian/chinese/)\n    *   [Indian](https://www.allrecipes.com/recipes/233/world-cuisine/asian/indian/)\n    *   [German](https://www.allrecipes.com/recipes/722/world-cuisine/european/german/)\n    *   [Greek](https://www.allrecipes.com/recipes/731/world-cuisine/european/greek/)\n    *   [Filipino](https://www.allrecipes.com/recipes/696/world-cuisine/asian/filipino/)\n    *   [Japanese](https://www.allrecipes.com/recipes/699/world-cuisine/asian/japanese/)\n    *   [View All](https://www.allrecipes.com/cuisine-a-z-6740455)\n\n*   [Kitchen Tips](https://www.allrecipes.com/in-the-kitchen-6653922)\n\nKitchen Tips \n    *   [Instant Pot](https://www.allrecipes.com/recipes/22882/everyday-cooking/instant-pot/)\n    *   [Air Fryer](https://www.allrecipes.com/recipes/23070/everyday-cooking/cookware-and-equipment/air-fryer/)\n    *   [Slow Cooker](https://www.allrecipes.com/recipes/253/everyday-cooking/slow-cooker/)\n    *   [Our Favorite Products](https://www.allrecipes.com/food-news-trends/product-reviews/)\n    *   [BBQ & Grilling](https://www.allrecipes.com/recipes/88/bbq-grilling/)\n    *   [Cooking by Equipment](https://www.allrecipes.com/recipes/17583/everyday-cooking/cookware-and-equipment/)\n    *   [Ingredient Substitutions](https://www.allrecipes.com/kitchen-tips/all-about-ingredients/substitutions/)\n    *   [View All](https://www.allrecipes.com/in-the-kitchen-6653922)\n\n*   [News](https://www.allrecipes.com/food-news-trends/)\n\nNews \n    *   [Celebrity & Entertainment](https://www.allrecipes.com/food-news-trends/celebrity-entertainment/)\n    *   [Fast Food](https://www.allrecipes.com/fast-food-8672832)\n    *   [Grocery](https://www.allrecipes.com/grocery-8672835)\n    *   [Recalls](https://www.allrecipes.com/food-news-trends/recalls/)\n    *   [Trends](https://www.allrecipes.com/food-news-trends/trends/)\n    *   [View All](https://www.allrecipes.com/food-news-trends/)\n\n*   [Features](https://www.allrecipes.com/recipes/1642/everyday-cooking/)\n\nFeatures \n    *   [Dinner Fix](https://www.allrecipes.com/kitchen-tips/how-to/dinner-fix/)\n    *   [Sweet Spot](https://www.allrecipes.com/kitchen-tips/how-to/sweet-spot/)\n    *   [In the Kitchen](https://www.allrecipes.com/kitchen-tips/in-the-kitchen/)\n\n*   [Video](https://www.allrecipes.com/video)\n*   [About Us](https://www.allrecipes.com/about-us-6648102)\n\nAbout Us \n    *   [About Allrecipes](https://www.allrecipes.com/about-us-6648102)\n    *   [Allstars](https://www.allrecipes.com/allstars-8661275)\n    *   [How to Add a Recipe](https://www.allrecipes.com/article/how-to-submit-recipes/)\n\n*   [GET THE MAGAZINE](https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/#)\n\n*   [Log In to Allrecipes Account](https://www.allrecipes.com/authentication/login?regSource=3675&relativeRedirectUrl=%2Frecipe%2F10813%2Fbest-chocolate-chip-cookies%2F)\n*   Allrecipes Account\n\nAllrecipes Account \n    *   [Add a Recipe](https://www.allrecipes.com/account/add-recipe)\n    *   [Account Settings](https://www.allrecipes.com/account/settings)\n    *   [Help](https://support.people.inc/hc/en-us/categories/360003648613-Allrecipes)\n    *   [Log Out](https://www.allrecipes.com/authentication/logout?relativeRedirectUrl=%2Frecipe%2F10813%2Fbest-chocolate-chip-cookies%2F)\n\n*   Magazine\n\nMagazine \n    *   [Manage Your Subscription](https://w1.buysub.com/servlet/CSGateway?cds_mag_code=ALR)\n    *   [Get Help](https://www.magazines.com/customer-care)\n\n*   [Newsletters](https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/#)\n*   [Sweepstakes](https://www.allrecipes.com/sweepstakes)\n*   [](https://www.myrecipes.com/)\n\nFollow Us\n\n*   [](https://www.facebook.com/allrecipes)\n*   [](https://www.instagram.com/allrecipes/)\n*   [](https://www.pinterest.com/allrecipes/)\n*   [](https://www.tiktok.com/@allrecipes)\n*   [](https://www.youtube.com/user/allrecipes/videos)\n*   [](https://flipboard.com/@Allrecipes)\n\n*   [Dinners](https://www.allrecipes.com/recipes/17562/dinner/)\n    *   [5-Ingredient Dinners](https://www.allrecipes.com/recipes/17057/everyday-cooking/more-meal-ideas/5-ingredients/main-dishes/)\n    *   [One-Pot Meals](https://www.allrecipes.com/recipes/15436/everyday-cooking/one-pot-meals/)\n    *   [Quick & Easy](https://www.allrecipes.com/recipes/1947/everyday-cooking/quick-and-easy/)\n    *   [30-Minute Meals](https://www.allrecipes.com/recipes/455/everyday-cooking/more-meal-ideas/30-minute-meals/)\n    *   [Family Dinners](https://www.allrecipes.com/recipes/17889/everyday-cooking/family-friendly/family-dinners/)\n    *   [Soups, Stews & Chili](https://www.allrecipes.com/recipes/94/soups-stews-and-chili/)\n    *   [Comfort Food](https://www.allrecipes.com/recipes/16099/everyday-cooking/comfort-food/)\n    *   [Main Dishes](https://www.allrecipes.com/recipes/80/main-dish/)\n    *   [Sheet Pan Dinners](https://www.allrecipes.com/recipes/22992/everyday-cooking/sheet-pan-dinners/)\n    *   [View All](https://www.allrecipes.com/recipes/17562/dinner/)\n\n*   [Meals](https://www.allrecipes.com/recipes-a-z-6735880)\n    *   [Breakfast & Brunch](https://www.allrecipes.com/recipes/78/breakfast-and-brunch/)\n    *   [Lunch](https://www.allrecipes.com/recipes/17561/lunch/)\n    *   [Healthy](https://www.allrecipes.com/recipes/84/healthy-recipes/)\n    *   [Appetizers & Snacks](https://www.allrecipes.com/recipes/76/appetizers-and-snacks/)\n    *   [Salads](https://www.allrecipes.com/recipes/96/salad/)\n    *   [Side Dishes](https://www.allrecipes.com/recipes/81/side-dish/)\n    *   [Soups](https://www.allrecipes.com/recipes/16369/soups-stews-and-chili/soup/)\n    *   [Bread](https://www.allrecipes.com/recipes/156/bread/)\n    *   [Drinks](https://www.allrecipes.com/recipes/77/drinks/)\n    *   [Desserts](https://www.allrecipes.com/recipes/79/desserts/)\n    *   [View All](https://www.allrecipes.com/recipes-a-z-6735880)\n\n*   [Ingredients](https://www.allrecipes.com/ingredients-a-z-6740416)\n    *   [Chicken](https://www.allrecipes.com/recipes/201/meat-and-poultry/chicken/)\n    *   [Beef](https://www.allrecipes.com/recipes/200/meat-and-poultry/beef/)\n    *   [Pork](https://www.allrecipes.com/recipes/205/meat-and-poultry/pork/)\n    *   [Seafood](https://www.allrecipes.com/recipes/93/seafood/)\n    *   [Pasta](https://www.allrecipes.com/recipes/95/pasta-and-noodles/)\n    *   [Fruits](https://www.allrecipes.com/recipes/1058/fruits-and-vegetables/fruits/)\n    *   [Vegetables](https://www.allrecipes.com/recipes/1059/fruits-and-vegetables/vegetables/)\n    *   [View All](https://www.allrecipes.com/ingredients-a-z-6740416)\n\n*   [Occasions](https://www.allrecipes.com/recipes/85/holidays-and-events/)\n    *   [Cinco de Mayo Recipes](https://www.allrecipes.com/recipes/1509/holidays-and-events/cinco-de-mayo/)\n    *   [Mother's Day Recipes](https://www.allrecipes.com/recipes/1445/holidays-and-events/mothers-day/)\n    *   [Memorial Day Recipes](https://www.allrecipes.com/recipes/1502/holidays-and-events/memorial-day/)\n    *   [View All](https://www.allrecipes.com/recipes/85/holidays-and-events/)\n\n*   [Cuisines](https://www.allrecipes.com/cuisine-a-z-6740455)\n    *   [Mexican](https://www.allrecipes.com/recipes/728/world-cuisine/latin-american/mexican/)\n    *   [Italian](https://www.allrecipes.com/recipes/723/world-cuisine/european/italian/)\n    *   [Chinese](https://www.allrecipes.com/recipes/695/world-cuisine/asian/chinese/)\n    *   [Indian](https://www.allrecipes.com/recipes/233/world-cuisine/asian/indian/)\n    *   [German](https://www.allrecipes.com/recipes/722/world-cuisine/european/german/)\n    *   [Greek](https://www.allrecipes.com/recipes/731/world-cuisine/european/greek/)\n    *   [Filipino](https://www.allrecipes.com/recipes/696/world-cuisine/asian/filipino/)\n    *   [Japanese](https://www.allrecipes.com/recipes/699/world-cuisine/asian/japanese/)\n    *   [View All](https://www.allrecipes.com/cuisin",
+      "agent_framework.function.invocation.duration": "0.5976659339503385"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:50.795924+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.create_item",
+    "ResultCode": "0",
+    "DurationMs": 29,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "5ebb7e649ae89567",
+    "Id": "ed82e4915f38665a",
+    "Properties": {
+      "_MS.ResourceAttributeId": "55743339-2197-4200-93e8-f4fd6d9406a0",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:50.796394+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/spine_events/docs/",
+    "ResultCode": "201",
+    "DurationMs": 28,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "ed82e4915f38665a",
+    "Id": "26df582d6498884b",
+    "Properties": {
+      "_MS.ResourceAttributeId": "55743339-2197-4200-93e8-f4fd6d9406a0",
+      "component": "http",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:50.825040+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.upsert_item",
+    "ResultCode": "0",
+    "DurationMs": 31,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "5ebb7e649ae89567",
+    "Id": "586371cefd61feaa",
+    "Properties": {
+      "_MS.ResourceAttributeId": "55743339-2197-4200-93e8-f4fd6d9406a0",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:50.825928+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/spine_correlation/docs/",
+    "ResultCode": "201",
+    "DurationMs": 30,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "586371cefd61feaa",
+    "Id": "1925b733ac51152b",
+    "Properties": {
+      "_MS.ResourceAttributeId": "55743339-2197-4200-93e8-f4fd6d9406a0",
+      "component": "http",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:50.857247+00:00",
+    "ItemType": "Dependency",
+    "Name": "chat unknown",
+    "ResultCode": "0",
+    "DurationMs": 4435,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "3c11fc6697830a05",
+    "Id": "dd7b1395927568d1",
+    "Properties": {
+      "_MS.ResourceAttributeId": "58b85449-a769-4c75-9159-4b458c593507",
+      "gen_ai.input.messages": "[REDACTED]",
+      "gen_ai.request.choice.count": "1",
+      "gen_ai.operation.name": "chat",
+      "gen_ai.provider.name": "azure.ai",
+      "gen_ai.request.model": "unknown",
+      "_MS.GenAIContentId": "[REDACTED]",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:50.857576+00:00",
+    "ItemType": "Dependency",
+    "Name": "RunsOperations.list",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "dd7b1395927568d1",
+    "Id": "fb99124482ee60db",
+    "Properties": {
+      "_MS.ResourceAttributeId": "55743339-2197-4200-93e8-f4fd6d9406a0",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:50.858198+00:00",
+    "ItemType": "Dependency",
+    "Name": "GET /api/projects/second-brain/threads/thread_TBDsJdY5sEKabY1AYxWZ11LP/runs",
+    "ResultCode": "200",
+    "DurationMs": 233,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "dd7b1395927568d1",
+    "Id": "c35371c9379dd8ad",
+    "Properties": {
+      "_MS.ResourceAttributeId": "58b85449-a769-4c75-9159-4b458c593507",
+      "az.client_request_id": "0f158bce-4bcf-11f1-87ad-6e77c0e7f82e",
+      "component": "http",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:51.092686+00:00",
+    "ItemType": "Dependency",
+    "Name": "submit_tool_outputs",
+    "ResultCode": "0",
+    "DurationMs": 371,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "dd7b1395927568d1",
+    "Id": "f1e0f8d48baa4848",
+    "Properties": {
+      "_MS.ResourceAttributeId": "58b85449-a769-4c75-9159-4b458c593507",
+      "gen_ai.operation.name": "submit_tool_outputs",
+      "az.namespace": "Microsoft.CognitiveServices",
+      "gen_ai.system": "az.ai.agents",
+      "gen_ai.thread.id": "thread_TBDsJdY5sEKabY1AYxWZ11LP",
+      "gen_ai.thread.run.id": "run_PUFrzM91o2z8t9ujaC97u6lw",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:51.093560+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/projects/second-brain/threads/thread_TBDsJdY5sEKabY1AYxWZ11LP/runs/run_PUFrzM91o2z8t9ujaC97u6lw/submit_tool_outputs",
+    "ResultCode": "200",
+    "DurationMs": 370,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "f1e0f8d48baa4848",
+    "Id": "101ef23736a22a51",
+    "Properties": {
+      "_MS.ResourceAttributeId": "58b85449-a769-4c75-9159-4b458c593507",
+      "az.client_request_id": "0f3973d6-4bcf-11f1-87ad-6e77c0e7f82e",
+      "component": "http",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:55.292606+00:00",
+    "ItemType": "Exception",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "3c11fc6697830a05",
+    "Id": "",
+    "Properties": {
+      "capture_trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "component": "admin_agent",
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/processing/admin_handoff.py",
+      "code.function.name": "process_admin_capture",
+      "code.line.number": "388"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:55.293172+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.read_item",
+    "ResultCode": "0",
+    "DurationMs": 26,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "3c11fc6697830a05",
+    "Id": "5a4f685b3d83c81f",
+    "Properties": {
+      "_MS.ResourceAttributeId": "58b85449-a769-4c75-9159-4b458c593507",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:55.293607+00:00",
+    "ItemType": "Dependency",
+    "Name": "GET /dbs/second-brain/colls/Inbox/docs/d011e868-b3fb-446f-82df-c5c83542db00/",
+    "ResultCode": "200",
+    "DurationMs": 25,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "5a4f685b3d83c81f",
+    "Id": "608b221ff69a1249",
+    "Properties": {
+      "_MS.ResourceAttributeId": "58b85449-a769-4c75-9159-4b458c593507",
+      "component": "http",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:55.319067+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.upsert_item",
+    "ResultCode": "0",
+    "DurationMs": 30,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "3c11fc6697830a05",
+    "Id": "276917b899bb4b8f",
+    "Properties": {
+      "_MS.ResourceAttributeId": "58b85449-a769-4c75-9159-4b458c593507",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:55.319652+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/Inbox/docs/",
+    "ResultCode": "200",
+    "DurationMs": 30,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "276917b899bb4b8f",
+    "Id": "c0e491c00a10524b",
+    "Properties": {
+      "_MS.ResourceAttributeId": "58b85449-a769-4c75-9159-4b458c593507",
+      "component": "http",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:55.349985+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.create_item",
+    "ResultCode": "0",
+    "DurationMs": 19,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "3c11fc6697830a05",
+    "Id": "3ae695226e4b63cc",
+    "Properties": {
+      "_MS.ResourceAttributeId": "58b85449-a769-4c75-9159-4b458c593507",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:55.350465+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/spine_events/docs/",
+    "ResultCode": "201",
+    "DurationMs": 18,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "3ae695226e4b63cc",
+    "Id": "166094b49cc7ddb7",
+    "Properties": {
+      "_MS.ResourceAttributeId": "58b85449-a769-4c75-9159-4b458c593507",
+      "component": "http",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:55.368878+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.upsert_item",
+    "ResultCode": "0",
+    "DurationMs": 28,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "3c11fc6697830a05",
+    "Id": "1a099176ab1c97c9",
+    "Properties": {
+      "_MS.ResourceAttributeId": "58b85449-a769-4c75-9159-4b458c593507",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:46:55.369694+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/spine_correlation/docs/",
+    "ResultCode": "201",
+    "DurationMs": 27,
+    "OperationId": "49b915e1103a19c45a4c6d167440c1df",
+    "ParentId": "1a099176ab1c97c9",
+    "Id": "0f95461a576f0a21",
+    "Properties": {
+      "_MS.ResourceAttributeId": "58b85449-a769-4c75-9159-4b458c593507",
+      "component": "http",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:50:33.312400+00:00",
+    "ItemType": "Dependency",
+    "Name": "tool_fetch_recipe_url",
+    "ResultCode": "0",
+    "DurationMs": 667,
+    "OperationId": "d35bbfd86b6caa2187ac984847b604b1",
+    "ParentId": "061cd16fd05bb140",
+    "Id": "b4092898fe8cfac9",
+    "Properties": {
+      "_MS.ResourceAttributeId": "40122e42-3a5b-49cb-9333-f9ef948deaf6",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "tool.name": "fetch_recipe_url",
+      "tool.duration_ms": "666.5901999804191"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:50:33.312569+00:00",
+    "ItemType": "Dependency",
+    "Name": "execute_tool fetch_recipe_url",
+    "ResultCode": "0",
+    "DurationMs": 666,
+    "OperationId": "d35bbfd86b6caa2187ac984847b604b1",
+    "ParentId": "b4092898fe8cfac9",
+    "Id": "75d4eb8446c246b8",
+    "Properties": {
+      "_MS.ResourceAttributeId": "40122e42-3a5b-49cb-9333-f9ef948deaf6",
+      "_MS.GenAIContentId": "[REDACTED]",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "gen_ai.tool.call.result": "PAGE TEXT:\nTitle: Best Chocolate Chip Cookies\n\nURL Source: https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/\n\nMarkdown Content:\n# Best Chocolate Chip Cookies Recipe (with Video)\n[Skip to content](https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/#main)\n\n[Allrecipes](https://www.allrecipes.com/)\n\nSave\n\n Rate \n\n*   Search   Please fill out this field.    Search the site   Please fill out this field.    \n*   [Newsletters](https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/#)\n*   [Sweepstakes](https://www.allrecipes.com/sweepstakes)\n*   [My Saves](https://www.myrecipes.com/)\n\n[Allrecipes](https://www.allrecipes.com/)\n\nSearch \n\n Please fill out this field. \n\n*   [Dinners](https://www.allrecipes.com/recipes/17562/dinner/)\n\nDinners \n    *   [5-Ingredient Dinners](https://www.allrecipes.com/recipes/17057/everyday-cooking/more-meal-ideas/5-ingredients/main-dishes/)\n    *   [One-Pot Meals](https://www.allrecipes.com/recipes/15436/everyday-cooking/one-pot-meals/)\n    *   [Quick & Easy](https://www.allrecipes.com/recipes/1947/everyday-cooking/quick-and-easy/)\n    *   [30-Minute Meals](https://www.allrecipes.com/recipes/455/everyday-cooking/more-meal-ideas/30-minute-meals/)\n    *   [Family Dinners](https://www.allrecipes.com/recipes/17889/everyday-cooking/family-friendly/family-dinners/)\n    *   [Soups, Stews & Chili](https://www.allrecipes.com/recipes/94/soups-stews-and-chili/)\n    *   [Comfort Food](https://www.allrecipes.com/recipes/16099/everyday-cooking/comfort-food/)\n    *   [Main Dishes](https://www.allrecipes.com/recipes/80/main-dish/)\n    *   [Sheet Pan Dinners](https://www.allrecipes.com/recipes/22992/everyday-cooking/sheet-pan-dinners/)\n    *   [View All](https://www.allrecipes.com/recipes/17562/dinner/)\n\n*   [Meals](https://www.allrecipes.com/recipes-a-z-6735880)\n\nMeals \n    *   [Breakfast & Brunch](https://www.allrecipes.com/recipes/78/breakfast-and-brunch/)\n    *   [Lunch](https://www.allrecipes.com/recipes/17561/lunch/)\n    *   [Healthy](https://www.allrecipes.com/recipes/84/healthy-recipes/)\n    *   [Appetizers & Snacks](https://www.allrecipes.com/recipes/76/appetizers-and-snacks/)\n    *   [Salads](https://www.allrecipes.com/recipes/96/salad/)\n    *   [Side Dishes](https://www.allrecipes.com/recipes/81/side-dish/)\n    *   [Soups](https://www.allrecipes.com/recipes/16369/soups-stews-and-chili/soup/)\n    *   [Bread](https://www.allrecipes.com/recipes/156/bread/)\n    *   [Drinks](https://www.allrecipes.com/recipes/77/drinks/)\n    *   [Desserts](https://www.allrecipes.com/recipes/79/desserts/)\n    *   [View All](https://www.allrecipes.com/recipes-a-z-6735880)\n\n*   [Ingredients](https://www.allrecipes.com/ingredients-a-z-6740416)\n\nIngredients \n    *   [Chicken](https://www.allrecipes.com/recipes/201/meat-and-poultry/chicken/)\n    *   [Beef](https://www.allrecipes.com/recipes/200/meat-and-poultry/beef/)\n    *   [Pork](https://www.allrecipes.com/recipes/205/meat-and-poultry/pork/)\n    *   [Seafood](https://www.allrecipes.com/recipes/93/seafood/)\n    *   [Pasta](https://www.allrecipes.com/recipes/95/pasta-and-noodles/)\n    *   [Fruits](https://www.allrecipes.com/recipes/1058/fruits-and-vegetables/fruits/)\n    *   [Vegetables](https://www.allrecipes.com/recipes/1059/fruits-and-vegetables/vegetables/)\n    *   [View All](https://www.allrecipes.com/ingredients-a-z-6740416)\n\n*   [Occasions](https://www.allrecipes.com/recipes/85/holidays-and-events/)\n\nOccasions \n    *   [Cinco de Mayo Recipes](https://www.allrecipes.com/recipes/1509/holidays-and-events/cinco-de-mayo/)\n    *   [Mother's Day Recipes](https://www.allrecipes.com/recipes/1445/holidays-and-events/mothers-day/)\n    *   [Memorial Day Recipes](https://www.allrecipes.com/recipes/1502/holidays-and-events/memorial-day/)\n    *   [View All](https://www.allrecipes.com/recipes/85/holidays-and-events/)\n\n*   [Cuisines](https://www.allrecipes.com/cuisine-a-z-6740455)\n\nCuisines \n    *   [Mexican](https://www.allrecipes.com/recipes/728/world-cuisine/latin-american/mexican/)\n    *   [Italian](https://www.allrecipes.com/recipes/723/world-cuisine/european/italian/)\n    *   [Chinese](https://www.allrecipes.com/recipes/695/world-cuisine/asian/chinese/)\n    *   [Indian](https://www.allrecipes.com/recipes/233/world-cuisine/asian/indian/)\n    *   [German](https://www.allrecipes.com/recipes/722/world-cuisine/european/german/)\n    *   [Greek](https://www.allrecipes.com/recipes/731/world-cuisine/european/greek/)\n    *   [Filipino](https://www.allrecipes.com/recipes/696/world-cuisine/asian/filipino/)\n    *   [Japanese](https://www.allrecipes.com/recipes/699/world-cuisine/asian/japanese/)\n    *   [View All](https://www.allrecipes.com/cuisine-a-z-6740455)\n\n*   [Kitchen Tips](https://www.allrecipes.com/in-the-kitchen-6653922)\n\nKitchen Tips \n    *   [Instant Pot](https://www.allrecipes.com/recipes/22882/everyday-cooking/instant-pot/)\n    *   [Air Fryer](https://www.allrecipes.com/recipes/23070/everyday-cooking/cookware-and-equipment/air-fryer/)\n    *   [Slow Cooker](https://www.allrecipes.com/recipes/253/everyday-cooking/slow-cooker/)\n    *   [Our Favorite Products](https://www.allrecipes.com/food-news-trends/product-reviews/)\n    *   [BBQ & Grilling](https://www.allrecipes.com/recipes/88/bbq-grilling/)\n    *   [Cooking by Equipment](https://www.allrecipes.com/recipes/17583/everyday-cooking/cookware-and-equipment/)\n    *   [Ingredient Substitutions](https://www.allrecipes.com/kitchen-tips/all-about-ingredients/substitutions/)\n    *   [View All](https://www.allrecipes.com/in-the-kitchen-6653922)\n\n*   [News](https://www.allrecipes.com/food-news-trends/)\n\nNews \n    *   [Celebrity & Entertainment](https://www.allrecipes.com/food-news-trends/celebrity-entertainment/)\n    *   [Fast Food](https://www.allrecipes.com/fast-food-8672832)\n    *   [Grocery](https://www.allrecipes.com/grocery-8672835)\n    *   [Recalls](https://www.allrecipes.com/food-news-trends/recalls/)\n    *   [Trends](https://www.allrecipes.com/food-news-trends/trends/)\n    *   [View All](https://www.allrecipes.com/food-news-trends/)\n\n*   [Features](https://www.allrecipes.com/recipes/1642/everyday-cooking/)\n\nFeatures \n    *   [Dinner Fix](https://www.allrecipes.com/kitchen-tips/how-to/dinner-fix/)\n    *   [Sweet Spot](https://www.allrecipes.com/kitchen-tips/how-to/sweet-spot/)\n    *   [In the Kitchen](https://www.allrecipes.com/kitchen-tips/in-the-kitchen/)\n\n*   [Video](https://www.allrecipes.com/video)\n*   [About Us](https://www.allrecipes.com/about-us-6648102)\n\nAbout Us \n    *   [About Allrecipes](https://www.allrecipes.com/about-us-6648102)\n    *   [Allstars](https://www.allrecipes.com/allstars-8661275)\n    *   [How to Add a Recipe](https://www.allrecipes.com/article/how-to-submit-recipes/)\n\n*   [GET THE MAGAZINE](https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/#)\n\n*   [Log In to Allrecipes Account](https://www.allrecipes.com/authentication/login?regSource=3675&relativeRedirectUrl=%2Frecipe%2F10813%2Fbest-chocolate-chip-cookies%2F)\n*   Allrecipes Account\n\nAllrecipes Account \n    *   [Add a Recipe](https://www.allrecipes.com/account/add-recipe)\n    *   [Account Settings](https://www.allrecipes.com/account/settings)\n    *   [Help](https://support.people.inc/hc/en-us/categories/360003648613-Allrecipes)\n    *   [Log Out](https://www.allrecipes.com/authentication/logout?relativeRedirectUrl=%2Frecipe%2F10813%2Fbest-chocolate-chip-cookies%2F)\n\n*   Magazine\n\nMagazine \n    *   [Manage Your Subscription](https://w1.buysub.com/servlet/CSGateway?cds_mag_code=ALR)\n    *   [Get Help](https://www.magazines.com/customer-care)\n\n*   [Newsletters](https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/#)\n*   [Sweepstakes](https://www.allrecipes.com/sweepstakes)\n*   [](https://www.myrecipes.com/)\n\nFollow Us\n\n*   [](https://www.facebook.com/allrecipes)\n*   [](https://www.instagram.com/allrecipes/)\n*   [](https://www.pinterest.com/allrecipes/)\n*   [](https://www.tiktok.com/@allrecipes)\n*   [](https://www.youtube.com/user/allrecipes/videos)\n*   [](https://flipboard.com/@Allrecipes)\n\n*   [Dinners](https://www.allrecipes.com/recipes/17562/dinner/)\n    *   [5-Ingredient Dinners](https://www.allrecipes.com/recipes/17057/everyday-cooking/more-meal-ideas/5-ingredients/main-dishes/)\n    *   [One-Pot Meals](https://www.allrecipes.com/recipes/15436/everyday-cooking/one-pot-meals/)\n    *   [Quick & Easy](https://www.allrecipes.com/recipes/1947/everyday-cooking/quick-and-easy/)\n    *   [30-Minute Meals](https://www.allrecipes.com/recipes/455/everyday-cooking/more-meal-ideas/30-minute-meals/)\n    *   [Family Dinners](https://www.allrecipes.com/recipes/17889/everyday-cooking/family-friendly/family-dinners/)\n    *   [Soups, Stews & Chili](https://www.allrecipes.com/recipes/94/soups-stews-and-chili/)\n    *   [Comfort Food](https://www.allrecipes.com/recipes/16099/everyday-cooking/comfort-food/)\n    *   [Main Dishes](https://www.allrecipes.com/recipes/80/main-dish/)\n    *   [Sheet Pan Dinners](https://www.allrecipes.com/recipes/22992/everyday-cooking/sheet-pan-dinners/)\n    *   [View All](https://www.allrecipes.com/recipes/17562/dinner/)\n\n*   [Meals](https://www.allrecipes.com/recipes-a-z-6735880)\n    *   [Breakfast & Brunch](https://www.allrecipes.com/recipes/78/breakfast-and-brunch/)\n    *   [Lunch](https://www.allrecipes.com/recipes/17561/lunch/)\n    *   [Healthy](https://www.allrecipes.com/recipes/84/healthy-recipes/)\n    *   [Appetizers & Snacks](https://www.allrecipes.com/recipes/76/appetizers-and-snacks/)\n    *   [Salads](https://www.allrecipes.com/recipes/96/salad/)\n    *   [Side Dishes](https://www.allrecipes.com/recipes/81/side-dish/)\n    *   [Soups](https://www.allrecipes.com/recipes/16369/soups-stews-and-chili/soup/)\n    *   [Bread](https://www.allrecipes.com/recipes/156/bread/)\n    *   [Drinks](https://www.allrecipes.com/recipes/77/drinks/)\n    *   [Desserts](https://www.allrecipes.com/recipes/79/desserts/)\n    *   [View All](https://www.allrecipes.com/recipes-a-z-6735880)\n\n*   [Ingredients](https://www.allrecipes.com/ingredients-a-z-6740416)\n    *   [Chicken](https://www.allrecipes.com/recipes/201/meat-and-poultry/chicken/)\n    *   [Beef](https://www.allrecipes.com/recipes/200/meat-and-poultry/beef/)\n    *   [Pork](https://www.allrecipes.com/recipes/205/meat-and-poultry/pork/)\n    *   [Seafood](https://www.allrecipes.com/recipes/93/seafood/)\n    *   [Pasta](https://www.allrecipes.com/recipes/95/pasta-and-noodles/)\n    *   [Fruits](https://www.allrecipes.com/recipes/1058/fruits-and-vegetables/fruits/)\n    *   [Vegetables](https://www.allrecipes.com/recipes/1059/fruits-and-vegetables/vegetables/)\n    *   [View All](https://www.allrecipes.com/ingredients-a-z-6740416)\n\n*   [Occasions](https://www.allrecipes.com/recipes/85/holidays-and-events/)\n    *   [Cinco de Mayo Recipes](https://www.allrecipes.com/recipes/1509/holidays-and-events/cinco-de-mayo/)\n    *   [Mother's Day Recipes](https://www.allrecipes.com/recipes/1445/holidays-and-events/mothers-day/)\n    *   [Memorial Day Recipes](https://www.allrecipes.com/recipes/1502/holidays-and-events/memorial-day/)\n    *   [View All](https://www.allrecipes.com/recipes/85/holidays-and-events/)\n\n*   [Cuisines](https://www.allrecipes.com/cuisine-a-z-6740455)\n    *   [Mexican](https://www.allrecipes.com/recipes/728/world-cuisine/latin-american/mexican/)\n    *   [Italian](https://www.allrecipes.com/recipes/723/world-cuisine/european/italian/)\n    *   [Chinese](https://www.allrecipes.com/recipes/695/world-cuisine/asian/chinese/)\n    *   [Indian](https://www.allrecipes.com/recipes/233/world-cuisine/asian/indian/)\n    *   [German](https://www.allrecipes.com/recipes/722/world-cuisine/european/german/)\n    *   [Greek](https://www.allrecipes.com/recipes/731/world-cuisine/european/greek/)\n    *   [Filipino](https://www.allrecipes.com/recipes/696/world-cuisine/asian/filipino/)\n    *   [Japanese](https://www.allrecipes.com/recipes/699/world-cuisine/asian/japanese/)\n    *   [View All](https://www.allrecipes.com/cuisin",
+      "agent_framework.function.invocation.duration": "0.6654151069815271"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:50:33.917013+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.create_item",
+    "ResultCode": "0",
+    "DurationMs": 35,
+    "OperationId": "d35bbfd86b6caa2187ac984847b604b1",
+    "ParentId": "75d4eb8446c246b8",
+    "Id": "9ba2066d2ed9d6c6",
+    "Properties": {
+      "_MS.ResourceAttributeId": "40122e42-3a5b-49cb-9333-f9ef948deaf6",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:50:33.917476+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/spine_events/docs/",
+    "ResultCode": "201",
+    "DurationMs": 34,
+    "OperationId": "d35bbfd86b6caa2187ac984847b604b1",
+    "ParentId": "9ba2066d2ed9d6c6",
+    "Id": "2489945e3da452aa",
+    "Properties": {
+      "_MS.ResourceAttributeId": "40122e42-3a5b-49cb-9333-f9ef948deaf6",
+      "component": "http",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:50:37.313069+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "d35bbfd86b6caa2187ac984847b604b1",
+    "ParentId": "061cd16fd05bb140",
+    "Id": "",
+    "Properties": {
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/processing/admin_handoff.py",
+      "code.function.name": "process_admin_capture",
+      "code.line.number": "275",
+      "capture_trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "component": "admin_agent"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:50:37.837819+00:00",
+    "ItemType": "Dependency",
+    "Name": "process_thread_run",
+    "ResultCode": "0",
+    "DurationMs": 2709,
+    "OperationId": "d35bbfd86b6caa2187ac984847b604b1",
+    "ParentId": "e6216f4d0f5b9878",
+    "Id": "7e13cfb4fd067bfe",
+    "Properties": {
+      "_MS.ResourceAttributeId": "83e13168-7fc8-48c5-ad2e-8569bcf8f6e7",
+      "gen_ai.operation.name": "process_thread_run",
+      "gen_ai.response.model": "gpt-4o",
+      "az.namespace": "Microsoft.CognitiveServices",
+      "gen_ai.system": "az.ai.agents",
+      "gen_ai.agent.id": "asst_17oFXNHNq7kzmspQGMUrgERM",
+      "gen_ai.thread.run.status": "requires_action",
+      "gen_ai.thread.run.id": "run_DIndQPQastK7fKsqqCUbg7CI",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:50:37.838759+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/projects/second-brain/threads/thread_bosrvURFTeg9pb6cDUUU84mJ/runs",
+    "ResultCode": "200",
+    "DurationMs": 934,
+    "OperationId": "d35bbfd86b6caa2187ac984847b604b1",
+    "ParentId": "7e13cfb4fd067bfe",
+    "Id": "4e706b263d13edb3",
+    "Properties": {
+      "_MS.ResourceAttributeId": "83e13168-7fc8-48c5-ad2e-8569bcf8f6e7",
+      "az.client_request_id": "966003e8-4bcf-11f1-87ad-6e77c0e7f82e",
+      "component": "http",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:50:40.547609+00:00",
+    "ItemType": "Dependency",
+    "Name": "tool_fetch_recipe_url",
+    "ResultCode": "0",
+    "DurationMs": 580,
+    "OperationId": "d35bbfd86b6caa2187ac984847b604b1",
+    "ParentId": "061cd16fd05bb140",
+    "Id": "370ec7e024d08ef0",
+    "Properties": {
+      "_MS.ResourceAttributeId": "83e13168-7fc8-48c5-ad2e-8569bcf8f6e7",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "tool.name": "fetch_recipe_url",
+      "tool.duration_ms": "580.4045430268161"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:50:40.547806+00:00",
+    "ItemType": "Dependency",
+    "Name": "execute_tool fetch_recipe_url",
+    "ResultCode": "0",
+    "DurationMs": 580,
+    "OperationId": "d35bbfd86b6caa2187ac984847b604b1",
+    "ParentId": "370ec7e024d08ef0",
+    "Id": "76e1cc12d8d80b28",
+    "Properties": {
+      "_MS.ResourceAttributeId": "83e13168-7fc8-48c5-ad2e-8569bcf8f6e7",
+      "_MS.GenAIContentId": "[REDACTED]",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "gen_ai.tool.call.result": "PAGE TEXT:\nTitle: Best Chocolate Chip Cookies\n\nURL Source: https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/\n\nMarkdown Content:\n# Best Chocolate Chip Cookies Recipe (with Video)\n[Skip to content](https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/#main)\n\n[Allrecipes](https://www.allrecipes.com/)\n\nSave\n\n Rate \n\n*   Search   Please fill out this field.    Search the site   Please fill out this field.    \n*   [Newsletters](https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/#)\n*   [Sweepstakes](https://www.allrecipes.com/sweepstakes)\n*   [My Saves](https://www.myrecipes.com/)\n\n[Allrecipes](https://www.allrecipes.com/)\n\nSearch \n\n Please fill out this field. \n\n*   [Dinners](https://www.allrecipes.com/recipes/17562/dinner/)\n\nDinners \n    *   [5-Ingredient Dinners](https://www.allrecipes.com/recipes/17057/everyday-cooking/more-meal-ideas/5-ingredients/main-dishes/)\n    *   [One-Pot Meals](https://www.allrecipes.com/recipes/15436/everyday-cooking/one-pot-meals/)\n    *   [Quick & Easy](https://www.allrecipes.com/recipes/1947/everyday-cooking/quick-and-easy/)\n    *   [30-Minute Meals](https://www.allrecipes.com/recipes/455/everyday-cooking/more-meal-ideas/30-minute-meals/)\n    *   [Family Dinners](https://www.allrecipes.com/recipes/17889/everyday-cooking/family-friendly/family-dinners/)\n    *   [Soups, Stews & Chili](https://www.allrecipes.com/recipes/94/soups-stews-and-chili/)\n    *   [Comfort Food](https://www.allrecipes.com/recipes/16099/everyday-cooking/comfort-food/)\n    *   [Main Dishes](https://www.allrecipes.com/recipes/80/main-dish/)\n    *   [Sheet Pan Dinners](https://www.allrecipes.com/recipes/22992/everyday-cooking/sheet-pan-dinners/)\n    *   [View All](https://www.allrecipes.com/recipes/17562/dinner/)\n\n*   [Meals](https://www.allrecipes.com/recipes-a-z-6735880)\n\nMeals \n    *   [Breakfast & Brunch](https://www.allrecipes.com/recipes/78/breakfast-and-brunch/)\n    *   [Lunch](https://www.allrecipes.com/recipes/17561/lunch/)\n    *   [Healthy](https://www.allrecipes.com/recipes/84/healthy-recipes/)\n    *   [Appetizers & Snacks](https://www.allrecipes.com/recipes/76/appetizers-and-snacks/)\n    *   [Salads](https://www.allrecipes.com/recipes/96/salad/)\n    *   [Side Dishes](https://www.allrecipes.com/recipes/81/side-dish/)\n    *   [Soups](https://www.allrecipes.com/recipes/16369/soups-stews-and-chili/soup/)\n    *   [Bread](https://www.allrecipes.com/recipes/156/bread/)\n    *   [Drinks](https://www.allrecipes.com/recipes/77/drinks/)\n    *   [Desserts](https://www.allrecipes.com/recipes/79/desserts/)\n    *   [View All](https://www.allrecipes.com/recipes-a-z-6735880)\n\n*   [Ingredients](https://www.allrecipes.com/ingredients-a-z-6740416)\n\nIngredients \n    *   [Chicken](https://www.allrecipes.com/recipes/201/meat-and-poultry/chicken/)\n    *   [Beef](https://www.allrecipes.com/recipes/200/meat-and-poultry/beef/)\n    *   [Pork](https://www.allrecipes.com/recipes/205/meat-and-poultry/pork/)\n    *   [Seafood](https://www.allrecipes.com/recipes/93/seafood/)\n    *   [Pasta](https://www.allrecipes.com/recipes/95/pasta-and-noodles/)\n    *   [Fruits](https://www.allrecipes.com/recipes/1058/fruits-and-vegetables/fruits/)\n    *   [Vegetables](https://www.allrecipes.com/recipes/1059/fruits-and-vegetables/vegetables/)\n    *   [View All](https://www.allrecipes.com/ingredients-a-z-6740416)\n\n*   [Occasions](https://www.allrecipes.com/recipes/85/holidays-and-events/)\n\nOccasions \n    *   [Cinco de Mayo Recipes](https://www.allrecipes.com/recipes/1509/holidays-and-events/cinco-de-mayo/)\n    *   [Mother's Day Recipes](https://www.allrecipes.com/recipes/1445/holidays-and-events/mothers-day/)\n    *   [Memorial Day Recipes](https://www.allrecipes.com/recipes/1502/holidays-and-events/memorial-day/)\n    *   [View All](https://www.allrecipes.com/recipes/85/holidays-and-events/)\n\n*   [Cuisines](https://www.allrecipes.com/cuisine-a-z-6740455)\n\nCuisines \n    *   [Mexican](https://www.allrecipes.com/recipes/728/world-cuisine/latin-american/mexican/)\n    *   [Italian](https://www.allrecipes.com/recipes/723/world-cuisine/european/italian/)\n    *   [Chinese](https://www.allrecipes.com/recipes/695/world-cuisine/asian/chinese/)\n    *   [Indian](https://www.allrecipes.com/recipes/233/world-cuisine/asian/indian/)\n    *   [German](https://www.allrecipes.com/recipes/722/world-cuisine/european/german/)\n    *   [Greek](https://www.allrecipes.com/recipes/731/world-cuisine/european/greek/)\n    *   [Filipino](https://www.allrecipes.com/recipes/696/world-cuisine/asian/filipino/)\n    *   [Japanese](https://www.allrecipes.com/recipes/699/world-cuisine/asian/japanese/)\n    *   [View All](https://www.allrecipes.com/cuisine-a-z-6740455)\n\n*   [Kitchen Tips](https://www.allrecipes.com/in-the-kitchen-6653922)\n\nKitchen Tips \n    *   [Instant Pot](https://www.allrecipes.com/recipes/22882/everyday-cooking/instant-pot/)\n    *   [Air Fryer](https://www.allrecipes.com/recipes/23070/everyday-cooking/cookware-and-equipment/air-fryer/)\n    *   [Slow Cooker](https://www.allrecipes.com/recipes/253/everyday-cooking/slow-cooker/)\n    *   [Our Favorite Products](https://www.allrecipes.com/food-news-trends/product-reviews/)\n    *   [BBQ & Grilling](https://www.allrecipes.com/recipes/88/bbq-grilling/)\n    *   [Cooking by Equipment](https://www.allrecipes.com/recipes/17583/everyday-cooking/cookware-and-equipment/)\n    *   [Ingredient Substitutions](https://www.allrecipes.com/kitchen-tips/all-about-ingredients/substitutions/)\n    *   [View All](https://www.allrecipes.com/in-the-kitchen-6653922)\n\n*   [News](https://www.allrecipes.com/food-news-trends/)\n\nNews \n    *   [Celebrity & Entertainment](https://www.allrecipes.com/food-news-trends/celebrity-entertainment/)\n    *   [Fast Food](https://www.allrecipes.com/fast-food-8672832)\n    *   [Grocery](https://www.allrecipes.com/grocery-8672835)\n    *   [Recalls](https://www.allrecipes.com/food-news-trends/recalls/)\n    *   [Trends](https://www.allrecipes.com/food-news-trends/trends/)\n    *   [View All](https://www.allrecipes.com/food-news-trends/)\n\n*   [Features](https://www.allrecipes.com/recipes/1642/everyday-cooking/)\n\nFeatures \n    *   [Dinner Fix](https://www.allrecipes.com/kitchen-tips/how-to/dinner-fix/)\n    *   [Sweet Spot](https://www.allrecipes.com/kitchen-tips/how-to/sweet-spot/)\n    *   [In the Kitchen](https://www.allrecipes.com/kitchen-tips/in-the-kitchen/)\n\n*   [Video](https://www.allrecipes.com/video)\n*   [About Us](https://www.allrecipes.com/about-us-6648102)\n\nAbout Us \n    *   [About Allrecipes](https://www.allrecipes.com/about-us-6648102)\n    *   [Allstars](https://www.allrecipes.com/allstars-8661275)\n    *   [How to Add a Recipe](https://www.allrecipes.com/article/how-to-submit-recipes/)\n\n*   [GET THE MAGAZINE](https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/#)\n\n*   [Log In to Allrecipes Account](https://www.allrecipes.com/authentication/login?regSource=3675&relativeRedirectUrl=%2Frecipe%2F10813%2Fbest-chocolate-chip-cookies%2F)\n*   Allrecipes Account\n\nAllrecipes Account \n    *   [Add a Recipe](https://www.allrecipes.com/account/add-recipe)\n    *   [Account Settings](https://www.allrecipes.com/account/settings)\n    *   [Help](https://support.people.inc/hc/en-us/categories/360003648613-Allrecipes)\n    *   [Log Out](https://www.allrecipes.com/authentication/logout?relativeRedirectUrl=%2Frecipe%2F10813%2Fbest-chocolate-chip-cookies%2F)\n\n*   Magazine\n\nMagazine \n    *   [Manage Your Subscription](https://w1.buysub.com/servlet/CSGateway?cds_mag_code=ALR)\n    *   [Get Help](https://www.magazines.com/customer-care)\n\n*   [Newsletters](https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/#)\n*   [Sweepstakes](https://www.allrecipes.com/sweepstakes)\n*   [](https://www.myrecipes.com/)\n\nFollow Us\n\n*   [](https://www.facebook.com/allrecipes)\n*   [](https://www.instagram.com/allrecipes/)\n*   [](https://www.pinterest.com/allrecipes/)\n*   [](https://www.tiktok.com/@allrecipes)\n*   [](https://www.youtube.com/user/allrecipes/videos)\n*   [](https://flipboard.com/@Allrecipes)\n\n*   [Dinners](https://www.allrecipes.com/recipes/17562/dinner/)\n    *   [5-Ingredient Dinners](https://www.allrecipes.com/recipes/17057/everyday-cooking/more-meal-ideas/5-ingredients/main-dishes/)\n    *   [One-Pot Meals](https://www.allrecipes.com/recipes/15436/everyday-cooking/one-pot-meals/)\n    *   [Quick & Easy](https://www.allrecipes.com/recipes/1947/everyday-cooking/quick-and-easy/)\n    *   [30-Minute Meals](https://www.allrecipes.com/recipes/455/everyday-cooking/more-meal-ideas/30-minute-meals/)\n    *   [Family Dinners](https://www.allrecipes.com/recipes/17889/everyday-cooking/family-friendly/family-dinners/)\n    *   [Soups, Stews & Chili](https://www.allrecipes.com/recipes/94/soups-stews-and-chili/)\n    *   [Comfort Food](https://www.allrecipes.com/recipes/16099/everyday-cooking/comfort-food/)\n    *   [Main Dishes](https://www.allrecipes.com/recipes/80/main-dish/)\n    *   [Sheet Pan Dinners](https://www.allrecipes.com/recipes/22992/everyday-cooking/sheet-pan-dinners/)\n    *   [View All](https://www.allrecipes.com/recipes/17562/dinner/)\n\n*   [Meals](https://www.allrecipes.com/recipes-a-z-6735880)\n    *   [Breakfast & Brunch](https://www.allrecipes.com/recipes/78/breakfast-and-brunch/)\n    *   [Lunch](https://www.allrecipes.com/recipes/17561/lunch/)\n    *   [Healthy](https://www.allrecipes.com/recipes/84/healthy-recipes/)\n    *   [Appetizers & Snacks](https://www.allrecipes.com/recipes/76/appetizers-and-snacks/)\n    *   [Salads](https://www.allrecipes.com/recipes/96/salad/)\n    *   [Side Dishes](https://www.allrecipes.com/recipes/81/side-dish/)\n    *   [Soups](https://www.allrecipes.com/recipes/16369/soups-stews-and-chili/soup/)\n    *   [Bread](https://www.allrecipes.com/recipes/156/bread/)\n    *   [Drinks](https://www.allrecipes.com/recipes/77/drinks/)\n    *   [Desserts](https://www.allrecipes.com/recipes/79/desserts/)\n    *   [View All](https://www.allrecipes.com/recipes-a-z-6735880)\n\n*   [Ingredients](https://www.allrecipes.com/ingredients-a-z-6740416)\n    *   [Chicken](https://www.allrecipes.com/recipes/201/meat-and-poultry/chicken/)\n    *   [Beef](https://www.allrecipes.com/recipes/200/meat-and-poultry/beef/)\n    *   [Pork](https://www.allrecipes.com/recipes/205/meat-and-poultry/pork/)\n    *   [Seafood](https://www.allrecipes.com/recipes/93/seafood/)\n    *   [Pasta](https://www.allrecipes.com/recipes/95/pasta-and-noodles/)\n    *   [Fruits](https://www.allrecipes.com/recipes/1058/fruits-and-vegetables/fruits/)\n    *   [Vegetables](https://www.allrecipes.com/recipes/1059/fruits-and-vegetables/vegetables/)\n    *   [View All](https://www.allrecipes.com/ingredients-a-z-6740416)\n\n*   [Occasions](https://www.allrecipes.com/recipes/85/holidays-and-events/)\n    *   [Cinco de Mayo Recipes](https://www.allrecipes.com/recipes/1509/holidays-and-events/cinco-de-mayo/)\n    *   [Mother's Day Recipes](https://www.allrecipes.com/recipes/1445/holidays-and-events/mothers-day/)\n    *   [Memorial Day Recipes](https://www.allrecipes.com/recipes/1502/holidays-and-events/memorial-day/)\n    *   [View All](https://www.allrecipes.com/recipes/85/holidays-and-events/)\n\n*   [Cuisines](https://www.allrecipes.com/cuisine-a-z-6740455)\n    *   [Mexican](https://www.allrecipes.com/recipes/728/world-cuisine/latin-american/mexican/)\n    *   [Italian](https://www.allrecipes.com/recipes/723/world-cuisine/european/italian/)\n    *   [Chinese](https://www.allrecipes.com/recipes/695/world-cuisine/asian/chinese/)\n    *   [Indian](https://www.allrecipes.com/recipes/233/world-cuisine/asian/indian/)\n    *   [German](https://www.allrecipes.com/recipes/722/world-cuisine/european/german/)\n    *   [Greek](https://www.allrecipes.com/recipes/731/world-cuisine/european/greek/)\n    *   [Filipino](https://www.allrecipes.com/recipes/696/world-cuisine/asian/filipino/)\n    *   [Japanese](https://www.allrecipes.com/recipes/699/world-cuisine/asian/japanese/)\n    *   [View All](https://www.allrecipes.com/cuisin",
+      "agent_framework.function.invocation.duration": "0.5800834450055845"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:50:41.072578+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.create_item",
+    "ResultCode": "0",
+    "DurationMs": 30,
+    "OperationId": "d35bbfd86b6caa2187ac984847b604b1",
+    "ParentId": "76e1cc12d8d80b28",
+    "Id": "0378dfb933858241",
+    "Properties": {
+      "_MS.ResourceAttributeId": "83e13168-7fc8-48c5-ad2e-8569bcf8f6e7",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:50:41.073102+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/spine_events/docs/",
+    "ResultCode": "201",
+    "DurationMs": 29,
+    "OperationId": "d35bbfd86b6caa2187ac984847b604b1",
+    "ParentId": "0378dfb933858241",
+    "Id": "f0bd633f1184fc01",
+    "Properties": {
+      "_MS.ResourceAttributeId": "83e13168-7fc8-48c5-ad2e-8569bcf8f6e7",
+      "component": "http",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:50:45.328246+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "d35bbfd86b6caa2187ac984847b604b1",
+    "ParentId": "061cd16fd05bb140",
+    "Id": "",
+    "Properties": {
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/processing/admin_handoff.py",
+      "code.function.name": "process_admin_capture",
+      "code.line.number": "308",
+      "capture_trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "component": "admin_agent"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:50:45.328674+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.read_item",
+    "ResultCode": "0",
+    "DurationMs": 25,
+    "OperationId": "d35bbfd86b6caa2187ac984847b604b1",
+    "ParentId": "061cd16fd05bb140",
+    "Id": "d9669116f7739c8e",
+    "Properties": {
+      "_MS.ResourceAttributeId": "175b6d89-6b2b-4c66-aaa7-8ee16dfb5511",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:50:45.329127+00:00",
+    "ItemType": "Dependency",
+    "Name": "GET /dbs/second-brain/colls/Inbox/docs/d011e868-b3fb-446f-82df-c5c83542db00/",
+    "ResultCode": "200",
+    "DurationMs": 24,
+    "OperationId": "d35bbfd86b6caa2187ac984847b604b1",
+    "ParentId": "d9669116f7739c8e",
+    "Id": "eba7e7b273b7662a",
+    "Properties": {
+      "_MS.ResourceAttributeId": "175b6d89-6b2b-4c66-aaa7-8ee16dfb5511",
+      "component": "http",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:50:45.353984+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.upsert_item",
+    "ResultCode": "0",
+    "DurationMs": 25,
+    "OperationId": "d35bbfd86b6caa2187ac984847b604b1",
+    "ParentId": "061cd16fd05bb140",
+    "Id": "282fc29c2b8d91d6",
+    "Properties": {
+      "_MS.ResourceAttributeId": "175b6d89-6b2b-4c66-aaa7-8ee16dfb5511",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:50:45.355086+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/Inbox/docs/",
+    "ResultCode": "200",
+    "DurationMs": 24,
+    "OperationId": "d35bbfd86b6caa2187ac984847b604b1",
+    "ParentId": "282fc29c2b8d91d6",
+    "Id": "548dbd197945b60d",
+    "Properties": {
+      "_MS.ResourceAttributeId": "175b6d89-6b2b-4c66-aaa7-8ee16dfb5511",
+      "component": "http",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:50:45.379059+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.create_item",
+    "ResultCode": "0",
+    "DurationMs": 33,
+    "OperationId": "d35bbfd86b6caa2187ac984847b604b1",
+    "ParentId": "061cd16fd05bb140",
+    "Id": "e94d47f41dd59ad5",
+    "Properties": {
+      "_MS.ResourceAttributeId": "175b6d89-6b2b-4c66-aaa7-8ee16dfb5511",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:50:45.379525+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/spine_events/docs/",
+    "ResultCode": "201",
+    "DurationMs": 32,
+    "OperationId": "d35bbfd86b6caa2187ac984847b604b1",
+    "ParentId": "e94d47f41dd59ad5",
+    "Id": "a13baabf878a37df",
+    "Properties": {
+      "_MS.ResourceAttributeId": "175b6d89-6b2b-4c66-aaa7-8ee16dfb5511",
+      "component": "http",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:50:45.412250+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.upsert_item",
+    "ResultCode": "0",
+    "DurationMs": 25,
+    "OperationId": "d35bbfd86b6caa2187ac984847b604b1",
+    "ParentId": "061cd16fd05bb140",
+    "Id": "d3d3c7894c11873d",
+    "Properties": {
+      "_MS.ResourceAttributeId": "175b6d89-6b2b-4c66-aaa7-8ee16dfb5511",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:50:45.412709+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/spine_correlation/docs/",
+    "ResultCode": "201",
+    "DurationMs": 25,
+    "OperationId": "d35bbfd86b6caa2187ac984847b604b1",
+    "ParentId": "d3d3c7894c11873d",
+    "Id": "196bdbe572eb4eb1",
+    "Properties": {
+      "_MS.ResourceAttributeId": "175b6d89-6b2b-4c66-aaa7-8ee16dfb5511",
+      "component": "http",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:12.907371+00:00",
+    "ItemType": "Dependency",
+    "Name": "admin_agent_process",
+    "ResultCode": "0",
+    "DurationMs": 14809,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "73d8d9353375771a",
+    "Id": "27925429676367e7",
+    "Properties": {
+      "admin.inbox_item_id": "d011e868-b3fb-446f-82df-c5c83542db00",
+      "admin.raw_text_length": "68",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "admin.tool_invoked": "True",
+      "admin.output_tool_invoked": "True",
+      "admin.outcome": "response_stored",
+      "_MS.ResourceAttributeId": "264524a3-33aa-4eba-9d0f-ea89948a8e1f"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:12.907521+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.read_item",
+    "ResultCode": "0",
+    "DurationMs": 26,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "27925429676367e7",
+    "Id": "01fc7a748f0a5e26",
+    "Properties": {
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "_MS.ResourceAttributeId": "939166b3-420d-402c-9864-19506116be93"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:12.907997+00:00",
+    "ItemType": "Dependency",
+    "Name": "GET /dbs/second-brain/colls/Inbox/docs/d011e868-b3fb-446f-82df-c5c83542db00/",
+    "ResultCode": "200",
+    "DurationMs": 26,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "01fc7a748f0a5e26",
+    "Id": "53f0844de2776e56",
+    "Properties": {
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "component": "http",
+      "_MS.ResourceAttributeId": "939166b3-420d-402c-9864-19506116be93"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:12.934128+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.upsert_item",
+    "ResultCode": "0",
+    "DurationMs": 25,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "27925429676367e7",
+    "Id": "5d9ace88b8aaab30",
+    "Properties": {
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "_MS.ResourceAttributeId": "939166b3-420d-402c-9864-19506116be93"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:13.276142+00:00",
+    "ItemType": "Dependency",
+    "Name": "process_thread_run",
+    "ResultCode": "0",
+    "DurationMs": 2578,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "ec264a4ec29b0c2a",
+    "Id": "5267ba097ca0477e",
+    "Properties": {
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "az.namespace": "Microsoft.CognitiveServices",
+      "gen_ai.system": "az.ai.agents",
+      "gen_ai.operation.name": "process_thread_run",
+      "gen_ai.agent.id": "asst_17oFXNHNq7kzmspQGMUrgERM",
+      "gen_ai.thread.run.status": "requires_action",
+      "gen_ai.thread.run.id": "run_rMEVT8dBWJKOrA4DuJqcKzws",
+      "gen_ai.response.model": "gpt-4o",
+      "_MS.ResourceAttributeId": "939166b3-420d-402c-9864-19506116be93"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:13.276789+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/projects/second-brain/threads/thread_lIbD3CVEQt8NFGZEWncCyn7H/runs",
+    "ResultCode": "200",
+    "DurationMs": 879,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "5267ba097ca0477e",
+    "Id": "33cacfad79321da3",
+    "Properties": {
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "component": "http",
+      "az.client_request_id": "3a8c8b1c-4bd0-11f1-87ad-6e77c0e7f82e",
+      "_MS.ResourceAttributeId": "939166b3-420d-402c-9864-19506116be93"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:15.854930+00:00",
+    "ItemType": "Dependency",
+    "Name": "tool_fetch_recipe_url",
+    "ResultCode": "0",
+    "DurationMs": 982,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "27925429676367e7",
+    "Id": "7a36463b86c2b20d",
+    "Properties": {
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "tool.name": "fetch_recipe_url",
+      "tool.duration_ms": "982.2484710020944",
+      "_MS.ResourceAttributeId": "38a35f80-d3bc-4b40-9129-abba600ae374"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:15.855110+00:00",
+    "ItemType": "Dependency",
+    "Name": "execute_tool fetch_recipe_url",
+    "ResultCode": "0",
+    "DurationMs": 982,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "7a36463b86c2b20d",
+    "Id": "8b1a8c9add82020f",
+    "Properties": {
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "gen_ai.tool.call.result": "PAGE TEXT:\nTitle: Best Chocolate Chip Cookies\n\nURL Source: https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/\n\nMarkdown Content:\n# Best Chocolate Chip Cookies Recipe (with Video)\n[Skip to content](https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/#main)\n\n[Allrecipes](https://www.allrecipes.com/)\n\nSave\n\n Rate \n\n*   Search   Please fill out this field.    Search the site   Please fill out this field.    \n*   [Newsletters](https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/#)\n*   [Sweepstakes](https://www.allrecipes.com/sweepstakes)\n*   [My Saves](https://www.myrecipes.com/)\n\n[Allrecipes](https://www.allrecipes.com/)\n\nSearch \n\n Please fill out this field. \n\n*   [Dinners](https://www.allrecipes.com/recipes/17562/dinner/)\n\nDinners \n    *   [5-Ingredient Dinners](https://www.allrecipes.com/recipes/17057/everyday-cooking/more-meal-ideas/5-ingredients/main-dishes/)\n    *   [One-Pot Meals](https://www.allrecipes.com/recipes/15436/everyday-cooking/one-pot-meals/)\n    *   [Quick & Easy](https://www.allrecipes.com/recipes/1947/everyday-cooking/quick-and-easy/)\n    *   [30-Minute Meals](https://www.allrecipes.com/recipes/455/everyday-cooking/more-meal-ideas/30-minute-meals/)\n    *   [Family Dinners](https://www.allrecipes.com/recipes/17889/everyday-cooking/family-friendly/family-dinners/)\n    *   [Soups, Stews & Chili](https://www.allrecipes.com/recipes/94/soups-stews-and-chili/)\n    *   [Comfort Food](https://www.allrecipes.com/recipes/16099/everyday-cooking/comfort-food/)\n    *   [Main Dishes](https://www.allrecipes.com/recipes/80/main-dish/)\n    *   [Sheet Pan Dinners](https://www.allrecipes.com/recipes/22992/everyday-cooking/sheet-pan-dinners/)\n    *   [View All](https://www.allrecipes.com/recipes/17562/dinner/)\n\n*   [Meals](https://www.allrecipes.com/recipes-a-z-6735880)\n\nMeals \n    *   [Breakfast & Brunch](https://www.allrecipes.com/recipes/78/breakfast-and-brunch/)\n    *   [Lunch](https://www.allrecipes.com/recipes/17561/lunch/)\n    *   [Healthy](https://www.allrecipes.com/recipes/84/healthy-recipes/)\n    *   [Appetizers & Snacks](https://www.allrecipes.com/recipes/76/appetizers-and-snacks/)\n    *   [Salads](https://www.allrecipes.com/recipes/96/salad/)\n    *   [Side Dishes](https://www.allrecipes.com/recipes/81/side-dish/)\n    *   [Soups](https://www.allrecipes.com/recipes/16369/soups-stews-and-chili/soup/)\n    *   [Bread](https://www.allrecipes.com/recipes/156/bread/)\n    *   [Drinks](https://www.allrecipes.com/recipes/77/drinks/)\n    *   [Desserts](https://www.allrecipes.com/recipes/79/desserts/)\n    *   [View All](https://www.allrecipes.com/recipes-a-z-6735880)\n\n*   [Ingredients](https://www.allrecipes.com/ingredients-a-z-6740416)\n\nIngredients \n    *   [Chicken](https://www.allrecipes.com/recipes/201/meat-and-poultry/chicken/)\n    *   [Beef](https://www.allrecipes.com/recipes/200/meat-and-poultry/beef/)\n    *   [Pork](https://www.allrecipes.com/recipes/205/meat-and-poultry/pork/)\n    *   [Seafood](https://www.allrecipes.com/recipes/93/seafood/)\n    *   [Pasta](https://www.allrecipes.com/recipes/95/pasta-and-noodles/)\n    *   [Fruits](https://www.allrecipes.com/recipes/1058/fruits-and-vegetables/fruits/)\n    *   [Vegetables](https://www.allrecipes.com/recipes/1059/fruits-and-vegetables/vegetables/)\n    *   [View All](https://www.allrecipes.com/ingredients-a-z-6740416)\n\n*   [Occasions](https://www.allrecipes.com/recipes/85/holidays-and-events/)\n\nOccasions \n    *   [Cinco de Mayo Recipes](https://www.allrecipes.com/recipes/1509/holidays-and-events/cinco-de-mayo/)\n    *   [Mother's Day Recipes](https://www.allrecipes.com/recipes/1445/holidays-and-events/mothers-day/)\n    *   [Memorial Day Recipes](https://www.allrecipes.com/recipes/1502/holidays-and-events/memorial-day/)\n    *   [View All](https://www.allrecipes.com/recipes/85/holidays-and-events/)\n\n*   [Cuisines](https://www.allrecipes.com/cuisine-a-z-6740455)\n\nCuisines \n    *   [Mexican](https://www.allrecipes.com/recipes/728/world-cuisine/latin-american/mexican/)\n    *   [Italian](https://www.allrecipes.com/recipes/723/world-cuisine/european/italian/)\n    *   [Chinese](https://www.allrecipes.com/recipes/695/world-cuisine/asian/chinese/)\n    *   [Indian](https://www.allrecipes.com/recipes/233/world-cuisine/asian/indian/)\n    *   [German](https://www.allrecipes.com/recipes/722/world-cuisine/european/german/)\n    *   [Greek](https://www.allrecipes.com/recipes/731/world-cuisine/european/greek/)\n    *   [Filipino](https://www.allrecipes.com/recipes/696/world-cuisine/asian/filipino/)\n    *   [Japanese](https://www.allrecipes.com/recipes/699/world-cuisine/asian/japanese/)\n    *   [View All](https://www.allrecipes.com/cuisine-a-z-6740455)\n\n*   [Kitchen Tips](https://www.allrecipes.com/in-the-kitchen-6653922)\n\nKitchen Tips \n    *   [Instant Pot](https://www.allrecipes.com/recipes/22882/everyday-cooking/instant-pot/)\n    *   [Air Fryer](https://www.allrecipes.com/recipes/23070/everyday-cooking/cookware-and-equipment/air-fryer/)\n    *   [Slow Cooker](https://www.allrecipes.com/recipes/253/everyday-cooking/slow-cooker/)\n    *   [Our Favorite Products](https://www.allrecipes.com/food-news-trends/product-reviews/)\n    *   [BBQ & Grilling](https://www.allrecipes.com/recipes/88/bbq-grilling/)\n    *   [Cooking by Equipment](https://www.allrecipes.com/recipes/17583/everyday-cooking/cookware-and-equipment/)\n    *   [Ingredient Substitutions](https://www.allrecipes.com/kitchen-tips/all-about-ingredients/substitutions/)\n    *   [View All](https://www.allrecipes.com/in-the-kitchen-6653922)\n\n*   [News](https://www.allrecipes.com/food-news-trends/)\n\nNews \n    *   [Celebrity & Entertainment](https://www.allrecipes.com/food-news-trends/celebrity-entertainment/)\n    *   [Fast Food](https://www.allrecipes.com/fast-food-8672832)\n    *   [Grocery](https://www.allrecipes.com/grocery-8672835)\n    *   [Recalls](https://www.allrecipes.com/food-news-trends/recalls/)\n    *   [Trends](https://www.allrecipes.com/food-news-trends/trends/)\n    *   [View All](https://www.allrecipes.com/food-news-trends/)\n\n*   [Features](https://www.allrecipes.com/recipes/1642/everyday-cooking/)\n\nFeatures \n    *   [Dinner Fix](https://www.allrecipes.com/kitchen-tips/how-to/dinner-fix/)\n    *   [Sweet Spot](https://www.allrecipes.com/kitchen-tips/how-to/sweet-spot/)\n    *   [In the Kitchen](https://www.allrecipes.com/kitchen-tips/in-the-kitchen/)\n\n*   [Video](https://www.allrecipes.com/video)\n*   [About Us](https://www.allrecipes.com/about-us-6648102)\n\nAbout Us \n    *   [About Allrecipes](https://www.allrecipes.com/about-us-6648102)\n    *   [Allstars](https://www.allrecipes.com/allstars-8661275)\n    *   [How to Add a Recipe](https://www.allrecipes.com/article/how-to-submit-recipes/)\n\n*   [GET THE MAGAZINE](https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/#)\n\n*   [Log In to Allrecipes Account](https://www.allrecipes.com/authentication/login?regSource=3675&relativeRedirectUrl=%2Frecipe%2F10813%2Fbest-chocolate-chip-cookies%2F)\n*   Allrecipes Account\n\nAllrecipes Account \n    *   [Add a Recipe](https://www.allrecipes.com/account/add-recipe)\n    *   [Account Settings](https://www.allrecipes.com/account/settings)\n    *   [Help](https://support.people.inc/hc/en-us/categories/360003648613-Allrecipes)\n    *   [Log Out](https://www.allrecipes.com/authentication/logout?relativeRedirectUrl=%2Frecipe%2F10813%2Fbest-chocolate-chip-cookies%2F)\n\n*   Magazine\n\nMagazine \n    *   [Manage Your Subscription](https://w1.buysub.com/servlet/CSGateway?cds_mag_code=ALR)\n    *   [Get Help](https://www.magazines.com/customer-care)\n\n*   [Newsletters](https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/#)\n*   [Sweepstakes](https://www.allrecipes.com/sweepstakes)\n*   [](https://www.myrecipes.com/)\n\nFollow Us\n\n*   [](https://www.facebook.com/allrecipes)\n*   [](https://www.instagram.com/allrecipes/)\n*   [](https://www.pinterest.com/allrecipes/)\n*   [](https://www.tiktok.com/@allrecipes)\n*   [](https://www.youtube.com/user/allrecipes/videos)\n*   [](https://flipboard.com/@Allrecipes)\n\n*   [Dinners](https://www.allrecipes.com/recipes/17562/dinner/)\n    *   [5-Ingredient Dinners](https://www.allrecipes.com/recipes/17057/everyday-cooking/more-meal-ideas/5-ingredients/main-dishes/)\n    *   [One-Pot Meals](https://www.allrecipes.com/recipes/15436/everyday-cooking/one-pot-meals/)\n    *   [Quick & Easy](https://www.allrecipes.com/recipes/1947/everyday-cooking/quick-and-easy/)\n    *   [30-Minute Meals](https://www.allrecipes.com/recipes/455/everyday-cooking/more-meal-ideas/30-minute-meals/)\n    *   [Family Dinners](https://www.allrecipes.com/recipes/17889/everyday-cooking/family-friendly/family-dinners/)\n    *   [Soups, Stews & Chili](https://www.allrecipes.com/recipes/94/soups-stews-and-chili/)\n    *   [Comfort Food](https://www.allrecipes.com/recipes/16099/everyday-cooking/comfort-food/)\n    *   [Main Dishes](https://www.allrecipes.com/recipes/80/main-dish/)\n    *   [Sheet Pan Dinners](https://www.allrecipes.com/recipes/22992/everyday-cooking/sheet-pan-dinners/)\n    *   [View All](https://www.allrecipes.com/recipes/17562/dinner/)\n\n*   [Meals](https://www.allrecipes.com/recipes-a-z-6735880)\n    *   [Breakfast & Brunch](https://www.allrecipes.com/recipes/78/breakfast-and-brunch/)\n    *   [Lunch](https://www.allrecipes.com/recipes/17561/lunch/)\n    *   [Healthy](https://www.allrecipes.com/recipes/84/healthy-recipes/)\n    *   [Appetizers & Snacks](https://www.allrecipes.com/recipes/76/appetizers-and-snacks/)\n    *   [Salads](https://www.allrecipes.com/recipes/96/salad/)\n    *   [Side Dishes](https://www.allrecipes.com/recipes/81/side-dish/)\n    *   [Soups](https://www.allrecipes.com/recipes/16369/soups-stews-and-chili/soup/)\n    *   [Bread](https://www.allrecipes.com/recipes/156/bread/)\n    *   [Drinks](https://www.allrecipes.com/recipes/77/drinks/)\n    *   [Desserts](https://www.allrecipes.com/recipes/79/desserts/)\n    *   [View All](https://www.allrecipes.com/recipes-a-z-6735880)\n\n*   [Ingredients](https://www.allrecipes.com/ingredients-a-z-6740416)\n    *   [Chicken](https://www.allrecipes.com/recipes/201/meat-and-poultry/chicken/)\n    *   [Beef](https://www.allrecipes.com/recipes/200/meat-and-poultry/beef/)\n    *   [Pork](https://www.allrecipes.com/recipes/205/meat-and-poultry/pork/)\n    *   [Seafood](https://www.allrecipes.com/recipes/93/seafood/)\n    *   [Pasta](https://www.allrecipes.com/recipes/95/pasta-and-noodles/)\n    *   [Fruits](https://www.allrecipes.com/recipes/1058/fruits-and-vegetables/fruits/)\n    *   [Vegetables](https://www.allrecipes.com/recipes/1059/fruits-and-vegetables/vegetables/)\n    *   [View All](https://www.allrecipes.com/ingredients-a-z-6740416)\n\n*   [Occasions](https://www.allrecipes.com/recipes/85/holidays-and-events/)\n    *   [Cinco de Mayo Recipes](https://www.allrecipes.com/recipes/1509/holidays-and-events/cinco-de-mayo/)\n    *   [Mother's Day Recipes](https://www.allrecipes.com/recipes/1445/holidays-and-events/mothers-day/)\n    *   [Memorial Day Recipes](https://www.allrecipes.com/recipes/1502/holidays-and-events/memorial-day/)\n    *   [View All](https://www.allrecipes.com/recipes/85/holidays-and-events/)\n\n*   [Cuisines](https://www.allrecipes.com/cuisine-a-z-6740455)\n    *   [Mexican](https://www.allrecipes.com/recipes/728/world-cuisine/latin-american/mexican/)\n    *   [Italian](https://www.allrecipes.com/recipes/723/world-cuisine/european/italian/)\n    *   [Chinese](https://www.allrecipes.com/recipes/695/world-cuisine/asian/chinese/)\n    *   [Indian](https://www.allrecipes.com/recipes/233/world-cuisine/asian/indian/)\n    *   [German](https://www.allrecipes.com/recipes/722/world-cuisine/european/german/)\n    *   [Greek](https://www.allrecipes.com/recipes/731/world-cuisine/european/greek/)\n    *   [Filipino](https://www.allrecipes.com/recipes/696/world-cuisine/asian/filipino/)\n    *   [Japanese](https://www.allrecipes.com/recipes/699/world-cuisine/asian/japanese/)\n    *   [View All](https://www.allrecipes.com/cuisin",
+      "agent_framework.function.invocation.duration": "0.9819318730151281",
+      "_MS.GenAIContentId": "[REDACTED]",
+      "_MS.ResourceAttributeId": "38a35f80-d3bc-4b40-9129-abba600ae374"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:16.788266+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.create_item",
+    "ResultCode": "0",
+    "DurationMs": 25,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "8b1a8c9add82020f",
+    "Id": "d134acce175cdb47",
+    "Properties": {
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "_MS.ResourceAttributeId": "38a35f80-d3bc-4b40-9129-abba600ae374"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:16.788821+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/spine_events/docs/",
+    "ResultCode": "201",
+    "DurationMs": 24,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "d134acce175cdb47",
+    "Id": "e596ee79c30d5d8d",
+    "Properties": {
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "component": "http",
+      "_MS.ResourceAttributeId": "38a35f80-d3bc-4b40-9129-abba600ae374"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:16.813686+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.upsert_item",
+    "ResultCode": "0",
+    "DurationMs": 23,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "8b1a8c9add82020f",
+    "Id": "cd1931674c17881f",
+    "Properties": {
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "_MS.ResourceAttributeId": "38a35f80-d3bc-4b40-9129-abba600ae374"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:16.814360+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/spine_correlation/docs/",
+    "ResultCode": "201",
+    "DurationMs": 23,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "cd1931674c17881f",
+    "Id": "5dfc0b633c5e78af",
+    "Properties": {
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "component": "http",
+      "_MS.ResourceAttributeId": "38a35f80-d3bc-4b40-9129-abba600ae374"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:16.837435+00:00",
+    "ItemType": "Dependency",
+    "Name": "chat unknown",
+    "ResultCode": "0",
+    "DurationMs": 7838,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "27925429676367e7",
+    "Id": "93f69294e3515c24",
+    "Properties": {
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "gen_ai.input.messages": "[REDACTED]",
+      "gen_ai.request.choice.count": "1",
+      "gen_ai.operation.name": "chat",
+      "gen_ai.provider.name": "azure.ai",
+      "gen_ai.request.model": "unknown",
+      "gen_ai.response.id": "run_rMEVT8dBWJKOrA4DuJqcKzws",
+      "gen_ai.response.model": "gpt-4o",
+      "gen_ai.usage.input_tokens": "9211",
+      "gen_ai.usage.output_tokens": "301",
+      "gen_ai.output.messages": "[REDACTED]",
+      "_MS.GenAIContentId": "[REDACTED]",
+      "_MS.ResourceAttributeId": "0d601217-c606-4a96-aaeb-8338159ea793"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:16.837729+00:00",
+    "ItemType": "Dependency",
+    "Name": "RunsOperations.list",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "93f69294e3515c24",
+    "Id": "92ebc57269132662",
+    "Properties": {
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "_MS.ResourceAttributeId": "38a35f80-d3bc-4b40-9129-abba600ae374"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:16.838326+00:00",
+    "ItemType": "Dependency",
+    "Name": "GET /api/projects/second-brain/threads/thread_lIbD3CVEQt8NFGZEWncCyn7H/runs",
+    "ResultCode": "200",
+    "DurationMs": 210,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "93f69294e3515c24",
+    "Id": "70d16d69a12fda7c",
+    "Properties": {
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "component": "http",
+      "az.client_request_id": "3cabfcfc-4bd0-11f1-87ad-6e77c0e7f82e",
+      "_MS.ResourceAttributeId": "38a35f80-d3bc-4b40-9129-abba600ae374"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:17.049788+00:00",
+    "ItemType": "Dependency",
+    "Name": "submit_tool_outputs",
+    "ResultCode": "0",
+    "DurationMs": 303,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "93f69294e3515c24",
+    "Id": "f0422b3d98ed948a",
+    "Properties": {
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "az.namespace": "Microsoft.CognitiveServices",
+      "gen_ai.system": "az.ai.agents",
+      "gen_ai.operation.name": "submit_tool_outputs",
+      "gen_ai.thread.id": "thread_lIbD3CVEQt8NFGZEWncCyn7H",
+      "gen_ai.thread.run.id": "run_rMEVT8dBWJKOrA4DuJqcKzws",
+      "_MS.ResourceAttributeId": "38a35f80-d3bc-4b40-9129-abba600ae374"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:17.050512+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/projects/second-brain/threads/thread_lIbD3CVEQt8NFGZEWncCyn7H/runs/run_rMEVT8dBWJKOrA4DuJqcKzws/submit_tool_outputs",
+    "ResultCode": "200",
+    "DurationMs": 302,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "f0422b3d98ed948a",
+    "Id": "004da35008023658",
+    "Properties": {
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "component": "http",
+      "az.client_request_id": "3ccc5d4e-4bd0-11f1-87ad-6e77c0e7f82e",
+      "_MS.ResourceAttributeId": "38a35f80-d3bc-4b40-9129-abba600ae374"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:24.675629+00:00",
+    "ItemType": "Dependency",
+    "Name": "tool_add_errand_items",
+    "ResultCode": "0",
+    "DurationMs": 322,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "27925429676367e7",
+    "Id": "c1ca5b054bc9ccab",
+    "Properties": {
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "tool.name": "add_errand_items",
+      "tool.duration_ms": "321.85512501746416",
+      "_MS.ResourceAttributeId": "0d601217-c606-4a96-aaeb-8338159ea793"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:24.675810+00:00",
+    "ItemType": "Dependency",
+    "Name": "execute_tool add_errand_items",
+    "ResultCode": "0",
+    "DurationMs": 322,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "c1ca5b054bc9ccab",
+    "Id": "abb1266e00be1314",
+    "Properties": {
+      "gen_ai.operation.name": "execute_tool",
+      "gen_ai.tool.name": "add_errand_items",
+      "gen_ai.tool.call.id": "[\"run_rMEVT8dBWJKOrA4DuJqcKzws\", \"call_EELAguSQJRDYFtOLx4f3XMAk\"]",
+      "gen_ai.tool.type": "function",
+      "gen_ai.tool.description": "Add items to errands, grouped by destination.\n\n        Each item is written as an individual document to the Errands\n        container. Destinations are dynamic slugs from the Destinations\n        container. Use 'unrouted' for items with no matching affinity rule.\n        Returns a confirmation with total count and per-destination breakdown.\n        ",
+      "gen_ai.tool.call.arguments": "{\"items\": [{\"name\": \"2 1/4 cups all-purpose flour\", \"destination\": \"jewel\", \"sourceName\": \"Best Chocolate Chip Cookies\", \"sourceUrl\": \"https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/\"}, {\"name\": \"1 teaspoon baking soda\", \"destination\": \"jewel\", \"sourceName\": \"Best Chocolate Chip Cookies\", \"sourceUrl\": \"https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/\"}, {\"name\": \"1 teaspoon salt\", \"destination\": \"jewel\", \"sourceName\": \"Best Chocolate Chip Cookies\", \"sourceUrl\": \"https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/\"}, {\"name\": \"1 cup unsalted butter\", \"destination\": \"jewel\", \"sourceName\": \"Best Chocolate Chip Cookies\", \"sourceUrl\": \"https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/\"}, {\"name\": \"3/4 cup granulated sugar\", \"destination\": \"jewel\", \"sourceName\": \"Best Chocolate Chip Cookies\", \"sourceUrl\": \"https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/\"}, {\"name\": \"3/4 cup brown sugar\", \"destination\": \"jewel\", \"sourceName\": \"Best Chocolate Chip Cookies\", \"sourceUrl\": \"https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/\"}, {\"name\": \"1 teaspoon vanilla extract\", \"destination\": \"jewel\", \"sourceName\": \"Best Chocolate Chip Cookies\", \"sourceUrl\": \"https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/\"}, {\"name\": \"2 large eggs\", \"destination\": \"jewel\", \"sourceName\": \"Best Chocolate Chip Cookies\", \"sourceUrl\": \"https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/\"}, {\"name\": \"2 cups semi-sweet chocolate chips\", \"destination\": \"jewel\", \"sourceName\": \"Best Chocolate Chip Cookies\", \"sourceUrl\": \"https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/\"}, {\"name\": \"1 cup chopped nuts\", \"destination\": \"jewel\", \"sourceName\": \"Best Chocolate Chip Cookies\", \"sourceUrl\": \"https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/\"}]}",
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "gen_ai.tool.call.result": "Added 10 items: 10 to jewel",
+      "agent_framework.function.invocation.duration": "0.32153522595763206",
+      "_MS.GenAIContentId": "[REDACTED]",
+      "_MS.ResourceAttributeId": "0d601217-c606-4a96-aaeb-8338159ea793"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:24.675987+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.create_item",
+    "ResultCode": "0",
+    "DurationMs": 31,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "abb1266e00be1314",
+    "Id": "5c9a06a3e35afed6",
+    "Properties": {
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "_MS.ResourceAttributeId": "0d601217-c606-4a96-aaeb-8338159ea793"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:24.676468+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/Errands/docs/",
+    "ResultCode": "201",
+    "DurationMs": 31,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "5c9a06a3e35afed6",
+    "Id": "a05ac346d4336579",
+    "Properties": {
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "component": "http",
+      "_MS.ResourceAttributeId": "0d601217-c606-4a96-aaeb-8338159ea793"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:24.707633+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.create_item",
+    "ResultCode": "0",
+    "DurationMs": 30,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "abb1266e00be1314",
+    "Id": "0beef0582536037c",
+    "Properties": {
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "_MS.ResourceAttributeId": "0d601217-c606-4a96-aaeb-8338159ea793"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:24.708086+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/Errands/docs/",
+    "ResultCode": "201",
+    "DurationMs": 30,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "0beef0582536037c",
+    "Id": "1e8edafcf875e69f",
+    "Properties": {
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "component": "http",
+      "_MS.ResourceAttributeId": "0d601217-c606-4a96-aaeb-8338159ea793"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:24.738218+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.create_item",
+    "ResultCode": "0",
+    "DurationMs": 29,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "abb1266e00be1314",
+    "Id": "5fdaa79fc8f67740",
+    "Properties": {
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "_MS.ResourceAttributeId": "0d601217-c606-4a96-aaeb-8338159ea793"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:24.738745+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/Errands/docs/",
+    "ResultCode": "201",
+    "DurationMs": 29,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "5fdaa79fc8f67740",
+    "Id": "c4d644bde61986de",
+    "Properties": {
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "component": "http",
+      "_MS.ResourceAttributeId": "0d601217-c606-4a96-aaeb-8338159ea793"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:24.767802+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.create_item",
+    "ResultCode": "0",
+    "DurationMs": 29,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "abb1266e00be1314",
+    "Id": "3c4c70aff0de845f",
+    "Properties": {
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "_MS.ResourceAttributeId": "0d601217-c606-4a96-aaeb-8338159ea793"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:24.768336+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/Errands/docs/",
+    "ResultCode": "201",
+    "DurationMs": 29,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "3c4c70aff0de845f",
+    "Id": "30a5229e1527c309",
+    "Properties": {
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "component": "http",
+      "_MS.ResourceAttributeId": "0d601217-c606-4a96-aaeb-8338159ea793"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:24.797462+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.create_item",
+    "ResultCode": "0",
+    "DurationMs": 30,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "abb1266e00be1314",
+    "Id": "8c67c340613ef794",
+    "Properties": {
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "_MS.ResourceAttributeId": "0d601217-c606-4a96-aaeb-8338159ea793"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:24.798036+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/Errands/docs/",
+    "ResultCode": "201",
+    "DurationMs": 29,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "8c67c340613ef794",
+    "Id": "94453c082e8c2efd",
+    "Properties": {
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "component": "http",
+      "_MS.ResourceAttributeId": "0d601217-c606-4a96-aaeb-8338159ea793"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:24.827854+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.create_item",
+    "ResultCode": "0",
+    "DurationMs": 30,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "abb1266e00be1314",
+    "Id": "2d3f58db2b51da67",
+    "Properties": {
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "_MS.ResourceAttributeId": "0d601217-c606-4a96-aaeb-8338159ea793"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:24.828486+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/Errands/docs/",
+    "ResultCode": "201",
+    "DurationMs": 29,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "2d3f58db2b51da67",
+    "Id": "926f4cc40b4940c1",
+    "Properties": {
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "component": "http",
+      "_MS.ResourceAttributeId": "0d601217-c606-4a96-aaeb-8338159ea793"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:24.857796+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.create_item",
+    "ResultCode": "0",
+    "DurationMs": 30,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "abb1266e00be1314",
+    "Id": "e2394e80d6f1cb3a",
+    "Properties": {
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "_MS.ResourceAttributeId": "0d601217-c606-4a96-aaeb-8338159ea793"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:24.858355+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/Errands/docs/",
+    "ResultCode": "201",
+    "DurationMs": 29,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "e2394e80d6f1cb3a",
+    "Id": "3e23ae454d2753e5",
+    "Properties": {
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "component": "http",
+      "_MS.ResourceAttributeId": "0d601217-c606-4a96-aaeb-8338159ea793"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:24.887838+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.create_item",
+    "ResultCode": "0",
+    "DurationMs": 29,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "abb1266e00be1314",
+    "Id": "8ee37db14b8fdbac",
+    "Properties": {
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "_MS.ResourceAttributeId": "0d601217-c606-4a96-aaeb-8338159ea793"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:24.967642+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.create_item",
+    "ResultCode": "0",
+    "DurationMs": 30,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "abb1266e00be1314",
+    "Id": "2db394815a2bd4a1",
+    "Properties": {
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "_MS.ResourceAttributeId": "0d601217-c606-4a96-aaeb-8338159ea793"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:24.997903+00:00",
+    "ItemType": "Dependency",
+    "Name": "chat unknown",
+    "ResultCode": "0",
+    "DurationMs": 2613,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "27925429676367e7",
+    "Id": "4426aee25e02686f",
+    "Properties": {
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "gen_ai.input.messages": "[REDACTED]",
+      "gen_ai.request.choice.count": "1",
+      "gen_ai.operation.name": "chat",
+      "gen_ai.provider.name": "azure.ai",
+      "gen_ai.request.model": "unknown",
+      "gen_ai.response.id": "run_rMEVT8dBWJKOrA4DuJqcKzws",
+      "gen_ai.response.model": "gpt-4o",
+      "gen_ai.usage.input_tokens": "13826",
+      "gen_ai.usage.output_tokens": "516",
+      "gen_ai.output.messages": "[REDACTED]",
+      "_MS.GenAIContentId": "[REDACTED]",
+      "_MS.ResourceAttributeId": "264524a3-33aa-4eba-9d0f-ea89948a8e1f"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:25.211068+00:00",
+    "ItemType": "Dependency",
+    "Name": "submit_tool_outputs",
+    "ResultCode": "0",
+    "DurationMs": 312,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "4426aee25e02686f",
+    "Id": "bb52521e605c7f5f",
+    "Properties": {
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "az.namespace": "Microsoft.CognitiveServices",
+      "gen_ai.system": "az.ai.agents",
+      "gen_ai.operation.name": "submit_tool_outputs",
+      "gen_ai.thread.id": "thread_lIbD3CVEQt8NFGZEWncCyn7H",
+      "gen_ai.thread.run.id": "run_rMEVT8dBWJKOrA4DuJqcKzws",
+      "_MS.ResourceAttributeId": "0d601217-c606-4a96-aaeb-8338159ea793"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:25.211568+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/projects/second-brain/threads/thread_lIbD3CVEQt8NFGZEWncCyn7H/runs/run_rMEVT8dBWJKOrA4DuJqcKzws/submit_tool_outputs",
+    "ResultCode": "200",
+    "DurationMs": 311,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "bb52521e605c7f5f",
+    "Id": "22c34636a7929bc6",
+    "Properties": {
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "component": "http",
+      "az.client_request_id": "41a9a63c-4bd0-11f1-87ad-6e77c0e7f82e",
+      "_MS.ResourceAttributeId": "0d601217-c606-4a96-aaeb-8338159ea793"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:27.611965+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.read_item",
+    "ResultCode": "0",
+    "DurationMs": 26,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "27925429676367e7",
+    "Id": "6d782cefbc76b038",
+    "Properties": {
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "_MS.ResourceAttributeId": "264524a3-33aa-4eba-9d0f-ea89948a8e1f"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:27.612568+00:00",
+    "ItemType": "Dependency",
+    "Name": "GET /dbs/second-brain/colls/Inbox/docs/d011e868-b3fb-446f-82df-c5c83542db00/",
+    "ResultCode": "200",
+    "DurationMs": 25,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "6d782cefbc76b038",
+    "Id": "7b03da57b1cc928e",
+    "Properties": {
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "component": "http",
+      "_MS.ResourceAttributeId": "264524a3-33aa-4eba-9d0f-ea89948a8e1f"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:27.638185+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.upsert_item",
+    "ResultCode": "0",
+    "DurationMs": 30,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "27925429676367e7",
+    "Id": "0c7d549a22e6facb",
+    "Properties": {
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "_MS.ResourceAttributeId": "264524a3-33aa-4eba-9d0f-ea89948a8e1f"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:27.638736+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/Inbox/docs/",
+    "ResultCode": "200",
+    "DurationMs": 29,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "0c7d549a22e6facb",
+    "Id": "c391cd80180aa430",
+    "Properties": {
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "component": "http",
+      "_MS.ResourceAttributeId": "264524a3-33aa-4eba-9d0f-ea89948a8e1f"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:27.668089+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "27925429676367e7",
+    "Id": "",
+    "Properties": {
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/processing/admin_handoff.py",
+      "code.function.name": "process_admin_capture",
+      "code.line.number": "335",
+      "capture_trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "component": "admin_agent"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:27.668244+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "27925429676367e7",
+    "Id": "",
+    "Properties": {
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/processing/admin_handoff.py",
+      "code.function.name": "process_admin_capture",
+      "code.line.number": "376",
+      "capture_trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "component": "admin_agent"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:27.668545+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.create_item",
+    "ResultCode": "0",
+    "DurationMs": 22,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "27925429676367e7",
+    "Id": "4b01d50d5cfbb27d",
+    "Properties": {
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "_MS.ResourceAttributeId": "264524a3-33aa-4eba-9d0f-ea89948a8e1f"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:27.669058+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/spine_events/docs/",
+    "ResultCode": "201",
+    "DurationMs": 21,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "4b01d50d5cfbb27d",
+    "Id": "d02a0f60d9cc6c58",
+    "Properties": {
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "component": "http",
+      "_MS.ResourceAttributeId": "264524a3-33aa-4eba-9d0f-ea89948a8e1f"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:27.690232+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.upsert_item",
+    "ResultCode": "0",
+    "DurationMs": 27,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "27925429676367e7",
+    "Id": "e5226aca53b7fd80",
+    "Properties": {
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "_MS.ResourceAttributeId": "264524a3-33aa-4eba-9d0f-ea89948a8e1f"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:55:27.690715+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/spine_correlation/docs/",
+    "ResultCode": "201",
+    "DurationMs": 26,
+    "OperationId": "05a98304f507435edd575bd8cee010f6",
+    "ParentId": "e5226aca53b7fd80",
+    "Id": "c6878ecae2c1c2f5",
+    "Properties": {
+      "capture.trace_id": "814ac3e1-43c3-407d-848d-8f78aa79ebea",
+      "component": "http",
+      "_MS.ResourceAttributeId": "264524a3-33aa-4eba-9d0f-ea89948a8e1f"
+    }
+  }
+]
