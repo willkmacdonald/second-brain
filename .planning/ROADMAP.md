@@ -424,7 +424,7 @@ Items not yet scheduled into a milestone or phase.
 Plans:
 - [ ] 23-01-PLAN.md — Dependency-resolution spike + foundry_probe.py scaffolding (Wave 1, autonomous)
 - [ ] 23-02-PLAN.md — Run 5 Foundry probes + FOUNDRY-PROBE-FINDINGS.md (Wave 2, depends on 23-01, has operator checkpoint)
-- [ ] 23-03-PLAN.md — Capture 18 golden-trace fixtures (5 investigation + 5 admin + 8 classifier) against deployed RC (Wave 1, parallel, has operator checkpoint)
+- [x] 23-03-PLAN.md — Capture 18 golden-trace fixtures (5 investigation + 5 admin + 8 classifier) against deployed RC (Wave 1, parallel, has operator checkpoint)
 - [ ] 23-04-PLAN.md — Eval baseline + EVAL-INVENTORY.md + portal instructions export + Investigation drift reconciliation (Wave 1, parallel, has operator checkpoint)
 - [ ] 23-05-PLAN.md — CONFIG-DELTAS.md + SPAN-NAME-MAPPING.md + AUDITOR-VERIFICATION.md (Wave 2, depends on 23-02, autonomous)
 
