@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Observability & Evals
-status: completed
-stopped_at: Completed 23-02-PLAN.md
-last_updated: "2026-05-09T20:50:07.361Z"
-last_activity: 2026-05-09 -- Completed 23-02-PLAN.md (Foundry probe execution + findings)
+status: executing
+stopped_at: Completed 23-05-PLAN.md
+last_updated: "2026-05-09T21:01:22.907Z"
+last_activity: 2026-05-09
 progress:
   total_phases: 18
-  completed_phases: 13
+  completed_phases: 14
   total_plans: 55
-  completed_plans: 52
-  percent: 95
+  completed_plans: 53
+  percent: 96
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 
 ## Current Position
 
-Phase: 23 (23-foundry-ga-prep) — EXECUTING
-Plan: 3 of 5
-Status: Completed 23-02, next is 23-05 (depends on 23-02 probe findings)
-Last activity: 2026-05-09 -- Completed 23-02-PLAN.md (Foundry probe execution + findings)
+Phase: 23 (23-foundry-ga-prep) — COMPLETE
+Plan: 5 of 5
+Status: Completed 23-05, Phase 23 complete. All 9 design deliverables present. Phase 24 unblocked.
+Last activity: 2026-05-09 -- Completed 23-05-PLAN.md (config deltas + span mapping + auditor verification)
 
-Progress: [██████████] 95%
+Progress: [██████████] 96%
 
 ## Performance Metrics
 
@@ -191,6 +191,7 @@ v3.0 decisions archived to .planning/milestones/v3.0-ROADMAP.md
 - [Phase 23-02]: Streaming uses agent.run(stream=True) returning ResponseStream -- NOT agent.run_stream()
 - [Phase 23-02]: tool_choice passed via options=ChatOptions(tool_choice=...) -- NOT as direct keyword argument
 - [Phase 23-02]: Framework handles tool execution internally during streaming -- adapter does NOT need manual tool call detection
+- Only AGENT_RUNS KQL template needs span Name update (_agent_run -> invoke_agent); all other queries use HTTP route Names or component properties
 
 ### Pending Todos
 
@@ -222,8 +223,8 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-05-09T20:49:54.417Z
-Stopped at: Completed 23-02-PLAN.md
+Last session: 2026-05-09T21:01:22.899Z
+Stopped at: Completed 23-05-PLAN.md
 Resume action: Continue Phase 23 (next plan: 23-05, depends on 23-02 probe findings)
 
 **Planned Phase:** 21.1 (Migrate Eval to Foundry Native Platform) — 2 plans — 2026-04-25T02:01:36.643Z
