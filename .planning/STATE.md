@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Observability & Evals
-status: executing
+status: ready_to_plan
 stopped_at: Completed 23-05-PLAN.md
 last_updated: "2026-05-09T21:01:22.907Z"
 last_activity: 2026-05-09
 progress:
   total_phases: 18
-  completed_phases: 14
+  completed_phases: 15
   total_plans: 55
   completed_plans: 53
-  percent: 96
+  percent: 83
 ---
 
 # Project State
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 
 ## Current Position
 
-Phase: 23 (23-foundry-ga-prep) — COMPLETE
-Plan: 5 of 5
-Status: Completed 23-05, Phase 23 complete. All 9 design deliverables present. Phase 24 unblocked.
-Last activity: 2026-05-09 -- Completed 23-05-PLAN.md (config deltas + span mapping + auditor verification)
+Phase: 24
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-05-09
 
 Progress: [██████████] 96%
 
@@ -36,7 +36,7 @@ Progress: [██████████] 96%
 
 **Velocity (v3.0):**
 
-- Total plans completed: 57
+- Total plans completed: 62
 - Average duration: 3.1 min
 - Timeline: 2026-03-01 to 2026-03-23 (22 days)
 
