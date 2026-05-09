@@ -1,0 +1,6 @@
+{"data": {"type": "STEP_START", "stepName": "Classifying"}}
+{"data": {"type": "STEP_END", "stepName": "Classifying"}}
+{"data": {"type": "LOW_CONFIDENCE", "value": {"inboxItemId": "c2771490-f079-4951-a815-96a28dfd2afa", "bucket": "Ideas", "confidence": 0.4}}}
+{"data": {"type": "COMPLETE", "threadId": "thread-48985792-4902-48ab-8b0f-b61433322f3e", "runId": "run-8d598a22-bb3b-4a04-939c-64b870980fd7"}}
+{"_marker": "turn_boundary"}
+{"_marker": "turn_2_not_captured", "reason": "RC LOW_CONFIDENCE items do not support follow-up endpoint (requires MISUNDERSTOOD with foundryThreadId)"}

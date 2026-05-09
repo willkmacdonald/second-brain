@@ -1,0 +1,780 @@
+[
+  {
+    "TimeGenerated": "2026-05-09 18:19:59.987476+00:00",
+    "ItemType": "Request",
+    "Name": "POST /api/capture/voice",
+    "ResultCode": "200",
+    "DurationMs": 11096,
+    "OperationId": "064b740de755b8596704c2e91b780b3d",
+    "ParentId": "064b740de755b8596704c2e91b780b3d",
+    "Id": "689684ae1cf21096",
+    "Properties": {
+      "capture.trace_id": "7fe92c3b-ca3f-4681-baf2-443bca26eef7",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "9c6d1bc3-d6c2-4faf-a2d6-cbb0af7ea24b"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:20:00.617546+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/capture/voice http receive",
+    "ResultCode": "0",
+    "DurationMs": 10466,
+    "OperationId": "064b740de755b8596704c2e91b780b3d",
+    "ParentId": "689684ae1cf21096",
+    "Id": "323abab9937beaac",
+    "Properties": {
+      "capture.trace_id": "7fe92c3b-ca3f-4681-baf2-443bca26eef7",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "9c6d1bc3-d6c2-4faf-a2d6-cbb0af7ea24b"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:20:00.617661+00:00",
+    "ItemType": "Dependency",
+    "Name": "capture_voice",
+    "ResultCode": "0",
+    "DurationMs": 10402,
+    "OperationId": "064b740de755b8596704c2e91b780b3d",
+    "ParentId": "689684ae1cf21096",
+    "Id": "fe5eee898975d259",
+    "Properties": {
+      "capture.type": "voice",
+      "capture.thread_id": "thread-e680a0a2-b8d8-4a2b-86ef-00fcf76bd788",
+      "capture.run_id": "run-a12c45d5-cd0a-476c-9380-955b962dc69d",
+      "capture.trace_id": "7fe92c3b-ca3f-4681-baf2-443bca26eef7",
+      "capture.outcome": "classified",
+      "capture.split_count": "1",
+      "capture.buckets": "People",
+      "capture.bucket": "People",
+      "capture.confidence": "0.9",
+      "_MS.ResourceAttributeId": "9c6d1bc3-d6c2-4faf-a2d6-cbb0af7ea24b"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:20:00.663911+00:00",
+    "ItemType": "Dependency",
+    "Name": "chat unknown",
+    "ResultCode": "0",
+    "DurationMs": 3634,
+    "OperationId": "064b740de755b8596704c2e91b780b3d",
+    "ParentId": "fe5eee898975d259",
+    "Id": "cc40dfdf3313981f",
+    "Properties": {
+      "capture.trace_id": "7fe92c3b-ca3f-4681-baf2-443bca26eef7",
+      "gen_ai.input.messages": "[REDACTED]",
+      "gen_ai.request.choice.count": "1",
+      "gen_ai.operation.name": "chat",
+      "gen_ai.provider.name": "azure.ai",
+      "gen_ai.request.model": "unknown",
+      "gen_ai.response.id": "run_xp801Y2KtK7foLyfPA079WOf",
+      "gen_ai.response.model": "gpt-4o",
+      "gen_ai.output.messages": "[REDACTED]",
+      "_MS.GenAIContentId": "[REDACTED]",
+      "_MS.ResourceAttributeId": "94790a22-046b-4a0e-aabb-65aae0beaeb6"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:20:00.664284+00:00",
+    "ItemType": "Dependency",
+    "Name": "create_thread",
+    "ResultCode": "0",
+    "DurationMs": 588,
+    "OperationId": "064b740de755b8596704c2e91b780b3d",
+    "ParentId": "fe5eee898975d259",
+    "Id": "f007d7408de4c5b5",
+    "Properties": {
+      "capture.trace_id": "7fe92c3b-ca3f-4681-baf2-443bca26eef7",
+      "az.namespace": "Microsoft.CognitiveServices",
+      "gen_ai.system": "az.ai.agents",
+      "gen_ai.operation.name": "create_thread",
+      "gen_ai.thread.id": "thread_uXeeMBTWBeuiCMrD8U3YOJLl",
+      "_MS.ResourceAttributeId": "b5c2ecc9-4d15-444f-84bc-3c876c4407f3"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:20:00.665025+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/projects/second-brain/threads",
+    "ResultCode": "200",
+    "DurationMs": 587,
+    "OperationId": "064b740de755b8596704c2e91b780b3d",
+    "ParentId": "f007d7408de4c5b5",
+    "Id": "fddb45ad1694a77c",
+    "Properties": {
+      "capture.trace_id": "7fe92c3b-ca3f-4681-baf2-443bca26eef7",
+      "component": "http",
+      "az.client_request_id": "b119f726-4bd3-11f1-87ad-6e77c0e7f82e",
+      "_MS.ResourceAttributeId": "b5c2ecc9-4d15-444f-84bc-3c876c4407f3"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:20:01.252243+00:00",
+    "ItemType": "Dependency",
+    "Name": "process_thread_run",
+    "ResultCode": "0",
+    "DurationMs": 3045,
+    "OperationId": "064b740de755b8596704c2e91b780b3d",
+    "ParentId": "fe5eee898975d259",
+    "Id": "cb375e998e5c7222",
+    "Properties": {
+      "capture.trace_id": "7fe92c3b-ca3f-4681-baf2-443bca26eef7",
+      "az.namespace": "Microsoft.CognitiveServices",
+      "gen_ai.system": "az.ai.agents",
+      "gen_ai.operation.name": "process_thread_run",
+      "gen_ai.agent.id": "asst_Fnjkq5RVrvdFIOSqbreAwxuq",
+      "gen_ai.thread.run.status": "requires_action",
+      "gen_ai.thread.run.id": "run_xp801Y2KtK7foLyfPA079WOf",
+      "gen_ai.response.model": "gpt-4o",
+      "_MS.ResourceAttributeId": "94790a22-046b-4a0e-aabb-65aae0beaeb6"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:20:01.252880+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/projects/second-brain/threads/thread_uXeeMBTWBeuiCMrD8U3YOJLl/runs",
+    "ResultCode": "200",
+    "DurationMs": 997,
+    "OperationId": "064b740de755b8596704c2e91b780b3d",
+    "ParentId": "cb375e998e5c7222",
+    "Id": "b86a783dffc6b2cb",
+    "Properties": {
+      "capture.trace_id": "7fe92c3b-ca3f-4681-baf2-443bca26eef7",
+      "component": "http",
+      "az.client_request_id": "b173abf4-4bd3-11f1-87ad-6e77c0e7f82e",
+      "_MS.ResourceAttributeId": "b5c2ecc9-4d15-444f-84bc-3c876c4407f3"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:20:04.298318+00:00",
+    "ItemType": "Dependency",
+    "Name": "tool_transcribe_audio",
+    "ResultCode": "0",
+    "DurationMs": 694,
+    "OperationId": "064b740de755b8596704c2e91b780b3d",
+    "ParentId": "fe5eee898975d259",
+    "Id": "344d64cb697fff35",
+    "Properties": {
+      "capture.trace_id": "7fe92c3b-ca3f-4681-baf2-443bca26eef7",
+      "tool.name": "transcribe_audio",
+      "tool.duration_ms": "693.633452989161",
+      "transcription.success": "True",
+      "_MS.ResourceAttributeId": "94790a22-046b-4a0e-aabb-65aae0beaeb6"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:20:04.298475+00:00",
+    "ItemType": "Dependency",
+    "Name": "execute_tool transcribe_audio",
+    "ResultCode": "0",
+    "DurationMs": 693,
+    "OperationId": "064b740de755b8596704c2e91b780b3d",
+    "ParentId": "344d64cb697fff35",
+    "Id": "c4f16ec8a4bcecca",
+    "Properties": {
+      "capture.trace_id": "7fe92c3b-ca3f-4681-baf2-443bca26eef7",
+      "gen_ai.tool.call.result": "Birthday dinner with mom on Saturday at 7pm.",
+      "agent_framework.function.invocation.duration": "0.6932691559777595",
+      "_MS.GenAIContentId": "[REDACTED]",
+      "_MS.ResourceAttributeId": "94790a22-046b-4a0e-aabb-65aae0beaeb6"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:20:04.298946+00:00",
+    "ItemType": "Dependency",
+    "Name": "BlobClient.download_blob",
+    "ResultCode": "0",
+    "DurationMs": 42,
+    "OperationId": "064b740de755b8596704c2e91b780b3d",
+    "ParentId": "c4f16ec8a4bcecca",
+    "Id": "2e0c2d0ba3a9b341",
+    "Properties": {
+      "capture.trace_id": "7fe92c3b-ca3f-4681-baf2-443bca26eef7",
+      "_MS.ResourceAttributeId": "94790a22-046b-4a0e-aabb-65aae0beaeb6"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:20:04.299502+00:00",
+    "ItemType": "Dependency",
+    "Name": "GET /msi/token",
+    "ResultCode": "200",
+    "DurationMs": 3,
+    "OperationId": "064b740de755b8596704c2e91b780b3d",
+    "ParentId": "2e0c2d0ba3a9b341",
+    "Id": "6e20a5ec22c58479",
+    "Properties": {
+      "capture.trace_id": "7fe92c3b-ca3f-4681-baf2-443bca26eef7",
+      "component": "http",
+      "_MS.ResourceAttributeId": "94790a22-046b-4a0e-aabb-65aae0beaeb6"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:20:04.303344+00:00",
+    "ItemType": "Dependency",
+    "Name": "Azure blob: wkmshareddata/voice-recordings",
+    "ResultCode": "206",
+    "DurationMs": 37,
+    "OperationId": "064b740de755b8596704c2e91b780b3d",
+    "ParentId": "2e0c2d0ba3a9b341",
+    "Id": "d5e786f480ce262b",
+    "Properties": {
+      "capture.trace_id": "7fe92c3b-ca3f-4681-baf2-443bca26eef7",
+      "component": "http",
+      "az.client_request_id": "b3448bc4-4bd3-11f1-87ad-6e77c0e7f82e",
+      "az.service_request_id": "052173cf-801e-003f-3fe0-dfd3b4000000",
+      "_MS.ResourceAttributeId": "94790a22-046b-4a0e-aabb-65aae0beaeb6"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:20:04.341978+00:00",
+    "ItemType": "Dependency",
+    "Name": "GET /msi/token",
+    "ResultCode": "200",
+    "DurationMs": 128,
+    "OperationId": "064b740de755b8596704c2e91b780b3d",
+    "ParentId": "c4f16ec8a4bcecca",
+    "Id": "9b3daf12d8bf24a9",
+    "Properties": {
+      "capture.trace_id": "7fe92c3b-ca3f-4681-baf2-443bca26eef7",
+      "component": "http",
+      "_MS.ResourceAttributeId": "94790a22-046b-4a0e-aabb-65aae0beaeb6"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:20:04.992235+00:00",
+    "ItemType": "Dependency",
+    "Name": "chat unknown",
+    "ResultCode": "0",
+    "DurationMs": 2679,
+    "OperationId": "064b740de755b8596704c2e91b780b3d",
+    "ParentId": "fe5eee898975d259",
+    "Id": "5c0c7747471e66a4",
+    "Properties": {
+      "capture.trace_id": "7fe92c3b-ca3f-4681-baf2-443bca26eef7",
+      "gen_ai.input.messages": "[REDACTED]",
+      "gen_ai.request.choice.count": "1",
+      "gen_ai.operation.name": "chat",
+      "gen_ai.provider.name": "azure.ai",
+      "gen_ai.request.model": "unknown",
+      "gen_ai.response.id": "run_xp801Y2KtK7foLyfPA079WOf",
+      "gen_ai.response.model": "gpt-4o",
+      "gen_ai.usage.input_tokens": "2853",
+      "gen_ai.usage.output_tokens": "61",
+      "gen_ai.output.messages": "[REDACTED]",
+      "_MS.GenAIContentId": "[REDACTED]",
+      "_MS.ResourceAttributeId": "94790a22-046b-4a0e-aabb-65aae0beaeb6"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:20:04.992468+00:00",
+    "ItemType": "Dependency",
+    "Name": "RunsOperations.list",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "064b740de755b8596704c2e91b780b3d",
+    "ParentId": "fe5eee898975d259",
+    "Id": "d55a204065b9cbaf",
+    "Properties": {
+      "capture.trace_id": "7fe92c3b-ca3f-4681-baf2-443bca26eef7",
+      "_MS.ResourceAttributeId": "94790a22-046b-4a0e-aabb-65aae0beaeb6"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:20:04.993046+00:00",
+    "ItemType": "Dependency",
+    "Name": "GET /api/projects/second-brain/threads/thread_uXeeMBTWBeuiCMrD8U3YOJLl/runs",
+    "ResultCode": "200",
+    "DurationMs": 565,
+    "OperationId": "064b740de755b8596704c2e91b780b3d",
+    "ParentId": "fe5eee898975d259",
+    "Id": "991cd7941542dca4",
+    "Properties": {
+      "capture.trace_id": "7fe92c3b-ca3f-4681-baf2-443bca26eef7",
+      "component": "http",
+      "az.client_request_id": "b3ae609e-4bd3-11f1-87ad-6e77c0e7f82e",
+      "_MS.ResourceAttributeId": "94790a22-046b-4a0e-aabb-65aae0beaeb6"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:20:05.559029+00:00",
+    "ItemType": "Dependency",
+    "Name": "submit_tool_outputs",
+    "ResultCode": "0",
+    "DurationMs": 316,
+    "OperationId": "064b740de755b8596704c2e91b780b3d",
+    "ParentId": "fe5eee898975d259",
+    "Id": "0b18401fd801a1a7",
+    "Properties": {
+      "capture.trace_id": "7fe92c3b-ca3f-4681-baf2-443bca26eef7",
+      "az.namespace": "Microsoft.CognitiveServices",
+      "gen_ai.system": "az.ai.agents",
+      "gen_ai.operation.name": "submit_tool_outputs",
+      "gen_ai.thread.id": "thread_uXeeMBTWBeuiCMrD8U3YOJLl",
+      "gen_ai.thread.run.id": "run_xp801Y2KtK7foLyfPA079WOf",
+      "_MS.ResourceAttributeId": "94790a22-046b-4a0e-aabb-65aae0beaeb6"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:20:05.559633+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/projects/second-brain/threads/thread_uXeeMBTWBeuiCMrD8U3YOJLl/runs/run_xp801Y2KtK7foLyfPA079WOf/submit_tool_outputs",
+    "ResultCode": "200",
+    "DurationMs": 315,
+    "OperationId": "064b740de755b8596704c2e91b780b3d",
+    "ParentId": "0b18401fd801a1a7",
+    "Id": "b4669811a9650526",
+    "Properties": {
+      "capture.trace_id": "7fe92c3b-ca3f-4681-baf2-443bca26eef7",
+      "component": "http",
+      "az.client_request_id": "b404d488-4bd3-11f1-87ad-6e77c0e7f82e",
+      "_MS.ResourceAttributeId": "94790a22-046b-4a0e-aabb-65aae0beaeb6"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:20:07.671416+00:00",
+    "ItemType": "Dependency",
+    "Name": "tool_file_capture",
+    "ResultCode": "0",
+    "DurationMs": 58,
+    "OperationId": "064b740de755b8596704c2e91b780b3d",
+    "ParentId": "fe5eee898975d259",
+    "Id": "8d6865499ca6be46",
+    "Properties": {
+      "capture.trace_id": "7fe92c3b-ca3f-4681-baf2-443bca26eef7",
+      "tool.name": "file_capture",
+      "tool.duration_ms": "57.48004000633955",
+      "_MS.ResourceAttributeId": "94790a22-046b-4a0e-aabb-65aae0beaeb6"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:20:07.671598+00:00",
+    "ItemType": "Dependency",
+    "Name": "execute_tool file_capture",
+    "ResultCode": "0",
+    "DurationMs": 57,
+    "OperationId": "064b740de755b8596704c2e91b780b3d",
+    "ParentId": "8d6865499ca6be46",
+    "Id": "ddb6d3075b295f5e",
+    "Properties": {
+      "capture.trace_id": "7fe92c3b-ca3f-4681-baf2-443bca26eef7",
+      "gen_ai.tool.call.result": "{\"bucket\": \"People\", \"confidence\": 0.9, \"item_id\": \"3315892b-e1e2-4efa-a5b7-caca5a337442\"}",
+      "agent_framework.function.invocation.duration": "0.05715694196987897",
+      "_MS.GenAIContentId": "[REDACTED]",
+      "_MS.ResourceAttributeId": "94790a22-046b-4a0e-aabb-65aae0beaeb6"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:20:07.671846+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.create_item",
+    "ResultCode": "0",
+    "DurationMs": 29,
+    "OperationId": "064b740de755b8596704c2e91b780b3d",
+    "ParentId": "ddb6d3075b295f5e",
+    "Id": "48d6fdf362107af8",
+    "Properties": {
+      "capture.trace_id": "7fe92c3b-ca3f-4681-baf2-443bca26eef7",
+      "_MS.ResourceAttributeId": "94790a22-046b-4a0e-aabb-65aae0beaeb6"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:20:07.672302+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/Inbox/docs/",
+    "ResultCode": "201",
+    "DurationMs": 28,
+    "OperationId": "064b740de755b8596704c2e91b780b3d",
+    "ParentId": "48d6fdf362107af8",
+    "Id": "c288bb22ad8b8690",
+    "Properties": {
+      "capture.trace_id": "7fe92c3b-ca3f-4681-baf2-443bca26eef7",
+      "component": "http",
+      "_MS.ResourceAttributeId": "94790a22-046b-4a0e-aabb-65aae0beaeb6"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:20:07.701042+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.create_item",
+    "ResultCode": "0",
+    "DurationMs": 28,
+    "OperationId": "064b740de755b8596704c2e91b780b3d",
+    "ParentId": "ddb6d3075b295f5e",
+    "Id": "2a1d23099b41ac95",
+    "Properties": {
+      "capture.trace_id": "7fe92c3b-ca3f-4681-baf2-443bca26eef7",
+      "_MS.ResourceAttributeId": "94790a22-046b-4a0e-aabb-65aae0beaeb6"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:20:07.701753+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/People/docs/",
+    "ResultCode": "201",
+    "DurationMs": 27,
+    "OperationId": "064b740de755b8596704c2e91b780b3d",
+    "ParentId": "2a1d23099b41ac95",
+    "Id": "5ec36b9936f9f265",
+    "Properties": {
+      "capture.trace_id": "7fe92c3b-ca3f-4681-baf2-443bca26eef7",
+      "component": "http",
+      "_MS.ResourceAttributeId": "94790a22-046b-4a0e-aabb-65aae0beaeb6"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:20:07.728666+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "064b740de755b8596704c2e91b780b3d",
+    "ParentId": "ddb6d3075b295f5e",
+    "Id": "",
+    "Properties": {
+      "capture_trace_id": "7fe92c3b-ca3f-4681-baf2-443bca26eef7",
+      "component": "classifier",
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/tools/classification.py",
+      "code.function.name": "_write_to_cosmos",
+      "code.line.number": "249"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:20:07.729160+00:00",
+    "ItemType": "Dependency",
+    "Name": "chat unknown",
+    "ResultCode": "0",
+    "DurationMs": 3290,
+    "OperationId": "064b740de755b8596704c2e91b780b3d",
+    "ParentId": "fe5eee898975d259",
+    "Id": "f938e665dcce2ccd",
+    "Properties": {
+      "capture.trace_id": "7fe92c3b-ca3f-4681-baf2-443bca26eef7",
+      "gen_ai.input.messages": "[REDACTED]",
+      "gen_ai.request.choice.count": "1",
+      "gen_ai.operation.name": "chat",
+      "gen_ai.provider.name": "azure.ai",
+      "gen_ai.request.model": "unknown",
+      "gen_ai.response.id": "run_xp801Y2KtK7foLyfPA079WOf",
+      "gen_ai.response.model": "gpt-4o",
+      "gen_ai.usage.input_tokens": "5962",
+      "gen_ai.usage.output_tokens": "55",
+      "gen_ai.output.messages": "[REDACTED]",
+      "_MS.GenAIContentId": "[REDACTED]",
+      "_MS.ResourceAttributeId": "9c6d1bc3-d6c2-4faf-a2d6-cbb0af7ea24b"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:20:07.729432+00:00",
+    "ItemType": "Dependency",
+    "Name": "RunsOperations.list",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "064b740de755b8596704c2e91b780b3d",
+    "ParentId": "fe5eee898975d259",
+    "Id": "458af50a3c3a8ba7",
+    "Properties": {
+      "capture.trace_id": "7fe92c3b-ca3f-4681-baf2-443bca26eef7",
+      "_MS.ResourceAttributeId": "94790a22-046b-4a0e-aabb-65aae0beaeb6"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:20:07.730265+00:00",
+    "ItemType": "Dependency",
+    "Name": "GET /api/projects/second-brain/threads/thread_uXeeMBTWBeuiCMrD8U3YOJLl/runs",
+    "ResultCode": "200",
+    "DurationMs": 559,
+    "OperationId": "064b740de755b8596704c2e91b780b3d",
+    "ParentId": "fe5eee898975d259",
+    "Id": "46652c82ac188f05",
+    "Properties": {
+      "capture.trace_id": "7fe92c3b-ca3f-4681-baf2-443bca26eef7",
+      "component": "http",
+      "az.client_request_id": "b5500b28-4bd3-11f1-87ad-6e77c0e7f82e",
+      "_MS.ResourceAttributeId": "94790a22-046b-4a0e-aabb-65aae0beaeb6"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:20:08.290009+00:00",
+    "ItemType": "Dependency",
+    "Name": "submit_tool_outputs",
+    "ResultCode": "0",
+    "DurationMs": 366,
+    "OperationId": "064b740de755b8596704c2e91b780b3d",
+    "ParentId": "fe5eee898975d259",
+    "Id": "095605e3bd48c2a0",
+    "Properties": {
+      "capture.trace_id": "7fe92c3b-ca3f-4681-baf2-443bca26eef7",
+      "az.namespace": "Microsoft.CognitiveServices",
+      "gen_ai.system": "az.ai.agents",
+      "gen_ai.operation.name": "submit_tool_outputs",
+      "gen_ai.thread.id": "thread_uXeeMBTWBeuiCMrD8U3YOJLl",
+      "gen_ai.thread.run.id": "run_xp801Y2KtK7foLyfPA079WOf",
+      "_MS.ResourceAttributeId": "9c6d1bc3-d6c2-4faf-a2d6-cbb0af7ea24b"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:20:08.290617+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/projects/second-brain/threads/thread_uXeeMBTWBeuiCMrD8U3YOJLl/runs/run_xp801Y2KtK7foLyfPA079WOf/submit_tool_outputs",
+    "ResultCode": "200",
+    "DurationMs": 365,
+    "OperationId": "064b740de755b8596704c2e91b780b3d",
+    "ParentId": "095605e3bd48c2a0",
+    "Id": "df1a4e5871ed9b27",
+    "Properties": {
+      "capture.trace_id": "7fe92c3b-ca3f-4681-baf2-443bca26eef7",
+      "component": "http",
+      "az.client_request_id": "b5a58bf2-4bd3-11f1-87ad-6e77c0e7f82e",
+      "_MS.ResourceAttributeId": "9c6d1bc3-d6c2-4faf-a2d6-cbb0af7ea24b"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:20:10.518347+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "064b740de755b8596704c2e91b780b3d",
+    "ParentId": "fe5eee898975d259",
+    "Id": "",
+    "Properties": {
+      "reasoning_text": "Filed",
+      "agent_run_id": "run-a12c45d5-cd0a-476c-9380-955b962dc69d",
+      "chunk_index": "0",
+      "capture_trace_id": "7fe92c3b-ca3f-4681-baf2-443bca26eef7",
+      "component": "classifier",
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/streaming/adapter.py",
+      "code.function.name": "stream_voice_capture",
+      "code.line.number": "411"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:20:10.526494+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "064b740de755b8596704c2e91b780b3d",
+    "ParentId": "fe5eee898975d259",
+    "Id": "",
+    "Properties": {
+      "reasoning_text": " to",
+      "agent_run_id": "run-a12c45d5-cd0a-476c-9380-955b962dc69d",
+      "chunk_index": "1",
+      "capture_trace_id": "7fe92c3b-ca3f-4681-baf2-443bca26eef7",
+      "component": "classifier",
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/streaming/adapter.py",
+      "code.function.name": "stream_voice_capture",
+      "code.line.number": "411"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:20:10.530847+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "064b740de755b8596704c2e91b780b3d",
+    "ParentId": "fe5eee898975d259",
+    "Id": "",
+    "Properties": {
+      "reasoning_text": " People",
+      "agent_run_id": "run-a12c45d5-cd0a-476c-9380-955b962dc69d",
+      "chunk_index": "2",
+      "capture_trace_id": "7fe92c3b-ca3f-4681-baf2-443bca26eef7",
+      "component": "classifier",
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/streaming/adapter.py",
+      "code.function.name": "stream_voice_capture",
+      "code.line.number": "411"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:20:10.585263+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "064b740de755b8596704c2e91b780b3d",
+    "ParentId": "fe5eee898975d259",
+    "Id": "",
+    "Properties": {
+      "reasoning_text": " (",
+      "agent_run_id": "run-a12c45d5-cd0a-476c-9380-955b962dc69d",
+      "chunk_index": "3",
+      "capture_trace_id": "7fe92c3b-ca3f-4681-baf2-443bca26eef7",
+      "component": "classifier",
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/streaming/adapter.py",
+      "code.function.name": "stream_voice_capture",
+      "code.line.number": "411"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:20:10.590713+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "064b740de755b8596704c2e91b780b3d",
+    "ParentId": "fe5eee898975d259",
+    "Id": "",
+    "Properties": {
+      "reasoning_text": "0",
+      "agent_run_id": "run-a12c45d5-cd0a-476c-9380-955b962dc69d",
+      "chunk_index": "4",
+      "capture_trace_id": "7fe92c3b-ca3f-4681-baf2-443bca26eef7",
+      "component": "classifier",
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/streaming/adapter.py",
+      "code.function.name": "stream_voice_capture",
+      "code.line.number": "411"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:20:10.596011+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "064b740de755b8596704c2e91b780b3d",
+    "ParentId": "fe5eee898975d259",
+    "Id": "",
+    "Properties": {
+      "reasoning_text": ".",
+      "agent_run_id": "run-a12c45d5-cd0a-476c-9380-955b962dc69d",
+      "chunk_index": "5",
+      "capture_trace_id": "7fe92c3b-ca3f-4681-baf2-443bca26eef7",
+      "component": "classifier",
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/streaming/adapter.py",
+      "code.function.name": "stream_voice_capture",
+      "code.line.number": "411"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:20:10.602764+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "064b740de755b8596704c2e91b780b3d",
+    "ParentId": "fe5eee898975d259",
+    "Id": "",
+    "Properties": {
+      "reasoning_text": "9",
+      "agent_run_id": "run-a12c45d5-cd0a-476c-9380-955b962dc69d",
+      "chunk_index": "6",
+      "capture_trace_id": "7fe92c3b-ca3f-4681-baf2-443bca26eef7",
+      "component": "classifier",
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/streaming/adapter.py",
+      "code.function.name": "stream_voice_capture",
+      "code.line.number": "411"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:20:10.610080+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "064b740de755b8596704c2e91b780b3d",
+    "ParentId": "fe5eee898975d259",
+    "Id": "",
+    "Properties": {
+      "reasoning_text": ")",
+      "agent_run_id": "run-a12c45d5-cd0a-476c-9380-955b962dc69d",
+      "chunk_index": "7",
+      "capture_trace_id": "7fe92c3b-ca3f-4681-baf2-443bca26eef7",
+      "component": "classifier",
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/streaming/adapter.py",
+      "code.function.name": "stream_voice_capture",
+      "code.line.number": "411"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:20:11.020300+00:00",
+    "ItemType": "Dependency",
+    "Name": "BlobClient.delete_blob",
+    "ResultCode": "0",
+    "DurationMs": 10,
+    "OperationId": "064b740de755b8596704c2e91b780b3d",
+    "ParentId": "689684ae1cf21096",
+    "Id": "badd52c42cff3036",
+    "Properties": {
+      "capture.trace_id": "7fe92c3b-ca3f-4681-baf2-443bca26eef7",
+      "_MS.ResourceAttributeId": "9c6d1bc3-d6c2-4faf-a2d6-cbb0af7ea24b"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:20:11.020806+00:00",
+    "ItemType": "Dependency",
+    "Name": "Azure blob: wkmshareddata/voice-recordings",
+    "ResultCode": "202",
+    "DurationMs": 9,
+    "OperationId": "064b740de755b8596704c2e91b780b3d",
+    "ParentId": "badd52c42cff3036",
+    "Id": "0a33c6214e5dbe57",
+    "Properties": {
+      "capture.trace_id": "7fe92c3b-ca3f-4681-baf2-443bca26eef7",
+      "component": "http",
+      "az.client_request_id": "b746262e-4bd3-11f1-87ad-6e77c0e7f82e",
+      "az.service_request_id": "e2cbc92a-301e-0077-26e0-dfce83000000",
+      "_MS.ResourceAttributeId": "9c6d1bc3-d6c2-4faf-a2d6-cbb0af7ea24b"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:20:11.030602+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.create_item",
+    "ResultCode": "0",
+    "DurationMs": 25,
+    "OperationId": "064b740de755b8596704c2e91b780b3d",
+    "ParentId": "689684ae1cf21096",
+    "Id": "22c019d09f3da245",
+    "Properties": {
+      "capture.trace_id": "7fe92c3b-ca3f-4681-baf2-443bca26eef7",
+      "_MS.ResourceAttributeId": "9c6d1bc3-d6c2-4faf-a2d6-cbb0af7ea24b"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:20:11.031051+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/spine_events/docs/",
+    "ResultCode": "201",
+    "DurationMs": 24,
+    "OperationId": "064b740de755b8596704c2e91b780b3d",
+    "ParentId": "22c019d09f3da245",
+    "Id": "96c2ca9dd896181e",
+    "Properties": {
+      "capture.trace_id": "7fe92c3b-ca3f-4681-baf2-443bca26eef7",
+      "component": "http",
+      "_MS.ResourceAttributeId": "9c6d1bc3-d6c2-4faf-a2d6-cbb0af7ea24b"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:20:11.055395+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.upsert_item",
+    "ResultCode": "0",
+    "DurationMs": 28,
+    "OperationId": "064b740de755b8596704c2e91b780b3d",
+    "ParentId": "689684ae1cf21096",
+    "Id": "0c98ebd981c65ebf",
+    "Properties": {
+      "capture.trace_id": "7fe92c3b-ca3f-4681-baf2-443bca26eef7",
+      "_MS.ResourceAttributeId": "9c6d1bc3-d6c2-4faf-a2d6-cbb0af7ea24b"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:20:11.055870+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/spine_correlation/docs/",
+    "ResultCode": "201",
+    "DurationMs": 27,
+    "OperationId": "064b740de755b8596704c2e91b780b3d",
+    "ParentId": "0c98ebd981c65ebf",
+    "Id": "ed183dbe301f969e",
+    "Properties": {
+      "capture.trace_id": "7fe92c3b-ca3f-4681-baf2-443bca26eef7",
+      "component": "http",
+      "_MS.ResourceAttributeId": "9c6d1bc3-d6c2-4faf-a2d6-cbb0af7ea24b"
+    }
+  }
+]

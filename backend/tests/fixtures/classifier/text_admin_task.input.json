@@ -1,0 +1,7 @@
+{
+  "endpoint": "POST /api/capture",
+  "body": {
+    "text": "Pay the electric bill before it is due next Friday"
+  },
+  "trace_id": "1649253d-f7d8-4103-92d3-aff940e4426d"
+}

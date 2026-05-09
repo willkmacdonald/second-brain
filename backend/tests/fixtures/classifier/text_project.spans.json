@@ -1,0 +1,564 @@
+[
+  {
+    "TimeGenerated": "2026-05-09 18:17:52.614759+00:00",
+    "ItemType": "Request",
+    "Name": "POST /api/capture",
+    "ResultCode": "200",
+    "DurationMs": 5659,
+    "OperationId": "cdedf99b26e364dfd9c1821fff121c12",
+    "ParentId": "cdedf99b26e364dfd9c1821fff121c12",
+    "Id": "a379c58e89403886",
+    "Properties": {
+      "capture.trace_id": "76ea0345-a367-4b2a-88e3-c3d64157f519",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "32888338-2b18-414b-8407-5c3380bcf448"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:17:52.615781+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/capture http receive",
+    "ResultCode": "0",
+    "DurationMs": 5658,
+    "OperationId": "cdedf99b26e364dfd9c1821fff121c12",
+    "ParentId": "a379c58e89403886",
+    "Id": "2ef0c34acaf5f936",
+    "Properties": {
+      "capture.trace_id": "76ea0345-a367-4b2a-88e3-c3d64157f519",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "32888338-2b18-414b-8407-5c3380bcf448"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:17:52.615867+00:00",
+    "ItemType": "Dependency",
+    "Name": "capture_text",
+    "ResultCode": "0",
+    "DurationMs": 5602,
+    "OperationId": "cdedf99b26e364dfd9c1821fff121c12",
+    "ParentId": "a379c58e89403886",
+    "Id": "d3592cb25e2d798d",
+    "Properties": {
+      "capture.type": "text",
+      "capture.thread_id": "thread-a36a7b7b-1e44-489b-84ab-2724bc369d9a",
+      "capture.run_id": "run-1d279c66-9381-479b-80f0-7f45bf88c744",
+      "capture.trace_id": "76ea0345-a367-4b2a-88e3-c3d64157f519",
+      "capture.outcome": "classified",
+      "capture.split_count": "1",
+      "capture.buckets": "Projects",
+      "capture.bucket": "Projects",
+      "capture.confidence": "0.9",
+      "_MS.ResourceAttributeId": "32888338-2b18-414b-8407-5c3380bcf448"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:17:52.674490+00:00",
+    "ItemType": "Dependency",
+    "Name": "chat unknown",
+    "ResultCode": "0",
+    "DurationMs": 2671,
+    "OperationId": "cdedf99b26e364dfd9c1821fff121c12",
+    "ParentId": "d3592cb25e2d798d",
+    "Id": "68fd7c66751e607e",
+    "Properties": {
+      "capture.trace_id": "76ea0345-a367-4b2a-88e3-c3d64157f519",
+      "gen_ai.input.messages": "[REDACTED]",
+      "gen_ai.request.choice.count": "1",
+      "gen_ai.operation.name": "chat",
+      "gen_ai.provider.name": "azure.ai",
+      "gen_ai.request.model": "unknown",
+      "gen_ai.response.id": "run_KAaWoLmEsGwEmpHPyOCujWyS",
+      "gen_ai.response.model": "gpt-4o",
+      "gen_ai.output.messages": "[REDACTED]",
+      "_MS.GenAIContentId": "[REDACTED]",
+      "_MS.ResourceAttributeId": "32888338-2b18-414b-8407-5c3380bcf448"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:17:52.674801+00:00",
+    "ItemType": "Dependency",
+    "Name": "create_thread",
+    "ResultCode": "0",
+    "DurationMs": 259,
+    "OperationId": "cdedf99b26e364dfd9c1821fff121c12",
+    "ParentId": "d3592cb25e2d798d",
+    "Id": "fa09602817fd268a",
+    "Properties": {
+      "capture.trace_id": "76ea0345-a367-4b2a-88e3-c3d64157f519",
+      "az.namespace": "Microsoft.CognitiveServices",
+      "gen_ai.system": "az.ai.agents",
+      "gen_ai.operation.name": "create_thread",
+      "gen_ai.thread.id": "thread_ZRQ8wPueZddmHeMfnATfW06X",
+      "_MS.ResourceAttributeId": "32888338-2b18-414b-8407-5c3380bcf448"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:17:52.675335+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/projects/second-brain/threads",
+    "ResultCode": "200",
+    "DurationMs": 258,
+    "OperationId": "cdedf99b26e364dfd9c1821fff121c12",
+    "ParentId": "fa09602817fd268a",
+    "Id": "bcc4026042096364",
+    "Properties": {
+      "capture.trace_id": "76ea0345-a367-4b2a-88e3-c3d64157f519",
+      "component": "http",
+      "az.client_request_id": "64d04cb2-4bd3-11f1-87ad-6e77c0e7f82e",
+      "_MS.ResourceAttributeId": "32888338-2b18-414b-8407-5c3380bcf448"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:17:52.933741+00:00",
+    "ItemType": "Dependency",
+    "Name": "process_thread_run",
+    "ResultCode": "0",
+    "DurationMs": 2412,
+    "OperationId": "cdedf99b26e364dfd9c1821fff121c12",
+    "ParentId": "d3592cb25e2d798d",
+    "Id": "6d0f9536b5f094a4",
+    "Properties": {
+      "capture.trace_id": "76ea0345-a367-4b2a-88e3-c3d64157f519",
+      "az.namespace": "Microsoft.CognitiveServices",
+      "gen_ai.system": "az.ai.agents",
+      "gen_ai.operation.name": "process_thread_run",
+      "gen_ai.agent.id": "asst_Fnjkq5RVrvdFIOSqbreAwxuq",
+      "gen_ai.thread.run.status": "requires_action",
+      "gen_ai.thread.run.id": "run_KAaWoLmEsGwEmpHPyOCujWyS",
+      "gen_ai.response.model": "gpt-4o",
+      "_MS.ResourceAttributeId": "32888338-2b18-414b-8407-5c3380bcf448"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:17:52.934453+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/projects/second-brain/threads/thread_ZRQ8wPueZddmHeMfnATfW06X/runs",
+    "ResultCode": "200",
+    "DurationMs": 583,
+    "OperationId": "cdedf99b26e364dfd9c1821fff121c12",
+    "ParentId": "6d0f9536b5f094a4",
+    "Id": "6c78d7a8a68988ca",
+    "Properties": {
+      "capture.trace_id": "76ea0345-a367-4b2a-88e3-c3d64157f519",
+      "component": "http",
+      "az.client_request_id": "64f7d502-4bd3-11f1-87ad-6e77c0e7f82e",
+      "_MS.ResourceAttributeId": "32888338-2b18-414b-8407-5c3380bcf448"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:17:55.346061+00:00",
+    "ItemType": "Dependency",
+    "Name": "tool_file_capture",
+    "ResultCode": "0",
+    "DurationMs": 179,
+    "OperationId": "cdedf99b26e364dfd9c1821fff121c12",
+    "ParentId": "d3592cb25e2d798d",
+    "Id": "86377fd8ce360a7a",
+    "Properties": {
+      "capture.trace_id": "76ea0345-a367-4b2a-88e3-c3d64157f519",
+      "tool.name": "file_capture",
+      "tool.duration_ms": "178.97967802127823",
+      "_MS.ResourceAttributeId": "32888338-2b18-414b-8407-5c3380bcf448"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:17:55.346238+00:00",
+    "ItemType": "Dependency",
+    "Name": "execute_tool file_capture",
+    "ResultCode": "0",
+    "DurationMs": 179,
+    "OperationId": "cdedf99b26e364dfd9c1821fff121c12",
+    "ParentId": "86377fd8ce360a7a",
+    "Id": "636a38044742165e",
+    "Properties": {
+      "capture.trace_id": "76ea0345-a367-4b2a-88e3-c3d64157f519",
+      "gen_ai.tool.call.result": "{\"bucket\": \"Projects\", \"confidence\": 0.9, \"item_id\": \"66d6684d-6730-494e-973e-0d8167835788\"}",
+      "agent_framework.function.invocation.duration": "0.17845728201791644",
+      "_MS.GenAIContentId": "[REDACTED]",
+      "_MS.ResourceAttributeId": "32888338-2b18-414b-8407-5c3380bcf448"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:17:55.346599+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.create_item",
+    "ResultCode": "0",
+    "DurationMs": 24,
+    "OperationId": "cdedf99b26e364dfd9c1821fff121c12",
+    "ParentId": "636a38044742165e",
+    "Id": "980192df400db0b7",
+    "Properties": {
+      "capture.trace_id": "76ea0345-a367-4b2a-88e3-c3d64157f519",
+      "_MS.ResourceAttributeId": "32888338-2b18-414b-8407-5c3380bcf448"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:17:55.347201+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/Inbox/docs/",
+    "ResultCode": "201",
+    "DurationMs": 24,
+    "OperationId": "cdedf99b26e364dfd9c1821fff121c12",
+    "ParentId": "980192df400db0b7",
+    "Id": "af45f8cd198464bb",
+    "Properties": {
+      "capture.trace_id": "76ea0345-a367-4b2a-88e3-c3d64157f519",
+      "component": "http",
+      "_MS.ResourceAttributeId": "32888338-2b18-414b-8407-5c3380bcf448"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:17:55.371235+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.create_item",
+    "ResultCode": "0",
+    "DurationMs": 153,
+    "OperationId": "cdedf99b26e364dfd9c1821fff121c12",
+    "ParentId": "636a38044742165e",
+    "Id": "29c1038e319ac1a4",
+    "Properties": {
+      "capture.trace_id": "76ea0345-a367-4b2a-88e3-c3d64157f519",
+      "_MS.ResourceAttributeId": "32888338-2b18-414b-8407-5c3380bcf448"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:17:55.371830+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/Projects/docs/",
+    "ResultCode": "201",
+    "DurationMs": 152,
+    "OperationId": "cdedf99b26e364dfd9c1821fff121c12",
+    "ParentId": "29c1038e319ac1a4",
+    "Id": "59607f12a3e1f558",
+    "Properties": {
+      "capture.trace_id": "76ea0345-a367-4b2a-88e3-c3d64157f519",
+      "component": "http",
+      "_MS.ResourceAttributeId": "32888338-2b18-414b-8407-5c3380bcf448"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:17:55.524607+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "cdedf99b26e364dfd9c1821fff121c12",
+    "ParentId": "636a38044742165e",
+    "Id": "",
+    "Properties": {
+      "capture_trace_id": "76ea0345-a367-4b2a-88e3-c3d64157f519",
+      "component": "classifier",
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/tools/classification.py",
+      "code.function.name": "_write_to_cosmos",
+      "code.line.number": "249"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:17:55.525369+00:00",
+    "ItemType": "Dependency",
+    "Name": "chat unknown",
+    "ResultCode": "0",
+    "DurationMs": 2692,
+    "OperationId": "cdedf99b26e364dfd9c1821fff121c12",
+    "ParentId": "d3592cb25e2d798d",
+    "Id": "835f662a9b15691c",
+    "Properties": {
+      "capture.trace_id": "76ea0345-a367-4b2a-88e3-c3d64157f519",
+      "gen_ai.input.messages": "[REDACTED]",
+      "gen_ai.request.choice.count": "1",
+      "gen_ai.operation.name": "chat",
+      "gen_ai.provider.name": "azure.ai",
+      "gen_ai.request.model": "unknown",
+      "gen_ai.response.id": "run_KAaWoLmEsGwEmpHPyOCujWyS",
+      "gen_ai.response.model": "gpt-4o",
+      "gen_ai.usage.input_tokens": "5436",
+      "gen_ai.usage.output_tokens": "46",
+      "gen_ai.output.messages": "[REDACTED]",
+      "_MS.GenAIContentId": "[REDACTED]",
+      "_MS.ResourceAttributeId": "32888338-2b18-414b-8407-5c3380bcf448"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:17:55.526081+00:00",
+    "ItemType": "Dependency",
+    "Name": "RunsOperations.list",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "cdedf99b26e364dfd9c1821fff121c12",
+    "ParentId": "d3592cb25e2d798d",
+    "Id": "30bd3bc075a9a9c2",
+    "Properties": {
+      "capture.trace_id": "76ea0345-a367-4b2a-88e3-c3d64157f519",
+      "_MS.ResourceAttributeId": "32888338-2b18-414b-8407-5c3380bcf448"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:17:55.526649+00:00",
+    "ItemType": "Dependency",
+    "Name": "GET /api/projects/second-brain/threads/thread_ZRQ8wPueZddmHeMfnATfW06X/runs",
+    "ResultCode": "200",
+    "DurationMs": 224,
+    "OperationId": "cdedf99b26e364dfd9c1821fff121c12",
+    "ParentId": "d3592cb25e2d798d",
+    "Id": "e8d9278dc9b9dc5f",
+    "Properties": {
+      "capture.trace_id": "76ea0345-a367-4b2a-88e3-c3d64157f519",
+      "component": "http",
+      "az.client_request_id": "668360b2-4bd3-11f1-87ad-6e77c0e7f82e",
+      "_MS.ResourceAttributeId": "32888338-2b18-414b-8407-5c3380bcf448"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:17:55.751766+00:00",
+    "ItemType": "Dependency",
+    "Name": "submit_tool_outputs",
+    "ResultCode": "0",
+    "DurationMs": 760,
+    "OperationId": "cdedf99b26e364dfd9c1821fff121c12",
+    "ParentId": "d3592cb25e2d798d",
+    "Id": "1a4d5aefef76ef55",
+    "Properties": {
+      "capture.trace_id": "76ea0345-a367-4b2a-88e3-c3d64157f519",
+      "az.namespace": "Microsoft.CognitiveServices",
+      "gen_ai.system": "az.ai.agents",
+      "gen_ai.operation.name": "submit_tool_outputs",
+      "gen_ai.thread.id": "thread_ZRQ8wPueZddmHeMfnATfW06X",
+      "gen_ai.thread.run.id": "run_KAaWoLmEsGwEmpHPyOCujWyS",
+      "_MS.ResourceAttributeId": "32888338-2b18-414b-8407-5c3380bcf448"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:17:55.752299+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/projects/second-brain/threads/thread_ZRQ8wPueZddmHeMfnATfW06X/runs/run_KAaWoLmEsGwEmpHPyOCujWyS/submit_tool_outputs",
+    "ResultCode": "200",
+    "DurationMs": 759,
+    "OperationId": "cdedf99b26e364dfd9c1821fff121c12",
+    "ParentId": "1a4d5aefef76ef55",
+    "Id": "1e76600a0748980b",
+    "Properties": {
+      "capture.trace_id": "76ea0345-a367-4b2a-88e3-c3d64157f519",
+      "component": "http",
+      "az.client_request_id": "66a5cec2-4bd3-11f1-87ad-6e77c0e7f82e",
+      "_MS.ResourceAttributeId": "32888338-2b18-414b-8407-5c3380bcf448"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:17:57.889210+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "cdedf99b26e364dfd9c1821fff121c12",
+    "ParentId": "d3592cb25e2d798d",
+    "Id": "",
+    "Properties": {
+      "reasoning_text": "Filed",
+      "agent_run_id": "run-1d279c66-9381-479b-80f0-7f45bf88c744",
+      "chunk_index": "0",
+      "capture_trace_id": "76ea0345-a367-4b2a-88e3-c3d64157f519",
+      "component": "classifier",
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/streaming/adapter.py",
+      "code.function.name": "stream_text_capture",
+      "code.line.number": "214"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:17:57.896169+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "cdedf99b26e364dfd9c1821fff121c12",
+    "ParentId": "d3592cb25e2d798d",
+    "Id": "",
+    "Properties": {
+      "reasoning_text": " to",
+      "agent_run_id": "run-1d279c66-9381-479b-80f0-7f45bf88c744",
+      "chunk_index": "1",
+      "capture_trace_id": "76ea0345-a367-4b2a-88e3-c3d64157f519",
+      "component": "classifier",
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/streaming/adapter.py",
+      "code.function.name": "stream_text_capture",
+      "code.line.number": "214"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:17:57.902323+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "cdedf99b26e364dfd9c1821fff121c12",
+    "ParentId": "d3592cb25e2d798d",
+    "Id": "",
+    "Properties": {
+      "reasoning_text": " Projects",
+      "agent_run_id": "run-1d279c66-9381-479b-80f0-7f45bf88c744",
+      "chunk_index": "2",
+      "capture_trace_id": "76ea0345-a367-4b2a-88e3-c3d64157f519",
+      "component": "classifier",
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/streaming/adapter.py",
+      "code.function.name": "stream_text_capture",
+      "code.line.number": "214"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:17:57.910388+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "cdedf99b26e364dfd9c1821fff121c12",
+    "ParentId": "d3592cb25e2d798d",
+    "Id": "",
+    "Properties": {
+      "reasoning_text": " (",
+      "agent_run_id": "run-1d279c66-9381-479b-80f0-7f45bf88c744",
+      "chunk_index": "3",
+      "capture_trace_id": "76ea0345-a367-4b2a-88e3-c3d64157f519",
+      "component": "classifier",
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/streaming/adapter.py",
+      "code.function.name": "stream_text_capture",
+      "code.line.number": "214"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:17:57.917565+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "cdedf99b26e364dfd9c1821fff121c12",
+    "ParentId": "d3592cb25e2d798d",
+    "Id": "",
+    "Properties": {
+      "reasoning_text": "0",
+      "agent_run_id": "run-1d279c66-9381-479b-80f0-7f45bf88c744",
+      "chunk_index": "4",
+      "capture_trace_id": "76ea0345-a367-4b2a-88e3-c3d64157f519",
+      "component": "classifier",
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/streaming/adapter.py",
+      "code.function.name": "stream_text_capture",
+      "code.line.number": "214"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:17:57.923623+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "cdedf99b26e364dfd9c1821fff121c12",
+    "ParentId": "d3592cb25e2d798d",
+    "Id": "",
+    "Properties": {
+      "reasoning_text": ".",
+      "agent_run_id": "run-1d279c66-9381-479b-80f0-7f45bf88c744",
+      "chunk_index": "5",
+      "capture_trace_id": "76ea0345-a367-4b2a-88e3-c3d64157f519",
+      "component": "classifier",
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/streaming/adapter.py",
+      "code.function.name": "stream_text_capture",
+      "code.line.number": "214"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:17:57.930681+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "cdedf99b26e364dfd9c1821fff121c12",
+    "ParentId": "d3592cb25e2d798d",
+    "Id": "",
+    "Properties": {
+      "reasoning_text": "9",
+      "agent_run_id": "run-1d279c66-9381-479b-80f0-7f45bf88c744",
+      "chunk_index": "6",
+      "capture_trace_id": "76ea0345-a367-4b2a-88e3-c3d64157f519",
+      "component": "classifier",
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/streaming/adapter.py",
+      "code.function.name": "stream_text_capture",
+      "code.line.number": "214"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:17:57.937011+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "cdedf99b26e364dfd9c1821fff121c12",
+    "ParentId": "d3592cb25e2d798d",
+    "Id": "",
+    "Properties": {
+      "reasoning_text": ").",
+      "agent_run_id": "run-1d279c66-9381-479b-80f0-7f45bf88c744",
+      "chunk_index": "7",
+      "capture_trace_id": "76ea0345-a367-4b2a-88e3-c3d64157f519",
+      "component": "classifier",
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/streaming/adapter.py",
+      "code.function.name": "stream_text_capture",
+      "code.line.number": "214"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:17:58.218546+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.create_item",
+    "ResultCode": "0",
+    "DurationMs": 29,
+    "OperationId": "cdedf99b26e364dfd9c1821fff121c12",
+    "ParentId": "a379c58e89403886",
+    "Id": "0f3ef682e67491c7",
+    "Properties": {
+      "capture.trace_id": "76ea0345-a367-4b2a-88e3-c3d64157f519",
+      "_MS.ResourceAttributeId": "32888338-2b18-414b-8407-5c3380bcf448"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:17:58.219045+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/spine_events/docs/",
+    "ResultCode": "201",
+    "DurationMs": 29,
+    "OperationId": "cdedf99b26e364dfd9c1821fff121c12",
+    "ParentId": "0f3ef682e67491c7",
+    "Id": "bc210304d122439c",
+    "Properties": {
+      "capture.trace_id": "76ea0345-a367-4b2a-88e3-c3d64157f519",
+      "component": "http",
+      "_MS.ResourceAttributeId": "32888338-2b18-414b-8407-5c3380bcf448"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:17:58.248218+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.upsert_item",
+    "ResultCode": "0",
+    "DurationMs": 25,
+    "OperationId": "cdedf99b26e364dfd9c1821fff121c12",
+    "ParentId": "a379c58e89403886",
+    "Id": "7c3d4dd8a08c80c0",
+    "Properties": {
+      "capture.trace_id": "76ea0345-a367-4b2a-88e3-c3d64157f519",
+      "_MS.ResourceAttributeId": "32888338-2b18-414b-8407-5c3380bcf448"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 18:17:58.248705+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/spine_correlation/docs/",
+    "ResultCode": "201",
+    "DurationMs": 25,
+    "OperationId": "cdedf99b26e364dfd9c1821fff121c12",
+    "ParentId": "7c3d4dd8a08c80c0",
+    "Id": "d0201038abc2dbda",
+    "Properties": {
+      "capture.trace_id": "76ea0345-a367-4b2a-88e3-c3d64157f519",
+      "component": "http",
+      "_MS.ResourceAttributeId": "32888338-2b18-414b-8407-5c3380bcf448"
+    }
+  }
+]

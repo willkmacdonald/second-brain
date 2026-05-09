@@ -1,0 +1,7 @@
+{
+  "endpoint": "POST /api/capture",
+  "body": {
+    "text": "What if errands could auto-suggest based on calendar context?"
+  },
+  "trace_id": "9beb580d-ba2c-4bbf-985d-9f384cdd2d0a"
+}

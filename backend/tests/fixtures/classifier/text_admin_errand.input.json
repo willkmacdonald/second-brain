@@ -1,0 +1,7 @@
+{
+  "endpoint": "POST /api/capture",
+  "body": {
+    "text": "Pick up the dry cleaning Friday"
+  },
+  "trace_id": "896fb189-2174-4173-a45f-c3d96e835ffa"
+}

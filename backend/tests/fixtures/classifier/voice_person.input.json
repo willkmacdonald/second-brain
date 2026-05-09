@@ -1,0 +1,6 @@
+{
+  "endpoint": "POST /api/capture/voice",
+  "audio_path": "/tmp/voice_person_sample.m4a",
+  "transcript_for_reference": "Birthday dinner with mom on Saturday at 7pm",
+  "trace_id": "7fe92c3b-ca3f-4681-baf2-443bca26eef7"
+}

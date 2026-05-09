@@ -1,0 +1,22 @@
+{
+  "turns": [
+    {
+      "endpoint": "POST /api/capture",
+      "body": {
+        "text": "remind me about the thing"
+      }
+    },
+    {
+      "endpoint": "POST /api/capture/follow-up",
+      "body": {
+        "inbox_item_id": "c2771490-f079-4951-a815-96a28dfd2afa",
+        "follow_up_text": "the dry cleaning errand from yesterday",
+        "follow_up_round": 1
+      },
+      "note": "Turn 2 was not captured: this capture returned LOW_CONFIDENCE (bucket-selection buttons HITL path, not follow-up text). The follow-up endpoint requires a stored Foundry thread ID on the inbox item, which is only set for MISUNDERSTOOD items that went through the tool-call path. In GA (D-07b), tool_choice=required ensures the model always calls file_capture, so the follow-up path will be exercisable."
+    }
+  ],
+  "trace_id": "d720349e-7022-4ee8-bdd0-516d345c129f",
+  "turn1_trace_id": "d720349e-7022-4ee8-bdd0-516d345c129f",
+  "turn2_trace_id": "d720349e-7022-4ee8-bdd0-516d345c129f"
+}

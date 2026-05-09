@@ -1,0 +1,7 @@
+{
+  "endpoint": "POST /api/capture",
+  "body": {
+    "text": "Coffee with Sarah next Tuesday at the Blue Bottle"
+  },
+  "trace_id": "dc32cc85-5e89-48a3-be04-04e11b445edf"
+}

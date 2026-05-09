@@ -1,0 +1,4 @@
+{"data": {"type": "STEP_START", "stepName": "Classifying"}}
+{"data": {"type": "STEP_END", "stepName": "Classifying"}}
+{"data": {"type": "CLASSIFIED", "value": {"inboxItemId": "428c6dc4-3bb1-440a-be40-3b21872db04a", "bucket": "Ideas", "confidence": 0.9}}}
+{"data": {"type": "COMPLETE", "threadId": "thread-43d11da4-dc1c-418c-8828-e9b79383c0cc", "runId": "run-c4cd6b6d-cc86-43be-840e-622afdf4a189"}}

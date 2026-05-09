@@ -1,0 +1,7 @@
+{
+  "endpoint": "POST /api/capture",
+  "body": {
+    "text": "Backend refactor to migrate auth middleware to async"
+  },
+  "trace_id": "76ea0345-a367-4b2a-88e3-c3d64157f519"
+}

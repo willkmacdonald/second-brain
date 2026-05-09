@@ -1,0 +1,4 @@
+{"data": {"type": "STEP_START", "stepName": "Classifying"}}
+{"data": {"type": "STEP_END", "stepName": "Classifying"}}
+{"data": {"type": "MISUNDERSTOOD", "value": {"threadId": "thread-9c8b1069-e261-4824-b66c-2b20d14660b0", "inboxItemId": "", "questionText": "I didn\u2019t quite catch that. Could you clarify?", "foundryConversationId": "thread_bdqUYSWuNmCagoVrsRWthDew"}}}
+{"data": {"type": "COMPLETE", "threadId": "thread-9c8b1069-e261-4824-b66c-2b20d14660b0", "runId": "run-c1dc9460-1e8a-4035-8ae0-ca9a1ddce464"}}

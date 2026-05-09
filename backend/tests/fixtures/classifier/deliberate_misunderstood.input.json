@@ -1,0 +1,7 @@
+{
+  "endpoint": "POST /api/capture",
+  "body": {
+    "text": "asdf zxcv qwerty deliberately incomprehensible test input"
+  },
+  "trace_id": "a40f8178-20b8-4d8a-8976-2ca05da3d2f4"
+}
