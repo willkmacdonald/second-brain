@@ -40,10 +40,12 @@ from typing import Any
 # If any of these fail at runtime, the candidate dep set is wrong; rerun
 # PLAN-01 task 1 against the real CANDIDATE-pyproject.toml.
 #
-# NOTE: GA SDK (agent-framework 1.3.0) uses AgentRunResponse/AgentRunResponseUpdate/
-# AgentThread — NOT the pre-GA names AgentResponse/AgentResponseUpdate/
-# AgentSession that appeared in early documentation. See DEP-RESOLUTION-NOTES.md.
-from agent_framework import Agent, AgentRunResponse, AgentThread, tool
+# NOTE: GA SDK (agent-framework 1.3.0) uses AgentResponse/AgentResponseUpdate/
+# AgentSession — NOT the pre-GA names AgentRunResponse/AgentRunResponseUpdate/
+# AgentThread that appeared in early documentation. See DEP-RESOLUTION-NOTES.md.
+# Streaming uses agent.run(stream=True) returning ResponseStream, NOT agent.run_stream().
+# tool_choice is passed via options=ChatOptions(tool_choice=...), NOT as a direct kwarg.
+from agent_framework import Agent, AgentResponse, AgentSession, ChatOptions, tool
 from agent_framework.observability import enable_instrumentation
 from agent_framework_foundry import FoundryChatClient
 from azure.identity import AzureCliCredential
@@ -205,16 +207,16 @@ async def echo_back(message: str) -> str:
     return f"echo: {message}"
 
 
-async def _maybe_delete_thread(agent: Agent, thread: AgentThread | None) -> bool:
-    """Try to delete probe-created threads if the SDK exposes deletion. Return True if deleted."""
-    if thread is None:
+async def _maybe_delete_session(agent: Agent, session: AgentSession | None) -> bool:
+    """Try to delete probe-created sessions if the SDK exposes deletion. Return True if deleted."""
+    if session is None:
         return False
-    # GA SDK API for thread/session deletion is not documented — try multiple shapes
+    # GA SDK API for session deletion is not documented — try multiple shapes
     for method_name in ("delete_session", "delete_thread", "delete"):
         method = getattr(agent, method_name, None)
         if callable(method):
             try:
-                result = method(thread)
+                result = method(session)
                 if asyncio.iscoroutine(result):
                     await result
                 return True
@@ -235,13 +237,13 @@ _setup_probe_telemetry()
 
 
 async def streaming_shape() -> Path:
-    """Probe 1: AgentRunResponseUpdate field/type/order.
+    """Probe 1: AgentResponseUpdate field/type/order.
 
     Constructs a 1-tool stub agent (single tool: echo_back with @tool).
-    Runs agent.run_stream(messages=[...]) with input that forces 1 tool call.
-    Collects every AgentRunResponseUpdate yielded into a JSON-serializable list.
+    Runs agent.run(stream=True) with input that forces 1 tool call.
+    Collects every AgentResponseUpdate yielded into a JSON-serializable list.
     Tags every emitted span with probe.run_id + probe.name (no capture.trace_id).
-    Optionally deletes the agent's thread at end-of-run if SDK exposes deletion.
+    Optionally deletes the agent's session at end-of-run if SDK exposes deletion.
     Writes fixture via _write_fixture('streaming_shape', {...}).
     """
     # 1. Tagging FIRST — set ContextVars + install processor before any SDK construction
@@ -259,10 +261,12 @@ async def streaming_shape() -> Path:
     )
 
     updates: list[dict[str, Any]] = []
-    thread = AgentThread()
-    async for update in agent.run_stream(
+    session = AgentSession()
+    # GA SDK: agent.run(stream=True) returns a ResponseStream (async iterable)
+    async for update in agent.run(
         messages=[{"role": "user", "content": "Please echo back: probe one"}],
-        thread=thread,
+        session=session,
+        stream=True,
     ):
         updates.append(
             {
@@ -277,7 +281,7 @@ async def streaming_shape() -> Path:
             }
         )
 
-    deleted = await _maybe_delete_thread(agent, thread)
+    deleted = await _maybe_delete_session(agent, session)
     return _write_fixture(
         "streaming_shape",
         {
@@ -290,13 +294,13 @@ async def streaming_shape() -> Path:
 
 
 async def tool_call_extraction() -> Path:
-    """Probe 2: AgentRunResponse tool-call extraction path.
+    """Probe 2: AgentResponse tool-call extraction path.
 
     Uses same 1-tool stub agent as streaming_shape.
     Runs agent.run(messages=[...]) (NON-streaming).
-    Captures the raw AgentRunResponse object structure (messages, content blocks,
+    Captures the raw AgentResponse object structure (messages, content blocks,
     metadata, tool_calls top-level if present).
-    Documents via fixture which path inside AgentRunResponse contains the tool call.
+    Documents via fixture which path inside AgentResponse contains the tool call.
     Writes fixture via _write_fixture('tool_call_extraction', {...}).
     """
     # 1. Tagging FIRST
@@ -313,10 +317,10 @@ async def tool_call_extraction() -> Path:
         tools=[echo_back],
     )
 
-    thread = AgentThread()
-    response: AgentRunResponse = await agent.run(
+    session = AgentSession()
+    response: AgentResponse = await agent.run(
         messages=[{"role": "user", "content": "Please echo back: probe two"}],
-        thread=thread,
+        session=session,
     )
 
     # Capture EVERY traversal path that might contain tool calls. Phase 24 reads
@@ -352,7 +356,7 @@ async def tool_call_extraction() -> Path:
                 }
             )
 
-    await _maybe_delete_thread(agent, thread)
+    await _maybe_delete_session(agent, session)
     return _write_fixture("tool_call_extraction", payload)
 
 
@@ -388,19 +392,20 @@ async def tool_choice_required() -> Path:
     observations: dict[str, Any] = {"probe": {"run_id": run_id}, "trials": {}}
 
     # Trial 1: tool_choice='auto' (baseline)
+    # GA SDK: tool_choice passed via options=ChatOptions(tool_choice=...)
     try:
-        t1 = AgentThread()
+        s1 = AgentSession()
         r1 = await agent.run(
             messages=[{"role": "user", "content": baseline_input}],
-            thread=t1,
-            tool_choice="auto",
+            session=s1,
+            options=ChatOptions(tool_choice="auto"),
         )
         observations["trials"]["auto"] = {
             "raised": False,
             "response_repr": repr(r1)[:2000],
             "fields_seen": sorted(k for k in dir(r1) if not k.startswith("_")),
         }
-        await _maybe_delete_thread(agent, t1)
+        await _maybe_delete_session(agent, s1)
     except Exception as exc:
         observations["trials"]["auto"] = {
             "raised": True,
@@ -410,18 +415,18 @@ async def tool_choice_required() -> Path:
 
     # Trial 2: tool_choice='required'
     try:
-        t2 = AgentThread()
+        s2 = AgentSession()
         r2 = await agent.run(
             messages=[{"role": "user", "content": baseline_input}],
-            thread=t2,
-            tool_choice="required",
+            session=s2,
+            options=ChatOptions(tool_choice="required"),
         )
         observations["trials"]["required"] = {
             "raised": False,
             "response_repr": repr(r2)[:2000],
             "fields_seen": sorted(k for k in dir(r2) if not k.startswith("_")),
         }
-        await _maybe_delete_thread(agent, t2)
+        await _maybe_delete_session(agent, s2)
     except Exception as exc:
         observations["trials"]["required"] = {
             "raised": True,
@@ -431,18 +436,20 @@ async def tool_choice_required() -> Path:
 
     # Trial 3: provider-dict pinning by name
     try:
-        t3 = AgentThread()
+        s3 = AgentSession()
         r3 = await agent.run(
             messages=[{"role": "user", "content": baseline_input}],
-            thread=t3,
-            tool_choice={"type": "function", "function": {"name": "echo_back"}},
+            session=s3,
+            options=ChatOptions(
+                tool_choice={"type": "function", "function": {"name": "echo_back"}}
+            ),
         )
         observations["trials"]["provider_dict"] = {
             "raised": False,
             "response_repr": repr(r3)[:2000],
             "fields_seen": sorted(k for k in dir(r3) if not k.startswith("_")),
         }
-        await _maybe_delete_thread(agent, t3)
+        await _maybe_delete_session(agent, s3)
     except Exception as exc:
         observations["trials"]["provider_dict"] = {
             "raised": True,
@@ -454,12 +461,12 @@ async def tool_choice_required() -> Path:
 
 
 async def session_rehydration() -> Path:
-    """Probe 4: Round-trip an AgentThread across two run_stream calls.
+    """Probe 4: Round-trip an AgentSession across two streaming run calls.
 
-    Runs turn 1: agent.run_stream(messages=['initial turn'], thread=AgentThread()).
+    Runs turn 1: agent.run(stream=True, session=AgentSession()).
     Captures the stored identifier shape (whatever the SDK exposes:
-    AgentThread.id, service_session_id, conversation_id).
-    Runs turn 2: agent.run_stream(messages=['follow up'], thread=<rehydrated identifier>).
+    AgentSession.session_id, service_session_id).
+    Runs turn 2: agent.run(stream=True, session=<same session>).
     Verifies continuity by asking turn 2 to reference content from turn 1.
     Tags every emitted span with probe.run_id + probe.name (no capture.trace_id).
     Writes fixture via _write_fixture('session_rehydration', {...}).
@@ -479,43 +486,45 @@ async def session_rehydration() -> Path:
     )
 
     # Turn 1
-    thread = AgentThread()
+    session = AgentSession()
     turn_one_updates: list[str] = []
-    async for upd in agent.run_stream(
+    async for upd in agent.run(
         messages=[
             {
                 "role": "user",
                 "content": "Remember the magic word PINEAPPLE for later.",
             }
         ],
-        thread=thread,
+        session=session,
+        stream=True,
     ):
         turn_one_updates.append(repr(upd)[:500])
 
-    # Capture every plausible identifier shape on the thread object
+    # Capture every plausible identifier shape on the session object
     identifier_shape = {
-        "type": type(thread).__name__,
+        "type": type(session).__name__,
         "fields": {
-            k: repr(getattr(thread, k, None))
-            for k in dir(thread)
-            if not k.startswith("_") and not callable(getattr(thread, k, None))
+            k: repr(getattr(session, k, None))
+            for k in dir(session)
+            if not k.startswith("_") and not callable(getattr(session, k, None))
         },
     }
 
-    # Turn 2 — round-trip the SAME thread object
+    # Turn 2 — round-trip the SAME session object
     turn_two_updates: list[str] = []
-    async for upd in agent.run_stream(
+    async for upd in agent.run(
         messages=[
             {
                 "role": "user",
                 "content": "What was the magic word I told you to remember?",
             }
         ],
-        thread=thread,
+        session=session,
+        stream=True,
     ):
         turn_two_updates.append(repr(upd)[:500])
 
-    deleted = await _maybe_delete_thread(agent, thread)
+    deleted = await _maybe_delete_session(agent, session)
 
     return _write_fixture(
         "session_rehydration",
@@ -582,7 +591,9 @@ async def auth_probe() -> Path:
             timeout=30,
         )
         user_id = cli_proc.stdout.strip()
-        endpoint = os.environ.get("FOUNDRY_PROJECT_ENDPOINT", "")
+        endpoint = os.environ.get("FOUNDRY_PROJECT_ENDPOINT", "") or os.environ.get(
+            "AZURE_AI_PROJECT_ENDPOINT", ""
+        )
         roles_proc = subprocess.run(
             [
                 "az",
@@ -613,8 +624,11 @@ async def auth_probe() -> Path:
     # Minimal agent invocation — client/agent constructed AFTER tagging is active
     invocation_outcome: dict[str, Any]
     try:
+        inv_endpoint = os.environ.get("FOUNDRY_PROJECT_ENDPOINT") or os.environ.get(
+            "AZURE_AI_PROJECT_ENDPOINT", ""
+        )
         client = FoundryChatClient(
-            endpoint=os.environ["FOUNDRY_PROJECT_ENDPOINT"],
+            endpoint=inv_endpoint,
             model_deployment_name=os.environ.get("FOUNDRY_MODEL", "gpt-4o"),
             credential=cred,
         )
@@ -623,17 +637,17 @@ async def auth_probe() -> Path:
             instructions="Reply with a single short sentence.",
             tools=[],
         )
-        t = AgentThread()
+        s = AgentSession()
         response = await agent.run(
             messages=[{"role": "user", "content": "Say hello."}],
-            thread=t,
+            session=s,
         )
         invocation_outcome = {
             "succeeded": True,
             "response_type": type(response).__name__,
             "response_repr": repr(response)[:2000],
         }
-        await _maybe_delete_thread(agent, t)
+        await _maybe_delete_session(agent, s)
     except Exception as exc:
         invocation_outcome = {
             "succeeded": False,
