@@ -396,3 +396,72 @@ Items not yet scheduled into a milestone or phase.
 | 21. Eval Framework | v3.1 | 5/5 | Complete    | 2026-04-24 |
 | 21.1. Migrate Eval to Foundry Native | v3.1 | 0/2 | Not started | - |
 | 22. Self-Monitoring Loop | v3.1 | 0/TBD | Not started | - |
+
+### Phase 23: Foundry GA Migration — Prep (artifact-only setup)
+
+**Design:** [docs/superpowers/specs/2026-05-05-foundry-ga-migration-design.md](../docs/superpowers/specs/2026-05-05-foundry-ga-migration-design.md) (referred to in design as "Phase 23.0")
+
+**Goal:** All Phase 24 prerequisites in place. Zero deployed change. No backend/src/ files touched.
+
+**Deliverables:**
+- 18 golden-trace fixtures (5 investigation + 5 admin + 8 classifier captures against deployed RC) under `backend/tests/fixtures/<agent>/`
+- Pre-migration eval baseline JSON under `backend/tests/fixtures/eval-baseline-pre-migration.json`
+- Current Foundry portal instructions exported to `.planning/phases/23-foundry-ga-prep/CANDIDATE-instructions/`
+- Candidate `pyproject.toml` + `uv.lock` from local-only dep-resolution spike under `.planning/phases/23-foundry-ga-prep/`
+- Foundry probe harness at `backend/scripts/foundry_probe.py` (standalone, not imported by app) with 5 probes executed against real Foundry endpoint; outputs under `backend/tests/fixtures/foundry-probe/`
+- `.planning/phases/23-foundry-ga-prep/FOUNDRY-PROBE-FINDINGS.md`
+- `.planning/phases/23-foundry-ga-prep/SPAN-NAME-MAPPING.md`
+- `.planning/phases/23-foundry-ga-prep/CONFIG-DELTAS.md`
+- `.planning/phases/23-foundry-ga-prep/EVAL-INVENTORY.md`
+- `.planning/phases/23-foundry-ga-prep/AUDITOR-VERIFICATION.md`
+
+**Boundary:** only files under `.planning/phases/23-foundry-ga-prep/`, `backend/tests/fixtures/`, and `backend/scripts/foundry_probe.py` change.
+
+**Requirements:** PREP-01, PREP-02, PREP-03, PREP-04, PREP-05, PREP-06, PREP-07, PREP-08, PREP-09
+**Depends on:** Phase 22
+**Plans:** 5 plans
+
+Plans:
+- [ ] 23-01-PLAN.md — Dependency-resolution spike + foundry_probe.py scaffolding (Wave 1, autonomous)
+- [ ] 23-02-PLAN.md — Run 5 Foundry probes + FOUNDRY-PROBE-FINDINGS.md (Wave 2, depends on 23-01, has operator checkpoint)
+- [ ] 23-03-PLAN.md — Capture 18 golden-trace fixtures (5 investigation + 5 admin + 8 classifier) against deployed RC (Wave 1, parallel, has operator checkpoint)
+- [ ] 23-04-PLAN.md — Eval baseline + EVAL-INVENTORY.md + portal instructions export + Investigation drift reconciliation (Wave 1, parallel, has operator checkpoint)
+- [ ] 23-05-PLAN.md — CONFIG-DELTAS.md + SPAN-NAME-MAPPING.md + AUDITOR-VERIFICATION.md (Wave 2, depends on 23-02, autonomous)
+
+### Phase 24: Foundry GA Migration — Single-deploy migration
+
+**Design:** [docs/superpowers/specs/2026-05-05-foundry-ga-migration-design.md](../docs/superpowers/specs/2026-05-05-foundry-ga-migration-design.md) (referred to in design as "Phase 23")
+
+**Goal:** All 3 agents on GA SDK, deployed atomically via single push to `main`. Production goes from RC to GA in one event.
+
+**Internal task groups (sequential commits on local `main`, no feature branches):**
+- **Task 0:** Install push guard (`.git/hooks/pre-push` + sentinel file) preventing accidental push during broken intermediate state.
+- **Task group 23.1 (Investigation):** Apply candidate dep set, rewrite Investigation agent + 9 tools + streaming adapter, populate capture-trace middleware, fidelity audit.
+- **Task group 23.2 (Admin):** Rewrite Admin agent + 6 tools + processing/admin_handoff.py, introduce `EvalAgentInvoker` facade, fidelity audit.
+- **Task group 23.3 (Classifier):** Voice path split, rewrite Classifier with `tool_choice='required'`, delete safety net, add `forced_tool_failure` SSE sub-code, per-call session rehydration, final cleanup commit, cumulative fidelity audit, unguard step.
+
+**Pre-deploy gates (all run locally before `git push origin main`):**
+- Unit tests with mocks shaped from probe fixtures
+- 18 golden-trace fixture replays
+- 5 probe-fixture replays against local GA build
+- Custom admin + classifier eval suites within ±2pp baseline
+- Framework-fidelity auditor zero ❌ on cumulative diff
+- `auth_probe` success
+
+**Deploy sequence (deterministic, env vars before image):**
+1. `az containerapp update --set-env-vars FOUNDRY_MODEL=... ENABLE_INSTRUMENTATION=true` against existing RC revision; verify healthy
+2. `git push origin main` → CI/CD → ACR → Container Apps creates GA revision
+3. Verify GA revision health post-deploy
+
+**Rollback:** revision-promote-back primary, `git revert` durable.
+
+**Post-deploy:** manual UAT day-after on 10+ captures, 7-day `forced_tool_failure` rate monitoring (< 1% / < 5/day).
+
+**Requirements:** TBD
+**Depends on:** Phase 23
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 24 to break down)
+</content>
+</invoke>

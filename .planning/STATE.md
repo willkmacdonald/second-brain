@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Observability & Evals
 status: executing
-stopped_at: Completed 21.1-01-PLAN.md (Foundry eval module + rewired investigation tools + deleted old eval code)
-last_updated: "2026-04-25T03:13:32.354Z"
-last_activity: 2026-04-25 -- Phase --phase execution started
+stopped_at: Completed 23-03-PLAN.md (18 golden-trace fixtures captured, checkpoint pending)
+last_updated: "2026-05-09T18:31:58.761Z"
+last_activity: 2026-05-09 -- Phase --phase execution started
 progress:
-  total_phases: 16
+  total_phases: 18
   completed_phases: 13
-  total_plans: 50
-  completed_plans: 48
-  percent: 96
+  total_plans: 55
+  completed_plans: 50
+  percent: 91
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-05)
 
 **Core value:** One-tap capture from a phone instantly routes through an agent that classifies, files, and clarifies -- with zero organizational effort.
-**Current focus:** Phase --phase — 21.1
+**Current focus:** Phase --phase — 23
 
 ## Current Position
 
-Phase: --phase (21.1) — EXECUTING
+Phase: --phase (23) — EXECUTING
 Plan: 1 of --name
 Status: Executing Phase --phase
-Last activity: 2026-04-25 -- Phase --phase execution started
+Last activity: 2026-05-09 -- Phase --phase execution started
 
-Progress: [██████████] 96%
+Progress: [█████████░] 91%
 
 ## Performance Metrics
 
@@ -184,6 +184,9 @@ v3.0 decisions archived to .planning/milestones/v3.0-ROADMAP.md
 - Phase 21.1-01: AIProjectClient uses sync DefaultAzureCredential wrapped in asyncio.to_thread() for Foundry eval SDK calls
 - Phase 21.1-01: Custom code-based evaluators (grade() functions) support dual-mode: direct target output_items and app-mediated tool_calls JSONL
 - Phase 21.1-01: Foundry project client init non-fatal (eval not on critical capture path)
+- Auth header uses Authorization: Bearer (not X-API-Key) per actual auth.py middleware
+- Investigation spans correlate via OperationId-join on custom investigate AppDependencies span, not capture.trace_id
+- low_confidence_followup turn-2 not captured: RC follow-up endpoint requires MISUNDERSTOOD with foundryThreadId
 
 ### Pending Todos
 
@@ -210,11 +213,13 @@ None.
 - Phase 19.4.1 inserted after Phase 19.4: fix mobile UX issues (URGENT)
 - Phase 20.1 inserted after Phase 20: Design team UI improvements (URGENT)
 - Phase 21.1 inserted after Phase 21: Migrate Eval to Foundry Native Platform (URGENT) -- replace custom eval runner/dry-run tools with Foundry's native agent target evaluation, built-in evaluators (IntentResolution, ToolCallAccuracy, TaskAdherence), and custom code-based scorer; aligns with guiding principle of leveraging Foundry before building custom
+- Phase 23 added: Foundry GA Migration — artifact-only setup. 18 golden-trace fixtures, eval baseline, portal instructions export, candidate pyproject.toml + uv.lock from local-only dep-resolution spike, Foundry probe harness with 5 probes against real endpoint, FOUNDRY-PROBE-FINDINGS.md, SPAN-NAME-MAPPING.md. No deploy. Boundary limited to .planning/phases/23-foundry-ga-prep/, backend/tests/fixtures/, and backend/scripts/foundry_probe.py. Design at docs/superpowers/specs/2026-05-05-foundry-ga-migration-design.md.
+- Phase 24 added: Foundry GA Migration — single-deploy migration with task groups 23.1 (Investigation) → 23.2 (Admin) → 23.3 (Classifier) as sequential commits on local main. Push guard at Task 0. tool_choice='required' replaces Python safety net. Voice path split. EvalAgentInvoker facade. Capture-trace via middleware on framework spans (CaptureTraceSpanProcessor retained for non-framework spans). Pre-deploy gates: 18 golden-trace replays, 5 probe-fixture replays, eval ±2pp, fidelity audit zero ❌. Deploy: env vars FIRST, then git push origin main. Rollback: revision-promote-back. Framework-fidelity auditor calibrated 2026-05-08 against RC backend (19 ❌, all expected categories, no blind spots).
 
 ## Session Continuity
 
-Last session: 2026-04-25T03:13:32.346Z
-Stopped at: Completed 21.1-01-PLAN.md (Foundry eval module + rewired investigation tools + deleted old eval code)
+Last session: 2026-05-09T18:31:58.752Z
+Stopped at: Completed 23-03-PLAN.md (18 golden-trace fixtures captured, checkpoint pending)
 Resume action: Begin Phase 22 (Self-Monitoring Loop)
 
 **Planned Phase:** 21.1 (Migrate Eval to Foundry Native Platform) — 2 plans — 2026-04-25T02:01:36.643Z
