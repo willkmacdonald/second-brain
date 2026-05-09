@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Observability & Evals
-status: executing
-stopped_at: Completed 23-04-PLAN.md
-last_updated: "2026-05-09T20:25:44.213Z"
-last_activity: 2026-05-09 -- Phase --phase execution started
+status: completed
+stopped_at: Completed 23-02-PLAN.md
+last_updated: "2026-05-09T20:50:07.361Z"
+last_activity: 2026-05-09 -- Completed 23-02-PLAN.md (Foundry probe execution + findings)
 progress:
   total_phases: 18
   completed_phases: 13
   total_plans: 55
-  completed_plans: 51
-  percent: 93
+  completed_plans: 52
+  percent: 95
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-05)
 
 **Core value:** One-tap capture from a phone instantly routes through an agent that classifies, files, and clarifies -- with zero organizational effort.
-**Current focus:** Phase --phase — 23
+**Current focus:** Phase 23 — Foundry GA Migration Prep
 
 ## Current Position
 
-Phase: --phase (23) — EXECUTING
-Plan: 1 of --name
-Status: Executing Phase --phase
-Last activity: 2026-05-09 -- Phase --phase execution started
+Phase: 23 (23-foundry-ga-prep) — EXECUTING
+Plan: 3 of 5
+Status: Completed 23-02, next is 23-05 (depends on 23-02 probe findings)
+Last activity: 2026-05-09 -- Completed 23-02-PLAN.md (Foundry probe execution + findings)
 
-Progress: [█████████░] 93%
+Progress: [██████████] 95%
 
 ## Performance Metrics
 
@@ -187,6 +187,10 @@ v3.0 decisions archived to .planning/milestones/v3.0-ROADMAP.md
 - Auth header uses Authorization: Bearer (not X-API-Key) per actual auth.py middleware
 - Investigation spans correlate via OperationId-join on custom investigate AppDependencies span, not capture.trace_id
 - low_confidence_followup turn-2 not captured: RC follow-up endpoint requires MISUNDERSTOOD with foundryThreadId
+- [Phase 23-02]: GA SDK uses AgentResponse/AgentResponseUpdate/AgentSession -- NOT pre-GA AgentRunResponse/AgentRunResponseUpdate/AgentThread
+- [Phase 23-02]: Streaming uses agent.run(stream=True) returning ResponseStream -- NOT agent.run_stream()
+- [Phase 23-02]: tool_choice passed via options=ChatOptions(tool_choice=...) -- NOT as direct keyword argument
+- [Phase 23-02]: Framework handles tool execution internally during streaming -- adapter does NOT need manual tool call detection
 
 ### Pending Todos
 
@@ -218,8 +222,8 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-05-09T20:25:44.204Z
-Stopped at: Completed 23-04-PLAN.md
+Last session: 2026-05-09T20:49:54.417Z
+Stopped at: Completed 23-02-PLAN.md
 Resume action: Continue Phase 23 (next plan: 23-05, depends on 23-02 probe findings)
 
 **Planned Phase:** 21.1 (Migrate Eval to Foundry Native Platform) — 2 plans — 2026-04-25T02:01:36.643Z
