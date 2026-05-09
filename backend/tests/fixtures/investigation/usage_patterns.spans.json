@@ -1,0 +1,993 @@
+[
+  {
+    "TimeGenerated": "2026-05-09 17:35:51.143215+00:00",
+    "ItemType": "Request",
+    "Name": "POST /api/investigate",
+    "ResultCode": "200",
+    "DurationMs": 5168,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "Id": "cab04d857223947a",
+    "Properties": {
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "2bea2f8a-43a1-45f7-9e2f-3bf1f1365889"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:51.143664+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http receive",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "cab04d857223947a",
+    "Id": "7e70b54b4ad6c447",
+    "Properties": {
+      "asgi.event.type": "http.request",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:51.144115+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "cab04d857223947a",
+    "Id": "",
+    "Properties": {
+      "component": "investigation_agent",
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/api/investigate.py",
+      "code.function.name": "investigate",
+      "code.line.number": "69"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:51.144353+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http receive",
+    "ResultCode": "0",
+    "DurationMs": 5166,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "cab04d857223947a",
+    "Id": "8ac750b7813bc4d3",
+    "Properties": {
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "2bea2f8a-43a1-45f7-9e2f-3bf1f1365889"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:51.144436+00:00",
+    "ItemType": "Dependency",
+    "Name": "investigate",
+    "ResultCode": "0",
+    "DurationMs": 5134,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "cab04d857223947a",
+    "Id": "18445ddc4339f220",
+    "Properties": {
+      "investigate.question_length": "69",
+      "investigate.thread_id": "",
+      "investigate.has_tools": "True",
+      "investigate.thread_id_out": "thread_nnjeASbYY7VOecE2Sm2For1o",
+      "_MS.ResourceAttributeId": "2bea2f8a-43a1-45f7-9e2f-3bf1f1365889"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:51.144695+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.create_item",
+    "ResultCode": "0",
+    "DurationMs": 25,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "cab04d857223947a",
+    "Id": "d3810eb5c2b6d318",
+    "Properties": {
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:51.145175+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/spine_events/docs/",
+    "ResultCode": "201",
+    "DurationMs": 24,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "d3810eb5c2b6d318",
+    "Id": "1aad1396124ba010",
+    "Properties": {
+      "component": "http",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:51.169613+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.upsert_item",
+    "ResultCode": "0",
+    "DurationMs": 25,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "cab04d857223947a",
+    "Id": "c077486f1c7839f1",
+    "Properties": {
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:51.170192+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/spine_correlation/docs/",
+    "ResultCode": "201",
+    "DurationMs": 24,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "c077486f1c7839f1",
+    "Id": "d6a6c5477cfa54d7",
+    "Properties": {
+      "component": "http",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:51.194911+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "cab04d857223947a",
+    "Id": "0de4000f252c3a61",
+    "Properties": {
+      "asgi.event.type": "http.response.start",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:51.195631+00:00",
+    "ItemType": "Dependency",
+    "Name": "chat unknown",
+    "ResultCode": "0",
+    "DurationMs": 2227,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "18445ddc4339f220",
+    "Id": "123221de22b7a743",
+    "Properties": {
+      "gen_ai.input.messages": "[REDACTED]",
+      "gen_ai.request.choice.count": "1",
+      "gen_ai.operation.name": "chat",
+      "gen_ai.provider.name": "azure.ai",
+      "gen_ai.request.model": "unknown",
+      "gen_ai.response.id": "run_RrG7VWJ2apvsvHzmge2twHpd",
+      "gen_ai.response.model": "gpt-4o",
+      "gen_ai.output.messages": "[REDACTED]",
+      "_MS.GenAIContentId": "[REDACTED]",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:51.195929+00:00",
+    "ItemType": "Dependency",
+    "Name": "create_thread",
+    "ResultCode": "0",
+    "DurationMs": 239,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "18445ddc4339f220",
+    "Id": "03400563633c0f4a",
+    "Properties": {
+      "az.namespace": "Microsoft.CognitiveServices",
+      "gen_ai.system": "az.ai.agents",
+      "gen_ai.operation.name": "create_thread",
+      "gen_ai.thread.id": "thread_nnjeASbYY7VOecE2Sm2For1o",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:51.196023+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "03400563633c0f4a",
+    "Id": "",
+    "Properties": {
+      "gen_ai.system": "az.ai.agents",
+      "gen_ai.event.content": "[REDACTED]",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:51.196700+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/projects/second-brain/threads",
+    "ResultCode": "200",
+    "DurationMs": 238,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "03400563633c0f4a",
+    "Id": "bfd641538a71381b",
+    "Properties": {
+      "component": "http",
+      "az.client_request_id": "85e52856-4bcd-11f1-87ad-6e77c0e7f82e",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:51.196985+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "cab04d857223947a",
+    "Id": "be14547b5d0ca883",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:51.435360+00:00",
+    "ItemType": "Dependency",
+    "Name": "process_thread_run",
+    "ResultCode": "0",
+    "DurationMs": 1987,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "18445ddc4339f220",
+    "Id": "462bed71c0c1679c",
+    "Properties": {
+      "az.namespace": "Microsoft.CognitiveServices",
+      "gen_ai.system": "az.ai.agents",
+      "gen_ai.operation.name": "process_thread_run",
+      "gen_ai.agent.id": "asst_5feSWWTMA8rBSUyQo6aSCsEJ",
+      "gen_ai.thread.run.status": "requires_action",
+      "gen_ai.thread.run.id": "run_RrG7VWJ2apvsvHzmge2twHpd",
+      "gen_ai.response.model": "gpt-4o",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:51.436037+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/projects/second-brain/threads/thread_nnjeASbYY7VOecE2Sm2For1o/runs",
+    "ResultCode": "200",
+    "DurationMs": 666,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "462bed71c0c1679c",
+    "Id": "d535b4b4284e1a63",
+    "Properties": {
+      "component": "http",
+      "az.client_request_id": "8609b61c-4bcd-11f1-87ad-6e77c0e7f82e",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:53.406448+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "cab04d857223947a",
+    "Id": "0dfee3fe70ce4fc1",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:53.422805+00:00",
+    "ItemType": "Dependency",
+    "Name": "tool_usage_patterns",
+    "ResultCode": "0",
+    "DurationMs": 290,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "18445ddc4339f220",
+    "Id": "6a5550618f6e672c",
+    "Properties": {
+      "tool.name": "usage_patterns",
+      "tool.duration_ms": "290.3436670312658",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:53.423156+00:00",
+    "ItemType": "Dependency",
+    "Name": "execute_tool usage_patterns",
+    "ResultCode": "0",
+    "DurationMs": 290,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "6a5550618f6e672c",
+    "Id": "4304283c2e54f388",
+    "Properties": {
+      "gen_ai.tool.call.result": "{\"time_range\": \"7d\", \"group_by\": \"bucket\", \"patterns\": [{\"label\": \"Admin\", \"count\": 13}, {\"label\": \"Projects\", \"count\": 5}, {\"label\": \"People\", \"count\": 5}, {\"label\": \"Ideas\", \"count\": 3}]}",
+      "agent_framework.function.invocation.duration": "0.2898887690389529",
+      "_MS.GenAIContentId": "[REDACTED]",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:53.423190+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "4304283c2e54f388",
+    "Id": "",
+    "Properties": {
+      "component": "investigation_agent",
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/tools/investigation.py",
+      "code.function.name": "usage_patterns",
+      "code.line.number": "326"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:53.423388+00:00",
+    "ItemType": "Dependency",
+    "Name": "LogsQueryClient.query_workspace",
+    "ResultCode": "0",
+    "DurationMs": 290,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "4304283c2e54f388",
+    "Id": "0733094333686657",
+    "Properties": {
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:53.423810+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /v1/workspaces/572d91c2-3209-4b92-b431-5ffb7e8ce4ad/query",
+    "ResultCode": "200",
+    "DurationMs": 289,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "0733094333686657",
+    "Id": "031392cb1410746e",
+    "Properties": {
+      "component": "http",
+      "az.client_request_id": "8739074a-4bcd-11f1-87ad-6e77c0e7f82e",
+      "az.service_request_id": "618d42ae-4acf-495f-a93c-c389d7445bb8",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:53.713415+00:00",
+    "ItemType": "Dependency",
+    "Name": "chat unknown",
+    "ResultCode": "0",
+    "DurationMs": 2565,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "18445ddc4339f220",
+    "Id": "5cf326d9b67eaf2b",
+    "Properties": {
+      "gen_ai.input.messages": "[REDACTED]",
+      "gen_ai.request.choice.count": "1",
+      "gen_ai.operation.name": "chat",
+      "gen_ai.provider.name": "azure.ai",
+      "gen_ai.request.model": "unknown",
+      "gen_ai.response.id": "run_RrG7VWJ2apvsvHzmge2twHpd",
+      "gen_ai.response.model": "gpt-4o",
+      "gen_ai.usage.input_tokens": "7957",
+      "gen_ai.usage.output_tokens": "92",
+      "gen_ai.output.messages": "[REDACTED]",
+      "_MS.GenAIContentId": "[REDACTED]",
+      "_MS.ResourceAttributeId": "2bea2f8a-43a1-45f7-9e2f-3bf1f1365889"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:53.713650+00:00",
+    "ItemType": "Dependency",
+    "Name": "RunsOperations.list",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "18445ddc4339f220",
+    "Id": "be9d37ebeae231f4",
+    "Properties": {
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:53.714211+00:00",
+    "ItemType": "Dependency",
+    "Name": "GET /api/projects/second-brain/threads/thread_nnjeASbYY7VOecE2Sm2For1o/runs",
+    "ResultCode": "200",
+    "DurationMs": 299,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "18445ddc4339f220",
+    "Id": "ecbbbfb0f200d315",
+    "Properties": {
+      "component": "http",
+      "az.client_request_id": "87655584-4bcd-11f1-87ad-6e77c0e7f82e",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:54.015149+00:00",
+    "ItemType": "Dependency",
+    "Name": "submit_tool_outputs",
+    "ResultCode": "0",
+    "DurationMs": 356,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "18445ddc4339f220",
+    "Id": "d105932ac89f93bb",
+    "Properties": {
+      "az.namespace": "Microsoft.CognitiveServices",
+      "gen_ai.system": "az.ai.agents",
+      "gen_ai.operation.name": "submit_tool_outputs",
+      "gen_ai.thread.id": "thread_nnjeASbYY7VOecE2Sm2For1o",
+      "gen_ai.thread.run.id": "run_RrG7VWJ2apvsvHzmge2twHpd",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:54.015199+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "d105932ac89f93bb",
+    "Id": "",
+    "Properties": {
+      "gen_ai.event.content": "[REDACTED]",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:54.015743+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/projects/second-brain/threads/thread_nnjeASbYY7VOecE2Sm2For1o/runs/run_RrG7VWJ2apvsvHzmge2twHpd/submit_tool_outputs",
+    "ResultCode": "200",
+    "DurationMs": 356,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "d105932ac89f93bb",
+    "Id": "57b243396a4c2d5a",
+    "Properties": {
+      "component": "http",
+      "az.client_request_id": "87935812-4bcd-11f1-87ad-6e77c0e7f82e",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:55.545183+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "cab04d857223947a",
+    "Id": "2c7be79f8007efb9",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:55.551419+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "cab04d857223947a",
+    "Id": "222d5479ede539e8",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:55.560558+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "cab04d857223947a",
+    "Id": "7521c7564488879f",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:55.567601+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "cab04d857223947a",
+    "Id": "cb42b43a0da31a9b",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:55.573910+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "cab04d857223947a",
+    "Id": "00c6187efc8253f1",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:55.580642+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "cab04d857223947a",
+    "Id": "ff312fad719c3c87",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:55.590121+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "cab04d857223947a",
+    "Id": "8cd6a3122d48c743",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:55.596916+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "cab04d857223947a",
+    "Id": "51050ec0ddf40745",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:55.602900+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "cab04d857223947a",
+    "Id": "f53d1fda92718699",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:55.610057+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "cab04d857223947a",
+    "Id": "7bae59cc3cb8d1e7",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:55.615963+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "cab04d857223947a",
+    "Id": "f0eaee6b69601a14",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:55.621484+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "cab04d857223947a",
+    "Id": "dacde1c0506ba80b",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:55.629392+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "cab04d857223947a",
+    "Id": "48087857914e2598",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:55.638829+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "cab04d857223947a",
+    "Id": "64069f81dc34fd68",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:55.642681+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "cab04d857223947a",
+    "Id": "aef901aad73c1d2a",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:55.649716+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "cab04d857223947a",
+    "Id": "95c63b29f708d3d5",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:55.660027+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "cab04d857223947a",
+    "Id": "f42a236b0a91a122",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:55.666327+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "cab04d857223947a",
+    "Id": "a31e7997e5a0b789",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:55.672956+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "cab04d857223947a",
+    "Id": "a310d5fcbb104c62",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:55.678753+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "cab04d857223947a",
+    "Id": "904be5aa3a30afc7",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:55.685950+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "cab04d857223947a",
+    "Id": "e9c6209f23eee48a",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:55.691906+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "cab04d857223947a",
+    "Id": "972d59225581fd56",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:55.698140+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "cab04d857223947a",
+    "Id": "eb8e3226705e8c25",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:55.705348+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "cab04d857223947a",
+    "Id": "d8f3acae68d38f0a",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:55.710470+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "cab04d857223947a",
+    "Id": "ac605980fe994bd3",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:55.720969+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "cab04d857223947a",
+    "Id": "82f933d7baaed3ef",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:55.727916+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "cab04d857223947a",
+    "Id": "e3911f678e28abf6",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:55.735880+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "cab04d857223947a",
+    "Id": "4fb8544ad24c775f",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:55.740660+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "cab04d857223947a",
+    "Id": "9f4cb9211fb71834",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:55.747724+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "cab04d857223947a",
+    "Id": "150e8eab5095573f",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:55.755445+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "cab04d857223947a",
+    "Id": "e45b120650ad48ba",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:55.762442+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "cab04d857223947a",
+    "Id": "fe7f436420c06d5a",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "eee95295-5f7a-4d2d-a324-9f7866478ea7"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:56.279169+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.create_item",
+    "ResultCode": "0",
+    "DurationMs": 31,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "cab04d857223947a",
+    "Id": "efd9ce5f59fa21a8",
+    "Properties": {
+      "_MS.ResourceAttributeId": "2bea2f8a-43a1-45f7-9e2f-3bf1f1365889"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:56.280007+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/spine_events/docs/",
+    "ResultCode": "201",
+    "DurationMs": 30,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "efd9ce5f59fa21a8",
+    "Id": "6f5dfeb4c5d7091c",
+    "Properties": {
+      "component": "http",
+      "_MS.ResourceAttributeId": "2bea2f8a-43a1-45f7-9e2f-3bf1f1365889"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:56.280433+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "cab04d857223947a",
+    "Id": "52e1ebfb01cb588e",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "2bea2f8a-43a1-45f7-9e2f-3bf1f1365889"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:56.310681+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "71ff1a69b3b123215f2a4a4ffffa7214",
+    "ParentId": "cab04d857223947a",
+    "Id": "04a7c8dc230ae9d8",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "2bea2f8a-43a1-45f7-9e2f-3bf1f1365889"
+    }
+  }
+]

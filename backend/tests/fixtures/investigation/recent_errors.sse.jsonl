@@ -1,0 +1,50 @@
+{"data": {"type": "thinking"}}
+{"data": {"type": "tool_call", "tool": "recent_errors", "description": "Querying recent errors..."}}
+{"data": {"type": "text", "content": "No"}}
+{"data": {"type": "text", "content": " errors"}}
+{"data": {"type": "text", "content": " found"}}
+{"data": {"type": "text", "content": " in"}}
+{"data": {"type": "text", "content": " the"}}
+{"data": {"type": "text", "content": " last"}}
+{"data": {"type": "text", "content": " "}}
+{"data": {"type": "text", "content": "1"}}
+{"data": {"type": "text", "content": "h"}}
+{"data": {"type": "text", "content": "."}}
+{"data": {"type": "text", "content": " You"}}
+{"data": {"type": "text", "content": " might"}}
+{"data": {"type": "text", "content": " consider"}}
+{"data": {"type": "text", "content": " widening"}}
+{"data": {"type": "text", "content": " the"}}
+{"data": {"type": "text", "content": " time"}}
+{"data": {"type": "text", "content": " range"}}
+{"data": {"type": "text", "content": " to"}}
+{"data": {"type": "text", "content": " ensure"}}
+{"data": {"type": "text", "content": " no"}}
+{"data": {"type": "text", "content": " issues"}}
+{"data": {"type": "text", "content": " are"}}
+{"data": {"type": "text", "content": " missing"}}
+{"data": {"type": "text", "content": "."}}
+{"data": {"type": "text", "content": " Would"}}
+{"data": {"type": "text", "content": " you"}}
+{"data": {"type": "text", "content": " like"}}
+{"data": {"type": "text", "content": " me"}}
+{"data": {"type": "text", "content": " to"}}
+{"data": {"type": "text", "content": " check"}}
+{"data": {"type": "text", "content": " the"}}
+{"data": {"type": "text", "content": " last"}}
+{"data": {"type": "text", "content": " "}}
+{"data": {"type": "text", "content": "24"}}
+{"data": {"type": "text", "content": " hours"}}
+{"data": {"type": "text", "content": " instead"}}
+{"data": {"type": "text", "content": ","}}
+{"data": {"type": "text", "content": " or"}}
+{"data": {"type": "text", "content": " would"}}
+{"data": {"type": "text", "content": " you"}}
+{"data": {"type": "text", "content": " prefer"}}
+{"data": {"type": "text", "content": " to"}}
+{"data": {"type": "text", "content": " examine"}}
+{"data": {"type": "text", "content": " system"}}
+{"data": {"type": "text", "content": " health"}}
+{"data": {"type": "text", "content": " metrics"}}
+{"data": {"type": "text", "content": "?"}}
+{"data": {"type": "done", "thread_id": "thread_PQLeQCE8hilSFxh2XT5h1qGZ"}}

@@ -1,0 +1,395 @@
+[
+  {
+    "TimeGenerated": "2026-05-09 17:36:39.984945+00:00",
+    "ItemType": "Request",
+    "Name": "POST /api/investigate",
+    "ResultCode": "200",
+    "DurationMs": 11736,
+    "OperationId": "c84a5d1738306897a1f56fb6b42a3c13",
+    "ParentId": "c84a5d1738306897a1f56fb6b42a3c13",
+    "Id": "c538b5880c01295d",
+    "Properties": {
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "33f80315-feb3-468d-b49c-3bb3310e7854"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:36:39.985395+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http receive",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "c84a5d1738306897a1f56fb6b42a3c13",
+    "ParentId": "c538b5880c01295d",
+    "Id": "11bb0b33342bd9d2",
+    "Properties": {
+      "asgi.event.type": "http.request",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "1a16b758-df83-4577-a04e-148115e9aaef"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:36:39.985912+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "c84a5d1738306897a1f56fb6b42a3c13",
+    "ParentId": "c538b5880c01295d",
+    "Id": "",
+    "Properties": {
+      "component": "investigation_agent",
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/api/investigate.py",
+      "code.function.name": "investigate",
+      "code.line.number": "69"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:36:39.986178+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http receive",
+    "ResultCode": "0",
+    "DurationMs": 11734,
+    "OperationId": "c84a5d1738306897a1f56fb6b42a3c13",
+    "ParentId": "c538b5880c01295d",
+    "Id": "75556d251cd7fa11",
+    "Properties": {
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "33f80315-feb3-468d-b49c-3bb3310e7854"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:36:39.986270+00:00",
+    "ItemType": "Dependency",
+    "Name": "investigate",
+    "ResultCode": "0",
+    "DurationMs": 11702,
+    "OperationId": "c84a5d1738306897a1f56fb6b42a3c13",
+    "ParentId": "c538b5880c01295d",
+    "Id": "e4afea14ab59d7d7",
+    "Properties": {
+      "investigate.question_length": "62",
+      "investigate.thread_id": "",
+      "investigate.has_tools": "True",
+      "investigate.thread_id_out": "thread_tawNr7cX1vXGZHQDiG2XIK3r",
+      "_MS.ResourceAttributeId": "33f80315-feb3-468d-b49c-3bb3310e7854"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:36:39.986526+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.create_item",
+    "ResultCode": "0",
+    "DurationMs": 35,
+    "OperationId": "c84a5d1738306897a1f56fb6b42a3c13",
+    "ParentId": "c538b5880c01295d",
+    "Id": "eb00e11b07859376",
+    "Properties": {
+      "_MS.ResourceAttributeId": "1a16b758-df83-4577-a04e-148115e9aaef"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:36:39.986988+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/spine_events/docs/",
+    "ResultCode": "201",
+    "DurationMs": 35,
+    "OperationId": "c84a5d1738306897a1f56fb6b42a3c13",
+    "ParentId": "eb00e11b07859376",
+    "Id": "abbd2181683cda1d",
+    "Properties": {
+      "component": "http",
+      "_MS.ResourceAttributeId": "1a16b758-df83-4577-a04e-148115e9aaef"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:36:40.021991+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.upsert_item",
+    "ResultCode": "0",
+    "DurationMs": 133,
+    "OperationId": "c84a5d1738306897a1f56fb6b42a3c13",
+    "ParentId": "c538b5880c01295d",
+    "Id": "7d38225e43a12676",
+    "Properties": {
+      "_MS.ResourceAttributeId": "1a16b758-df83-4577-a04e-148115e9aaef"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:36:40.022514+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/spine_correlation/docs/",
+    "ResultCode": "201",
+    "DurationMs": 132,
+    "OperationId": "c84a5d1738306897a1f56fb6b42a3c13",
+    "ParentId": "7d38225e43a12676",
+    "Id": "9dd1d1c891b32b7a",
+    "Properties": {
+      "component": "http",
+      "_MS.ResourceAttributeId": "1a16b758-df83-4577-a04e-148115e9aaef"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:36:40.154861+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "c84a5d1738306897a1f56fb6b42a3c13",
+    "ParentId": "c538b5880c01295d",
+    "Id": "0f8579237af992c2",
+    "Properties": {
+      "asgi.event.type": "http.response.start",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "1a16b758-df83-4577-a04e-148115e9aaef"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:36:43.778070+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "c84a5d1738306897a1f56fb6b42a3c13",
+    "ParentId": "c538b5880c01295d",
+    "Id": "eccfdd556b1b330f",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "553b71c3-1f48-4218-89bb-9b036be3a614"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:36:43.789672+00:00",
+    "ItemType": "Dependency",
+    "Name": "tool_trace_lifecycle",
+    "ResultCode": "0",
+    "DurationMs": 3125,
+    "OperationId": "c84a5d1738306897a1f56fb6b42a3c13",
+    "ParentId": "e4afea14ab59d7d7",
+    "Id": "98721bfda586c4d3",
+    "Properties": {
+      "tool.name": "trace_lifecycle",
+      "tool.duration_ms": "3125.051161972806",
+      "_MS.ResourceAttributeId": "553b71c3-1f48-4218-89bb-9b036be3a614"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:36:43.789814+00:00",
+    "ItemType": "Dependency",
+    "Name": "execute_tool trace_lifecycle",
+    "ResultCode": "0",
+    "DurationMs": 3125,
+    "OperationId": "c84a5d1738306897a1f56fb6b42a3c13",
+    "ParentId": "98721bfda586c4d3",
+    "Id": "a355a0f0b643ef48",
+    "Properties": {
+      "gen_ai.tool.call.result": "[{\"timestamp\": \"2026-05-09 06:33:56.977282+00:00\", \"item_type\": \"Log\", \"severity_level\": 1, \"message\": \"Capture source: voice, thread_id=thread-1778308435961\", \"component\": \"capture\", \"capture_trace_id\": \"08c31eb1-6815-452a-affb-1d290b7d5885\", \"outer_message\": null, \"outer_type\": null, \"innermost_message\": null, \"details\": null}, {\"timestamp\": \"2026-05-09 06:34:00.523582+00:00\", \"item_type\": \"Log\", \"severity_level\": 1, \"message\": \"Filed to Ideas (0.85, status=classified): I have an idea for an agent that could work with this app that will read and sum\", \"component\": \"classifier\", \"capture_trace_id\": \"08c31eb1-6815-452a-affb-1d290b7d5885\", \"outer_message\": null, \"outer_type\": null, \"innermost_message\": null, \"details\": null}, {\"timestamp\": \"2026-05-09 06:34:02.893677+00:00\", \"item_type\": \"Log\", \"severity_level\": 1, \"message\": \"Reasoning chunk\", \"component\": \"classifier\", \"capture_trace_id\": \"08c31eb1-6815-452a-affb-1d290b7d5885\", \"outer_message\": null, \"outer_type\": null, \"innermost_message\": null, \"details\": null}, {\"timestamp\": \"2026-05-09 06:34:02.907060+00:00\", \"item_type\": \"Log\", \"severity_level\": 1, \"message\": \"Reasoning chunk\", \"component\": \"classifier\", \"capture_trace_id\": \"08c31eb1-6815-452a-affb-1d290b7d5885\", \"outer_message\": null, \"outer_type\": null, \"innermost_message\": null, \"details\": null}, {\"timestamp\": \"2026-05-09 06:34:02.914250+00:00\", \"item_type\": \"Log\", \"severity_level\": 1, \"message\": \"Reasoning chunk\", \"component\": \"classifier\", \"capture_trace_id\": \"08c31eb1-6815-452a-affb-1d290b7d5885\", \"outer_message\": null, \"outer_type\": null, \"innermost_message\": null, \"details\": null}, {\"timestamp\": \"2026-05-09 06:34:02.919436+00:00\", \"item_type\": \"Log\", \"severity_level\": 1, \"message\": \"Reasoning chunk\", \"component\": \"classifier\", \"capture_trace_id\": \"08c31eb1-6815-452a-affb-1d290b7d5885\", \"outer_message\": null, \"outer_type\": null, \"innermost_message\": null, \"details\": null}, {\"timestamp\": \"2026-05-09 06:34:02.928471+00:00\", \"item_type\": \"Log\", \"severity_level\": 1, \"message\": \"Reasoning chunk\", \"component\": \"classifier\", \"capture_trace_id\": \"08c31eb1-6815-452a-affb-1d290b7d5885\", \"outer_message\": null, \"outer_type\": null, \"innermost_message\": null, \"details\": null}, {\"timestamp\": \"2026-05-09 06:34:02.946698+00:00\", \"item_type\": \"Log\", \"severity_level\": 1, \"message\": \"Reasoning chunk\", \"component\": \"classifier\", \"capture_trace_id\": \"08c31eb1-6815-452a-affb-1d290b7d5885\", \"outer_message\": null, \"outer_type\": null, \"innermost_message\": null, \"details\": null}, {\"timestamp\": \"2026-05-09 06:34:02.954732+00:00\", \"item_type\": \"Log\", \"severity_level\": 1, \"message\": \"Reasoning chunk\", \"component\": \"classifier\", \"capture_trace_id\": \"08c31eb1-6815-452a-affb-1d290b7d5885\", \"outer_message\": null, \"outer_type\": null, \"innermost_message\": null, \"details\": null}, {\"timestamp\": \"2026-05-09 06:34:02.962187+00:00\", \"item_type\": \"Log\", \"severity_level\": 1, \"message\": \"Reasoning chunk\", \"component\": \"classifier\", \"capture_trace_id\": \"08c31eb1-6815-452a-affb-1d290b7d5885\", \"outer_message\": null, \"outer_type\": null, \"innermost_message\": null, \"details\": null}]",
+      "agent_framework.function.invocation.duration": "3.1248108639847487",
+      "_MS.GenAIContentId": "[REDACTED]",
+      "_MS.ResourceAttributeId": "553b71c3-1f48-4218-89bb-9b036be3a614"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:36:43.789905+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "c84a5d1738306897a1f56fb6b42a3c13",
+    "ParentId": "a355a0f0b643ef48",
+    "Id": "",
+    "Properties": {
+      "component": "investigation_agent",
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/tools/investigation.py",
+      "code.function.name": "trace_lifecycle",
+      "code.line.number": "132"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:36:43.790134+00:00",
+    "ItemType": "Dependency",
+    "Name": "LogsQueryClient.query_workspace",
+    "ResultCode": "0",
+    "DurationMs": 3124,
+    "OperationId": "c84a5d1738306897a1f56fb6b42a3c13",
+    "ParentId": "a355a0f0b643ef48",
+    "Id": "64485dc797dcb5f3",
+    "Properties": {
+      "_MS.ResourceAttributeId": "553b71c3-1f48-4218-89bb-9b036be3a614"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:36:43.790679+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /v1/workspaces/572d91c2-3209-4b92-b431-5ffb7e8ce4ad/query",
+    "ResultCode": "200",
+    "DurationMs": 3122,
+    "OperationId": "c84a5d1738306897a1f56fb6b42a3c13",
+    "ParentId": "64485dc797dcb5f3",
+    "Id": "3469f10af95d98aa",
+    "Properties": {
+      "component": "http",
+      "az.client_request_id": "a53e646a-4bcd-11f1-87ad-6e77c0e7f82e",
+      "az.service_request_id": "38264f8b-3a38-43c4-933e-1cd9caf0bfc2",
+      "_MS.ResourceAttributeId": "553b71c3-1f48-4218-89bb-9b036be3a614"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:36:46.914999+00:00",
+    "ItemType": "Dependency",
+    "Name": "chat unknown",
+    "ResultCode": "0",
+    "DurationMs": 4773,
+    "OperationId": "c84a5d1738306897a1f56fb6b42a3c13",
+    "ParentId": "e4afea14ab59d7d7",
+    "Id": "4ce3586cf2e37ce9",
+    "Properties": {
+      "gen_ai.input.messages": "[REDACTED]",
+      "gen_ai.request.choice.count": "1",
+      "gen_ai.operation.name": "chat",
+      "gen_ai.provider.name": "azure.ai",
+      "gen_ai.request.model": "unknown",
+      "gen_ai.response.id": "run_kl3fC0ADtRqyfFzEhE1iHBv0",
+      "gen_ai.response.model": "gpt-4o",
+      "gen_ai.usage.input_tokens": "9053",
+      "gen_ai.usage.output_tokens": "241",
+      "gen_ai.output.messages": "[REDACTED]",
+      "_MS.GenAIContentId": "[REDACTED]",
+      "_MS.ResourceAttributeId": "33f80315-feb3-468d-b49c-3bb3310e7854"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:36:46.915272+00:00",
+    "ItemType": "Dependency",
+    "Name": "RunsOperations.list",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "c84a5d1738306897a1f56fb6b42a3c13",
+    "ParentId": "e4afea14ab59d7d7",
+    "Id": "600e86c5ac06dd24",
+    "Properties": {
+      "_MS.ResourceAttributeId": "553b71c3-1f48-4218-89bb-9b036be3a614"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:36:46.915806+00:00",
+    "ItemType": "Dependency",
+    "Name": "GET /api/projects/second-brain/threads/thread_tawNr7cX1vXGZHQDiG2XIK3r/runs",
+    "ResultCode": "200",
+    "DurationMs": 583,
+    "OperationId": "c84a5d1738306897a1f56fb6b42a3c13",
+    "ParentId": "e4afea14ab59d7d7",
+    "Id": "d5c83fb3047c1e7c",
+    "Properties": {
+      "component": "http",
+      "az.client_request_id": "a71b3f6a-4bcd-11f1-87ad-6e77c0e7f82e",
+      "_MS.ResourceAttributeId": "553b71c3-1f48-4218-89bb-9b036be3a614"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:36:47.500932+00:00",
+    "ItemType": "Dependency",
+    "Name": "submit_tool_outputs",
+    "ResultCode": "0",
+    "DurationMs": 341,
+    "OperationId": "c84a5d1738306897a1f56fb6b42a3c13",
+    "ParentId": "e4afea14ab59d7d7",
+    "Id": "6984c746a26b7672",
+    "Properties": {
+      "az.namespace": "Microsoft.CognitiveServices",
+      "gen_ai.system": "az.ai.agents",
+      "gen_ai.operation.name": "submit_tool_outputs",
+      "gen_ai.thread.id": "thread_tawNr7cX1vXGZHQDiG2XIK3r",
+      "gen_ai.thread.run.id": "run_kl3fC0ADtRqyfFzEhE1iHBv0",
+      "_MS.ResourceAttributeId": "33f80315-feb3-468d-b49c-3bb3310e7854"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:36:47.500990+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "c84a5d1738306897a1f56fb6b42a3c13",
+    "ParentId": "6984c746a26b7672",
+    "Id": "",
+    "Properties": {
+      "gen_ai.event.content": "[REDACTED]",
+      "_MS.ResourceAttributeId": "33f80315-feb3-468d-b49c-3bb3310e7854"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:36:49.754882+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "c84a5d1738306897a1f56fb6b42a3c13",
+    "ParentId": "c538b5880c01295d",
+    "Id": "bfe9ada978166129",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "33f80315-feb3-468d-b49c-3bb3310e7854"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:36:49.755148+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "c84a5d1738306897a1f56fb6b42a3c13",
+    "ParentId": "c538b5880c01295d",
+    "Id": "4a7619f973d57290",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "33f80315-feb3-468d-b49c-3bb3310e7854"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:36:49.760138+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "c84a5d1738306897a1f56fb6b42a3c13",
+    "ParentId": "c538b5880c01295d",
+    "Id": "e7bcbabd114503d4",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "33f80315-feb3-468d-b49c-3bb3310e7854"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:36:49.764910+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "c84a5d1738306897a1f56fb6b42a3c13",
+    "ParentId": "c538b5880c01295d",
+    "Id": "aeee410438078557",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "33f80315-feb3-468d-b49c-3bb3310e7854"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:36:51.688920+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.create_item",
+    "ResultCode": "0",
+    "DurationMs": 31,
+    "OperationId": "c84a5d1738306897a1f56fb6b42a3c13",
+    "ParentId": "c538b5880c01295d",
+    "Id": "29e9e1b3a212dbb9",
+    "Properties": {
+      "_MS.ResourceAttributeId": "33f80315-feb3-468d-b49c-3bb3310e7854"
+    }
+  }
+]

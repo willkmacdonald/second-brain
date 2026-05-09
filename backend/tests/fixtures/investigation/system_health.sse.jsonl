@@ -1,0 +1,100 @@
+{"data": {"type": "thinking"}}
+{"data": {"type": "tool_call", "tool": "system_health", "description": "Checking system health..."}}
+{"data": {"type": "text", "content": "In"}}
+{"data": {"type": "text", "content": " the"}}
+{"data": {"type": "text", "content": " last"}}
+{"data": {"type": "text", "content": " "}}
+{"data": {"type": "text", "content": "24"}}
+{"data": {"type": "text", "content": " hours"}}
+{"data": {"type": "text", "content": ","}}
+{"data": {"type": "text", "content": " the"}}
+{"data": {"type": "text", "content": " system"}}
+{"data": {"type": "text", "content": " processed"}}
+{"data": {"type": "text", "content": " "}}
+{"data": {"type": "text", "content": "16"}}
+{"data": {"type": "text", "content": " captures"}}
+{"data": {"type": "text", "content": ","}}
+{"data": {"type": "text", "content": " with"}}
+{"data": {"type": "text", "content": " an"}}
+{"data": {"type": "text", "content": " "}}
+{"data": {"type": "text", "content": "87"}}
+{"data": {"type": "text", "content": "."}}
+{"data": {"type": "text", "content": "5"}}
+{"data": {"type": "text", "content": "%"}}
+{"data": {"type": "text", "content": " success"}}
+{"data": {"type": "text", "content": " rate"}}
+{"data": {"type": "text", "content": " and"}}
+{"data": {"type": "text", "content": " no"}}
+{"data": {"type": "text", "content": " errors"}}
+{"data": {"type": "text", "content": " reported"}}
+{"data": {"type": "text", "content": "."}}
+{"data": {"type": "text", "content": " The"}}
+{"data": {"type": "text", "content": " average"}}
+{"data": {"type": "text", "content": " processing"}}
+{"data": {"type": "text", "content": " duration"}}
+{"data": {"type": "text", "content": " was"}}
+{"data": {"type": "text", "content": " approximately"}}
+{"data": {"type": "text", "content": " "}}
+{"data": {"type": "text", "content": "5"}}
+{"data": {"type": "text", "content": ","}}
+{"data": {"type": "text", "content": "628"}}
+{"data": {"type": "text", "content": " ms"}}
+{"data": {"type": "text", "content": ","}}
+{"data": {"type": "text", "content": " while"}}
+{"data": {"type": "text", "content": " the"}}
+{"data": {"type": "text", "content": " P"}}
+{"data": {"type": "text", "content": "95"}}
+{"data": {"type": "text", "content": " and"}}
+{"data": {"type": "text", "content": " P"}}
+{"data": {"type": "text", "content": "99"}}
+{"data": {"type": "text", "content": " lat"}}
+{"data": {"type": "text", "content": "encies"}}
+{"data": {"type": "text", "content": " were"}}
+{"data": {"type": "text", "content": " both"}}
+{"data": {"type": "text", "content": " at"}}
+{"data": {"type": "text", "content": " "}}
+{"data": {"type": "text", "content": "9"}}
+{"data": {"type": "text", "content": ","}}
+{"data": {"type": "text", "content": "108"}}
+{"data": {"type": "text", "content": " ms"}}
+{"data": {"type": "text", "content": ".\n\n"}}
+{"data": {"type": "text", "content": "Compar"}}
+{"data": {"type": "text", "content": "atively"}}
+{"data": {"type": "text", "content": ","}}
+{"data": {"type": "text", "content": " the"}}
+{"data": {"type": "text", "content": " previous"}}
+{"data": {"type": "text", "content": " period"}}
+{"data": {"type": "text", "content": " did"}}
+{"data": {"type": "text", "content": " not"}}
+{"data": {"type": "text", "content": " have"}}
+{"data": {"type": "text", "content": " any"}}
+{"data": {"type": "text", "content": " captures"}}
+{"data": {"type": "text", "content": " or"}}
+{"data": {"type": "text", "content": " errors"}}
+{"data": {"type": "text", "content": " reported"}}
+{"data": {"type": "text", "content": ","}}
+{"data": {"type": "text", "content": " indicating"}}
+{"data": {"type": "text", "content": " a"}}
+{"data": {"type": "text", "content": " recent"}}
+{"data": {"type": "text", "content": " increase"}}
+{"data": {"type": "text", "content": " in"}}
+{"data": {"type": "text", "content": " activity"}}
+{"data": {"type": "text", "content": ".\n\n"}}
+{"data": {"type": "text", "content": "Would"}}
+{"data": {"type": "text", "content": " you"}}
+{"data": {"type": "text", "content": " like"}}
+{"data": {"type": "text", "content": " to"}}
+{"data": {"type": "text", "content": " see"}}
+{"data": {"type": "text", "content": " any"}}
+{"data": {"type": "text", "content": " recent"}}
+{"data": {"type": "text", "content": " errors"}}
+{"data": {"type": "text", "content": ","}}
+{"data": {"type": "text", "content": " or"}}
+{"data": {"type": "text", "content": " explore"}}
+{"data": {"type": "text", "content": " a"}}
+{"data": {"type": "text", "content": " specific"}}
+{"data": {"type": "text", "content": " capture"}}
+{"data": {"type": "text", "content": " in"}}
+{"data": {"type": "text", "content": " detail"}}
+{"data": {"type": "text", "content": "?"}}
+{"data": {"type": "done", "thread_id": "thread_Q42dDcTGFPvFbKLHrEGUdRgM"}}

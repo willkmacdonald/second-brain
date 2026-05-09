@@ -1,0 +1,70 @@
+{"data": {"type": "thinking"}}
+{"data": {"type": "tool_call", "tool": "usage_patterns", "description": "Analyzing usage patterns..."}}
+{"data": {"type": "text", "content": "In"}}
+{"data": {"type": "text", "content": " the"}}
+{"data": {"type": "text", "content": " last"}}
+{"data": {"type": "text", "content": " "}}
+{"data": {"type": "text", "content": "7"}}
+{"data": {"type": "text", "content": " days"}}
+{"data": {"type": "text", "content": ","}}
+{"data": {"type": "text", "content": " the"}}
+{"data": {"type": "text", "content": " captures"}}
+{"data": {"type": "text", "content": " have"}}
+{"data": {"type": "text", "content": " been"}}
+{"data": {"type": "text", "content": " distributed"}}
+{"data": {"type": "text", "content": " among"}}
+{"data": {"type": "text", "content": " the"}}
+{"data": {"type": "text", "content": " buckets"}}
+{"data": {"type": "text", "content": " as"}}
+{"data": {"type": "text", "content": " follows"}}
+{"data": {"type": "text", "content": ":\n\n"}}
+{"data": {"type": "text", "content": "-"}}
+{"data": {"type": "text", "content": " Admin"}}
+{"data": {"type": "text", "content": ":"}}
+{"data": {"type": "text", "content": " "}}
+{"data": {"type": "text", "content": "13"}}
+{"data": {"type": "text", "content": " captures"}}
+{"data": {"type": "text", "content": "\n"}}
+{"data": {"type": "text", "content": "-"}}
+{"data": {"type": "text", "content": " Projects"}}
+{"data": {"type": "text", "content": ":"}}
+{"data": {"type": "text", "content": " "}}
+{"data": {"type": "text", "content": "5"}}
+{"data": {"type": "text", "content": " captures"}}
+{"data": {"type": "text", "content": "\n"}}
+{"data": {"type": "text", "content": "-"}}
+{"data": {"type": "text", "content": " People"}}
+{"data": {"type": "text", "content": ":"}}
+{"data": {"type": "text", "content": " "}}
+{"data": {"type": "text", "content": "5"}}
+{"data": {"type": "text", "content": " captures"}}
+{"data": {"type": "text", "content": "\n"}}
+{"data": {"type": "text", "content": "-"}}
+{"data": {"type": "text", "content": " Ideas"}}
+{"data": {"type": "text", "content": ":"}}
+{"data": {"type": "text", "content": " "}}
+{"data": {"type": "text", "content": "3"}}
+{"data": {"type": "text", "content": " captures"}}
+{"data": {"type": "text", "content": "\n\n"}}
+{"data": {"type": "text", "content": "Would"}}
+{"data": {"type": "text", "content": " you"}}
+{"data": {"type": "text", "content": " like"}}
+{"data": {"type": "text", "content": " further"}}
+{"data": {"type": "text", "content": " details"}}
+{"data": {"type": "text", "content": " on"}}
+{"data": {"type": "text", "content": " a"}}
+{"data": {"type": "text", "content": " specific"}}
+{"data": {"type": "text", "content": " bucket"}}
+{"data": {"type": "text", "content": ","}}
+{"data": {"type": "text", "content": " or"}}
+{"data": {"type": "text", "content": " do"}}
+{"data": {"type": "text", "content": " you"}}
+{"data": {"type": "text", "content": " need"}}
+{"data": {"type": "text", "content": " other"}}
+{"data": {"type": "text", "content": " insights"}}
+{"data": {"type": "text", "content": " about"}}
+{"data": {"type": "text", "content": " system"}}
+{"data": {"type": "text", "content": " usage"}}
+{"data": {"type": "text", "content": " patterns"}}
+{"data": {"type": "text", "content": "?"}}
+{"data": {"type": "done", "thread_id": "thread_nnjeASbYY7VOecE2Sm2For1o"}}

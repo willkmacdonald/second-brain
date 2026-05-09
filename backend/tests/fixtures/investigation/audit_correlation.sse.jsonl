@@ -1,0 +1,239 @@
+{"data": {"type": "thinking"}}
+{"data": {"type": "tool_call", "tool": "trace_lifecycle", "description": "Tracing capture lifecycle..."}}
+{"data": {"type": "text", "content": "The"}}
+{"data": {"type": "text", "content": " capture"}}
+{"data": {"type": "text", "content": " with"}}
+{"data": {"type": "text", "content": " trace"}}
+{"data": {"type": "text", "content": " ID"}}
+{"data": {"type": "text", "content": " **"}}
+{"data": {"type": "text", "content": "de"}}
+{"data": {"type": "text", "content": "875"}}
+{"data": {"type": "text", "content": "d"}}
+{"data": {"type": "text", "content": "59"}}
+{"data": {"type": "text", "content": "-"}}
+{"data": {"type": "text", "content": "133"}}
+{"data": {"type": "text", "content": "5"}}
+{"data": {"type": "text", "content": "-"}}
+{"data": {"type": "text", "content": "414"}}
+{"data": {"type": "text", "content": "3"}}
+{"data": {"type": "text", "content": "-b"}}
+{"data": {"type": "text", "content": "3"}}
+{"data": {"type": "text", "content": "ef"}}
+{"data": {"type": "text", "content": "-"}}
+{"data": {"type": "text", "content": "156"}}
+{"data": {"type": "text", "content": "4"}}
+{"data": {"type": "text", "content": "e"}}
+{"data": {"type": "text", "content": "06"}}
+{"data": {"type": "text", "content": "d"}}
+{"data": {"type": "text", "content": "8"}}
+{"data": {"type": "text", "content": "ea"}}
+{"data": {"type": "text", "content": "9"}}
+{"data": {"type": "text", "content": "**"}}
+{"data": {"type": "text", "content": " underwent"}}
+{"data": {"type": "text", "content": " the"}}
+{"data": {"type": "text", "content": " following"}}
+{"data": {"type": "text", "content": " processing"}}
+{"data": {"type": "text", "content": " steps"}}
+{"data": {"type": "text", "content": ":\n\n"}}
+{"data": {"type": "text", "content": "1"}}
+{"data": {"type": "text", "content": "."}}
+{"data": {"type": "text", "content": " **"}}
+{"data": {"type": "text", "content": "Classification"}}
+{"data": {"type": "text", "content": ":"}}
+{"data": {"type": "text", "content": "**\n"}}
+{"data": {"type": "text", "content": "  "}}
+{"data": {"type": "text", "content": " -"}}
+{"data": {"type": "text", "content": " At"}}
+{"data": {"type": "text", "content": " `"}}
+{"data": {"type": "text", "content": "202"}}
+{"data": {"type": "text", "content": "6"}}
+{"data": {"type": "text", "content": "-"}}
+{"data": {"type": "text", "content": "05"}}
+{"data": {"type": "text", "content": "-"}}
+{"data": {"type": "text", "content": "09"}}
+{"data": {"type": "text", "content": " "}}
+{"data": {"type": "text", "content": "03"}}
+{"data": {"type": "text", "content": ":"}}
+{"data": {"type": "text", "content": "54"}}
+{"data": {"type": "text", "content": ":"}}
+{"data": {"type": "text", "content": "25"}}
+{"data": {"type": "text", "content": "`,"}}
+{"data": {"type": "text", "content": " the"}}
+{"data": {"type": "text", "content": " note"}}
+{"data": {"type": "text", "content": " was"}}
+{"data": {"type": "text", "content": " filed"}}
+{"data": {"type": "text", "content": " to"}}
+{"data": {"type": "text", "content": " Admin"}}
+{"data": {"type": "text", "content": " with"}}
+{"data": {"type": "text", "content": " a"}}
+{"data": {"type": "text", "content": " classification"}}
+{"data": {"type": "text", "content": " status"}}
+{"data": {"type": "text", "content": ","}}
+{"data": {"type": "text", "content": " indicating"}}
+{"data": {"type": "text", "content": " it"}}
+{"data": {"type": "text", "content": " was"}}
+{"data": {"type": "text", "content": " classified"}}
+{"data": {"type": "text", "content": " as"}}
+{"data": {"type": "text", "content": " \""}}
+{"data": {"type": "text", "content": "add"}}
+{"data": {"type": "text", "content": " a"}}
+{"data": {"type": "text", "content": " new"}}
+{"data": {"type": "text", "content": " err"}}
+{"data": {"type": "text", "content": "and"}}
+{"data": {"type": "text", "content": " destination"}}
+{"data": {"type": "text", "content": " called"}}
+{"data": {"type": "text", "content": " Walgreens"}}
+{"data": {"type": "text", "content": " for"}}
+{"data": {"type": "text", "content": " pharmacy"}}
+{"data": {"type": "text", "content": " pickups"}}
+{"data": {"type": "text", "content": "\""}}
+{"data": {"type": "text", "content": " with"}}
+{"data": {"type": "text", "content": " a"}}
+{"data": {"type": "text", "content": " confidence"}}
+{"data": {"type": "text", "content": " score"}}
+{"data": {"type": "text", "content": " of"}}
+{"data": {"type": "text", "content": " "}}
+{"data": {"type": "text", "content": "0"}}
+{"data": {"type": "text", "content": "."}}
+{"data": {"type": "text", "content": "80"}}
+{"data": {"type": "text", "content": ".\n\n"}}
+{"data": {"type": "text", "content": "2"}}
+{"data": {"type": "text", "content": "."}}
+{"data": {"type": "text", "content": " **"}}
+{"data": {"type": "text", "content": "Reason"}}
+{"data": {"type": "text", "content": "ing"}}
+{"data": {"type": "text", "content": " Processing"}}
+{"data": {"type": "text", "content": ":"}}
+{"data": {"type": "text", "content": "**\n"}}
+{"data": {"type": "text", "content": "  "}}
+{"data": {"type": "text", "content": " -"}}
+{"data": {"type": "text", "content": " Multiple"}}
+{"data": {"type": "text", "content": " reasoning"}}
+{"data": {"type": "text", "content": " chunks"}}
+{"data": {"type": "text", "content": " were"}}
+{"data": {"type": "text", "content": " processed"}}
+{"data": {"type": "text", "content": " between"}}
+{"data": {"type": "text", "content": " `"}}
+{"data": {"type": "text", "content": "202"}}
+{"data": {"type": "text", "content": "6"}}
+{"data": {"type": "text", "content": "-"}}
+{"data": {"type": "text", "content": "05"}}
+{"data": {"type": "text", "content": "-"}}
+{"data": {"type": "text", "content": "09"}}
+{"data": {"type": "text", "content": " "}}
+{"data": {"type": "text", "content": "03"}}
+{"data": {"type": "text", "content": ":"}}
+{"data": {"type": "text", "content": "54"}}
+{"data": {"type": "text", "content": ":"}}
+{"data": {"type": "text", "content": "27"}}
+{"data": {"type": "text", "content": "`,"}}
+{"data": {"type": "text", "content": " indicating"}}
+{"data": {"type": "text", "content": " various"}}
+{"data": {"type": "text", "content": " internal"}}
+{"data": {"type": "text", "content": " analysis"}}
+{"data": {"type": "text", "content": " steps"}}
+{"data": {"type": "text", "content": " taken"}}
+{"data": {"type": "text", "content": " by"}}
+{"data": {"type": "text", "content": " the"}}
+{"data": {"type": "text", "content": " classifier"}}
+{"data": {"type": "text", "content": ".\n\n"}}
+{"data": {"type": "text", "content": "3"}}
+{"data": {"type": "text", "content": "."}}
+{"data": {"type": "text", "content": " **"}}
+{"data": {"type": "text", "content": "Admin"}}
+{"data": {"type": "text", "content": " Processing"}}
+{"data": {"type": "text", "content": ":"}}
+{"data": {"type": "text", "content": "**\n"}}
+{"data": {"type": "text", "content": "  "}}
+{"data": {"type": "text", "content": " -"}}
+{"data": {"type": "text", "content": " At"}}
+{"data": {"type": "text", "content": " `"}}
+{"data": {"type": "text", "content": "202"}}
+{"data": {"type": "text", "content": "6"}}
+{"data": {"type": "text", "content": "-"}}
+{"data": {"type": "text", "content": "05"}}
+{"data": {"type": "text", "content": "-"}}
+{"data": {"type": "text", "content": "09"}}
+{"data": {"type": "text", "content": " "}}
+{"data": {"type": "text", "content": "03"}}
+{"data": {"type": "text", "content": ":"}}
+{"data": {"type": "text", "content": "55"}}
+{"data": {"type": "text", "content": ":"}}
+{"data": {"type": "text", "content": "12"}}
+{"data": {"type": "text", "content": "`,"}}
+{"data": {"type": "text", "content": " the"}}
+{"data": {"type": "text", "content": " Admin"}}
+{"data": {"type": "text", "content": " Agent"}}
+{"data": {"type": "text", "content": " processed"}}
+{"data": {"type": "text", "content": " and"}}
+{"data": {"type": "text", "content": " deleted"}}
+{"data": {"type": "text", "content": " the"}}
+{"data": {"type": "text", "content": " corresponding"}}
+{"data": {"type": "text", "content": " inbox"}}
+{"data": {"type": "text", "content": " item"}}
+{"data": {"type": "text", "content": " `"}}
+{"data": {"type": "text", "content": "c"}}
+{"data": {"type": "text", "content": "3"}}
+{"data": {"type": "text", "content": "b"}}
+{"data": {"type": "text", "content": "84"}}
+{"data": {"type": "text", "content": "ee"}}
+{"data": {"type": "text", "content": "a"}}
+{"data": {"type": "text", "content": "-"}}
+{"data": {"type": "text", "content": "9"}}
+{"data": {"type": "text", "content": "eee"}}
+{"data": {"type": "text", "content": "-"}}
+{"data": {"type": "text", "content": "484"}}
+{"data": {"type": "text", "content": "d"}}
+{"data": {"type": "text", "content": "-ad"}}
+{"data": {"type": "text", "content": "11"}}
+{"data": {"type": "text", "content": "-c"}}
+{"data": {"type": "text", "content": "396"}}
+{"data": {"type": "text", "content": "e"}}
+{"data": {"type": "text", "content": "43"}}
+{"data": {"type": "text", "content": "af"}}
+{"data": {"type": "text", "content": "838"}}
+{"data": {"type": "text", "content": "`."}}
+{"data": {"type": "text", "content": " It"}}
+{"data": {"type": "text", "content": " confirmed"}}
+{"data": {"type": "text", "content": " that"}}
+{"data": {"type": "text", "content": " a"}}
+{"data": {"type": "text", "content": " new"}}
+{"data": {"type": "text", "content": " err"}}
+{"data": {"type": "text", "content": "and"}}
+{"data": {"type": "text", "content": " destination"}}
+{"data": {"type": "text", "content": " called"}}
+{"data": {"type": "text", "content": " \""}}
+{"data": {"type": "text", "content": "Wal"}}
+{"data": {"type": "text", "content": "greens"}}
+{"data": {"type": "text", "content": "\""}}
+{"data": {"type": "text", "content": " for"}}
+{"data": {"type": "text", "content": " pharmacy"}}
+{"data": {"type": "text", "content": " pickups"}}
+{"data": {"type": "text", "content": " was"}}
+{"data": {"type": "text", "content": " successfully"}}
+{"data": {"type": "text", "content": " added"}}
+{"data": {"type": "text", "content": ".\n\n"}}
+{"data": {"type": "text", "content": "Would"}}
+{"data": {"type": "text", "content": " you"}}
+{"data": {"type": "text", "content": " like"}}
+{"data": {"type": "text", "content": " more"}}
+{"data": {"type": "text", "content": " detail"}}
+{"data": {"type": "text", "content": " on"}}
+{"data": {"type": "text", "content": " any"}}
+{"data": {"type": "text", "content": " specific"}}
+{"data": {"type": "text", "content": " processing"}}
+{"data": {"type": "text", "content": " step"}}
+{"data": {"type": "text", "content": ","}}
+{"data": {"type": "text", "content": " or"}}
+{"data": {"type": "text", "content": " should"}}
+{"data": {"type": "text", "content": " I"}}
+{"data": {"type": "text", "content": " check"}}
+{"data": {"type": "text", "content": " for"}}
+{"data": {"type": "text", "content": " any"}}
+{"data": {"type": "text", "content": " errors"}}
+{"data": {"type": "text", "content": " related"}}
+{"data": {"type": "text", "content": " to"}}
+{"data": {"type": "text", "content": " this"}}
+{"data": {"type": "text", "content": " capture"}}
+{"data": {"type": "text", "content": "?"}}
+{"data": {"type": "done", "thread_id": "thread_ggJLIOswMGRbMmg2eLoteytc"}}

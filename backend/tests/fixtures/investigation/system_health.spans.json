@@ -1,0 +1,606 @@
+[
+  {
+    "TimeGenerated": "2026-05-09 17:35:20.694306+00:00",
+    "ItemType": "Request",
+    "Name": "POST /api/investigate",
+    "ResultCode": "200",
+    "DurationMs": 8204,
+    "OperationId": "365237b027108c93eaf3d6d49834db75",
+    "ParentId": "365237b027108c93eaf3d6d49834db75",
+    "Id": "74883de013767b30",
+    "Properties": {
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "72a0ecf1-12e9-4bf1-9ce3-7ef3ca399f86"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:20.694771+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http receive",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "365237b027108c93eaf3d6d49834db75",
+    "ParentId": "74883de013767b30",
+    "Id": "b02b8a679e1565a1",
+    "Properties": {
+      "asgi.event.type": "http.request",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "6a5d16b0-769a-4da4-9a4d-ef09989ce6bb"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:20.695379+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "365237b027108c93eaf3d6d49834db75",
+    "ParentId": "74883de013767b30",
+    "Id": "",
+    "Properties": {
+      "component": "investigation_agent",
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/api/investigate.py",
+      "code.function.name": "investigate",
+      "code.line.number": "69"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:20.695776+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http receive",
+    "ResultCode": "0",
+    "DurationMs": 8202,
+    "OperationId": "365237b027108c93eaf3d6d49834db75",
+    "ParentId": "74883de013767b30",
+    "Id": "78e5a428398097b9",
+    "Properties": {
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "72a0ecf1-12e9-4bf1-9ce3-7ef3ca399f86"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:20.696018+00:00",
+    "ItemType": "Dependency",
+    "Name": "investigate",
+    "ResultCode": "0",
+    "DurationMs": 8171,
+    "OperationId": "365237b027108c93eaf3d6d49834db75",
+    "ParentId": "74883de013767b30",
+    "Id": "13e2dc7c5dc23533",
+    "Properties": {
+      "investigate.question_length": "44",
+      "investigate.thread_id": "",
+      "investigate.has_tools": "True",
+      "investigate.thread_id_out": "thread_Q42dDcTGFPvFbKLHrEGUdRgM",
+      "_MS.ResourceAttributeId": "72a0ecf1-12e9-4bf1-9ce3-7ef3ca399f86"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:20.696611+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.create_item",
+    "ResultCode": "0",
+    "DurationMs": 31,
+    "OperationId": "365237b027108c93eaf3d6d49834db75",
+    "ParentId": "74883de013767b30",
+    "Id": "40df062d50496ff2",
+    "Properties": {
+      "_MS.ResourceAttributeId": "6a5d16b0-769a-4da4-9a4d-ef09989ce6bb"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:20.697213+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/spine_events/docs/",
+    "ResultCode": "201",
+    "DurationMs": 30,
+    "OperationId": "365237b027108c93eaf3d6d49834db75",
+    "ParentId": "40df062d50496ff2",
+    "Id": "553ece6227b228ed",
+    "Properties": {
+      "component": "http",
+      "_MS.ResourceAttributeId": "6a5d16b0-769a-4da4-9a4d-ef09989ce6bb"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:20.727772+00:00",
+    "ItemType": "Dependency",
+    "Name": "ContainerProxy.upsert_item",
+    "ResultCode": "0",
+    "DurationMs": 26,
+    "OperationId": "365237b027108c93eaf3d6d49834db75",
+    "ParentId": "74883de013767b30",
+    "Id": "fbd513cec9a0e4c3",
+    "Properties": {
+      "_MS.ResourceAttributeId": "6a5d16b0-769a-4da4-9a4d-ef09989ce6bb"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:20.728256+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /dbs/second-brain/colls/spine_correlation/docs/",
+    "ResultCode": "201",
+    "DurationMs": 26,
+    "OperationId": "365237b027108c93eaf3d6d49834db75",
+    "ParentId": "fbd513cec9a0e4c3",
+    "Id": "21741a2f83c0d7ce",
+    "Properties": {
+      "component": "http",
+      "_MS.ResourceAttributeId": "6a5d16b0-769a-4da4-9a4d-ef09989ce6bb"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:20.754328+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "365237b027108c93eaf3d6d49834db75",
+    "ParentId": "74883de013767b30",
+    "Id": "95b8fb088d37bde2",
+    "Properties": {
+      "asgi.event.type": "http.response.start",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "6a5d16b0-769a-4da4-9a4d-ef09989ce6bb"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:20.754953+00:00",
+    "ItemType": "Dependency",
+    "Name": "chat unknown",
+    "ResultCode": "0",
+    "DurationMs": 2596,
+    "OperationId": "365237b027108c93eaf3d6d49834db75",
+    "ParentId": "13e2dc7c5dc23533",
+    "Id": "ef5a61a791017f16",
+    "Properties": {
+      "gen_ai.input.messages": "[REDACTED]",
+      "gen_ai.request.choice.count": "1",
+      "gen_ai.operation.name": "chat",
+      "gen_ai.provider.name": "azure.ai",
+      "gen_ai.request.model": "unknown",
+      "gen_ai.response.id": "run_uQQSthERIaMP3uzTRRCrdtre",
+      "gen_ai.response.model": "gpt-4o",
+      "gen_ai.output.messages": "[REDACTED]",
+      "_MS.GenAIContentId": "[REDACTED]",
+      "_MS.ResourceAttributeId": "6a5d16b0-769a-4da4-9a4d-ef09989ce6bb"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:20.755307+00:00",
+    "ItemType": "Dependency",
+    "Name": "create_thread",
+    "ResultCode": "0",
+    "DurationMs": 567,
+    "OperationId": "365237b027108c93eaf3d6d49834db75",
+    "ParentId": "13e2dc7c5dc23533",
+    "Id": "07d1f866108f4f15",
+    "Properties": {
+      "az.namespace": "Microsoft.CognitiveServices",
+      "gen_ai.system": "az.ai.agents",
+      "gen_ai.operation.name": "create_thread",
+      "gen_ai.thread.id": "thread_Q42dDcTGFPvFbKLHrEGUdRgM",
+      "_MS.ResourceAttributeId": "6a5d16b0-769a-4da4-9a4d-ef09989ce6bb"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:20.755413+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "365237b027108c93eaf3d6d49834db75",
+    "ParentId": "07d1f866108f4f15",
+    "Id": "",
+    "Properties": {
+      "gen_ai.system": "az.ai.agents",
+      "gen_ai.event.content": "[REDACTED]",
+      "_MS.ResourceAttributeId": "6a5d16b0-769a-4da4-9a4d-ef09989ce6bb"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:20.756165+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/projects/second-brain/threads",
+    "ResultCode": "200",
+    "DurationMs": 566,
+    "OperationId": "365237b027108c93eaf3d6d49834db75",
+    "ParentId": "07d1f866108f4f15",
+    "Id": "7ca41d5619add3a4",
+    "Properties": {
+      "component": "http",
+      "az.client_request_id": "73c04a52-4bcd-11f1-87ad-6e77c0e7f82e",
+      "_MS.ResourceAttributeId": "6a5d16b0-769a-4da4-9a4d-ef09989ce6bb"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:20.756789+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "365237b027108c93eaf3d6d49834db75",
+    "ParentId": "74883de013767b30",
+    "Id": "c3c2889b11272576",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "6a5d16b0-769a-4da4-9a4d-ef09989ce6bb"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:21.322888+00:00",
+    "ItemType": "Dependency",
+    "Name": "process_thread_run",
+    "ResultCode": "0",
+    "DurationMs": 2028,
+    "OperationId": "365237b027108c93eaf3d6d49834db75",
+    "ParentId": "13e2dc7c5dc23533",
+    "Id": "a8be9c003b945252",
+    "Properties": {
+      "az.namespace": "Microsoft.CognitiveServices",
+      "gen_ai.system": "az.ai.agents",
+      "gen_ai.operation.name": "process_thread_run",
+      "gen_ai.agent.id": "asst_5feSWWTMA8rBSUyQo6aSCsEJ",
+      "gen_ai.thread.run.status": "requires_action",
+      "gen_ai.thread.run.id": "run_uQQSthERIaMP3uzTRRCrdtre",
+      "gen_ai.response.model": "gpt-4o",
+      "_MS.ResourceAttributeId": "6a5d16b0-769a-4da4-9a4d-ef09989ce6bb"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:21.323516+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/projects/second-brain/threads/thread_Q42dDcTGFPvFbKLHrEGUdRgM/runs",
+    "ResultCode": "200",
+    "DurationMs": 594,
+    "OperationId": "365237b027108c93eaf3d6d49834db75",
+    "ParentId": "a8be9c003b945252",
+    "Id": "956089ffed8ed9a1",
+    "Properties": {
+      "component": "http",
+      "az.client_request_id": "7416e8d0-4bcd-11f1-87ad-6e77c0e7f82e",
+      "_MS.ResourceAttributeId": "6a5d16b0-769a-4da4-9a4d-ef09989ce6bb"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:23.339423+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "365237b027108c93eaf3d6d49834db75",
+    "ParentId": "74883de013767b30",
+    "Id": "7094554ed647e5c7",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "6a5d16b0-769a-4da4-9a4d-ef09989ce6bb"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:23.351458+00:00",
+    "ItemType": "Dependency",
+    "Name": "tool_system_health",
+    "ResultCode": "0",
+    "DurationMs": 2509,
+    "OperationId": "365237b027108c93eaf3d6d49834db75",
+    "ParentId": "13e2dc7c5dc23533",
+    "Id": "79e1395fd5cc71af",
+    "Properties": {
+      "tool.name": "system_health",
+      "tool.duration_ms": "2508.9151540305465",
+      "_MS.ResourceAttributeId": "72a0ecf1-12e9-4bf1-9ce3-7ef3ca399f86"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:23.351600+00:00",
+    "ItemType": "Dependency",
+    "Name": "execute_tool system_health",
+    "ResultCode": "0",
+    "DurationMs": 2509,
+    "OperationId": "365237b027108c93eaf3d6d49834db75",
+    "ParentId": "79e1395fd5cc71af",
+    "Id": "3f8aedde19ce8b4d",
+    "Properties": {
+      "gen_ai.tool.call.result": "{\"capture_count\": 16, \"success_rate\": 87.5, \"error_count\": 0, \"avg_duration_ms\": 5628.3125, \"p95_duration_ms\": 9108.0, \"p99_duration_ms\": 9108.0, \"admin_processing_count\": 18, \"prev_capture_count\": 0, \"prev_error_count\": 0}",
+      "agent_framework.function.invocation.duration": "2.5086732549825683",
+      "_MS.GenAIContentId": "[REDACTED]",
+      "_MS.ResourceAttributeId": "72a0ecf1-12e9-4bf1-9ce3-7ef3ca399f86"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:23.351631+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "365237b027108c93eaf3d6d49834db75",
+    "ParentId": "3f8aedde19ce8b4d",
+    "Id": "",
+    "Properties": {
+      "component": "investigation_agent",
+      "code.file.path": "/app/.venv/lib/python3.12/site-packages/second_brain/tools/investigation.py",
+      "code.function.name": "system_health",
+      "code.line.number": "270"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:23.351831+00:00",
+    "ItemType": "Dependency",
+    "Name": "LogsQueryClient.query_workspace",
+    "ResultCode": "0",
+    "DurationMs": 2508,
+    "OperationId": "365237b027108c93eaf3d6d49834db75",
+    "ParentId": "3f8aedde19ce8b4d",
+    "Id": "84a5fb5b7631533f",
+    "Properties": {
+      "_MS.ResourceAttributeId": "72a0ecf1-12e9-4bf1-9ce3-7ef3ca399f86"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:23.352340+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /v1/workspaces/572d91c2-3209-4b92-b431-5ffb7e8ce4ad/query",
+    "ResultCode": "200",
+    "DurationMs": 2507,
+    "OperationId": "365237b027108c93eaf3d6d49834db75",
+    "ParentId": "84a5fb5b7631533f",
+    "Id": "9f3c12a350a4555c",
+    "Properties": {
+      "component": "http",
+      "az.client_request_id": "754c7968-4bcd-11f1-87ad-6e77c0e7f82e",
+      "az.service_request_id": "da946b4c-fcf8-493e-a6cb-e15a8c820e93",
+      "_MS.ResourceAttributeId": "72a0ecf1-12e9-4bf1-9ce3-7ef3ca399f86"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:25.860633+00:00",
+    "ItemType": "Dependency",
+    "Name": "chat unknown",
+    "ResultCode": "0",
+    "DurationMs": 3006,
+    "OperationId": "365237b027108c93eaf3d6d49834db75",
+    "ParentId": "13e2dc7c5dc23533",
+    "Id": "4eead3e06b6587a1",
+    "Properties": {
+      "gen_ai.input.messages": "[REDACTED]",
+      "gen_ai.request.choice.count": "1",
+      "gen_ai.operation.name": "chat",
+      "gen_ai.provider.name": "azure.ai",
+      "gen_ai.request.model": "unknown",
+      "gen_ai.response.id": "run_uQQSthERIaMP3uzTRRCrdtre",
+      "gen_ai.response.model": "gpt-4o",
+      "gen_ai.usage.input_tokens": "7946",
+      "gen_ai.usage.output_tokens": "116",
+      "gen_ai.output.messages": "[REDACTED]",
+      "_MS.GenAIContentId": "[REDACTED]",
+      "_MS.ResourceAttributeId": "72a0ecf1-12e9-4bf1-9ce3-7ef3ca399f86"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:25.860862+00:00",
+    "ItemType": "Dependency",
+    "Name": "RunsOperations.list",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "365237b027108c93eaf3d6d49834db75",
+    "ParentId": "13e2dc7c5dc23533",
+    "Id": "9c2fa0b2f37ebd62",
+    "Properties": {
+      "_MS.ResourceAttributeId": "72a0ecf1-12e9-4bf1-9ce3-7ef3ca399f86"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:25.861338+00:00",
+    "ItemType": "Dependency",
+    "Name": "GET /api/projects/second-brain/threads/thread_Q42dDcTGFPvFbKLHrEGUdRgM/runs",
+    "ResultCode": "200",
+    "DurationMs": 337,
+    "OperationId": "365237b027108c93eaf3d6d49834db75",
+    "ParentId": "13e2dc7c5dc23533",
+    "Id": "b2568a352c41af46",
+    "Properties": {
+      "component": "http",
+      "az.client_request_id": "76cb537c-4bcd-11f1-87ad-6e77c0e7f82e",
+      "_MS.ResourceAttributeId": "72a0ecf1-12e9-4bf1-9ce3-7ef3ca399f86"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:26.200037+00:00",
+    "ItemType": "Dependency",
+    "Name": "submit_tool_outputs",
+    "ResultCode": "0",
+    "DurationMs": 378,
+    "OperationId": "365237b027108c93eaf3d6d49834db75",
+    "ParentId": "13e2dc7c5dc23533",
+    "Id": "13aba6953107991d",
+    "Properties": {
+      "az.namespace": "Microsoft.CognitiveServices",
+      "gen_ai.system": "az.ai.agents",
+      "gen_ai.operation.name": "submit_tool_outputs",
+      "gen_ai.thread.id": "thread_Q42dDcTGFPvFbKLHrEGUdRgM",
+      "gen_ai.thread.run.id": "run_uQQSthERIaMP3uzTRRCrdtre",
+      "_MS.ResourceAttributeId": "72a0ecf1-12e9-4bf1-9ce3-7ef3ca399f86"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:26.200085+00:00",
+    "ItemType": "Trace",
+    "Name": "",
+    "ResultCode": "",
+    "DurationMs": null,
+    "OperationId": "365237b027108c93eaf3d6d49834db75",
+    "ParentId": "13aba6953107991d",
+    "Id": "",
+    "Properties": {
+      "gen_ai.event.content": "[REDACTED]",
+      "_MS.ResourceAttributeId": "72a0ecf1-12e9-4bf1-9ce3-7ef3ca399f86"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:26.200580+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/projects/second-brain/threads/thread_Q42dDcTGFPvFbKLHrEGUdRgM/runs/run_uQQSthERIaMP3uzTRRCrdtre/submit_tool_outputs",
+    "ResultCode": "200",
+    "DurationMs": 377,
+    "OperationId": "365237b027108c93eaf3d6d49834db75",
+    "ParentId": "13aba6953107991d",
+    "Id": "54da46c3e67e8dbf",
+    "Properties": {
+      "component": "http",
+      "az.client_request_id": "76ff16bc-4bcd-11f1-87ad-6e77c0e7f82e",
+      "_MS.ResourceAttributeId": "72a0ecf1-12e9-4bf1-9ce3-7ef3ca399f86"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:27.798128+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "365237b027108c93eaf3d6d49834db75",
+    "ParentId": "74883de013767b30",
+    "Id": "a63fb24fe5a76439",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "72a0ecf1-12e9-4bf1-9ce3-7ef3ca399f86"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:27.804960+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "365237b027108c93eaf3d6d49834db75",
+    "ParentId": "74883de013767b30",
+    "Id": "40a3ff01e296b2cc",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "72a0ecf1-12e9-4bf1-9ce3-7ef3ca399f86"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:27.818331+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "365237b027108c93eaf3d6d49834db75",
+    "ParentId": "74883de013767b30",
+    "Id": "ad79afc4848ce008",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "72a0ecf1-12e9-4bf1-9ce3-7ef3ca399f86"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:27.819412+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "365237b027108c93eaf3d6d49834db75",
+    "ParentId": "74883de013767b30",
+    "Id": "04b7a913a6ee94a4",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "72a0ecf1-12e9-4bf1-9ce3-7ef3ca399f86"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:27.824981+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "365237b027108c93eaf3d6d49834db75",
+    "ParentId": "74883de013767b30",
+    "Id": "940b762332a21030",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "72a0ecf1-12e9-4bf1-9ce3-7ef3ca399f86"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:27.832426+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "365237b027108c93eaf3d6d49834db75",
+    "ParentId": "74883de013767b30",
+    "Id": "e8ae2b17490d3509",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "72a0ecf1-12e9-4bf1-9ce3-7ef3ca399f86"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:27.838606+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "365237b027108c93eaf3d6d49834db75",
+    "ParentId": "74883de013767b30",
+    "Id": "f8de40ef90c4b349",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "72a0ecf1-12e9-4bf1-9ce3-7ef3ca399f86"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:27.845382+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "365237b027108c93eaf3d6d49834db75",
+    "ParentId": "74883de013767b30",
+    "Id": "f257a81ee2a3633c",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "72a0ecf1-12e9-4bf1-9ce3-7ef3ca399f86"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:28.238871+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "365237b027108c93eaf3d6d49834db75",
+    "ParentId": "74883de013767b30",
+    "Id": "788576132cd79dd6",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "72a0ecf1-12e9-4bf1-9ce3-7ef3ca399f86"
+    }
+  },
+  {
+    "TimeGenerated": "2026-05-09 17:35:28.239385+00:00",
+    "ItemType": "Dependency",
+    "Name": "POST /api/investigate http send",
+    "ResultCode": "0",
+    "DurationMs": 0,
+    "OperationId": "365237b027108c93eaf3d6d49834db75",
+    "ParentId": "74883de013767b30",
+    "Id": "82885529fb0fb7d2",
+    "Properties": {
+      "asgi.event.type": "http.response.body",
+      "_MS.ProcessedByMetricExtractors": "True",
+      "_MS.ResourceAttributeId": "72a0ecf1-12e9-4bf1-9ce3-7ef3ca399f86"
+    }
+  }
+]
