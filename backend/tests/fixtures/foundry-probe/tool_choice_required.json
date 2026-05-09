@@ -1,0 +1,66 @@
+{
+  "probe": {
+    "run_id": "568dd62e-7679-4446-b972-c52348a0ecec",
+    "name": "tool_choice_required",
+    "captured_at": "2026-05-09T20:39:43.521080+00:00"
+  },
+  "trials": {
+    "auto": {
+      "raised": false,
+      "response_repr": "<agent_framework._types.AgentResponse object at 0x10c201550>",
+      "fields_seen": [
+        "DEFAULT_EXCLUDE",
+        "INJECTABLE",
+        "additional_properties",
+        "agent_id",
+        "continuation_token",
+        "created_at",
+        "finish_reason",
+        "from_dict",
+        "from_json",
+        "from_update_generator",
+        "from_updates",
+        "messages",
+        "raw_representation",
+        "response_id",
+        "text",
+        "to_dict",
+        "to_json",
+        "usage_details",
+        "user_input_requests",
+        "value"
+      ]
+    },
+    "required": {
+      "raised": false,
+      "response_repr": "<agent_framework._types.AgentResponse object at 0x10c399340>",
+      "fields_seen": [
+        "DEFAULT_EXCLUDE",
+        "INJECTABLE",
+        "additional_properties",
+        "agent_id",
+        "continuation_token",
+        "created_at",
+        "finish_reason",
+        "from_dict",
+        "from_json",
+        "from_update_generator",
+        "from_updates",
+        "messages",
+        "raw_representation",
+        "response_id",
+        "text",
+        "to_dict",
+        "to_json",
+        "usage_details",
+        "user_input_requests",
+        "value"
+      ]
+    },
+    "provider_dict": {
+      "raised": true,
+      "exc_type": "ContentError",
+      "exc_str": "tool_choice dict must contain 'mode' key"
+    }
+  }
+}

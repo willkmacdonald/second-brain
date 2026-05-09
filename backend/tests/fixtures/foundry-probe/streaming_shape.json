@@ -1,0 +1,536 @@
+{
+  "probe": {
+    "run_id": "bd35333d-63ee-42b4-ae3a-abbdbd4a8076",
+    "name": "streaming_shape",
+    "captured_at": "2026-05-09T20:39:19.883613+00:00"
+  },
+  "update_count": 25,
+  "updates": [
+    {
+      "type": "AgentResponseUpdate",
+      "repr": "<agent_framework._types.AgentResponseUpdate object at 0x10986a960>",
+      "fields": {
+        "DEFAULT_EXCLUDE": "{'raw_representation'}",
+        "INJECTABLE": "set()",
+        "additional_properties": "{}",
+        "agent_id": "None",
+        "author_name": "None",
+        "contents": "[]",
+        "continuation_token": "{'response_id': 'resp_0af827d01b3374c80069ff9b760d748190968eed64fdf2568e'}",
+        "created_at": "None",
+        "finish_reason": "None",
+        "message_id": "None",
+        "raw_representation": "<agent_framework._types.ChatResponseUpdate object at 0x110d1e0f0>",
+        "response_id": "'resp_0af827d01b3374c80069ff9b760d748190968eed64fdf2568e'",
+        "role": "'assistant'",
+        "text": "''",
+        "user_input_requests": "[]"
+      }
+    },
+    {
+      "type": "AgentResponseUpdate",
+      "repr": "<agent_framework._types.AgentResponseUpdate object at 0x109baa690>",
+      "fields": {
+        "DEFAULT_EXCLUDE": "{'raw_representation'}",
+        "INJECTABLE": "set()",
+        "additional_properties": "{}",
+        "agent_id": "None",
+        "author_name": "None",
+        "contents": "[]",
+        "continuation_token": "{'response_id': 'resp_0af827d01b3374c80069ff9b760d748190968eed64fdf2568e'}",
+        "created_at": "None",
+        "finish_reason": "None",
+        "message_id": "None",
+        "raw_representation": "<agent_framework._types.ChatResponseUpdate object at 0x110e9e2a0>",
+        "response_id": "'resp_0af827d01b3374c80069ff9b760d748190968eed64fdf2568e'",
+        "role": "'assistant'",
+        "text": "''",
+        "user_input_requests": "[]"
+      }
+    },
+    {
+      "type": "AgentResponseUpdate",
+      "repr": "<agent_framework._types.AgentResponseUpdate object at 0x110e9e060>",
+      "fields": {
+        "DEFAULT_EXCLUDE": "{'raw_representation'}",
+        "INJECTABLE": "set()",
+        "additional_properties": "{}",
+        "agent_id": "None",
+        "author_name": "None",
+        "contents": "[]",
+        "continuation_token": "None",
+        "created_at": "None",
+        "finish_reason": "None",
+        "message_id": "None",
+        "raw_representation": "<agent_framework._types.ChatResponseUpdate object at 0x110e9ec00>",
+        "response_id": "None",
+        "role": "'assistant'",
+        "text": "''",
+        "user_input_requests": "[]"
+      }
+    },
+    {
+      "type": "AgentResponseUpdate",
+      "repr": "<agent_framework._types.AgentResponseUpdate object at 0x110e9e450>",
+      "fields": {
+        "DEFAULT_EXCLUDE": "{'raw_representation'}",
+        "INJECTABLE": "set()",
+        "additional_properties": "{}",
+        "agent_id": "None",
+        "author_name": "None",
+        "contents": "[<agent_framework._types.Content object at 0x110e9deb0>]",
+        "continuation_token": "None",
+        "created_at": "None",
+        "finish_reason": "None",
+        "message_id": "None",
+        "raw_representation": "<agent_framework._types.ChatResponseUpdate object at 0x110e9dee0>",
+        "response_id": "None",
+        "role": "'assistant'",
+        "text": "''",
+        "user_input_requests": "[]"
+      }
+    },
+    {
+      "type": "AgentResponseUpdate",
+      "repr": "<agent_framework._types.AgentResponseUpdate object at 0x110e9e840>",
+      "fields": {
+        "DEFAULT_EXCLUDE": "{'raw_representation'}",
+        "INJECTABLE": "set()",
+        "additional_properties": "{}",
+        "agent_id": "None",
+        "author_name": "None",
+        "contents": "[<agent_framework._types.Content object at 0x110e9e360>]",
+        "continuation_token": "None",
+        "created_at": "None",
+        "finish_reason": "None",
+        "message_id": "None",
+        "raw_representation": "<agent_framework._types.ChatResponseUpdate object at 0x110e9dfd0>",
+        "response_id": "None",
+        "role": "'assistant'",
+        "text": "''",
+        "user_input_requests": "[]"
+      }
+    },
+    {
+      "type": "AgentResponseUpdate",
+      "repr": "<agent_framework._types.AgentResponseUpdate object at 0x110e9f410>",
+      "fields": {
+        "DEFAULT_EXCLUDE": "{'raw_representation'}",
+        "INJECTABLE": "set()",
+        "additional_properties": "{}",
+        "agent_id": "None",
+        "author_name": "None",
+        "contents": "[<agent_framework._types.Content object at 0x110e9e990>]",
+        "continuation_token": "None",
+        "created_at": "None",
+        "finish_reason": "None",
+        "message_id": "None",
+        "raw_representation": "<agent_framework._types.ChatResponseUpdate object at 0x110e9ea50>",
+        "response_id": "None",
+        "role": "'assistant'",
+        "text": "''",
+        "user_input_requests": "[]"
+      }
+    },
+    {
+      "type": "AgentResponseUpdate",
+      "repr": "<agent_framework._types.AgentResponseUpdate object at 0x110e9eff0>",
+      "fields": {
+        "DEFAULT_EXCLUDE": "{'raw_representation'}",
+        "INJECTABLE": "set()",
+        "additional_properties": "{}",
+        "agent_id": "None",
+        "author_name": "None",
+        "contents": "[<agent_framework._types.Content object at 0x110e9f380>]",
+        "continuation_token": "None",
+        "created_at": "None",
+        "finish_reason": "None",
+        "message_id": "None",
+        "raw_representation": "<agent_framework._types.ChatResponseUpdate object at 0x110e9eae0>",
+        "response_id": "None",
+        "role": "'assistant'",
+        "text": "''",
+        "user_input_requests": "[]"
+      }
+    },
+    {
+      "type": "AgentResponseUpdate",
+      "repr": "<agent_framework._types.AgentResponseUpdate object at 0x110e9fc80>",
+      "fields": {
+        "DEFAULT_EXCLUDE": "{'raw_representation'}",
+        "INJECTABLE": "set()",
+        "additional_properties": "{}",
+        "agent_id": "None",
+        "author_name": "None",
+        "contents": "[<agent_framework._types.Content object at 0x110e9f230>]",
+        "continuation_token": "None",
+        "created_at": "None",
+        "finish_reason": "None",
+        "message_id": "None",
+        "raw_representation": "<agent_framework._types.ChatResponseUpdate object at 0x110e9f110>",
+        "response_id": "None",
+        "role": "'assistant'",
+        "text": "''",
+        "user_input_requests": "[]"
+      }
+    },
+    {
+      "type": "AgentResponseUpdate",
+      "repr": "<agent_framework._types.AgentResponseUpdate object at 0x110e9fa70>",
+      "fields": {
+        "DEFAULT_EXCLUDE": "{'raw_representation'}",
+        "INJECTABLE": "set()",
+        "additional_properties": "{}",
+        "agent_id": "None",
+        "author_name": "None",
+        "contents": "[<agent_framework._types.Content object at 0x110e9fa10>]",
+        "continuation_token": "None",
+        "created_at": "None",
+        "finish_reason": "None",
+        "message_id": "None",
+        "raw_representation": "<agent_framework._types.ChatResponseUpdate object at 0x110e9f740>",
+        "response_id": "None",
+        "role": "'assistant'",
+        "text": "''",
+        "user_input_requests": "[]"
+      }
+    },
+    {
+      "type": "AgentResponseUpdate",
+      "repr": "<agent_framework._types.AgentResponseUpdate object at 0x1076b0740>",
+      "fields": {
+        "DEFAULT_EXCLUDE": "{'raw_representation'}",
+        "INJECTABLE": "set()",
+        "additional_properties": "{}",
+        "agent_id": "None",
+        "author_name": "None",
+        "contents": "[]",
+        "continuation_token": "None",
+        "created_at": "None",
+        "finish_reason": "None",
+        "message_id": "None",
+        "raw_representation": "<agent_framework._types.ChatResponseUpdate object at 0x1108eaa80>",
+        "response_id": "None",
+        "role": "'assistant'",
+        "text": "''",
+        "user_input_requests": "[]"
+      }
+    },
+    {
+      "type": "AgentResponseUpdate",
+      "repr": "<agent_framework._types.AgentResponseUpdate object at 0x10776db20>",
+      "fields": {
+        "DEFAULT_EXCLUDE": "{'raw_representation'}",
+        "INJECTABLE": "set()",
+        "additional_properties": "{}",
+        "agent_id": "None",
+        "author_name": "None",
+        "contents": "[]",
+        "continuation_token": "None",
+        "created_at": "None",
+        "finish_reason": "None",
+        "message_id": "None",
+        "raw_representation": "<agent_framework._types.ChatResponseUpdate object at 0x10776d640>",
+        "response_id": "None",
+        "role": "'assistant'",
+        "text": "''",
+        "user_input_requests": "[]"
+      }
+    },
+    {
+      "type": "AgentResponseUpdate",
+      "repr": "<agent_framework._types.AgentResponseUpdate object at 0x10776e390>",
+      "fields": {
+        "DEFAULT_EXCLUDE": "{'raw_representation'}",
+        "INJECTABLE": "set()",
+        "additional_properties": "{}",
+        "agent_id": "None",
+        "author_name": "None",
+        "contents": "[<agent_framework._types.Content object at 0x110b69d00>]",
+        "continuation_token": "None",
+        "created_at": "'2026-05-09T20:39:18.000000Z'",
+        "finish_reason": "None",
+        "message_id": "None",
+        "raw_representation": "<agent_framework._types.ChatResponseUpdate object at 0x10776c620>",
+        "response_id": "'resp_0af827d01b3374c80069ff9b760d748190968eed64fdf2568e'",
+        "role": "'assistant'",
+        "text": "''",
+        "user_input_requests": "[]"
+      }
+    },
+    {
+      "type": "AgentResponseUpdate",
+      "repr": "<agent_framework._types.AgentResponseUpdate object at 0x107727d10>",
+      "fields": {
+        "DEFAULT_EXCLUDE": "{'raw_representation'}",
+        "INJECTABLE": "set()",
+        "additional_properties": "None",
+        "agent_id": "None",
+        "author_name": "None",
+        "contents": "[<agent_framework._types.Content object at 0x107725190>]",
+        "continuation_token": "None",
+        "created_at": "None",
+        "finish_reason": "None",
+        "message_id": "None",
+        "raw_representation": "<agent_framework._types.ChatResponseUpdate object at 0x110f0c500>",
+        "response_id": "None",
+        "role": "'tool'",
+        "text": "''",
+        "user_input_requests": "[]"
+      }
+    },
+    {
+      "type": "AgentResponseUpdate",
+      "repr": "<agent_framework._types.AgentResponseUpdate object at 0x110e9d520>",
+      "fields": {
+        "DEFAULT_EXCLUDE": "{'raw_representation'}",
+        "INJECTABLE": "set()",
+        "additional_properties": "{}",
+        "agent_id": "None",
+        "author_name": "None",
+        "contents": "[]",
+        "continuation_token": "{'response_id': 'resp_0af827d01b3374c80069ff9b7727348190bd415ea132db3f39'}",
+        "created_at": "None",
+        "finish_reason": "None",
+        "message_id": "None",
+        "raw_representation": "<agent_framework._types.ChatResponseUpdate object at 0x110fbf680>",
+        "response_id": "'resp_0af827d01b3374c80069ff9b7727348190bd415ea132db3f39'",
+        "role": "'assistant'",
+        "text": "''",
+        "user_input_requests": "[]"
+      }
+    },
+    {
+      "type": "AgentResponseUpdate",
+      "repr": "<agent_framework._types.AgentResponseUpdate object at 0x110fbf800>",
+      "fields": {
+        "DEFAULT_EXCLUDE": "{'raw_representation'}",
+        "INJECTABLE": "set()",
+        "additional_properties": "{}",
+        "agent_id": "None",
+        "author_name": "None",
+        "contents": "[]",
+        "continuation_token": "{'response_id': 'resp_0af827d01b3374c80069ff9b7727348190bd415ea132db3f39'}",
+        "created_at": "None",
+        "finish_reason": "None",
+        "message_id": "None",
+        "raw_representation": "<agent_framework._types.ChatResponseUpdate object at 0x110fbf5f0>",
+        "response_id": "'resp_0af827d01b3374c80069ff9b7727348190bd415ea132db3f39'",
+        "role": "'assistant'",
+        "text": "''",
+        "user_input_requests": "[]"
+      }
+    },
+    {
+      "type": "AgentResponseUpdate",
+      "repr": "<agent_framework._types.AgentResponseUpdate object at 0x110fbf3b0>",
+      "fields": {
+        "DEFAULT_EXCLUDE": "{'raw_representation'}",
+        "INJECTABLE": "set()",
+        "additional_properties": "{}",
+        "agent_id": "None",
+        "author_name": "None",
+        "contents": "[]",
+        "continuation_token": "None",
+        "created_at": "None",
+        "finish_reason": "None",
+        "message_id": "None",
+        "raw_representation": "<agent_framework._types.ChatResponseUpdate object at 0x110fbfdd0>",
+        "response_id": "None",
+        "role": "'assistant'",
+        "text": "''",
+        "user_input_requests": "[]"
+      }
+    },
+    {
+      "type": "AgentResponseUpdate",
+      "repr": "<agent_framework._types.AgentResponseUpdate object at 0x110fbfa70>",
+      "fields": {
+        "DEFAULT_EXCLUDE": "{'raw_representation'}",
+        "INJECTABLE": "set()",
+        "additional_properties": "{}",
+        "agent_id": "None",
+        "author_name": "None",
+        "contents": "[<agent_framework._types.Content object at 0x110fbf1d0>]",
+        "continuation_token": "None",
+        "created_at": "None",
+        "finish_reason": "None",
+        "message_id": "None",
+        "raw_representation": "<agent_framework._types.ChatResponseUpdate object at 0x110fbf200>",
+        "response_id": "None",
+        "role": "'assistant'",
+        "text": "''",
+        "user_input_requests": "[]"
+      }
+    },
+    {
+      "type": "AgentResponseUpdate",
+      "repr": "<agent_framework._types.AgentResponseUpdate object at 0x110fbfe60>",
+      "fields": {
+        "DEFAULT_EXCLUDE": "{'raw_representation'}",
+        "INJECTABLE": "set()",
+        "additional_properties": "{}",
+        "agent_id": "None",
+        "author_name": "None",
+        "contents": "[<agent_framework._types.Content object at 0x110fbf320>]",
+        "continuation_token": "None",
+        "created_at": "None",
+        "finish_reason": "None",
+        "message_id": "None",
+        "raw_representation": "<agent_framework._types.ChatResponseUpdate object at 0x110fbf950>",
+        "response_id": "None",
+        "role": "'assistant'",
+        "text": "'echo'",
+        "user_input_requests": "[]"
+      }
+    },
+    {
+      "type": "AgentResponseUpdate",
+      "repr": "<agent_framework._types.AgentResponseUpdate object at 0x110fbff80>",
+      "fields": {
+        "DEFAULT_EXCLUDE": "{'raw_representation'}",
+        "INJECTABLE": "set()",
+        "additional_properties": "{}",
+        "agent_id": "None",
+        "author_name": "None",
+        "contents": "[<agent_framework._types.Content object at 0x110fbff20>]",
+        "continuation_token": "None",
+        "created_at": "None",
+        "finish_reason": "None",
+        "message_id": "None",
+        "raw_representation": "<agent_framework._types.ChatResponseUpdate object at 0x110fbfa10>",
+        "response_id": "None",
+        "role": "'assistant'",
+        "text": "':'",
+        "user_input_requests": "[]"
+      }
+    },
+    {
+      "type": "AgentResponseUpdate",
+      "repr": "<agent_framework._types.AgentResponseUpdate object at 0x110fbfec0>",
+      "fields": {
+        "DEFAULT_EXCLUDE": "{'raw_representation'}",
+        "INJECTABLE": "set()",
+        "additional_properties": "{}",
+        "agent_id": "None",
+        "author_name": "None",
+        "contents": "[<agent_framework._types.Content object at 0x110fc0230>]",
+        "continuation_token": "None",
+        "created_at": "None",
+        "finish_reason": "None",
+        "message_id": "None",
+        "raw_representation": "<agent_framework._types.ChatResponseUpdate object at 0x110fc0200>",
+        "response_id": "None",
+        "role": "'assistant'",
+        "text": "' probe'",
+        "user_input_requests": "[]"
+      }
+    },
+    {
+      "type": "AgentResponseUpdate",
+      "repr": "<agent_framework._types.AgentResponseUpdate object at 0x110fc0680>",
+      "fields": {
+        "DEFAULT_EXCLUDE": "{'raw_representation'}",
+        "INJECTABLE": "set()",
+        "additional_properties": "{}",
+        "agent_id": "None",
+        "author_name": "None",
+        "contents": "[<agent_framework._types.Content object at 0x110fc04a0>]",
+        "continuation_token": "None",
+        "created_at": "None",
+        "finish_reason": "None",
+        "message_id": "None",
+        "raw_representation": "<agent_framework._types.ChatResponseUpdate object at 0x110fc01a0>",
+        "response_id": "None",
+        "role": "'assistant'",
+        "text": "' one'",
+        "user_input_requests": "[]"
+      }
+    },
+    {
+      "type": "AgentResponseUpdate",
+      "repr": "<agent_framework._types.AgentResponseUpdate object at 0x110fc0950>",
+      "fields": {
+        "DEFAULT_EXCLUDE": "{'raw_representation'}",
+        "INJECTABLE": "set()",
+        "additional_properties": "{}",
+        "agent_id": "None",
+        "author_name": "None",
+        "contents": "[]",
+        "continuation_token": "None",
+        "created_at": "None",
+        "finish_reason": "None",
+        "message_id": "None",
+        "raw_representation": "<agent_framework._types.ChatResponseUpdate object at 0x110fc0740>",
+        "response_id": "None",
+        "role": "'assistant'",
+        "text": "''",
+        "user_input_requests": "[]"
+      }
+    },
+    {
+      "type": "AgentResponseUpdate",
+      "repr": "<agent_framework._types.AgentResponseUpdate object at 0x110fc0bf0>",
+      "fields": {
+        "DEFAULT_EXCLUDE": "{'raw_representation'}",
+        "INJECTABLE": "set()",
+        "additional_properties": "{}",
+        "agent_id": "None",
+        "author_name": "None",
+        "contents": "[]",
+        "continuation_token": "None",
+        "created_at": "None",
+        "finish_reason": "None",
+        "message_id": "None",
+        "raw_representation": "<agent_framework._types.ChatResponseUpdate object at 0x110fc0a10>",
+        "response_id": "None",
+        "role": "'assistant'",
+        "text": "''",
+        "user_input_requests": "[]"
+      }
+    },
+    {
+      "type": "AgentResponseUpdate",
+      "repr": "<agent_framework._types.AgentResponseUpdate object at 0x110fc0ec0>",
+      "fields": {
+        "DEFAULT_EXCLUDE": "{'raw_representation'}",
+        "INJECTABLE": "set()",
+        "additional_properties": "{}",
+        "agent_id": "None",
+        "author_name": "None",
+        "contents": "[]",
+        "continuation_token": "None",
+        "created_at": "None",
+        "finish_reason": "None",
+        "message_id": "None",
+        "raw_representation": "<agent_framework._types.ChatResponseUpdate object at 0x110fc09b0>",
+        "response_id": "None",
+        "role": "'assistant'",
+        "text": "''",
+        "user_input_requests": "[]"
+      }
+    },
+    {
+      "type": "AgentResponseUpdate",
+      "repr": "<agent_framework._types.AgentResponseUpdate object at 0x110fc1250>",
+      "fields": {
+        "DEFAULT_EXCLUDE": "{'raw_representation'}",
+        "INJECTABLE": "set()",
+        "additional_properties": "{}",
+        "agent_id": "None",
+        "author_name": "None",
+        "contents": "[<agent_framework._types.Content object at 0x110fc0c50>]",
+        "continuation_token": "None",
+        "created_at": "'2026-05-09T20:39:19.000000Z'",
+        "finish_reason": "None",
+        "message_id": "None",
+        "raw_representation": "<agent_framework._types.ChatResponseUpdate object at 0x110fc1040>",
+        "response_id": "'resp_0af827d01b3374c80069ff9b7727348190bd415ea132db3f39'",
+        "role": "'assistant'",
+        "text": "''",
+        "user_input_requests": "[]"
+      }
+    }
+  ],
+  "thread_deleted_after_run": false
+}

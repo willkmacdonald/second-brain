@@ -1,0 +1,60 @@
+{
+  "probe": {
+    "run_id": "95b75e31-6a6a-4d37-9713-bfa80494db27",
+    "name": "session_rehydration",
+    "captured_at": "2026-05-09T20:39:55.801684+00:00"
+  },
+  "turn_one_updates": [
+    "<agent_framework._types.AgentResponseUpdate object at 0x10db790d0>",
+    "<agent_framework._types.AgentResponseUpdate object at 0x10db56480>",
+    "<agent_framework._types.AgentResponseUpdate object at 0x10dda8dd0>",
+    "<agent_framework._types.AgentResponseUpdate object at 0x10ef7a9c0>",
+    "<agent_framework._types.AgentResponseUpdate object at 0x10b845ca0>",
+    "<agent_framework._types.AgentResponseUpdate object at 0x10b7349e0>",
+    "<agent_framework._types.AgentResponseUpdate object at 0x10ba8d340>",
+    "<agent_framework._types.AgentResponseUpdate object at 0x10ba8c9b0>",
+    "<agent_framework._types.AgentResponseUpdate object at 0x1152dcbc0>",
+    "<agent_framework._types.AgentResponseUpdate object at 0x1152dd970>",
+    "<agent_framework._types.AgentResponseUpdate object at 0x1152dd880>",
+    "<agent_framework._types.AgentResponseUpdate object at 0x1152dd790>",
+    "<agent_framework._types.AgentResponseUpdate object at 0x1152dd910>",
+    "<agent_framework._types.AgentResponseUpdate object at 0x1152dd820>",
+    "<agent_framework._types.AgentResponseUpdate object at 0x1152dcb00>",
+    "<agent_framework._types.AgentResponseUpdate object at 0x10ba46330>",
+    "<agent_framework._types.AgentResponseUpdate object at 0x10ba47a40>",
+    "<agent_framework._types.AgentResponseUpdate object at 0x10ba47290>",
+    "<agent_framework._types.AgentResponseUpdate object at 0x115071880>"
+  ],
+  "thread_identifier_shape": {
+    "type": "AgentSession",
+    "fields": {
+      "service_session_id": "'resp_0ce967302287c9f80069ff9b987a48819780c4790e30d192c6'",
+      "session_id": "'5b1aec77-b9ab-445d-964e-ee9629fbe2a1'",
+      "state": "{}"
+    }
+  },
+  "turn_two_updates": [
+    "<agent_framework._types.AgentResponseUpdate object at 0x10dda96a0>",
+    "<agent_framework._types.AgentResponseUpdate object at 0x1152974d0>",
+    "<agent_framework._types.AgentResponseUpdate object at 0x1150177a0>",
+    "<agent_framework._types.AgentResponseUpdate object at 0x1152df3e0>",
+    "<agent_framework._types.AgentResponseUpdate object at 0x1152dfb90>",
+    "<agent_framework._types.AgentResponseUpdate object at 0x1152df740>",
+    "<agent_framework._types.AgentResponseUpdate object at 0x1152dfec0>",
+    "<agent_framework._types.AgentResponseUpdate object at 0x1152de150>",
+    "<agent_framework._types.AgentResponseUpdate object at 0x1152deff0>",
+    "<agent_framework._types.AgentResponseUpdate object at 0x1152ddd90>",
+    "<agent_framework._types.AgentResponseUpdate object at 0x1152ddc70>",
+    "<agent_framework._types.AgentResponseUpdate object at 0x1152dfb00>",
+    "<agent_framework._types.AgentResponseUpdate object at 0x1152de2a0>",
+    "<agent_framework._types.AgentResponseUpdate object at 0x1152de240>",
+    "<agent_framework._types.AgentResponseUpdate object at 0x1152df1a0>",
+    "<agent_framework._types.AgentResponseUpdate object at 0x1152dfa70>",
+    "<agent_framework._types.AgentResponseUpdate object at 0x1152dddf0>",
+    "<agent_framework._types.AgentResponseUpdate object at 0x1152de0f0>",
+    "<agent_framework._types.AgentResponseUpdate object at 0x1152ddac0>",
+    "<agent_framework._types.AgentResponseUpdate object at 0x1152deab0>",
+    "<agent_framework._types.AgentResponseUpdate object at 0x1152de000>"
+  ],
+  "thread_deleted_after_run": false
+}

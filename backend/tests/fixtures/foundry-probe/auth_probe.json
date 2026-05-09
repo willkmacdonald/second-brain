@@ -1,0 +1,25 @@
+{
+  "probe": {
+    "run_id": "452538d7-7cb4-439e-99a0-53c87b7c20a6",
+    "name": "auth_probe",
+    "captured_at": "2026-05-09T20:40:12.791671+00:00"
+  },
+  "credential_class": "AzureCliCredential",
+  "deployed_credential_class_note": "Container Apps uses ManagedIdentityCredential \u2014 this probe does NOT exercise that path. Verified post-deploy in Phase 24 day-after UAT.",
+  "token_acquisition": {
+    "scope": "https://cognitiveservices.azure.com/.default",
+    "acquired": true,
+    "expires_on": 1778364241,
+    "token_length": 2115
+  },
+  "rbac": {
+    "user_id": "1ff5eea4-5056-4868-b3bb-339ba87f9e2e",
+    "endpoint": "https://second-brain-foundry-resource.services.ai.azure.com/api/projects/second-brain",
+    "role_assignments_raw": "[\n  {\n    \"condition\": null,\n    \"conditionVersion\": null,\n    \"createdBy\": \"\",\n    \"createdOn\": \"2025-11-14T06:17:52.430685+00:00\",\n    \"delegatedManagedIdentityResourceId\": null,\n    \"description\": null,\n    \"id\": \"/subscriptions/24ee21b9-2893-4e4d-bd85-5d3be76470cd/providers/Microsoft.Authorization/roleAssignments/1f2f71da-5526-493d-807f-87c95a348419\",\n    \"name\": \"1f2f71da-5526-493d-807f-87c95a348419\",\n    \"principalId\": \"1ff5eea4-5056-4868-b3bb-339ba87f9e2e\",\n    \"principalName\": \"will@willmacdonald.com\",\n    \"principalType\": \"User\",\n    \"roleDefinitionId\": \"/subscriptions/24ee21b9-2893-4e4d-bd85-5d3be76470cd/providers/Microsoft.Authorization/roleDefinitions/8e3af657-a8ff-443c-a75c-2fe8c4bcb635\",\n    \"roleDefinitionName\": \"Owner\",\n    \"scope\": \"/subscriptions/24ee21b9-2893-4e4d-bd85-5d3be76470cd\",\n    \"type\": \"Microsoft.Authorization/roleAssignments\",\n    \"updatedBy\": \"\",\n    \"updatedOn\": \"2025-11-14T06:17:52.430685+00:00\"\n  },\n  {\n    \"condition\": null,\n    \"conditionVersion\": null,\n    \"createdBy\": \"1ff5eea4-5056-4868-b3bb-339ba87f9e2e\",\n    \"createdOn\": \"2025-11-18T06:41:15.226732+00:00\",\n    \"delegatedManagedIdentityResourceId\": null,\n    \"description\": null,\n    \"id\": \"/subscriptions/24ee21b9-2893-4e4d-bd85-5d3be76470cd/providers/Microsoft.Authorization/roleAssignments/de64b384-3ffe-4356-a165-3489a6420e83\",\n    \"name\": \"de64b384-3ffe-4356-a165-3489a6420e83\",\n    \"principalId\": \"1ff5eea4-5056-4868-b3bb-339ba87f9e2e\",\n    \"principalName\": \"will@willmacdonald.com\",\n    \"principalType\": \"User\",\n    \"roleDefinitionId\": \"/subscriptions/24ee21b9-2893-4e4d-bd85-5d3be76470cd/providers/Microsoft.Authorization/roleDefinitions/53ca6127-db72-4b80-b1b0-d745d6d5456d\",\n    \"roleDefinitionName\": \"Azure AI User\",\n    \"scope\": \"/subscriptions/24ee21b9-2893-4e4d-bd85-5d3be76470cd\",\n    \"type\": \"Microsoft.Authorization/roleAssignments\",\n    \"updatedBy\": \"1ff5eea4-5056-4868-b3bb-339ba87f9e2e\",\n    \"updatedOn\": \"2025-11-18T06:41:15.226732+00:00\"\n  }\n]\n"
+  },
+  "invocation": {
+    "succeeded": true,
+    "response_type": "AgentResponse",
+    "response_repr": "<agent_framework._types.AgentResponse object at 0x10bd99040>"
+  }
+}

@@ -1,0 +1,77 @@
+{
+  "probe": {
+    "run_id": "011c1b25-a62c-4a7d-b862-f83fe4336fd6",
+    "name": "tool_call_extraction",
+    "captured_at": "2026-05-09T20:39:30.347716+00:00"
+  },
+  "response_type": "AgentResponse",
+  "response_repr": "<agent_framework._types.AgentResponse object at 0x10bb55280>",
+  "response_fields": {
+    "DEFAULT_EXCLUDE": "{'raw_representation'}",
+    "INJECTABLE": "set()",
+    "additional_properties": "{}",
+    "agent_id": "None",
+    "continuation_token": "None",
+    "created_at": "'2026-05-09T20:39:29.000000Z'",
+    "finish_reason": "None",
+    "messages": "[<agent_framework._types.Message object at 0x10bf41100>, <agent_framework._types.Message object at 0x10baeec90>, <agent_framework._types.Message object at 0x1131b9d30>]",
+    "raw_representation": "<agent_framework._types.ChatResponse object at 0x10ce6b680>",
+    "response_id": "'resp_0b3b1018be3e89090069ff9b81a18c8197b36b68046d975061'",
+    "text": "'echo: probe two'",
+    "usage_details": "{'total_token_count': 228, 'output_token_count': 22, 'input_token_count': 206}",
+    "user_input_requests": "[]",
+    "value": "None"
+  },
+  "top_level_tool_calls": false,
+  "messages_present": true,
+  "messages_walk": [
+    {
+      "index": 0,
+      "type": "Message",
+      "repr": "<agent_framework._types.Message object at 0x10bf41100>",
+      "fields": {
+        "DEFAULT_EXCLUDE": "{'raw_representation'}",
+        "INJECTABLE": "set()",
+        "additional_properties": "{}",
+        "author_name": "'UnnamedAgent'",
+        "contents": "[<agent_framework._types.Content object at 0x10bb21250>]",
+        "message_id": "None",
+        "raw_representation": "None",
+        "role": "'assistant'",
+        "text": "''"
+      }
+    },
+    {
+      "index": 1,
+      "type": "Message",
+      "repr": "<agent_framework._types.Message object at 0x10baeec90>",
+      "fields": {
+        "DEFAULT_EXCLUDE": "{'raw_representation'}",
+        "INJECTABLE": "set()",
+        "additional_properties": "{}",
+        "author_name": "'UnnamedAgent'",
+        "contents": "[<agent_framework._types.Content object at 0x10bcc1250>]",
+        "message_id": "None",
+        "raw_representation": "None",
+        "role": "'tool'",
+        "text": "''"
+      }
+    },
+    {
+      "index": 2,
+      "type": "Message",
+      "repr": "<agent_framework._types.Message object at 0x1131b9d30>",
+      "fields": {
+        "DEFAULT_EXCLUDE": "{'raw_representation'}",
+        "INJECTABLE": "set()",
+        "additional_properties": "{}",
+        "author_name": "'UnnamedAgent'",
+        "contents": "[<agent_framework._types.Content object at 0x1131f2630>]",
+        "message_id": "None",
+        "raw_representation": "None",
+        "role": "'assistant'",
+        "text": "'echo: probe two'"
+      }
+    }
+  ]
+}
