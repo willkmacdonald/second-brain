@@ -1,69 +1,43 @@
-"""Investigation agent registration for Foundry Agent Service.
+"""Investigation agent factory.
 
-This module provides:
-- ensure_investigation_agent(): Self-healing agent registration at startup
-
-Agent instructions live in the AI Foundry portal -- editable without
-redeployment. No local copy is kept in the repo.
+GA pattern (Phase 24 task group 23.1): instructions live in repo (D-02),
+Agent constructed at lifespan startup with bound tool methods and capture-trace
+middleware. Replaces the RC portal-shell ensure_*_agent creation pattern (F-19).
 """
 
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from collections.abc import Sequence
+from pathlib import Path
+from typing import Any
 
-if TYPE_CHECKING:
-    from agent_framework.azure import AzureAIAgentClient
+from agent_framework import Agent
+from agent_framework_foundry import FoundryChatClient
 
 logger = logging.getLogger(__name__)
 
+INSTRUCTIONS_DIR = Path(__file__).parent / "instructions"
 
-async def ensure_investigation_agent(
-    foundry_client: AzureAIAgentClient,
-    stored_agent_id: str,
-) -> str:
-    """Ensure the Investigation agent exists in Foundry.
 
-    Self-healing: if the stored agent ID is valid, returns it. If missing
-    or invalid, creates a new agent and returns the new ID.
+def load_instructions(name: str) -> str:
+    """Read agents/instructions/{name}.md and return its contents.
 
-    Investigation Agent registration is non-fatal -- if it fails, the app
-    still starts (investigation is not required for core capture flow).
-    The caller should catch exceptions.
-
-    Args:
-        foundry_client: Initialized AzureAIAgentClient instance.
-        stored_agent_id: Agent ID from AZURE_AI_INVESTIGATION_AGENT_ID
-            env var.
-
-    Returns:
-        The validated or newly created agent ID.
+    Raises FileNotFoundError if the file is missing — fail fast at startup.
     """
-    if stored_agent_id:
-        try:
-            agent_info = await foundry_client.agents_client.get_agent(stored_agent_id)
-            logger.info(
-                "Investigation agent loaded: id=%s name=%s",
-                agent_info.id,
-                agent_info.name,
-            )
-            return stored_agent_id
-        except Exception:
-            logger.warning(
-                "Stored Investigation agent ID %s not found in "
-                "Foundry, creating new agent",
-                stored_agent_id,
-            )
+    return (INSTRUCTIONS_DIR / f"{name}.md").read_text(encoding="utf-8")
 
-    # Create agent shell -- instructions managed in AI Foundry portal
-    new_agent = await foundry_client.agents_client.create_agent(
-        model="gpt-4o",
-        name="InvestigationAgent",
+
+def build_investigation_agent(
+    chat_client: FoundryChatClient,
+    tools: Sequence[Any],
+    middleware: Sequence[Any],
+) -> Agent:
+    """Construct the Investigation Agent."""
+    instructions = load_instructions("investigation")
+    return Agent(
+        client=chat_client,
+        instructions=instructions,
+        tools=list(tools),
+        middleware=list(middleware),
     )
-    logger.info(
-        "NEW Investigation agent: id=%s -- "
-        "SET INSTRUCTIONS IN AI FOUNDRY PORTAL and "
-        "UPDATE AZURE_AI_INVESTIGATION_AGENT_ID in env",
-        new_agent.id,
-    )
-    return new_agent.id
