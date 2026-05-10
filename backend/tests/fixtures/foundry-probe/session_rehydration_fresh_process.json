@@ -1,0 +1,22 @@
+{
+  "probe": {
+    "run_id": "92101455-d7c0-40e1-afa2-13bfb9701635",
+    "name": "session_rehydration_fresh_process",
+    "captured_at": "2026-05-10T18:54:40.043032+00:00"
+  },
+  "phase_a_exit_code": 0,
+  "phase_a_stdout_tail": "",
+  "phase_a_stderr_tail": "<frozen abc>:106: ExperimentalWarning: [HARNESS] MemoryStore is experimental and may change or be removed in future versions without notice.\n<frozen abc>:106: ExperimentalWarning: [SKILLS] SkillResource is experimental and may change or be removed in future versions without notice.\nExporter is missing a valid region.\nExporter is missing a valid region.\nExporter is missing a valid region.\nGenAI tracing is not enabled. Set environment variable AZURE_EXPERIMENTAL_ENABLE_GENAI_TRACING=true to enable this experimental feature.\n[probe] running session_rehydration_fresh_process_phase_a ...\n[probe] phase_a wrote state_file=/var/folders/zf/rcq9c9jx42l97zd9fgs115400000gn/T/foundry-probe-fresh-92101455-d7c0-40e1-afa2-13bfb9701635.json session_id=49b9fd33-0374-4023-b847-77d3843d8dda\n[probe] session_rehydration_fresh_process_phase_a -> /var/folders/zf/rcq9c9jx42l97zd9fgs115400000gn/T/foundry-probe-fresh-92101455-d7c0-40e1-afa2-13bfb9701635.json\n",
+  "phase_a_run_id": "c42749e6-e589-4120-ae0a-1ec8d8080a54",
+  "phase_b_exit_code": 0,
+  "phase_b_stdout_tail": "",
+  "phase_b_stderr_tail": "<frozen abc>:106: ExperimentalWarning: [HARNESS] MemoryStore is experimental and may change or be removed in future versions without notice.\n<frozen abc>:106: ExperimentalWarning: [SKILLS] SkillResource is experimental and may change or be removed in future versions without notice.\nExporter is missing a valid region.\nExporter is missing a valid region.\nExporter is missing a valid region.\nGenAI tracing is not enabled. Set environment variable AZURE_EXPERIMENTAL_ENABLE_GENAI_TRACING=true to enable this experimental feature.\n[probe] running session_rehydration_fresh_process_phase_b ...\n[probe] phase_b wrote turn_two_text length=83 to state_file=/var/folders/zf/rcq9c9jx42l97zd9fgs115400000gn/T/foundry-probe-fresh-92101455-d7c0-40e1-afa2-13bfb9701635.json\n[probe] session_rehydration_fresh_process_phase_b -> /var/folders/zf/rcq9c9jx42l97zd9fgs115400000gn/T/foundry-probe-fresh-92101455-d7c0-40e1-afa2-13bfb9701635.json\n",
+  "phase_b_run_id": "60c07d6f-9b65-43af-8fb4-7a41fdc9c3d7",
+  "magic_word": "PINEAPPLE",
+  "persisted_session_id": "49b9fd33-0374-4023-b847-77d3843d8dda",
+  "service_session_id": "resp_022e8e665ae0996b006a00d469ee508197bebefc028fbd9cdf",
+  "phase_b_service_session_id": "resp_07284da6abed8769006a00d46d7e488193a03f821f080923a9",
+  "turn_two_text": "I don't have a record of a magic word from you yet. Could you remind me what it is?",
+  "turn_two_response_repr": "<agent_framework._types.AgentResponse object at 0x10d75ba40>",
+  "recalled_pineapple": false
+}
