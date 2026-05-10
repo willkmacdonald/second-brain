@@ -2,7 +2,7 @@ Phase 24 Foundry GA Migration in progress.
 
 This sentinel blocks `git push origin main` via .git/hooks/pre-push.
 
-Removal trigger: end of Phase 24 task group 23.3 final unguard plan (24-23-PLAN.md),
+Removal trigger: end of Phase 24 task group 23.3 final unguard plan (24-22-PLAN.md),
 AFTER all pre-deploy gates pass and immediately BEFORE the deploy push.
 
 Removal command: `rm .planning/phases/24-foundry-ga-migration/PUSH-GUARD-ACTIVE`
