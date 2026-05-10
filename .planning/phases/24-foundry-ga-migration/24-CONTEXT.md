@@ -116,11 +116,11 @@ None — `gsd-sdk query todo.match-phase 24` returned 0 matches.
 - **`backend/src/second_brain/observability/queries.py`** — Only `fetch_agent_runs` requires update (KQL `AGENT_RUNS` template Name filter + property projection check). All other functions filter by HTTP route names, severity, or `Properties.component` — unaffected.
 - **`backend/src/second_brain/api/capture.py:228`** — Direct `set_attribute("capture.trace_id", ...)` on the active AppRequests span stays. Per D-07a layered strategy, this is the FastAPI request-span tagging that agent middleware does NOT reach.
 - **`backend/src/second_brain/eval/runner.py:133-149` and `:278-294`** — RC-shaped call sites that the `EvalAgentInvoker` facade replaces. Facade introduced in 23.2 (when Admin migrates), RC implementation deleted in 23.3 (when Classifier migrates and no caller remains).
-- **`backend/src/second_brain/agents/middleware.py`** — RC `AuditAgentMiddleware` + `ToolTimingMiddleware` deleted (F-17). Replaced by GA `AgentMiddleware` + `FunctionMiddleware` in `agents/middleware/capture_trace.py` (NEW path).
+- **`backend/src/second_brain/agents/middleware.py`** — RC `AuditAgentMiddleware` + `ToolTimingMiddleware` deleted (F-17). Replaced by GA `AgentMiddleware` + `FunctionMiddleware` in `agents/agent_middleware/capture_trace.py` (NEW path — see resolution_notes P1-3).
 
 ### Things NOT to touch (out of scope)
 - `api/` route shapes and SSE wire contract (per design §"Out of scope")
-- `models/documents.py` Cosmos schemas — except: `Inbox.foundryThreadId` field renamed to (or repurposed as) `sessionId` per D-07b probe finding. Keep the rename atomic in 23.3 with a one-shot Cosmos backfill script if any in-flight follow-ups exist.
+- `models/documents.py` Cosmos schemas — except: `Inbox.foundryThreadId` field RENAMED-VIA-ADDITION to `sessionId` per D-07b probe finding + P0-2 amendment. Both fields coexist during the migration window; cleanup in 24-24 post-UAT.
 - `cosmos/` manager
 - `auth/` middleware  
 - `mobile/`, `web/`, `mcp/` — no client-side change
@@ -155,7 +155,49 @@ None — `gsd-sdk query todo.match-phase 24` returned 0 matches.
 
 </deferred>
 
+<resolution_notes>
+## Defect Resolution Notes (added 2026-05-10)
+
+Pre-execution review of plans 24-{01..23}-PLAN.md surfaced 8 defects (P0×2, P1×5, P2×1) captured in `.planning/phases/24-foundry-ga-migration/24-PLAN-DEFECTS.md`. All eight have been amended into the affected plans + new plans inserted + red tests landed. Net plan count: 23 → 27 (added 24-06.5, 24-13.5, 24-19.5, 24-24).
+
+The locked decisions D-01..D-14 in this CONTEXT are unchanged. The amendments only refine implementation details that did not survive contact with deeper review.
+
+| Defect | Resolution summary |
+|---|---|
+| P0-1 (session rehydration unproven) | NEW plan 24-06.5 extends foundry_probe with fresh-process session test; red test `tests/test_session_rehydration_fresh_process.py` gates 24-07/24-16/24-17; live probe runs against deployed RC, captures fixture `session_rehydration_fresh_process.json`; checkpoint blocks if `recalled_pineapple==false` |
+| P0-2 (backfill deletes RC field pre-deploy) | Three-phase migration: (1) backfill ADDITIVE only — copies foundryThreadId→sessionId, keeps both (24-15 helper, 24-17 model addition, 24-17 backfill script); (2) GA code dual-reads via `cosmos/inbox_session_resolver.resolve_inbox_session_id()` (24-15 helper, 24-16 wires it, 24-20 Gate 9 verifies additive); (3) post-UAT cleanup deletes foundryThreadId in NEW plan 24-24 |
+| P1-3 (middleware package shadows legacy module) | Package renamed to `agents/agent_middleware/` per operator decision (24-03); all callers use new path (24-04, 24-09, 24-14); legacy module unshadowed; red test `tests/test_legacy_middleware_imports_survive.py`; legacy file deleted in 24-18 with red test updated |
+| P1-4 (RC dep removed before RC imports gone) | Plan 24-02 amended to ADD GA deps without removing RC; both packages installed mid-migration; NEW plan 24-19.5 removes RC dep + regenerates uv.lock after 24-19 cleared the last RC import; red test `tests/test_no_rc_imports_after_cleanup.py` |
+| P1-5 (credential class disagreement) | Locked to sync `azure.identity.ManagedIdentityCredential` per CONFIG-DELTAS verbatim (operator decision); 24-04 imports the sync variant, 24-09 / 24-14 verify invariant, 24-20 Gate 4 uses sync credential; red test `tests/test_foundry_credential_shape.py` AST-scans main.py |
+| P1-6 (probe replay unstable + /tmp redirect bug) | NEW helper `backend/scripts/foundry_probe_compare.py` with normalize_fixture() volatile-field scrubbing; 24-20 Gate 4 rewritten to use normalize-and-diff + invariant assertions; red tests `tests/test_probe_replay_invariants.py` + `tests/test_probe_replay_normalized_diff.py` |
+| P1-7 (admin baseline empty) | Operator-locked decision: option (a) seed admin golden cases (≥10) and re-baseline. NEW plan 24-13.5 ships seed script `backend/scripts/seed_admin_golden_dataset.py` + cases manifest `backend/scripts/admin_golden_seed/cases.yaml` (operator curates real production captures at exec time); red test `tests/test_admin_eval_baseline_seeded.py` asserts admin.total>=10 |
+| P2-8 (gates run before final cleanup) | Reorder approach (a): plan 24-21 now ships BEFORE 24-20. depends_on swapped: 24-21 depends_on [19.5], 24-20 depends_on [21]. NEW Gate 10 startup smoke runs as cheap insurance; red test `tests/test_app_startup_smoke.py` |
+
+**Sequencing after amendments:**
+```
+24-01 → 24-02 → 24-03 → 24-04 → 24-05 → 24-06 → 24-06.5 → 24-07 → 24-08 → 
+24-09 → 24-10 → 24-11 → 24-12 → 24-13 → 24-13.5 → 24-14 → 24-15 → 24-16 → 
+24-17 → 24-18 → 24-19 → 24-19.5 → 24-21 → 24-20 → 24-22 → 24-23 → 24-24
+```
+
+The only ordering change vs. original: 24-21 now ships BEFORE 24-20 (P2-8). Everything else is sequential per CONTEXT D-12 — no parallelization introduced.
+
+All 8 red tests are committed in their respective plans:
+- `tests/test_session_rehydration_fresh_process.py` (24-06.5)
+- `tests/test_inbox_dual_read.py` (24-15)
+- `tests/test_legacy_middleware_imports_survive.py` (24-03; updated in 24-18)
+- `tests/test_no_rc_imports_after_cleanup.py` (24-19.5)
+- `tests/test_foundry_credential_shape.py` (24-04)
+- `tests/test_probe_replay_invariants.py` + `tests/test_probe_replay_normalized_diff.py` (24-20)
+- `tests/test_admin_eval_baseline_seeded.py` (24-13.5)
+- `tests/test_app_startup_smoke.py` (24-20)
+
+</resolution_notes>
+
 ---
 
 *Phase: 24-foundry-ga-migration*
 *Context gathered: 2026-05-09*
+*Defect amendments applied: 2026-05-10*
+</content>
+</invoke>

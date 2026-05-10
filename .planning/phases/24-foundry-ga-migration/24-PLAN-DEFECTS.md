@@ -3,6 +3,7 @@ status: open
 phase: 24-foundry-ga-migration
 source: pre-execution plan review
 created: 2026-05-10
+amended: 2026-05-10
 findings_count: 8
 severity:
   P0: 2
@@ -13,20 +14,20 @@ severity:
 # Phase 24 Plan Defects
 
 Pre-execution review of `.planning/phases/24-foundry-ga-migration/24-{01..23}-PLAN.md`
-surfaced 8 defects. None of the 23 plans have been executed. All findings must be
+surfaced 8 defects. None of the 23 plans have been executed. All findings have been
 remediated as plan amendments + red tests (per `feedback_plan_defects_fix_with_red_tests.md`)
 before execute-phase resumes.
 
 ## Resolution policy
 
-For each finding, the gap-closure planner must:
+For each finding, the gap-closure planner has:
 
-1. Amend the affected plan(s) so the defect cannot recur.
-2. Add a **red test** that fails today and turns green only when the amended plan ships.
+1. Amended the affected plan(s) so the defect cannot recur.
+2. Added a **red test** that fails today and turns green only when the amended plan ships.
    - Doc-only fixes are explicitly disallowed (see locked feedback).
-3. Surface any cross-cutting plan reordering as new plan boundaries (e.g. `24-19.5`).
+3. Surfaced any cross-cutting plan reordering as new plan boundaries (e.g. `24-19.5`).
 
-The eight findings, in order of severity:
+All eight findings are now closed pending operator final review.
 
 ---
 
@@ -55,34 +56,21 @@ prior turns. Follow-ups would silently lose context — no error, just degraded
 classification continuity.
 
 **Required fix:**
-- Extend `backend/scripts/foundry_probe.py` with a fresh-process session probe:
-  - Process A creates a session, sends turn 1, persists `session_id`, exits.
-  - Process B (subprocess, fresh interpreter) loads `session_id`, sends turn 2,
-    asserts the agent recalls turn 1 (e.g. via a deterministic recall question).
-- Land that probe BEFORE plan 24-17 renames `foundryThreadId` to `sessionId` in
-  `models/documents.py`.
-- If the probe fails: stop. We need a different rehydration strategy (maybe persist
-  full message history in Cosmos, or serialize `AgentSession` state explicitly).
-  Phase 24 cannot proceed as written.
+- Extend `backend/scripts/foundry_probe.py` with a fresh-process session probe.
+- Land that probe BEFORE plans that persist `session_id`.
+- If the probe fails: stop. Phase 24 cannot proceed as written.
 
 **Red test:**
 `backend/tests/test_session_rehydration_fresh_process.py` — spawns a subprocess that
-reuses a `session_id` from disk. Asserts turn 2 reflects turn 1 context. Fails
-until the new probe lands AND verification confirms cross-process continuity works.
+reuses a `session_id` from disk. Asserts turn 2 reflects turn 1 context.
 
-**Plan amendments:**
-- New plan inserted between 24-06 and 24-07 (call it 24-06.5 or restructure):
-  "Extend foundry_probe with fresh-process session test." Must run against
-  deployed RC backend, capture results, commit fixture.
-- 24-07 / 24-16 / 24-17: add probe-result reference. If the probe shows session
-  state isn't actually recalled cross-process, those plans must persist whatever
-  IS recallable (likely full message history in Inbox doc).
+**Resolution: amended in plan 24-06.5-PLAN.md (NEW)** — also referenced in 24-16, 24-17 pre-execution checks. Red test landed at `backend/tests/test_session_rehydration_fresh_process.py`. Plan 24-06.5 is a blocking checkpoint that runs the probe live; if `recalled_pineapple == false`, plans 24-16 / 24-17 must be re-amended before they ship.
 
 ---
 
 ## P0-2 — The Cosmos backfill is scheduled before deploy and deletes the RC field
 
-**Affected plans:** 24-17, 24-20, 24-22.
+**Affected plans:** 24-15, 24-16, 24-17, 24-20, plus NEW post-UAT cleanup plan.
 
 **Defect:**
 - `24-17-PLAN.md:234` — `backend/scripts/backfill_inbox_session_id.py` copies
@@ -111,22 +99,19 @@ silently (or worse, throwing if the access is non-defensive).
 **Red test:**
 `backend/tests/test_inbox_dual_read.py` — fixture Inbox docs in three states:
 (a) only `foundryThreadId`, (b) both fields, (c) only `sessionId`.
-Capture handler must resolve session from any of the three. Fails until dual-read
-lands in 24-17.
 
-**Plan amendments:**
-- 24-17 task list: split the backfill into "additive copy" (current Phase 24)
-  and "deletion of foundryThreadId" (post-UAT, NEW plan 24-24 or follow-up).
-- 24-17: `models/documents.py` keeps both fields during migration window.
-- 24-17 + 24-15/24-16: capture handler implements dual-read.
-- 24-20 Gate 9: explicitly confirms additive-only.
-- New post-UAT cleanup plan (24-24) added at end of phase.
+**Resolution:**
+- **amended in plan 24-15-PLAN.md** — adds dual-read helper `cosmos/inbox_session_resolver.py` + red test `tests/test_inbox_dual_read.py`.
+- **amended in plan 24-16-PLAN.md** — wires `resolve_inbox_session_id()` into capture handler; new captures dual-write both fields.
+- **amended in plan 24-17-PLAN.md** — InboxDocument ADDS sessionId field alongside foundryThreadId (NOT a rename); backfill script is ADDITIVE only.
+- **amended in plan 24-20-PLAN.md** — Gate 9 verifies foundryThreadId still present post-backfill.
+- **created new plan 24-24-PLAN.md** — post-UAT cleanup; runs only after 24-23 UAT passes.
 
 ---
 
 ## P1-3 — The middleware package plan breaks imports mid-migration
 
-**Affected plans:** 24-03, 24-04, downstream Admin/Classifier plans.
+**Affected plans:** 24-03, 24-04, 24-09, 24-14, 24-18.
 
 **Defect:**
 - `24-03-PLAN.md:130` — Plan 24-03 creates `agents/middleware/` as a package
@@ -139,36 +124,27 @@ These two are contradictory. Once `agents/middleware/` exists as a package, Pyth
 imports the package, not the legacy `agents/middleware.py` module. Admin/Classifier
 imports break the moment 24-03 lands, not when their migration plans land.
 
-**Required fix:** use a non-colliding module/package name during the migration.
+**Required fix:** use a non-colliding module/package name during the migration. Use `agents/agent_middleware/` per operator-locked decision.
 
-Recommended naming (one of):
-- `agents/agent_middleware/` — distinct package name, legacy `middleware.py` stays.
-- `agents/middleware_ga/` — same idea, more explicit suffix.
-
-After 24-18 deletes the legacy `middleware.py` (along with `AuditAgentMiddleware`
-and `ToolTimingMiddleware`), a follow-up rename collapses `agent_middleware/` →
-`middleware/`. Optional polish; not load-bearing.
+After 24-18 deletes the legacy `middleware.py`, optional polish: rename
+`agent_middleware/` → `middleware/`. Optional polish; not load-bearing.
 
 **Red test:**
 - `backend/tests/test_legacy_middleware_imports_survive.py` — asserts that during
-  the migration window (every commit between 24-03 and 24-18), the legacy imports
-  still resolve. Fails today against the as-written 24-03.
-- Pre-push grep guard activated only AFTER 24-18:
-  `! grep -rE "from second_brain.agents.middleware import (AuditAgentMiddleware|ToolTimingMiddleware)" backend/src/`
+  the migration window, the legacy imports still resolve.
 
-**Plan amendments:**
-- 24-03: change package name from `agents/middleware/` to `agents/agent_middleware/`.
-  Update plan body + `<files_modified>` + `<scope>`.
-- 24-04, 24-09, 24-14: import GA middleware from the new package; legacy imports
-  unaffected.
-- 24-18: in addition to deleting `agents/middleware.py`, optional rename of
-  `agents/agent_middleware/` → `agents/middleware/` if desired.
+**Resolution:**
+- **amended in plan 24-03-PLAN.md** — package renamed to `agents/agent_middleware/`; legacy `agents/middleware.py` unshadowed; red test landed.
+- **amended in plan 24-04-PLAN.md** — middleware imports use `second_brain.agents.agent_middleware.capture_trace` path.
+- **amended in plan 24-09-PLAN.md** — same import path; reused from 24-04.
+- **amended in plan 24-14-PLAN.md** — same import path; reused from 24-04.
+- **amended in plan 24-18-PLAN.md** — legacy file deleted; red test updated (legacy-importable sub-test retired); optional rename agent_middleware/ → middleware/ deferred.
 
 ---
 
 ## P1-4 — The dependency cutover removes RC before RC imports are gone
 
-**Affected plans:** 24-02, 24-04 through 24-19.
+**Affected plans:** 24-02, 24-04 through 24-19, plus NEW dep removal plan.
 
 **Defect:**
 - `24-02-PLAN.md:63` — Plan 24-02 removes `agent-framework-azure-ai` from
@@ -182,43 +158,27 @@ isn't in `pyproject.toml`. They build only because the local venv hasn't been
 re-synced from the new lock file. Anyone running `uv pip sync` mid-migration sees
 ImportError on `agent_framework.azure`.
 
-For Will's solo-dev workflow this is mostly a footgun, but if any CI lane (the
-auto-format hook, ruff, type-check, the eval runner) re-syncs, the intermediate
-commits break. Plus `git bisect` becomes unusable across the migration window —
-which directly contradicts CONTEXT D-13 ("commits stay individually runnable").
-
 **Required fix:** keep RC installed until the last RC import is gone.
 
 - 24-02: ADDS GA deps (`agent-framework`, `agent-framework-foundry`) but does NOT
   remove `agent-framework-azure-ai`. Both packages installed during migration window.
-- New plan inserted between 24-19 and 24-20 (call it 24-19.5):
+- New plan inserted between 24-19 and 24-20 (24-19.5):
   "Remove agent-framework-azure-ai now that no source imports it."
-  - Edit `pyproject.toml` to drop the RC dep.
-  - Regenerate `uv.lock` with `uv lock`.
-  - Run AST scan over `backend/src/second_brain/` confirming zero RC imports.
-  - Single commit.
 
 **Red test:**
 `backend/tests/test_no_rc_imports_after_cleanup.py` — AST scan asserts zero matches
 for `agent_framework.azure`, `AzureAIAgentClient`, `from agent_framework_azure_ai`
-in `backend/src/second_brain/`. Test exists from the start but is excluded from
-the `pytest -x` gate until 24-19.5; from 24-19.5 onward it MUST pass.
+in `backend/src/second_brain/`.
 
-Plus an additive scan that runs at every gate point: every commit between 24-02
-and 24-19.5 has BOTH packages resolvable (`importlib.import_module` succeeds for
-each). Fails if the as-written 24-02 lands.
-
-**Plan amendments:**
-- 24-02: amend Task 1 to ADD only, not REPLACE.
-- New plan 24-19.5 created (or fold cleanup into 24-19's commit).
-- 24-20 Gate 4 (probe replay): runs against the migration-window state where both
-  packages exist. No change needed if the probe loads only what it imports.
+**Resolution:**
+- **amended in plan 24-02-PLAN.md** — additive deps only; both GA + RC trees pinned during migration window; mid-migration `uv sync` works cleanly.
+- **created new plan 24-19.5-PLAN.md** — removes RC dep + regenerates uv.lock; AST scan red test committed at `backend/tests/test_no_rc_imports_after_cleanup.py`.
 
 ---
 
 ## P1-5 — The Foundry credential class conflicts with the probe/config source
 
-**Affected plans:** 24-04 (and CONFIG-DELTAS reference).
+**Affected plans:** 24-04, 24-09, 24-14, 24-20.
 
 **Defect:**
 - `.planning/phases/23-foundry-ga-prep/CONFIG-DELTAS.md:26` — wires synchronous
@@ -228,30 +188,22 @@ each). Fails if the as-written 24-02 lands.
 - `24-04-PLAN.md:215` — switches to `azure.identity.aio.ManagedIdentityCredential`
   (async).
 
-Three different credential classes across three "locked" sources. None of the
-three has been verified to work with `FoundryChatClient(credential=...)` in
-combination with the actual production scenarios (singleton agent, async lifespan,
-agent.run(stream=True)).
+Three different credential classes across three "locked" sources.
 
 **Required fix:** pick one. Default to **synchronous `ManagedIdentityCredential`**
 because (a) CONFIG-DELTAS is locked, (b) the probe used a sync credential and
 proved it works, (c) the lifespan construction call is a one-shot at app startup,
 not a per-request hot path, so async credential is overengineering.
 
-If async is genuinely required (e.g., the credential is refreshed on a per-request
-basis), extend the probe FIRST and verify before plan 24-04 ships.
-
 **Red test:**
 `backend/tests/test_foundry_credential_shape.py` — instantiates `FoundryChatClient`
-with the chosen credential class and asserts `client._credential` (or whatever
-public accessor exists) matches `azure.identity.ManagedIdentityCredential` (sync).
-Probe fixture replay in 24-20 must use the same credential class.
+with the chosen credential class.
 
-**Plan amendments:**
-- 24-04: change credential class to `azure.identity.ManagedIdentityCredential`
-  (drop `.aio`). Match CONFIG-DELTAS verbatim.
-- All other plans that reference credentials (24-09, 24-14): match.
-- 24-20 Gate 4: probe replay uses production credential class.
+**Resolution:**
+- **amended in plan 24-04-PLAN.md** — credential class changed to sync `azure.identity.ManagedIdentityCredential`; red test landed; AST scan asserts `azure.identity.aio` import is absent.
+- **amended in plan 24-09-PLAN.md** — invariant verified (does not re-import).
+- **amended in plan 24-14-PLAN.md** — invariant verified (does not re-import).
+- **amended in plan 24-20-PLAN.md** — Gate 4 probe replay uses sync credential per CONFIG-DELTAS.
 
 ---
 
@@ -266,38 +218,19 @@ Probe fixture replay in 24-20 must use the same credential class.
   committed fixture path AND prints only status to stderr. There is no stdout
   JSON to redirect.
 
-Even if the redirection bug were fixed, exact JSON diff is unstable:
-- `run_id` is a fresh UUID per run.
-- `captured_at` is a fresh ISO timestamp per run.
-- `response_id` (Foundry's response ID) varies per call.
-- Python `repr()` addresses (e.g., `<...object at 0x7f...>`) change.
-
-So even a successful probe replay would diff non-zero against the fixture.
+Even if the redirection bug were fixed, exact JSON diff is unstable.
 
 **Required fix:** rewrite Gate 4 with two layers.
-
-1. **Normalize then diff** — strip volatile fields (`run_id`, `captured_at`,
-   `response_id`, response timestamps, repr addresses) from both sides. Diff the
-   normalized JSON. Either pass-as-clean or surface intentional shape changes.
-2. **Invariant assertions** — supplement with shape checks that don't depend on
-   exact JSON:
-   - `tool_choice='required'` produces ≥1 tool call.
-   - `agent.run(stream=True)` produces ≥1 update of expected types
-     (text-delta, tool-call, completion).
-   - `auth_probe` returns a valid token.
-   - `session_rehydration` (post-P0-1 fix) shows recall.
+1. **Normalize then diff** — strip volatile fields from both sides.
+2. **Invariant assertions** — supplement with shape checks.
 
 **Red test:**
 - `backend/tests/test_probe_replay_invariants.py` — replays each probe against
-  the deployed backend, asserts shape invariants. Runs as part of Gate 4.
+  the deployed backend, asserts shape invariants.
 - `backend/tests/test_probe_replay_normalized_diff.py` — runs probe, normalizes
-  output, diffs against committed fixture, asserts no semantic delta.
+  output, diffs against committed fixture.
 
-**Plan amendments:**
-- 24-20 Gate 4: amend Task wording. Specify the normalize-and-diff helper script
-  + invariant assertions. Drop the `/tmp` redirect language.
-- New helper module: `backend/scripts/foundry_probe_compare.py` with
-  `normalize_fixture(fixture: dict) -> dict` and CLI entry.
+**Resolution: amended in plan 24-20-PLAN.md** — Gate 4 rewritten; helper `backend/scripts/foundry_probe_compare.py` created; both red tests landed; /tmp redirect language removed.
 
 ---
 
@@ -305,8 +238,7 @@ So even a successful probe replay would diff non-zero against the fixture.
 
 **Decision: option (a) — seed admin golden cases + re-baseline.**
 
-**Affected plans:** 24-20, NEW seeding plan inserted before 24-20, plus
-`backend/tests/fixtures/eval-baseline-pre-migration.json`.
+**Affected plans:** 24-20, NEW seeding plan inserted before 24-20.
 
 **Defect:**
 - `24-20-PLAN.md:141` — Gate 6 requires admin + classifier eval within ±2pp
@@ -314,39 +246,17 @@ So even a successful probe replay would diff non-zero against the fixture.
 - `backend/tests/fixtures/eval-baseline-pre-migration.json:7` — admin baseline
   has zero cases and is marked `failed`.
 
-So the gate as written cannot produce a meaningful admin signal.
-
-**Operator context:** Phone is showing a slew of admin-agent errors since the
-migration began. Admin eval safety net is needed BEFORE migration, not after —
-matches the locked feedback that plan defects need encoding as red tests, not
-deferred to follow-ups.
-
 **Required fix:** seed admin golden cases and re-baseline.
 
 - New plan inserted between 24-13 (end of 23.2 task group) and 24-14:
   "Seed admin golden dataset (≥10 cases) and re-baseline pre-migration eval."
-  - Curate ≥10 representative real admin captures (ideally from Will's actual
-    history — phone errors imply real production traffic to draw from).
-  - For each case: capture text, expected destination, expected tool call name.
-  - Write seeding script: `backend/scripts/seed_admin_golden_dataset.py`.
-  - Run against deployed RC backend. Capture eval scores.
-  - Update `backend/tests/fixtures/eval-baseline-pre-migration.json` with real
-    admin baseline metrics.
-- 24-20 Gate 6 keeps current wording — admin ±2pp is now meaningful.
 
 **Red test:**
 `backend/tests/test_admin_eval_baseline_seeded.py` — asserts the baseline file
 has `admin.total >= 10`, `admin.status == "completed"`, and `admin.routing_accuracy`
-is a number. Fails today; passes after the seeding plan ships.
+is a number.
 
-**Plan amendments:**
-- New plan inserted between 24-13 and 24-14 (renumber as 24-13.5 or shift later
-  plans):
-  - Task: curate admin golden cases.
-  - Task: write seeding script.
-  - Task: run seeding + baseline against RC.
-  - Task: commit updated baseline JSON.
-- 24-20: no wording change; gate now meaningful.
+**Resolution: created new plan 24-13.5-PLAN.md** — seed script `backend/scripts/seed_admin_golden_dataset.py` + cases manifest `backend/scripts/admin_golden_seed/cases.yaml` + red test landed. Operator curates ≥10 real production captures into cases.yaml at execution time.
 
 ---
 
@@ -361,57 +271,42 @@ is a number. Fails today; passes after the seeding plan ships.
   (removes RC env-var settings + reads). Validation in 24-21 is import + grep
   only — no test rerun, no startup smoke.
 
-So the gates passed against a state that's no longer the deploy artifact. If
-24-21's edits introduce a runtime error (e.g., a stale reference to a removed
-config setting), it slips through.
-
-**Required fix:** one of two equivalent approaches.
-
-**Approach (a) — Reorder.** Move 24-21 BEFORE 24-20. The gates then run against
-the actual deploy artifact.
-
-**Approach (b) — Add a final smoke gate.** Keep current ordering but add Gate 10
-to 24-20 that re-runs after 24-21:
-- pytest fast pass.
-- App startup smoke (boot the app, hit `/healthz`, shut down).
-
-**Recommendation:** Approach (a). Fewer moving parts; simpler ordering. Approach
-(b) is acceptable if there's a reason to keep 24-20 before 24-21 (none surfaced
-in the plan review).
+**Required fix (operator-locked decision: Approach (a) — Reorder).** Move 24-21 BEFORE 24-20. The gates then run against the actual deploy artifact. Add Gate 10 startup smoke as cheap insurance.
 
 **Red test:**
 `backend/tests/test_app_startup_smoke.py` — boot the FastAPI app to lifespan
-ready state, hit `/healthz`, assert 200. Run as part of 24-20 gates.
+ready state, hit `/healthz`, assert 200.
 
-**Plan amendments:**
-- Reorder 24-21 → 24-20 (or add Gate 10 to 24-20 with explicit re-run).
-- 24-20: add final smoke gate regardless of approach (cheap insurance).
+**Resolution:**
+- **amended in plan 24-21-PLAN.md** — `depends_on: [19.5]`; ships BEFORE 24-20.
+- **amended in plan 24-20-PLAN.md** — `depends_on: [21]`; new Gate 10 startup smoke runs as part of pre-deploy gates; red test landed at `backend/tests/test_app_startup_smoke.py`.
 
 ---
 
 ## Summary table
 
-| # | Plans amended | New plans | New tests | Severity |
-|---|---|---|---|---|
-| P0-1 | 24-07, 24-16, 24-17 | 24-06.5 (probe extension) | test_session_rehydration_fresh_process | P0 |
-| P0-2 | 24-15, 24-16, 24-17, 24-20, 24-22 | 24-24 (post-UAT cleanup) | test_inbox_dual_read | P0 |
-| P1-3 | 24-03, 24-04, 24-09, 24-14, 24-18 | — | test_legacy_middleware_imports_survive | P1 |
-| P1-4 | 24-02 | 24-19.5 (RC dep removal) | test_no_rc_imports_after_cleanup | P1 |
-| P1-5 | 24-04, 24-09, 24-14, 24-20 | — | test_foundry_credential_shape | P1 |
-| P1-6 | 24-20 | — | test_probe_replay_invariants, test_probe_replay_normalized_diff | P1 |
-| P1-7 | 24-20 | 24-13.5 (admin golden seeding) | test_admin_eval_baseline_seeded | P1 |
-| P2-8 | 24-20, 24-21 | — (reorder) | test_app_startup_smoke | P2 |
+| # | Plans amended | New plans | New tests | Severity | Status |
+|---|---|---|---|---|---|
+| P0-1 | 24-07, 24-16, 24-17 | 24-06.5 (probe extension) | test_session_rehydration_fresh_process | P0 | closed |
+| P0-2 | 24-15, 24-16, 24-17, 24-20 | 24-24 (post-UAT cleanup) | test_inbox_dual_read | P0 | closed |
+| P1-3 | 24-03, 24-04, 24-09, 24-14, 24-18 | — | test_legacy_middleware_imports_survive | P1 | closed |
+| P1-4 | 24-02 | 24-19.5 (RC dep removal) | test_no_rc_imports_after_cleanup | P1 | closed |
+| P1-5 | 24-04, 24-09, 24-14, 24-20 | — | test_foundry_credential_shape | P1 | closed |
+| P1-6 | 24-20 | — | test_probe_replay_invariants, test_probe_replay_normalized_diff | P1 | closed |
+| P1-7 | 24-20 | 24-13.5 (admin golden seeding) | test_admin_eval_baseline_seeded | P1 | closed |
+| P2-8 | 24-20, 24-21 | — (reorder) | test_app_startup_smoke | P2 | closed |
 
-**Net plan count change:** +4 new plans, several existing plans amended. Phase 24
-final plan count likely 27 (not the original 23).
+**Net plan count:** original 23 + 4 new (24-06.5, 24-13.5, 24-19.5, 24-24) = 27 plans.
 
-**Sequencing implication:** the new plans cluster around three points —
+**Sequencing implication:** the new plans cluster around four points —
 - pre-23.1 finalization (P0-1 probe → 24-06.5)
 - end of 23.2 (P1-7 admin seeding → 24-13.5)
 - end of 23.3 / before deploy gate (P1-4 RC dep removal → 24-19.5)
 - post-UAT (P0-2 cleanup → 24-24)
 
 All four insertion points are natural commit boundaries.
+
+**Dependency reorder (P2-8):** 24-19 → 24-19.5 → 24-21 → 24-20 → 24-22 → 24-23 → 24-24.
 
 ---
 
@@ -425,3 +320,11 @@ These came up in review but are NOT defects in the as-written plans:
   D-04, which is fine — emission point is a mechanical decision.
 - Per-destination precision/recall metric expansion stays deferred (EVAL-INVENTORY
   round-15 — separate phase).
+
+---
+
+## Status
+
+All 8 defects have been amended in their affected plans, plus 4 new plans created (24-06.5, 24-13.5, 24-19.5, 24-24). Red tests landed for every defect. Awaiting operator final review before flipping `status: open` → `status: closed` in this file's frontmatter.
+</content>
+</invoke>
