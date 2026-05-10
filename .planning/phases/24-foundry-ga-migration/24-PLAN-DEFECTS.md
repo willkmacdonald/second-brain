@@ -201,6 +201,46 @@ The P1-4 amendment ("ADD GA without removing RC, both packages installed mid-mig
 - **24-CONTEXT.md D-13** — relaxation acknowledged.
 - **ROADMAP.md** — 24-19.5 entry removed.
 
+### RETRACTION NOTE 2 (P1-4b — 2026-05-10, second execution attempt)
+
+The strict cutover hit a SECOND packaging defect, identical in class to P1-4 but caused by a different upstream package. Discovered during plan 24-02 execution attempt #2 (executor `agent-ad09b375ed627efe7`).
+
+**Diagnosis (independently verified by orchestrator via wheel inspection):**
+- Phase 23 CANDIDATE-pyproject.toml pinned the meta-package `"agent-framework"` (version 1.3.0).
+- `agent-framework==1.3.0` requires `agent-framework-core[all]==1.3.0`.
+- The `[all]` extra includes `agent-framework-azure-ai-search==0.0.0a1` — **a placeholder package**.
+- That wheel ships an **empty 0-byte `agent_framework/__init__.py`** that overwrites the real 13123-byte one from `agent-framework-core`.
+- `uv sync` repeatedly re-installs the placeholder and re-corrupts the venv on every run. The production Dockerfile runs `uv sync` — would have shipped a broken image.
+- Verified by downloading `agent_framework_azure_ai_search-0.0.0a1-py3-none-any.whl` and inspecting: `agent_framework/__init__.py` is exactly 0 bytes; `agent_framework_azure_ai_search-0.0.0a1.dist-info/RECORD` claims ownership of the path with hash `47DEQpj...` (empty file SHA-256).
+- Phase 23 plan 23-01 validated `uv lock` succeeded but did NOT validate that `from agent_framework import Agent` works after `uv sync`. The defect was latent in the CANDIDATE files since they were drafted.
+
+**Resolution (P1-4b):** direct-pin to `agent-framework-core>=1.3.0,<2` instead of the meta-package. The codebase only imports:
+- `from agent_framework import Agent, ChatOptions, Message, tool` ← provided by `agent-framework-core`
+- `from agent_framework.observability import enable_instrumentation` ← provided by `agent-framework-core`
+- `from agent_framework_foundry import FoundryChatClient` ← already a direct pin
+
+The meta-package and `[all]` extra add nothing the codebase uses while pulling the placeholder defect.
+
+**Verified end-to-end (2026-05-10):**
+```
+uv sync (101 packages, no placeholder)
+agent_framework/__init__.py: 13123 bytes (real, not corrupted)
+from agent_framework import Agent, ChatOptions, Message: works
+from agent_framework_foundry import FoundryChatClient: works
+from agent_framework.azure import AzureAIAgentClient: ImportError (expected — RC pruned)
+```
+
+**Plan amendments after P1-4b:**
+- **CANDIDATE-pyproject.toml** — `"agent-framework"` line replaced with `"agent-framework-core>=1.3.0,<2"` + comment explaining the placeholder defect; pinned at `.planning/phases/23-foundry-ga-prep/CANDIDATE-pyproject.toml`.
+- **CANDIDATE-uv.lock** — regenerated against the corrected pyproject.toml; 1500 lines smaller (no `[all]` extras, no placeholder); pinned at `.planning/phases/23-foundry-ga-prep/CANDIDATE-uv.lock`.
+- **24-02-PLAN.md** — must_haves grep tightened from `"agent-framework"` to `"agent-framework-core"`; verify command tightened from bare `import agent_framework.azure` to load-bearing `from agent_framework.azure import AzureAIAgentClient`; new acceptance criterion checks `agent_framework/__init__.py` size > 1000 bytes (P1-4b regression guard); P1-4b regression check 6b added to Task 1 actions.
+
+**Verification commands tightened (P1-4b):**
+- Old: `uv run python -c "import agent_framework.azure" 2>&1 | grep -q ImportError` — would FAIL because GA exposes its own `azure` submodule with different symbols (`DurableAIAgentClient`, `AgentFunctionApp`).
+- New: `uv run python -c "from agent_framework.azure import AzureAIAgentClient" 2>&1 | grep -qE "ImportError|cannot import name"` — tests the load-bearing failure (the source code's actual RC import statement).
+
+**Note for future GA upgrades:** if Microsoft fixes the placeholder package upstream (likely; this is a clear bug), the meta-package may become safe to use. Until then, the direct-pin pattern is required.
+
 ---
 
 ## P1-5 — The Foundry credential class conflicts with the probe/config source
