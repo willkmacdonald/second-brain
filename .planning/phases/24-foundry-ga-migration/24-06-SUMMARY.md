@@ -73,7 +73,7 @@ Each task was committed atomically:
 2. **Task 2: Document fetch_agent_runs RC→GA attribute degradation** — `e184736` (docs)
 3. **Task 3: Add W-01 narrowed-scope comment to CaptureTraceSpanProcessor** — `1ee634e` (docs)
 
-**Plan metadata:** TBD (this SUMMARY commit).
+**Plan metadata:** see `git log --grep="24-06"` (the SUMMARY commit itself follows the 3 task commits above).
 
 ## Files Created/Modified
 
