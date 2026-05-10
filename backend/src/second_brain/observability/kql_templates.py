@@ -375,7 +375,7 @@ AppRequests
 
 AGENT_RUNS = """\
 AppDependencies
-| where Name endswith "_agent_run"
+| where Name == "invoke_agent"
 {agent_filter}
 {capture_filter}
 {thread_filter}
