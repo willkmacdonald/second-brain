@@ -31,6 +31,9 @@ htmlcov/
 # Worktrees
 .worktrees/
 
+# Superpowers brainstorm artifacts
+.superpowers/
+
 # OS
 .DS_Store
 Thumbs.db
