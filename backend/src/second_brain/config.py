@@ -10,9 +10,10 @@ class Settings(BaseSettings):
 
     # Azure AI Foundry
     azure_ai_project_endpoint: str = ""
-    azure_ai_classifier_agent_id: str = ""
-    azure_ai_admin_agent_id: str = ""
-    azure_ai_investigation_agent_id: str = ""
+    foundry_model: str = "gpt-4o"  # NEW (Phase 24 task group 23.1)
+    azure_ai_classifier_agent_id: str = ""  # KEEP — deleted in plan 24-21
+    azure_ai_admin_agent_id: str = ""  # KEEP — deleted in plan 24-21
+    azure_ai_investigation_agent_id: str = ""  # KEEP — deleted in plan 24-21
 
     # Azure OpenAI (transcription API -- separate from Foundry project endpoint)
     azure_openai_endpoint: str = ""
