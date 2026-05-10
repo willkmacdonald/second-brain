@@ -38,7 +38,7 @@ Out of scope (separate phase if pursued): Foundry-native eval cutover (D-04 → 
 
 ### Wave parallelization + commit ordering
 - **D-12:** Plans within each task group are fully sequential. Each plan = one commit. ~5-7 commits per task group, ~15-20 total commits in Phase 24 plus Task 0 (push guard install) and final unguard step.
-- **D-13:** Within 23.1 specifically, capture-trace middleware lands FIRST, custom `tracer.start_as_current_span(...)` wrappers in `streaming/investigation_adapter.py` deleted SECOND. Local `main` commits stay individually runnable for debugging/bisect because `capture.trace_id` is always tagged at the source.
+- **D-13 (relaxed 2026-05-10 per P1-4 RETRACTION):** Within 23.1 specifically, capture-trace middleware lands FIRST, custom `tracer.start_as_current_span(...)` wrappers in `streaming/investigation_adapter.py` deleted SECOND. Local `main` commits stay individually runnable WITHIN A TASK GROUP'S TERMINAL STATE (after 24-08 for TG 23.1, after 24-13 for TG 23.2, after 24-19 for TG 23.3). The "individually runnable across every commit" guarantee is relaxed because P1-4's additive-deps amendment was discovered to be packaging-infeasible — both RC `agent-framework-core==1.0.0rc2` and GA `agent-framework-core==1.3.0` install to the same `agent_framework/` directory and cannot coexist. Local `main` is intentionally unbuildable between commits 24-02 (strict cutover) and the migration plan that strips a given file's RC import. Push guard from 24-01 protects this window.
 - **D-14:** Same middleware-first pattern applies to 23.2 (`processing/admin_handoff.py` custom spans) and 23.3 (`streaming/adapter.py` custom spans for `capture_text` / `capture_voice` / `capture_follow_up`).
 
 ### Claude's Discretion

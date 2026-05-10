@@ -170,9 +170,36 @@ ImportError on `agent_framework.azure`.
 for `agent_framework.azure`, `AzureAIAgentClient`, `from agent_framework_azure_ai`
 in `backend/src/second_brain/`.
 
-**Resolution:**
-- **amended in plan 24-02-PLAN.md** — additive deps only; both GA + RC trees pinned during migration window; mid-migration `uv sync` works cleanly.
-- **created new plan 24-19.5-PLAN.md** — removes RC dep + regenerates uv.lock; AST scan red test committed at `backend/tests/test_no_rc_imports_after_cleanup.py`.
+**Resolution (RETRACTED 2026-05-10):**
+- ~~**amended in plan 24-02-PLAN.md** — additive deps only; both GA + RC trees pinned during migration window; mid-migration `uv sync` works cleanly.~~ **Packaging-infeasible.**
+- ~~**created new plan 24-19.5-PLAN.md** — removes RC dep + regenerates uv.lock; AST scan red test committed at `backend/tests/test_no_rc_imports_after_cleanup.py`.~~ **24-19.5-PLAN.md deleted as part of retraction.**
+
+### RETRACTION NOTE (2026-05-10)
+
+The P1-4 amendment ("ADD GA without removing RC, both packages installed mid-migration") was discovered to be packaging-infeasible during the first execution attempt of plan 24-02 (executor `agent-ab4a29d301683ba1a`).
+
+**Diagnosis (independently verified by orchestrator via wheel inspection):**
+- `agent-framework-azure-ai==1.0.0rc2` (RC) requires `agent-framework-core==1.0.0rc2`.
+- `agent-framework==1.3.0` (GA) requires `agent-framework-core==1.3.0`.
+- **Both versions of `agent-framework-core` install to the same `agent_framework/` directory** at site-packages root. They overwrite each other's `__init__.py`, subpackages, and namespace dispatchers.
+- `uv lock` resolves to GA (1.3.0) without raising a conflict — uv treats it as a coherent resolution because there's a winning version. The breakage manifests at import time, not lock time.
+- Once GA wins, `from agent_framework.azure import AzureAIAgentClient` raises ImportError because GA's `agent_framework.azure` no longer exposes that name.
+- The underscore-form fallback (`from agent_framework_azure_ai import AzureAIAgentClient`) ALSO breaks because RC's own `agent_framework_azure_ai` package internally imports `BaseContextProvider` from `agent_framework`, which GA core renamed to `ContextProvider`.
+
+**There is no clean coexistence path.** Any approach that tries to keep RC and GA installed simultaneously falls back to the same root cause: shared package directory.
+
+**Resolution (revised):** strict cutover. Plan 24-02 replaces `pyproject.toml` and `uv.lock` with the Phase 23 CANDIDATE drop-in files (RC fully removed, GA fully added) and folds in the AST scan red test as Task 3 (committed in RED state). Plan 24-19.5 is deleted entirely. CONTEXT D-13's "individually runnable" guarantee is relaxed to apply within each task group's terminal state, not across every commit.
+
+**Acknowledged consequences:**
+- Local `main` is not buildable between commits 24-02 and 24-04 (Investigation), 24-09 (Admin), 24-11 (admin_handoff), 24-14 (Classifier), 24-19 (warmup). Push guard from 24-01 protects against accidental push during this window.
+- Bisect across the migration window is compromised. Bisect within a task group's terminal state (after 24-08, after 24-13, after 24-19) still works.
+- The AST scan red test starts in RED state at plan 24-02 (10 source files still import RC) and turns GREEN incrementally as Wave 2-4 strip imports.
+
+**Plan amendments after retraction:**
+- **24-02-PLAN.md (rewritten 2026-05-10)** — strict cutover; CANDIDATE drop-in; AST scan red test folded in as Task 3; verification adjusted (no `from second_brain.config import settings` since that hits the import wall).
+- **24-19.5-PLAN.md** — deleted in same commit cluster.
+- **24-CONTEXT.md D-13** — relaxation acknowledged.
+- **ROADMAP.md** — 24-19.5 entry removed.
 
 ---
 
