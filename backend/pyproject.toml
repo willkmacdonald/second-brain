@@ -4,8 +4,17 @@ version = "0.1.0"
 description = "The Active Second Brain - FastAPI backend with Azure AI Foundry Agent Service"
 requires-python = ">=3.12"
 dependencies = [
-    # Agent Framework -- Foundry integration (RC, requires --prerelease=allow for uv install)
-    "agent-framework-azure-ai",
+    # Agent Framework -- GA (Microsoft Agent Framework + Foundry integration)
+    # NOTE: pin agent-framework-core directly, NOT agent-framework meta-package.
+    # The meta-package's [all] extra transitively pulls agent-framework-azure-ai-search==0.0.0a1
+    # which ships a 0-byte agent_framework/__init__.py that overwrites the real one.
+    # See P1-4b retraction note in .planning/phases/24-foundry-ga-migration/24-PLAN-DEFECTS.md.
+    # The codebase imports:
+    #   from agent_framework import Agent, ChatOptions, Message, tool        # provided by core
+    #   from agent_framework.observability import enable_instrumentation     # provided by core
+    #   from agent_framework_foundry import FoundryChatClient                # direct pin below
+    "agent-framework-core>=1.3.0,<2",
+    "agent-framework-foundry",
     # Azure OpenAI (direct dep for transcribe_audio -- transitive via azure-ai-agents)
     "openai",
     # Azure services
