@@ -48,7 +48,7 @@ class CaptureTraceAgentMiddleware(AgentMiddleware):
 
     async def process(
         self,
-        context: AgentContext,
+        context: AgentContext,  # noqa: ARG002 — required by AgentMiddleware ABC; reserved for future use
         call_next: Callable[[], Awaitable[None]],
     ) -> None:
         trace_id = capture_trace_id_var.get("")
