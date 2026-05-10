@@ -22,6 +22,20 @@ class CaptureTraceSpanProcessor(SpanProcessor):
     within that context -- including auto-instrumented Azure SDK spans --
     get the ``capture.trace_id`` attribute, which surfaces as a custom
     dimension in App Insights (Properties.capture_trace_id in KQL).
+
+    Phase 24 task group 23.1 narrowed scope (W-01):
+
+    Framework-emitted invoke_agent / execute_tool spans are now tagged
+    at source by CaptureTraceAgentMiddleware / CaptureTraceFunctionMiddleware
+    in agents/agent_middleware/capture_trace.py.
+
+    This processor is RETAINED per design D-07a layered strategy: it tags
+    everything else -- Azure SDK auto-instrumented AppDependencies (Cosmos,
+    HTTP), AppExceptions from libraries, custom non-framework spans.
+
+    Without this processor, query_capture_trace's union over AppDependencies
+    loses correlation. The on_start overlap with framework-tagged spans on
+    the same attribute name (capture.trace_id) is a no-op (idempotent set).
     """
 
     def on_start(self, span: Span, parent_context: object = None) -> None:

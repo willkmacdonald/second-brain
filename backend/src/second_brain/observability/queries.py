@@ -614,6 +614,13 @@ async def fetch_agent_runs(
     if thread_id is not None and not _TRACE_ID_RE.fullmatch(thread_id):
         raise ValueError(f"Invalid thread_id: {thread_id!r}")
 
+    # Phase 24 task group 23.1: GA framework emits agent.name natively on
+    # invoke_agent spans. RC-era Properties.agent_id, Properties.run_id,
+    # Properties.foundry_thread_id are no longer set by GA — they project
+    # as empty strings. Investigation tools that consume this output
+    # filter empties downstream. Future plan: rename projections to GA
+    # semantic-convention names (gen_ai.usage.*, agent.name) once
+    # post-deploy span data is observed.
     agent_filter = f'| where tostring(Properties.agent_id) == "{agent_id}"'
     capture_filter = (
         f'| where tostring(Properties.capture_trace_id) == "{capture_trace_id}"'
