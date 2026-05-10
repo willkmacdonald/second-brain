@@ -65,6 +65,7 @@ def test_no_rc_imports_under_src() -> None:
             tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         except SyntaxError as exc:
             pytest.fail(f"Syntax error parsing {path}: {exc}")
+            continue  # unreachable; satisfies static analysers that don't infer NoReturn
 
         for module, name in _imports_in(tree):
             for prefix in FORBIDDEN_PREFIXES:

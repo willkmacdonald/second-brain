@@ -50,6 +50,11 @@ test = [
     "pytest",
     "pytest-asyncio",
     "httpx",
+    # mcp was previously a transitive of agent-framework-azure-ai==1.0.0rc2 via
+    # azure-ai-projects[ws]; the GA SDK does not pull it. Kept as a test-only dep
+    # because tests/conftest.py loads the local mcp/server.py via importlib and
+    # tests/test_audit_mcp_tool.py imports mcp.server.fastmcp directly.
+    "mcp[ws]>=1.26.0",
 ]
 
 [build-system]
