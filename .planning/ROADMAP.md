@@ -462,7 +462,7 @@ Plans:
 **Plans:** 23 plans
 
 Plans:
-- [ ] 24-01-PLAN.md — Install push guard (Wave 1, autonomous)
+- [x] 24-01-PLAN.md — Install push guard (Wave 1, autonomous)
 - [ ] 24-02-PLAN.md — Apply GA dep set + add foundry_model setting (Wave 2, sequential 23.1)
 - [ ] 24-03-PLAN.md — Promote investigation instructions + create capture-trace middleware (Wave 2, sequential 23.1)
 - [ ] 24-04-PLAN.md — Rewrite agents/investigation.py + main.py Investigation lifespan (Wave 2, sequential 23.1)

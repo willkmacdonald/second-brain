@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Observability & Evals
-status: planning
-stopped_at: Phase 24 context gathered
-last_updated: "2026-05-10T03:08:32.899Z"
-last_activity: 2026-05-09
+status: executing
+stopped_at: Phase 24 wave 1 complete (push guard installed)
+last_updated: "2026-05-10T16:32:00.000Z"
+last_activity: 2026-05-10 -- Phase 24 plan 24-01 complete
 progress:
   total_phases: 18
   completed_phases: 14
-  total_plans: 78
-  completed_plans: 53
-  percent: 68
+  total_plans: 82
+  completed_plans: 54
+  percent: 66
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-05)
 
 **Core value:** One-tap capture from a phone instantly routes through an agent that classifies, files, and clarifies -- with zero organizational effort.
-**Current focus:** Phase 23 — Foundry GA Migration Prep
+**Current focus:** Phase --phase — 24
 
 ## Current Position
 
-Phase: 24
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-05-09
+Phase: 24 (foundry-ga-migration) — EXECUTING
+Plan: 1 of 27 — 24-01 complete
+Status: Wave 1 complete (push guard installed). Stopped per user request before Wave 2.
+Last activity: 2026-05-10 -- Phase 24 wave 1 complete; push guard active
 
 Progress: [██████████] 96%
 
