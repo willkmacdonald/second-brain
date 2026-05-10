@@ -31,6 +31,10 @@ from agent_framework.observability import enable_instrumentation  # noqa: E402
 enable_instrumentation()
 
 from agent_framework.azure import AzureAIAgentClient  # noqa: E402
+from agent_framework_foundry import FoundryChatClient  # noqa: E402
+from azure.identity import (  # noqa: E402
+    ManagedIdentityCredential,  # SYNC (P1-5 — NOT azure.identity.aio)
+)
 from azure.identity.aio import (  # noqa: E402
     DefaultAzureCredential as AsyncDefaultAzureCredential,
     get_bearer_token_provider,
@@ -40,8 +44,12 @@ from fastapi import FastAPI  # noqa: E402
 from openai import AsyncAzureOpenAI  # noqa: E402
 
 from second_brain.agents.admin import ensure_admin_agent  # noqa: E402
+from second_brain.agents.agent_middleware.capture_trace import (  # noqa: E402
+    CaptureTraceAgentMiddleware,
+    CaptureTraceFunctionMiddleware,
+)
 from second_brain.agents.classifier import ensure_classifier_agent  # noqa: E402
-from second_brain.agents.investigation import ensure_investigation_agent  # noqa: E402
+from second_brain.agents.investigation import build_investigation_agent  # noqa: E402
 from second_brain.agents.middleware import (  # noqa: E402
     AuditAgentMiddleware,
     ToolTimingMiddleware,
@@ -481,7 +489,33 @@ async def lifespan(app: FastAPI):
             app.state.logs_client = None
             app.state.log_analytics_workspace_id = ""
 
+        # --- Foundry Chat Client (fail fast) ---
+        # Phase 24 task group 23.1: GA FoundryChatClient is the single chat
+        # client shared across Investigation, Admin, and Classifier agents.
+        # Probe 5 (auth_probe) confirmed credential class shape.
+        # P1-5: SYNC ManagedIdentityCredential per CONFIG-DELTAS verbatim.
+        try:
+            chat_client = FoundryChatClient(
+                project_endpoint=settings.azure_ai_project_endpoint,
+                model=settings.foundry_model,
+                credential=ManagedIdentityCredential(),
+            )
+            app.state.foundry_chat_client = chat_client
+            logger.info(
+                "FoundryChatClient initialized: endpoint=%s model=%s",
+                settings.azure_ai_project_endpoint,
+                settings.foundry_model,
+            )
+        except Exception:
+            logger.error(
+                "FATAL: Could not initialize FoundryChatClient",
+                exc_info=True,
+            )
+            raise
+
         # --- Foundry Agent Service (fail fast) ---
+        # KEPT for Admin/Classifier slices that still use AzureAIAgentClient.
+        # Removed in plans 24-09 (Admin) and 24-14 (Classifier).
         try:
             foundry_client = AzureAIAgentClient(
                 credential=credential,
@@ -677,17 +711,13 @@ async def lifespan(app: FastAPI):
             app.state.browser = None
             app.state.recipe_tools = None
 
-        # --- Investigation Agent Registration (non-fatal) ---
-        # Investigation Agent is not required for core capture flow.
-        # If registration fails, investigation features are simply
-        # unavailable (503 on /api/investigate).
+        # --- Investigation Agent (non-fatal, GA pattern) ---
+        # Phase 24 task group 23.1: GA Agent constructed via build_investigation_agent
+        # using the shared FoundryChatClient. Instructions live in repo (D-02).
+        # Capture-trace middleware tags framework spans at source (D-07a, P1-3).
+        # Investigation is not required for core capture flow; registration
+        # failure leaves /api/investigate at 503 but app still starts.
         try:
-            investigation_agent_id = await ensure_investigation_agent(
-                foundry_client=foundry_client,
-                stored_agent_id=settings.azure_ai_investigation_agent_id,
-            )
-            app.state.investigation_agent_id = investigation_agent_id
-
             # InvestigationTools requires LogsQueryClient
             if app.state.logs_client is not None:
                 investigation_tools = InvestigationTools(
@@ -699,51 +729,42 @@ async def lifespan(app: FastAPI):
                 )
                 app.state.investigation_tools_instance = investigation_tools
 
-                investigation_client = AzureAIAgentClient(
-                    credential=credential,
-                    project_endpoint=settings.azure_ai_project_endpoint,
-                    agent_id=investigation_agent_id,
-                    should_cleanup_agent=False,
+                investigation_agent = build_investigation_agent(
+                    chat_client=chat_client,
+                    tools=[
+                        investigation_tools.trace_lifecycle,
+                        investigation_tools.recent_errors,
+                        investigation_tools.system_health,
+                        investigation_tools.usage_patterns,
+                        investigation_tools.query_feedback_signals,
+                        investigation_tools.promote_to_golden_dataset,
+                        investigation_tools.run_classifier_eval,
+                        investigation_tools.run_admin_eval,
+                        investigation_tools.get_eval_results,
+                    ],
                     middleware=[
-                        AuditAgentMiddleware(agent_name="investigation"),
-                        ToolTimingMiddleware(),
+                        CaptureTraceAgentMiddleware(),
+                        CaptureTraceFunctionMiddleware(),
                     ],
                 )
-                app.state.investigation_client = investigation_client
-                app.state.investigation_tools = [
-                    investigation_tools.trace_lifecycle,
-                    investigation_tools.recent_errors,
-                    investigation_tools.system_health,
-                    investigation_tools.usage_patterns,
-                    investigation_tools.query_feedback_signals,
-                    investigation_tools.promote_to_golden_dataset,
-                    investigation_tools.run_classifier_eval,
-                    investigation_tools.run_admin_eval,
-                    investigation_tools.get_eval_results,
-                ]
+                app.state.investigation_agent = investigation_agent
                 app.state.investigation_rate_limiter = SoftRateLimiter()
 
                 logger.info(
-                    "Investigation agent ready: id=%s tools=%d",
-                    investigation_agent_id,
-                    len(app.state.investigation_tools),
+                    "Investigation agent ready (GA): tools=9 middleware=2",
                 )
             else:
                 logger.warning(
-                    "Investigation agent registered but LogsQueryClient "
-                    "unavailable -- investigation tools disabled"
+                    "Investigation agent skipped -- LogsQueryClient unavailable"
                 )
-                app.state.investigation_client = None
-                app.state.investigation_tools = []
+                app.state.investigation_agent = None
                 app.state.investigation_rate_limiter = None
         except Exception:
             logger.warning(
                 "Investigation agent registration failed -- investigation unavailable",
                 exc_info=True,
             )
-            app.state.investigation_agent_id = None
-            app.state.investigation_client = None
-            app.state.investigation_tools = []
+            app.state.investigation_agent = None
             app.state.investigation_rate_limiter = None
 
         # --- Background task tracking ---
