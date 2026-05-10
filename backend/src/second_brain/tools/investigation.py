@@ -1,14 +1,19 @@
 """Investigation agent tools for App Insights observability queries.
 
-Uses the class-based tool pattern to bind LogsQueryClient references to @tool
-functions. InvestigationTools provides 9 tools: trace_lifecycle, recent_errors,
-system_health, usage_patterns, query_feedback_signals,
+Uses the class-based tool pattern to bind LogsQueryClient references to
+async tool methods. InvestigationTools provides 9 tools: trace_lifecycle,
+recent_errors, system_health, usage_patterns, query_feedback_signals,
 promote_to_golden_dataset, run_classifier_eval, run_admin_eval,
 and get_eval_results.
 
 Each tool returns JSON strings for the Investigation Agent to format into
 human-readable answers. Tools never raise -- they catch exceptions and return
 JSON error messages.
+
+Phase 24 GA migration (D-05/D-06): tool methods are plain async coroutines
+with Annotated[..., Field(description=...)] parameter shapes and docstrings.
+The GA `agent-framework` `Agent(tools=[instance.method, ...])` registration
+binds them as tools at construction time -- no decorator required.
 """
 
 from __future__ import annotations
@@ -18,10 +23,9 @@ import json
 import logging
 from collections import Counter
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING, Annotated
+from typing import TYPE_CHECKING, Annotated, Any
 from uuid import uuid4
 
-from agent_framework import tool
 from azure.cosmos.exceptions import CosmosResourceNotFoundError
 from azure.monitor.query.aio import LogsQueryClient
 from pydantic import Field
@@ -39,8 +43,6 @@ from second_brain.observability.queries import (
 )
 
 if TYPE_CHECKING:
-    from agent_framework.azure import AzureAIAgentClient
-
     from second_brain.db.cosmos import CosmosManager
 
 logger = logging.getLogger(__name__)
@@ -86,9 +88,10 @@ def _validate_time_range(time_range: str, default: str = "24h") -> str:
 class InvestigationTools:
     """Investigation tools bound to LogsQueryClient for App Insights queries.
 
-    Each @tool function wraps a query from the observability module with
+    Each tool method wraps a query from the observability module with
     parameterized time windows and returns structured JSON data for the
-    assistant to format into human-readable answers.
+    assistant to format into human-readable answers. Bound methods are
+    registered with the GA `Agent(tools=[...])` at lifespan construction.
     """
 
     def __init__(
@@ -96,8 +99,8 @@ class InvestigationTools:
         logs_client: LogsQueryClient,
         workspace_id: str,
         cosmos_manager: CosmosManager | None = None,
-        classifier_client: AzureAIAgentClient | None = None,
-        admin_client: AzureAIAgentClient | None = None,
+        classifier_client: Any = None,
+        admin_client: Any = None,
     ) -> None:
         self._logs_client = logs_client
         self._workspace_id = workspace_id
@@ -109,7 +112,6 @@ class InvestigationTools:
     # Tool 1: trace_lifecycle
     # ------------------------------------------------------------------
 
-    @tool(approval_mode="never_require")
     async def trace_lifecycle(
         self,
         trace_id: Annotated[
@@ -176,7 +178,6 @@ class InvestigationTools:
     # Tool 2: recent_errors
     # ------------------------------------------------------------------
 
-    @tool(approval_mode="never_require")
     async def recent_errors(
         self,
         time_range: Annotated[
@@ -247,7 +248,6 @@ class InvestigationTools:
     # Tool 3: system_health
     # ------------------------------------------------------------------
 
-    @tool(approval_mode="never_require")
     async def system_health(
         self,
         time_range: Annotated[
@@ -294,7 +294,6 @@ class InvestigationTools:
     # Tool 4: usage_patterns
     # ------------------------------------------------------------------
 
-    @tool(approval_mode="never_require")
     async def usage_patterns(
         self,
         time_range: Annotated[
@@ -369,7 +368,6 @@ class InvestigationTools:
     # Tool 5: query_feedback_signals
     # ------------------------------------------------------------------
 
-    @tool(approval_mode="never_require")
     async def query_feedback_signals(
         self,
         signal_type: Annotated[
@@ -482,7 +480,6 @@ class InvestigationTools:
     # Tool 6: promote_to_golden_dataset
     # ------------------------------------------------------------------
 
-    @tool(approval_mode="never_require")
     async def promote_to_golden_dataset(
         self,
         signal_id: Annotated[
@@ -591,7 +588,6 @@ class InvestigationTools:
     # Tool 7: run_classifier_eval
     # ------------------------------------------------------------------
 
-    @tool(approval_mode="never_require")
     async def run_classifier_eval(self) -> str:
         """Trigger a classifier evaluation run against the golden dataset.
 
@@ -660,7 +656,6 @@ class InvestigationTools:
     # Tool 8: run_admin_eval
     # ------------------------------------------------------------------
 
-    @tool(approval_mode="never_require")
     async def run_admin_eval(
         self,
         routing_context: Annotated[
@@ -740,7 +735,6 @@ class InvestigationTools:
     # Tool 9: get_eval_results
     # ------------------------------------------------------------------
 
-    @tool(approval_mode="never_require")
     async def get_eval_results(
         self,
         eval_type: Annotated[
