@@ -459,9 +459,30 @@ Plans:
 
 **Requirements:** TBD
 **Depends on:** Phase 23
-**Plans:** 0 plans
+**Plans:** 23 plans
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 24 to break down)
-</content>
-</invoke>
+- [ ] 24-01-PLAN.md — Install push guard (Wave 1, autonomous)
+- [ ] 24-02-PLAN.md — Apply GA dep set + add foundry_model setting (Wave 2, sequential 23.1)
+- [ ] 24-03-PLAN.md — Promote investigation instructions + create capture-trace middleware (Wave 2, sequential 23.1)
+- [ ] 24-04-PLAN.md — Rewrite agents/investigation.py + main.py Investigation lifespan (Wave 2, sequential 23.1)
+- [ ] 24-05-PLAN.md — Strip @tool decorators from tools/investigation.py (Wave 2, sequential 23.1)
+- [ ] 24-06-PLAN.md — Update KQL AGENT_RUNS template + W-01 narrowed comment (Wave 2, sequential 23.1)
+- [ ] 24-07-PLAN.md — Rewrite streaming/investigation_adapter.py + delete custom span (Wave 2, sequential 23.1)
+- [ ] 24-08-PLAN.md — Framework-fidelity auditor at end of 23.1 (Wave 2, checkpoint)
+- [ ] 24-09-PLAN.md — Promote admin instructions + agent rewrite + main.py Admin lifespan (Wave 3, sequential 23.2)
+- [ ] 24-10-PLAN.md — Strip @tool decorators from tools/admin.py + tools/recipe.py (Wave 3, sequential 23.2)
+- [ ] 24-11-PLAN.md — Rewrite processing/admin_handoff.py + post-hoc tool detection + bounded retry (Wave 3, sequential 23.2)
+- [ ] 24-12-PLAN.md — Introduce EvalAgentInvoker facade; route admin call through GA (Wave 3, sequential 23.2)
+- [ ] 24-13-PLAN.md — Framework-fidelity auditor at end of 23.2 (Wave 3, checkpoint)
+- [ ] 24-14-PLAN.md — Promote classifier instructions + agent rewrite + main.py file_capture-only (Wave 4, sequential 23.3)
+- [ ] 24-15-PLAN.md — Strip @tool decorators from classification + transcription + voice direct call in api/capture.py (Wave 4, sequential 23.3)
+- [ ] 24-16-PLAN.md — Rewrite streaming/adapter.py: GA agent.run + delete safety net + forced_tool_failure SSE (Wave 4, sequential 23.3)
+- [ ] 24-17-PLAN.md — Inbox.foundryThreadId -> sessionId rename + dry_run_tools strip + backfill script (Wave 4, sequential 23.3)
+- [ ] 24-18-PLAN.md — Delete agents/middleware.py + RCEvalAgentInvoker + add forced_tool_failure KQL (Wave 4, sequential 23.3)
+- [ ] 24-19-PLAN.md — Rewrite warmup.py + main.py warmup factories; remove last RC import (Wave 4, sequential 23.3)
+- [ ] 24-20-PLAN.md — Cumulative framework-fidelity audit + pre-deploy gates (tests/replays/eval/auth/RBAC/backfill) (Wave 5, checkpoint)
+- [ ] 24-21-PLAN.md — Final config.py cleanup: remove azure_ai_*_agent_id orphan settings (Wave 5, sequential)
+- [ ] 24-22-PLAN.md — Step A env vars + unguard + git push origin main (Step B) (Wave 6, checkpoint)
+- [ ] 24-23-PLAN.md — Day-after UAT + Step C orphan env-var removal + 7-day forced_tool_failure tracking (Wave 7, checkpoint)
+
