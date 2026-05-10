@@ -66,6 +66,43 @@ reuses a `session_id` from disk. Asserts turn 2 reflects turn 1 context.
 
 **Resolution: amended in plan 24-06.5-PLAN.md (NEW)** — also referenced in 24-16, 24-17 pre-execution checks. Red test landed at `backend/tests/test_session_rehydration_fresh_process.py`. Plan 24-06.5 is a blocking checkpoint that runs the probe live; if `recalled_pineapple == false`, plans 24-16 / 24-17 must be re-amended before they ship.
 
+### P0-1 OUTCOME (2026-05-10) — Cross-process recall FAILED, Option A locked
+
+The 24-06.5 probe ran live against the deployed Foundry RC endpoint TWICE; both runs returned `recalled_pineapple == false`. **Cross-process `AgentSession` rehydration via `session_id` alone does NOT work on GA Foundry SDK 1.3.0.**
+
+**Evidence (live-captured fixture `backend/tests/fixtures/foundry-probe/session_rehydration_fresh_process.json`):**
+- Phase A persisted `session_id = 49b9fd33-0374-4023-b847-77d3843d8dda` after sending turn 1 ("Remember PINEAPPLE")
+- Phase A's server-assigned `service_session_id = resp_022e8e6...`
+- Phase B (separate subprocess, fresh interpreter) loaded the persisted session_id, reconstructed `AgentSession(session_id=loaded_id)`, sent turn 2 ("What was the magic word?")
+- Phase B's server-assigned `service_session_id = resp_07284da...` — **DIFFERENT from Phase A**
+- Phase B's response: *"I don't have a record of a magic word from you yet. Could you remind me what it is?"* — server treats turn 2 as a new conversation
+- Two independent runs ~50s apart; both produced the same negative outcome
+
+**Root cause:** the client UUID `session_id` is a local correlator only. The server creates a new response thread on every `agent.run()` call regardless of what UUID the client provides. There is no server-side state lookup keyed by the client UUID.
+
+**Operator decision (locked 2026-05-10): Option A — persist full message history on Inbox doc.**
+
+Rejected alternatives:
+- Option B (serialize `AgentSession.state` + message accumulator): relies on SDK private attrs that GA marks experimental.
+- Option C (single-request handler redesign): substantial UX redesign; out of scope for Phase 24.
+- Option D (further spike): not pursued — Option A's behavior is well-understood and lowest-risk.
+
+**Plan re-amendments (P0-1 outcome):**
+
+1. **InboxDocument schema** (24-17): drop the `sessionId` field idea entirely. Instead ADD `conversationHistory: list[ConversationTurn] | None = None` where `ConversationTurn` is a Pydantic model `{role: Literal["user", "assistant"], content: str}`. Keep `foundryThreadId` for rollback safety. After 24-23 UAT, plan 24-24 deletes BOTH `foundryThreadId` and any half-written `sessionId` fields if encountered (defensive).
+
+2. **Capture handler / classifier streaming adapter** (24-15, 24-16): instead of `resolve_inbox_session_id()` returning a string, the helper becomes `resolve_inbox_conversation_history()` returning a `list[ConversationTurn]` reconstructed from EITHER the new `conversationHistory` field OR (during migration) an empty list (RC's `foundryThreadId` is a server-side opaque pointer with no client-readable history; pre-migration follow-ups will lose continuity gracefully). Capture handler appends each new turn to the list before agent.run(), and persists the updated list back to Cosmos after the run.
+
+3. **Investigation streaming** (24-07): drop `AgentSession`/`session_id` rehydration entirely. Investigation chat is short-lived in mobile (one screen session); each chat run is a fresh agent invocation with the conversation passed as an explicit message list (mobile already accumulates the visible conversation). The wire field `thread_id` becomes effectively a UUID with no server-side meaning — keep it for backward compat or drop entirely; deferred to executor judgment.
+
+4. **agent.run() invocation:** instead of `agent.run(message, session=session)`, pass `messages=[ChatMessage(role=..., content=...) for turn in history] + [new_user_turn]`. The framework treats this as "stateless agent with explicit conversation context" — no server-side state needed.
+
+5. **Red test `test_session_rehydration_fresh_process.py`:** stays in failing state pinned to the captured fixture. Will turn green only when the chosen redesign proves cross-process recall via the conversationHistory path. The test's `recalled_pineapple is True` assertion now serves as a regression guard for the redesigned flow.
+
+**Cost analysis:** Cosmos doc size impact bounded by typical follow-up depth (≤5 turns × ~500 chars = ~2.5KB additional per doc). Well within Cosmos doc size limits. Forward-compatible — if Microsoft adds true cross-process session rehydration to a future SDK release, the conversationHistory approach can be left in place or migrated incrementally.
+
+**Affected plans (re-amended):** 24-07, 24-15, 24-16, 24-17. Plan 24-15's `cosmos/inbox_session_resolver.py` helper is renamed/repurposed. Plan 24-17's `sessionId` field addition is scrubbed. Plan 24-24's cleanup script targets `foundryThreadId` only (sessionId never lands).
+
 ---
 
 ## P0-2 — The Cosmos backfill is scheduled before deploy and deletes the RC field
