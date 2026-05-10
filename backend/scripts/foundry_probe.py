@@ -10,11 +10,13 @@ Usage:
 
 Probes (per docs/superpowers/specs/2026-05-05-foundry-ga-migration-design.md
 Section "Foundry probe harness"):
-    streaming_shape       — AgentResponseUpdate field/type/order
-    tool_call_extraction  — AgentResponse tool-call extraction path
-    tool_choice_required  — Whether tool_choice='required' enforces single-tool selection
-    session_rehydration   — AgentSession / session round-trip
-    auth_probe            — FoundryChatClient + AzureCliCredential RBAC verification
+    streaming_shape                       — AgentResponseUpdate field/type/order
+    tool_call_extraction                  — AgentResponse tool-call extraction path
+    tool_choice_required                  — Whether tool_choice='required' enforces single-tool selection
+    session_rehydration                   — AgentSession / session round-trip (SAME-process)
+    auth_probe                            — FoundryChatClient + AzureCliCredential RBAC verification
+    session_rehydration_fresh_process     — Phase 24 P0-1: cross-process AgentSession rehydration
+                                            (driver spawns phase_a + phase_b in fresh subprocesses)
 
 Trace pollution containment:
     - Every span emitted by a probe carries probe.run_id and probe.name attributes.
@@ -528,6 +530,232 @@ async def session_rehydration() -> Path:
     )
 
 
+async def session_rehydration_fresh_process_phase_a(state_file: Path) -> Path:
+    """Phase A of fresh-process rehydration probe (Phase 24 P0-1).
+
+    Sends turn 1 with a magic word, persists session.session_id + the magic
+    word to state_file, then exits. DOES NOT call _write_fixture -- Phase A's
+    output is the state file consumed by Phase B. The driver
+    (session_rehydration_fresh_process) writes the final fixture after both
+    phases complete.
+
+    Runs in its own subprocess so the interpreter is fresh; nothing in Python
+    memory survives to Phase B.
+    """
+    run_id = _new_run_id()
+    _probe_run_id.set(run_id)
+    _probe_name.set("session_rehydration_fresh_process_phase_a")
+    _ensure_probe_processor_installed()
+
+    client = _build_client()
+    agent = Agent(
+        client=client,
+        instructions=(
+            "You are a probe agent. Remember details from prior turns "
+            "and quote them back when asked."
+        ),
+        tools=[],
+    )
+
+    magic_word = "PINEAPPLE"
+    session = AgentSession()
+    async for _ in agent.run(
+        messages=f"Remember the magic word {magic_word} for later.",
+        session=session,
+        stream=True,
+    ):
+        pass
+
+    # Persist what Phase B needs to rehydrate. Use indent=2 for human-readable
+    # debugging if anything goes wrong mid-flight.
+    state_file.write_text(
+        json.dumps(
+            {
+                "session_id": session.session_id,
+                "service_session_id": getattr(session, "service_session_id", None),
+                "magic_word": magic_word,
+                "phase_a_run_id": run_id,
+            },
+            indent=2,
+        )
+    )
+    print(
+        f"[probe] phase_a wrote state_file={state_file} "
+        f"session_id={session.session_id}",
+        file=sys.stderr,
+    )
+    return state_file
+
+
+async def session_rehydration_fresh_process_phase_b(state_file: Path) -> Path:
+    """Phase B of fresh-process rehydration probe (Phase 24 P0-1).
+
+    Loads session_id from state_file (written by Phase A), reconstructs
+    AgentSession(session_id=loaded_id) -- NO Python-level state shared with
+    Phase A's session object -- and sends turn 2 asking for the magic word.
+
+    The recall question deliberately does NOT include the word "PINEAPPLE",
+    so the response can only contain it if the Foundry server-side session
+    history is correctly retrievable from the persisted session_id alone.
+
+    Captures the turn 2 response text and appends it to state_file. The
+    driver reads the file and decides whether recall succeeded.
+    """
+    run_id = _new_run_id()
+    _probe_run_id.set(run_id)
+    _probe_name.set("session_rehydration_fresh_process_phase_b")
+    _ensure_probe_processor_installed()
+
+    state = json.loads(state_file.read_text())
+    loaded_session_id = state["session_id"]
+
+    client = _build_client()
+    agent = Agent(
+        client=client,
+        instructions=(
+            "You are a probe agent. Remember details from prior turns "
+            "and quote them back when asked."
+        ),
+        tools=[],
+    )
+
+    # Reconstruct session from persisted id ONLY -- no in-memory carry-over.
+    session = AgentSession(session_id=loaded_session_id)
+
+    # Non-streaming run so we get a single AgentResponse with a .text attr.
+    response: AgentResponse = await agent.run(
+        messages="What was the magic word I told you to remember?",
+        session=session,
+    )
+    turn_two_text = getattr(response, "text", "") or ""
+
+    # Append turn 2 outcome to state file
+    state["turn_two_text"] = turn_two_text
+    state["turn_two_response_repr"] = repr(response)[:2000]
+    state["phase_b_run_id"] = run_id
+    state["phase_b_session_service_session_id"] = getattr(
+        session, "service_session_id", None
+    )
+    state_file.write_text(json.dumps(state, indent=2))
+    print(
+        f"[probe] phase_b wrote turn_two_text length={len(turn_two_text)} "
+        f"to state_file={state_file}",
+        file=sys.stderr,
+    )
+    return state_file
+
+
+async def session_rehydration_fresh_process() -> Path:
+    """Probe 6 (Phase 24 P0-1): cross-process session rehydration driver.
+
+    Spawns Phase A and Phase B as SEPARATE subprocesses via subprocess.run([
+    sys.executable, ...]). The fresh interpreter for Phase B is the
+    load-bearing test -- it cannot share Python-level state with Phase A.
+    Asserts that Phase B (using only the persisted session_id) recalls turn
+    1's magic word.
+
+    Writes fixture session_rehydration_fresh_process.json with both phase
+    exit codes, stderr tails, the magic word, the persisted session_id, the
+    turn-2 response text, and a boolean recalled_pineapple flag. If recall
+    fails, plans 24-07 / 24-16 / 24-17 must be re-amended (see 24-06.5-PLAN
+    decision branch).
+    """
+    import subprocess
+    import tempfile
+
+    run_id = _new_run_id()
+    _probe_run_id.set(run_id)
+    _probe_name.set("session_rehydration_fresh_process")
+    _ensure_probe_processor_installed()
+
+    state_file = Path(tempfile.gettempdir()) / f"foundry-probe-fresh-{run_id}.json"
+
+    # Phase A in a fresh subprocess. cwd = backend/ so `-m scripts.foundry_probe`
+    # resolves correctly (the parent invocation also runs from backend/).
+    a = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "scripts.foundry_probe",
+            "session_rehydration_fresh_process_phase_a",
+            "--state-file",
+            str(state_file),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+
+    # Phase B in a SEPARATE fresh subprocess (this is the load-bearing part).
+    b = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "scripts.foundry_probe",
+            "session_rehydration_fresh_process_phase_b",
+            "--state-file",
+            str(state_file),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+
+    # Read final state from disk and compute recall.
+    if state_file.exists():
+        state = json.loads(state_file.read_text())
+        magic_word = state.get("magic_word", "")
+        turn_two_text = state.get("turn_two_text", "")
+        turn_two_response_repr = state.get("turn_two_response_repr", "")
+        persisted_session_id = state.get("session_id", "")
+        service_session_id = state.get("service_session_id")
+        phase_a_run_id = state.get("phase_a_run_id", "")
+        phase_b_run_id = state.get("phase_b_run_id", "")
+        phase_b_service_session_id = state.get("phase_b_session_service_session_id")
+        recalled = bool(magic_word) and (magic_word.upper() in turn_two_text.upper())
+    else:
+        magic_word = ""
+        turn_two_text = ""
+        turn_two_response_repr = ""
+        persisted_session_id = ""
+        service_session_id = None
+        phase_a_run_id = ""
+        phase_b_run_id = ""
+        phase_b_service_session_id = None
+        recalled = False
+
+    # Clean up state file (best-effort -- leave on failure for forensics).
+    if a.returncode == 0 and b.returncode == 0:
+        state_file.unlink(missing_ok=True)
+    else:
+        print(
+            f"[probe] retaining state_file for forensics: {state_file}",
+            file=sys.stderr,
+        )
+
+    return _write_fixture(
+        "session_rehydration_fresh_process",
+        {
+            "probe": {"run_id": run_id},
+            "phase_a_exit_code": a.returncode,
+            "phase_a_stdout_tail": a.stdout[-1000:] if a.stdout else "",
+            "phase_a_stderr_tail": a.stderr[-1000:] if a.stderr else "",
+            "phase_a_run_id": phase_a_run_id,
+            "phase_b_exit_code": b.returncode,
+            "phase_b_stdout_tail": b.stdout[-1000:] if b.stdout else "",
+            "phase_b_stderr_tail": b.stderr[-1000:] if b.stderr else "",
+            "phase_b_run_id": phase_b_run_id,
+            "magic_word": magic_word,
+            "persisted_session_id": persisted_session_id,
+            "service_session_id": service_session_id,
+            "phase_b_service_session_id": phase_b_service_session_id,
+            "turn_two_text": turn_two_text,
+            "turn_two_response_repr": turn_two_response_repr,
+            "recalled_pineapple": recalled,
+        },
+    )
+
+
 async def auth_probe() -> Path:
     """Probe 5: AzureCliCredential + FoundryChatClient + minimal agent invocation.
 
@@ -667,7 +895,21 @@ PROBES = {
     "tool_choice_required": tool_choice_required,
     "session_rehydration": session_rehydration,
     "auth_probe": auth_probe,
+    # Phase 24 P0-1: cross-process session rehydration.
+    # Driver + phase entry points. The phase entry points require --state-file
+    # and are invoked only as subprocesses by the driver (not by humans).
+    "session_rehydration_fresh_process": session_rehydration_fresh_process,
+    "session_rehydration_fresh_process_phase_a": session_rehydration_fresh_process_phase_a,
+    "session_rehydration_fresh_process_phase_b": session_rehydration_fresh_process_phase_b,
 }
+
+# Probe entry points that require --state-file (Phase 24 P0-1 sub-probes).
+_REQUIRES_STATE_FILE = frozenset(
+    {
+        "session_rehydration_fresh_process_phase_a",
+        "session_rehydration_fresh_process_phase_b",
+    }
+)
 
 
 def main() -> int:
@@ -680,17 +922,41 @@ def main() -> int:
         choices=sorted(PROBES.keys()) + ["all"],
         help="Probe to run, or 'all' to run every probe sequentially.",
     )
+    parser.add_argument(
+        "--state-file",
+        type=Path,
+        default=None,
+        help=(
+            "State file path required by session_rehydration_fresh_process_phase_a/b "
+            "sub-probes. The driver invokes them as subprocesses with this flag set."
+        ),
+    )
     args = parser.parse_args()
 
     async def _run_one(name: str) -> Path:
         print(f"[probe] running {name} ...", file=sys.stderr)
-        path = await PROBES[name]()
+        if name in _REQUIRES_STATE_FILE:
+            if args.state_file is None:
+                print(
+                    f"FATAL: {name} requires --state-file. This sub-probe is "
+                    "normally invoked by the session_rehydration_fresh_process "
+                    "driver, not directly.",
+                    file=sys.stderr,
+                )
+                sys.exit(2)
+            path = await PROBES[name](args.state_file)
+        else:
+            path = await PROBES[name]()
         print(f"[probe] {name} -> {path}", file=sys.stderr)
         return path
 
     async def _run_all() -> list[Path]:
         paths: list[Path] = []
         for name in PROBES:
+            # Skip phase entry points in 'all' mode -- they are subprocess-only
+            # and would fail without --state-file.
+            if name in _REQUIRES_STATE_FILE:
+                continue
             paths.append(await _run_one(name))
         return paths
 
