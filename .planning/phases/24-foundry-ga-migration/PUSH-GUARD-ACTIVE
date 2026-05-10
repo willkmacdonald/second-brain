@@ -1,0 +1,13 @@
+Phase 24 Foundry GA Migration in progress.
+
+This sentinel blocks `git push origin main` via .git/hooks/pre-push.
+
+Removal trigger: end of Phase 24 task group 23.3 final unguard plan (24-23-PLAN.md),
+AFTER all pre-deploy gates pass and immediately BEFORE the deploy push.
+
+Removal command: `rm .planning/phases/24-foundry-ga-migration/PUSH-GUARD-ACTIVE`
+
+Per CONTEXT D-12: 23.1 (Investigation) -> 23.2 (Admin) -> 23.3 (Classifier) commits
+accumulate sequentially on local `main`. Local `main` is intentionally not buildable
+for the duration of those task groups. Pushing during that window would trigger
+CI/CD and deploy a broken image to production.
