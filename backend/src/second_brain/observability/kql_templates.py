@@ -396,6 +396,53 @@ AppDependencies
 """
 
 
+# ---------------------------------------------------------------------------
+# Forced Tool Failure Count -- 23.3 SSE sub-code introduced in plan 24-16
+# ---------------------------------------------------------------------------
+# Parameterised with {lookback} (KQL duration literal e.g. "24h", "7d") via
+# str.format(). Returns a per-hour count of forced_tool_failure events.
+#
+# Per SPAN-NAME-MAPPING.md Section "Task group 23.3":
+# Plan 24-16 introduced the `forced_tool_failure` SSE sub-code (D-04). It is
+# emitted by streaming/adapter.py at three points (text capture's
+# tool_choice=required-empty-result, text capture's exception handler, and
+# the follow-up flow's equivalents). Each emission writes a structured log
+# carrying ``extra={..., "capture.outcome": "forced_tool_failure"}``, which
+# lands on AppTraces (logger.warning) or AppExceptions (logger.error with
+# exc_info=True). This template unions both tables.
+#
+# The dotted property key `capture.outcome` requires bracket access in KQL
+# (`Properties.["capture.outcome"]`), not dot-access.
+#
+# Severity union: includes WARNING (SeverityLevel=2, the empty-result path)
+# AND ERROR (SeverityLevel=3, the exception path) so both emission shapes
+# contribute. SeverityLevel >= 2 filters out the DEBUG/INFO floor without
+# excluding either real emission point.
+#
+# 24-18 ships this template only; a corresponding query_*() function in
+# queries.py + post-deploy 7-day monitoring gate land in a follow-up plan.
+
+FORCED_TOOL_FAILURE_COUNT = """\
+union withsource=SourceTable
+    (AppTraces | where SeverityLevel >= 2),
+    AppExceptions
+| where TimeGenerated > ago({lookback})
+| where tostring(Properties.["capture.outcome"]) == "forced_tool_failure"
+| project
+    timestamp = TimeGenerated,
+    ItemType = case(
+        SourceTable == "AppTraces", "Log",
+        SourceTable == "AppExceptions", "Exception",
+        SourceTable
+    ),
+    severityLevel = SeverityLevel,
+    CaptureTraceId = tostring(Properties.capture_trace_id),
+    Component = tostring(Properties.component)
+| summarize count_ = count() by bin(timestamp, 1h), ItemType
+| order by timestamp asc
+"""
+
+
 BACKEND_API_FAILURES = """\
 union withsource=SourceTable
     (AppTraces | where SeverityLevel >= 3),
