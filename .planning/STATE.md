@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Observability & Evals
 status: executing
-stopped_at: Completed 24-21 (final config orphan cleanup — Settings is GA-only; extra='ignore' guard tolerates orphan Container App env vars until 24-23)
-last_updated: "2026-05-11T06:19:11.597Z"
+stopped_at: Completed 24-20 (pre-deploy gate runner — cumulative audit PASS, 8/10 gates PASS, 1 PARTIAL FAIL per spec, 1 OPERATOR-DEFERRED). Plan 24-22 deploy READY pending operator RBAC verification per Gate 8 + optional Cosmos smoke per Gate 9 step 2.
+last_updated: "2026-05-11T06:46:30.424Z"
 last_activity: 2026-05-11
 progress:
   total_phases: 18
   completed_phases: 14
   total_plans: 81
-  completed_plans: 75
-  percent: 93
+  completed_plans: 76
+  percent: 94
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 ## Current Position
 
 Phase: 24 (foundry-ga-migration) — EXECUTING
-Plan: 22 of 26 (Wave 4 complete: 24-14 through 24-19; codebase under backend/src/second_brain/ is RC-free; AST scan red test GREEN)
+Plan: 23 of 26 (Wave 4 complete: 24-14 through 24-19; codebase under backend/src/second_brain/ is RC-free; AST scan red test GREEN)
 Status: Ready to execute
 Last activity: 2026-05-11
 
-Progress: [█████████░] 93%
+Progress: [█████████░] 94%
 
 ## Performance Metrics
 
@@ -48,8 +48,8 @@ Progress: [█████████░] 93%
 
 **Velocity (v3.1):**
 
-- Plans completed: 21 fully + 2 code-complete awaiting bundled human-verify checkpoint (19.2-04 + 19.2-05)
-- Last plan duration: 4 min (24-21 -- final config orphan cleanup; 3 azure_ai_*_agent_id Settings fields deleted; model_config extra='ignore' added so GA image tolerates orphan Container App env vars until 24-23; 2 tasks (1 file-modifying + 1 verification-only), 1 commit, 1 file modified)
+- Plans completed: 22 fully + 2 code-complete awaiting bundled human-verify checkpoint (19.2-04 + 19.2-05)
+- Last plan duration: ~22 min (24-20 -- pre-deploy gate runner; 10 gates executed against post-24-21 artifact; 8 PASS + 1 PARTIAL FAIL per plan spec (Gate 5 golden-trace runner missing) + 1 DEFERRED-TO-OPERATOR (Gate 8 RBAC + Gate 9 step 2 Cosmos legacy doc query). Cumulative auditor verdict PASS-WITH-WARNINGS at 22 ✓ / 3 ⚠️ / 0 in-scope ❌ — all 19 calibration F-## findings closed, all 8 plan defects closed. 3 tasks, 3 task commits, 11 files created, 4 files modified (3 Rule 1 test fixes + 1 Rule 3 helper extension during gate execution).
 - Timeline: 2026-04-05 to present
 
 *Updated after each plan completion*
@@ -238,6 +238,7 @@ v3.0 decisions archived to .planning/milestones/v3.0-ROADMAP.md
 - [24-21]: Three azure_ai_*_agent_id orphan fields deleted from config.py Settings — codebase under backend/src/second_brain/ is in its final pre-deploy state. The asymmetric code-now / env-later cleanup pattern from CONFIG-DELTAS Step C is now active.
 - [24-21]: Added model_config extra='ignore' to Settings (Rule 2 deviation). Pydantic Settings v2 defaults to extra='forbid'; without this guard the GA image would crash on startup with ValidationError because the Container App still has AZURE_AI_*_AGENT_ID env vars set (removed post-UAT in 24-23 per CONFIG-DELTAS NEGATIVE assertion). Honours the plan's NON-NEGOTIABLE that Container App env vars are NOT touched here. Reusable pattern for any future asymmetric code-now / env-later cleanup window.
 - [24-21]: Task 2 was verification-only — zero file modifications needed because waves 1-4 (24-04 Investigation, 24-09 Admin, 24-14 Classifier, 24-19 warmup + foundry_client probe) had already removed every lifespan-slice read of settings.azure_ai_*_agent_id. No empty commit created (executor protocol). Acceptance gates run clean on the post-Task-1 codebase.
+- [Phase 24-20]: Pre-deploy gate runner — 8 PASS / 1 PARTIAL FAIL (Gate 5 golden-trace runner missing, per plan spec acceptable) / 1 DEFERRED-TO-OPERATOR (Gate 8 RBAC + Gate 9 step 2 Cosmos legacy doc). Cumulative auditor PASS-WITH-WARNINGS: zero in-scope ❌, all 19 calibration F-## findings closed, all 8 plan defects closed. Plan 24-22 deploy code-side READY pending operator RBAC verification.
 
 ### Pending Todos
 
@@ -269,8 +270,8 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-05-11T06:18:28.991Z
-Stopped at: Completed 24-21 (final config orphan cleanup — Settings is GA-only; extra='ignore' guard tolerates orphan Container App env vars until 24-23)
+Last session: 2026-05-11T06:46:23.361Z
+Stopped at: Completed 24-20 (pre-deploy gate runner — cumulative audit PASS, 8/10 gates PASS, 1 PARTIAL FAIL per spec, 1 OPERATOR-DEFERRED). Plan 24-22 deploy READY pending operator RBAC verification per Gate 8 + optional Cosmos smoke per Gate 9 step 2.
 Resume action: Continue Phase 23 (next plan: 23-05, depends on 23-02 probe findings)
 
 **Planned Phase:** 24 (foundry-ga-migration) — 23 plans — 2026-05-10T03:08:32.888Z
