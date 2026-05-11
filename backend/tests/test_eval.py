@@ -349,13 +349,18 @@ async def test_classifier_eval_catches_toplevel_exception() -> None:
 
 @pytest.fixture
 def eval_app() -> FastAPI:
-    """FastAPI app with eval router and mocked app state."""
+    """FastAPI app with eval router and mocked app state.
+
+    Phase 24 plan 24-18: routes read app.state.classifier_agent /
+    app.state.admin_agent (the GA Agent singletons) instead of the
+    legacy 24-12 *_client attributes.
+    """
     app = FastAPI()
     app.include_router(eval_router)
     app.state.api_key = TEST_API_KEY
     app.state.cosmos_manager = MagicMock()
-    app.state.classifier_client = AsyncMock()
-    app.state.admin_client = AsyncMock()
+    app.state.classifier_agent = AsyncMock()
+    app.state.admin_agent = AsyncMock()
     app.state.background_tasks = set()
     app.add_middleware(APIKeyMiddleware)
     return app
@@ -493,17 +498,21 @@ async def test_admin_eval_requires_routing_context(
 
 @pytest.fixture
 def investigation_tools_with_eval() -> InvestigationTools:
-    """InvestigationTools with mock clients for eval tools."""
+    """InvestigationTools with mock GA agents for eval tools.
+
+    Phase 24 plan 24-18: constructor takes classifier_agent + admin_agent
+    (the GA Agent singletons) instead of the legacy 24-12 *_client params.
+    """
     logs_client = MagicMock()
     cosmos_manager = MagicMock()
-    classifier_client = AsyncMock()
-    admin_client = AsyncMock()
+    classifier_agent = AsyncMock()
+    admin_agent = AsyncMock()
     return InvestigationTools(
         logs_client=logs_client,
         workspace_id="test-workspace-id",
         cosmos_manager=cosmos_manager,
-        classifier_client=classifier_client,
-        admin_client=admin_client,
+        classifier_agent=classifier_agent,
+        admin_agent=admin_agent,
     )
 
 
@@ -521,14 +530,19 @@ async def test_investigation_run_classifier_eval_starts(
 
 
 @pytest.mark.asyncio
-async def test_investigation_run_classifier_eval_no_client() -> None:
-    """Investigation run_classifier_eval without client returns error."""
+async def test_investigation_run_classifier_eval_no_agent() -> None:
+    """Investigation run_classifier_eval without agent returns error.
+
+    Phase 24 plan 24-18: tool now checks ``self._classifier_agent`` (GA
+    Agent singleton) instead of ``self._classifier_client`` (the legacy
+    24-12 RC handle).
+    """
     logs_client = MagicMock()
     tools = InvestigationTools(
         logs_client=logs_client,
         workspace_id="test-workspace-id",
         cosmos_manager=MagicMock(),
-        classifier_client=None,
+        classifier_agent=None,
     )
 
     result_json = await tools.run_classifier_eval()

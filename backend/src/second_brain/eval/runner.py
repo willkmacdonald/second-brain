@@ -8,18 +8,14 @@ in-memory for status polling.
 Each eval case runs in a fresh tool instance with no state leakage (Pitfall #2).
 Agent calls have a 60-second timeout per case (Pitfall #5 / T-21-05).
 
-Phase 24 task group 23.2 (plan 24-12, GA migration):
-- Agent invocation is now indirected through ``EvalAgentInvoker`` so the
-  runner stays agnostic of RC vs. GA call shapes during the migration
-  window. See ``second_brain.eval.invoker`` for the Protocol + the two
-  concrete implementations (RC for classifier until 24-13..24-17, GA for
-  admin after 24-09..24-11).
-- The caller (api/eval.py or tools/investigation.py) constructs a
-  ``_MigrationHybridInvoker(rc_invoker=..., ga_invoker=...)`` and passes
-  that single hybrid as the ``invoker`` argument. Plan 24-18 deletes the
-  hybrid + RC class together once the classifier is GA.
-- The runner does NOT import ``_MigrationHybridInvoker`` directly; it
-  only types the parameter as the Protocol.
+Phase 24 plan 24-18 (final 23.3 cleanup):
+- Agent invocation is indirected through the ``EvalAgentInvoker`` Protocol.
+  After 24-18 there is a single concrete implementation,
+  ``GAEvalAgentInvoker``, both paths GA. The temporary 24-12
+  ``RCEvalAgentInvoker`` and ``_MigrationHybridInvoker`` classes are gone.
+- The caller (api/eval.py or tools/investigation.py) constructs a plain
+  ``GAEvalAgentInvoker(classifier_agent=..., admin_agent=...)`` and passes
+  it as the ``invoker`` argument.
 """
 
 from __future__ import annotations
@@ -105,10 +101,9 @@ async def run_classifier_eval(
     Args:
         run_id: Unique identifier for this eval run.
         cosmos_manager: Cosmos DB manager for reading/writing containers.
-        invoker: ``EvalAgentInvoker`` implementation. During plan 24-12's
-            migration window, callers construct a ``_MigrationHybridInvoker``
-            that routes invoke_classifier -> RCEvalAgentInvoker. After plan
-            24-18 this becomes a plain ``GAEvalAgentInvoker``.
+        invoker: ``EvalAgentInvoker`` implementation. Post-24-18, this is a
+            plain ``GAEvalAgentInvoker(classifier_agent=..., admin_agent=...)``
+            constructed at the call-site (api/eval.py or tools/investigation.py).
         runs_dict: In-memory dict for tracking run status/progress.
     """
     try:
@@ -244,10 +239,9 @@ async def run_admin_eval(
     Args:
         run_id: Unique identifier for this eval run.
         cosmos_manager: Cosmos DB manager for reading/writing containers.
-        invoker: ``EvalAgentInvoker`` implementation. During plan 24-12's
-            migration window, callers construct a ``_MigrationHybridInvoker``
-            that routes invoke_admin -> GAEvalAgentInvoker. After plan
-            24-18 this becomes a plain ``GAEvalAgentInvoker``.
+        invoker: ``EvalAgentInvoker`` implementation. Post-24-18, this is a
+            plain ``GAEvalAgentInvoker(classifier_agent=..., admin_agent=...)``
+            constructed at the call-site (api/eval.py or tools/investigation.py).
         routing_context: Pre-built routing context string for
             ``DryRunAdminTools`` and passed into ``invoker.invoke_admin``.
         runs_dict: In-memory dict for tracking run status/progress.

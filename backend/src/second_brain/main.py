@@ -737,12 +737,11 @@ async def lifespan(app: FastAPI):
                     logs_client=app.state.logs_client,
                     workspace_id=settings.log_analytics_workspace_id,
                     cosmos_manager=app.state.cosmos_manager,
-                    classifier_client=app.state.classifier_client,
-                    admin_client=getattr(app.state, "admin_client", None),
-                    # Phase 24 plan 24-12: admin path is now GA via Agent
-                    # singleton; classifier path stays RC during migration
-                    # window. EvalAgentInvoker hybrid constructed in
-                    # InvestigationTools._build_eval_invoker().
+                    # Phase 24 plan 24-18: both eval paths route through a
+                    # plain GAEvalAgentInvoker constructed inside
+                    # InvestigationTools._build_eval_invoker(). The 24-12
+                    # hybrid (classifier_client + admin_client) is gone.
+                    classifier_agent=getattr(app.state, "classifier_agent", None),
                     admin_agent=getattr(app.state, "admin_agent", None),
                 )
                 app.state.investigation_tools_instance = investigation_tools

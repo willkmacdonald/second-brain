@@ -1,17 +1,16 @@
 """Eval API endpoints for triggering and monitoring eval runs.
 
-Phase 24 plan 24-12: the runner now takes an ``EvalAgentInvoker`` instead
-of raw RC clients. During the 23.2-23.3 migration window, this endpoint
-constructs a ``_MigrationHybridInvoker`` that routes:
+Phase 24 plan 24-18: the temporary _MigrationHybridInvoker / RCEvalAgentInvoker
+seam introduced in 24-12 is gone. Both eval types now construct a plain
+``GAEvalAgentInvoker(classifier_agent=..., admin_agent=...)`` using the GA
+Agent singletons published on ``app.state``:
 
-- ``invoke_classifier`` -> ``RCEvalAgentInvoker`` (classifier still RC until
-  plans 24-13..24-17).
-- ``invoke_admin`` -> ``GAEvalAgentInvoker`` (admin migrated to GA in
-  plans 24-09..24-11).
+- ``app.state.classifier_agent`` -- GA Agent built by 24-14
+- ``app.state.admin_agent``      -- GA Agent built by 24-09
 
-Plan 24-18 deletes the hybrid + RC class together; this endpoint will then
-construct a plain ``GAEvalAgentInvoker`` from ``app.state.classifier_agent``
-and ``app.state.admin_agent``.
+Eval runs no longer touch the legacy ``app.state.classifier_client`` /
+``app.state.admin_client`` attributes (those are W-03 dead-code references
+slated for sweep in 24-19).
 """
 
 import asyncio
@@ -22,11 +21,7 @@ from uuid import uuid4
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel
 
-from second_brain.eval.invoker import (
-    GAEvalAgentInvoker,
-    RCEvalAgentInvoker,
-    _MigrationHybridInvoker,
-)
+from second_brain.eval.invoker import GAEvalAgentInvoker
 from second_brain.eval.runner import run_admin_eval, run_classifier_eval
 
 logger = logging.getLogger(__name__)
@@ -44,34 +39,22 @@ class EvalRunRequest(BaseModel):
     routing_context: str | None = None  # Required for admin_agent eval per D-13
 
 
-def _build_migration_invoker(
-    classifier_client: object | None,
+def _build_eval_invoker(
+    classifier_agent: object | None,
     admin_agent: object | None,
-) -> _MigrationHybridInvoker:
-    """Construct the hybrid invoker for the 23.2-23.3 migration window.
+) -> GAEvalAgentInvoker:
+    """Construct the GA eval invoker.
 
-    Classifier path is RC (``classifier_client`` is an ``AzureAIAgentClient``
-    set by main.py lifespan). Admin path is GA (``admin_agent`` is an
-    ``agent_framework.Agent`` set by 24-09's ``build_admin_agent``).
-
-    Either side may be ``None`` if the corresponding agent failed to
-    initialize at startup. The caller has already validated that the side
-    needed for the requested eval_type is non-None before calling here, so
-    we pass through whatever the lifespan produced.
+    Both ``classifier_agent`` and ``admin_agent`` are ``agent_framework.Agent``
+    instances published on ``app.state`` by main.py lifespan (24-14 and 24-09
+    respectively). The caller has already validated that the side needed for
+    the requested eval_type is non-None before calling here, so we pass through
+    whatever the lifespan produced.
     """
-    rc_invoker = RCEvalAgentInvoker(
-        classifier_client=classifier_client,  # type: ignore[arg-type]
-        # Admin client is no longer published on app.state after 24-09;
-        # admin path goes through the GA invoker below. Pass None safely.
-        admin_client=None,  # type: ignore[arg-type]
-    )
-    ga_invoker = GAEvalAgentInvoker(
-        # Classifier agent is not yet built in GA (migration window).
-        # Pass None safely; classifier path goes through the RC invoker above.
-        classifier_agent=None,  # type: ignore[arg-type]
+    return GAEvalAgentInvoker(
+        classifier_agent=classifier_agent,  # type: ignore[arg-type]
         admin_agent=admin_agent,  # type: ignore[arg-type]
     )
-    return _MigrationHybridInvoker(rc_invoker=rc_invoker, ga_invoker=ga_invoker)
 
 
 @router.post("/api/eval/run", status_code=202)
@@ -120,15 +103,15 @@ async def start_eval_run(request: Request, body: EvalRunRequest) -> dict:
     }
 
     if body.eval_type == "classifier":
-        classifier_client = getattr(request.app.state, "classifier_client", None)
-        if classifier_client is None:
+        classifier_agent = getattr(request.app.state, "classifier_agent", None)
+        if classifier_agent is None:
             del _eval_runs[run_id]
             raise HTTPException(
                 status_code=503, detail="Classifier agent not configured."
             )
         admin_agent = getattr(request.app.state, "admin_agent", None)
-        invoker = _build_migration_invoker(
-            classifier_client=classifier_client,
+        invoker = _build_eval_invoker(
+            classifier_agent=classifier_agent,
             admin_agent=admin_agent,
         )
         task = asyncio.create_task(
@@ -144,9 +127,9 @@ async def start_eval_run(request: Request, body: EvalRunRequest) -> dict:
         if admin_agent is None:
             del _eval_runs[run_id]
             raise HTTPException(status_code=503, detail="Admin agent not configured.")
-        classifier_client = getattr(request.app.state, "classifier_client", None)
-        invoker = _build_migration_invoker(
-            classifier_client=classifier_client,
+        classifier_agent = getattr(request.app.state, "classifier_agent", None)
+        invoker = _build_eval_invoker(
+            classifier_agent=classifier_agent,
             admin_agent=admin_agent,
         )
         task = asyncio.create_task(

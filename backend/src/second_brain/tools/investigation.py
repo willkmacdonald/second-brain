@@ -99,50 +99,33 @@ class InvestigationTools:
         logs_client: LogsQueryClient,
         workspace_id: str,
         cosmos_manager: CosmosManager | None = None,
-        classifier_client: Any = None,
-        admin_client: Any = None,
+        classifier_agent: Any = None,
         admin_agent: Any = None,
     ) -> None:
         self._logs_client = logs_client
         self._workspace_id = workspace_id
         self._cosmos_manager = cosmos_manager
-        self._classifier_client = classifier_client
-        self._admin_client = admin_client
-        # Phase 24 plan 24-12: admin path is GA (Agent), classifier path
-        # is still RC (AzureAIAgentClient) during the 23.2-23.3 migration
-        # window. After plan 24-18 admin_client is removed and a single
-        # GAEvalAgentInvoker replaces the hybrid.
+        # Phase 24 plan 24-18: classifier_client + admin_client constructor
+        # params from the 24-12 hybrid window are gone. Both paths now use
+        # GA agent_framework.Agent instances published on app.state
+        # (classifier_agent: 24-14, admin_agent: 24-09).
+        self._classifier_agent = classifier_agent
         self._admin_agent = admin_agent
 
     def _build_eval_invoker(self) -> Any:
-        """Construct the migration-window hybrid eval invoker.
+        """Construct the GA eval invoker.
 
-        Routes invoke_classifier -> RCEvalAgentInvoker (classifier still RC
-        until plans 24-13..24-17) and invoke_admin -> GAEvalAgentInvoker
-        (admin migrated to GA in plans 24-09..24-11).
-
-        Deletion trigger: plan 24-18 (cleanup commit) when both agents are
-        GA and a plain ``GAEvalAgentInvoker`` replaces this helper.
+        Phase 24 plan 24-18: the temporary 24-12 hybrid (RCEvalAgentInvoker
+        + _MigrationHybridInvoker) is deleted. Both classifier and admin
+        paths now route through a plain ``GAEvalAgentInvoker`` constructed
+        from the GA Agent singletons on this instance.
         """
-        # Local imports keep the migration-temporary symbols out of the
-        # module-level surface during the migration window; auto-format
-        # is also less likely to strip them mid-edit. Module-level imports
-        # land in the same plan, below.
-        from second_brain.eval.invoker import (
-            GAEvalAgentInvoker,
-            RCEvalAgentInvoker,
-            _MigrationHybridInvoker,
-        )
+        from second_brain.eval.invoker import GAEvalAgentInvoker
 
-        rc_invoker = RCEvalAgentInvoker(
-            classifier_client=self._classifier_client,
-            admin_client=None,  # admin path uses GA invoker below
-        )
-        ga_invoker = GAEvalAgentInvoker(
-            classifier_agent=None,  # classifier path uses RC invoker above
+        return GAEvalAgentInvoker(
+            classifier_agent=self._classifier_agent,
             admin_agent=self._admin_agent,
         )
-        return _MigrationHybridInvoker(rc_invoker=rc_invoker, ga_invoker=ga_invoker)
 
     # ------------------------------------------------------------------
     # Tool 1: trace_lifecycle
@@ -636,8 +619,8 @@ class InvestigationTools:
         logger.info("run_classifier_eval called", extra=log_extra)
 
         try:
-            if self._classifier_client is None:
-                return json.dumps({"error": "Classifier client not available"})
+            if self._classifier_agent is None:
+                return json.dumps({"error": "Classifier agent not available"})
             if self._cosmos_manager is None:
                 return json.dumps({"error": "Cosmos not configured"})
 
@@ -715,7 +698,7 @@ class InvestigationTools:
         logger.info("run_admin_eval called", extra=log_extra)
 
         try:
-            if self._admin_agent is None and self._admin_client is None:
+            if self._admin_agent is None:
                 return json.dumps({"error": "Admin agent not available"})
             if self._cosmos_manager is None:
                 return json.dumps({"error": "Cosmos not configured"})
