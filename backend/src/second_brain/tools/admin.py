@@ -1,15 +1,22 @@
 """Admin agent tools for errand item and destination management.
 
-Uses the class-based tool pattern to bind CosmosManager references to @tool
-functions. AdminTools provides 6 tools: add_errand_items, add_task_items,
-get_routing_context, manage_destination, manage_affinity_rule, and query_rules.
+Uses the class-based tool pattern to bind CosmosManager references to
+async tool methods. AdminTools provides 6 tools: add_errand_items,
+add_task_items, get_routing_context, manage_destination,
+manage_affinity_rule, and query_rules.
+
+Phase 24 GA migration: per D-05/D-06, the RC tool-registration decorator
+was removed from every method. Each tool method is now a plain async
+coroutine. `Annotated[..., Field(description=...)]` parameter shapes and
+docstrings remain as the GA-recommended way to describe tool inputs and
+the tool itself; GA `Agent(tools=[instance.method, ...])` binds bound
+methods directly at construction time.
 """
 
 import logging
 from datetime import UTC, datetime
 from typing import Annotated
 
-from agent_framework import tool
 from pydantic import Field
 
 from second_brain.db.cosmos import CosmosManager
@@ -80,6 +87,9 @@ async def build_routing_context(cosmos_manager: CosmosManager) -> str:
 class AdminTools:
     """Admin agent tools bound to a CosmosManager instance.
 
+    Each tool method is a plain async coroutine. GA Agent binds the bound
+    methods directly via `tools=[instance.method, ...]` at construction time.
+
     Usage:
         tools = AdminTools(cosmos_manager=cosmos_mgr)
         agent_tools = [
@@ -118,7 +128,6 @@ class AdminTools:
     # Tool 1: add_errand_items (modified -- dynamic destinations)
     # ------------------------------------------------------------------
 
-    @tool(approval_mode="never_require")
     async def add_errand_items(
         self,
         items: Annotated[
@@ -188,7 +197,6 @@ class AdminTools:
     # Tool 2: add_task_items (unchanged)
     # ------------------------------------------------------------------
 
-    @tool(approval_mode="never_require")
     async def add_task_items(
         self,
         tasks: Annotated[
@@ -232,7 +240,6 @@ class AdminTools:
     # Tool 3: get_routing_context
     # ------------------------------------------------------------------
 
-    @tool(approval_mode="never_require")
     async def get_routing_context(self) -> str:
         """Load all destinations and affinity rules for routing decisions.
 
@@ -246,7 +253,6 @@ class AdminTools:
     # Tool 4: manage_destination
     # ------------------------------------------------------------------
 
-    @tool(approval_mode="never_require")
     async def manage_destination(
         self,
         action: Annotated[
@@ -367,7 +373,6 @@ class AdminTools:
     # Tool 5: manage_affinity_rule
     # ------------------------------------------------------------------
 
-    @tool(approval_mode="never_require")
     async def manage_affinity_rule(
         self,
         action: Annotated[
@@ -534,7 +539,6 @@ class AdminTools:
     # Tool 6: query_rules
     # ------------------------------------------------------------------
 
-    @tool(approval_mode="never_require")
     async def query_rules(
         self,
         query_text: Annotated[
