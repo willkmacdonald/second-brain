@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Observability & Evals
 status: executing
-stopped_at: Completed 24-14 (Classifier migration to GA Foundry)
-last_updated: "2026-05-11T05:11:55.351Z"
+stopped_at: Completed 24-15 (Voice path split + P0-1 OUTCOME conversation-history helper)
+last_updated: "2026-05-11T05:21:54.230Z"
 last_activity: 2026-05-11
 progress:
   total_phases: 18
   completed_phases: 14
   total_plans: 81
-  completed_plans: 69
-  percent: 85
+  completed_plans: 70
+  percent: 86
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 ## Current Position
 
 Phase: 24 (foundry-ga-migration) — EXECUTING
-Plan: 16 of 26 (Wave 3 complete: 24-09 through 24-13.5)
+Plan: 17 of 26 (Wave 3 complete: 24-09 through 24-13.5)
 Status: Ready to execute
 Last activity: 2026-05-11
 
-Progress: [█████████░] 85%
+Progress: [█████████░] 86%
 
 ## Performance Metrics
 
@@ -49,7 +49,7 @@ Progress: [█████████░] 85%
 **Velocity (v3.1):**
 
 - Plans completed: 18 fully + 2 code-complete awaiting bundled human-verify checkpoint (19.2-04 + 19.2-05)
-- Last plan duration: 7 min (24-11 -- admin_handoff.py GA rewrite; 2 tasks, 3 files)
+- Last plan duration: 5 min (24-15 -- voice path split + P0-1 OUTCOME helper; 4 tasks, 6 files)
 - Timeline: 2026-04-05 to present
 
 *Updated after each plan completion*
@@ -217,6 +217,11 @@ v3.0 decisions archived to .planning/milestones/v3.0-ROADMAP.md
 - [24-14]: Mid-migration safe-defaults pattern (matches 24-09 Admin) — app.state.classifier_client = None and classifier_agent_id = None so spine adapter, warmup loop, and streaming/adapter.py all short-circuit Classifier until 24-16/24-19 finish wave 4
 - [24-14]: Placeholder locals classifier_agent_id = None / classifier_client = None preserve _make_classifier_client warmup factory closure without NameError; factory body never executes because app.state.classifier_client is None. Full warmup-loop GA migration in 24-19
 - [24-14]: Plan acceptance criterion '! grep -q agent_tools.append' was overbroad — conflicted with own <verify> block which has precise F-11 check. Used precise check; legitimate admin_agent_tools.append from 24-09 preserved. Documented as Rule 1 deviation.
+- [24-15]: Voice failure-mode SSE events use AG-UI uppercase ERROR + COMPLETE types (not lowercase 'error'/'done' from plan example) — mobile clients only handle uppercase per AG-UI Phase 8 contract. Rule 1 deviation.
+- [24-15]: Blob cleanup on every voice transcription failure branch (Rule 2). Plan only had cleanup in success-path generator's finally; without explicit cleanup on failure branches, every transcription failure leaks a blob.
+- [24-15]: ConversationTurn lives in new cosmos/ package (separate from db.cosmos CosmosManager DI container). Plan 24-17 will import ConversationTurn from this module rather than re-defining it on InboxDocument — avoids circular dep risk.
+- [24-15]: P0-1 OUTCOME conversation-history helper accepts BOTH Pydantic attribute access AND dict subscriptable access via _read(doc, key) — Cosmos read_item returns dicts; InboxDocument has attribute access. Single API for both shapes.
+- [24-15]: Malformed conversationHistory entries are skipped with a logged warning, not raised — preserves the follow-up flow's resilience per P0-1 OUTCOME's graceful continuity-loss trade-off.
 
 ### Pending Todos
 
@@ -248,8 +253,8 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-05-11T05:11:32.032Z
-Stopped at: Completed 24-14 (Classifier migration to GA Foundry)
+Last session: 2026-05-11T05:21:29.619Z
+Stopped at: Completed 24-15 (Voice path split + P0-1 OUTCOME conversation-history helper)
 Resume action: Continue Phase 23 (next plan: 23-05, depends on 23-02 probe findings)
 
 **Planned Phase:** 24 (foundry-ga-migration) — 23 plans — 2026-05-10T03:08:32.888Z
