@@ -24,9 +24,55 @@ from second_brain.spine.stream_wrapper import spine_stream_wrapper
 from second_brain.streaming.adapter import (
     stream_follow_up_capture,
     stream_text_capture,
-    stream_voice_capture,
 )
+from second_brain.streaming.sse import encode_sse
 from second_brain.tools.classification import capture_trace_id_var, follow_up_context
+
+# --- Phase 24 D-01..D-04 + F-11: voice path failure-mode SSE generators ---
+#
+# The voice handler now direct-calls TranscriptionTools.transcribe_audio
+# BEFORE classifying. When transcription fails, the handler returns one of
+# these single-event streams with a forced_tool_failure-style sub_code so
+# monitoring/dashboards can distinguish transcription failures from generic
+# errors. Mobile clients already handle the ERROR type.
+
+
+async def _voice_unavailable_stream():
+    """Transcription helper not configured on the running container."""
+    yield encode_sse(
+        {
+            "type": "ERROR",
+            "message": "Voice transcription unavailable.",
+            "sub_code": "transcription_unavailable",
+        }
+    )
+    yield encode_sse({"type": "COMPLETE"})
+
+
+async def _voice_transcription_failed_stream(reason: str):
+    """Transcription call raised — surface the reason and a sub_code."""
+    yield encode_sse(
+        {
+            "type": "ERROR",
+            "message": "Voice transcription failed.",
+            "reason": reason,
+            "sub_code": "transcription_failed",
+        }
+    )
+    yield encode_sse({"type": "COMPLETE"})
+
+
+async def _voice_transcription_empty_stream():
+    """Transcription returned empty text — no speech detected in audio."""
+    yield encode_sse(
+        {
+            "type": "ERROR",
+            "message": "No speech detected.",
+            "sub_code": "transcription_empty",
+        }
+    )
+    yield encode_sse({"type": "COMPLETE"})
+
 
 logger = logging.getLogger(__name__)
 
@@ -275,10 +321,20 @@ async def capture_voice(
 ) -> StreamingResponse:
     """Stream voice capture classification as AG-UI SSE events.
 
-    Accepts a multipart audio file upload. The endpoint uploads the audio
-    to Blob Storage, then streams the Foundry agent classification result.
-    The blob is cleaned up after the stream completes. When the outcome is
-    MISUNDERSTOOD, the foundryThreadId is persisted.
+    Phase 24 D-01..D-04 + F-11 voice path split: the handler now direct-calls
+    ``TranscriptionTools.transcribe_audio`` BEFORE classifying. The classifier
+    Agent sees only the resulting transcript text and registers only
+    ``file_capture`` (``tool_choice='required'`` is unambiguous). On
+    transcription failure, one of three single-event SSE error streams is
+    returned with a ``forced_tool_failure``-style ``sub_code``
+    (``transcription_unavailable`` / ``transcription_failed`` /
+    ``transcription_empty``).
+
+    Accepts a multipart audio file upload. The endpoint uploads the audio to
+    Blob Storage (for audit trail), direct-calls transcribe_audio, then
+    streams the Foundry classifier result via the text path. The blob is
+    cleaned up after the stream completes. When the outcome is MISUNDERSTOOD,
+    the foundryThreadId is persisted.
     """
     blob_manager = getattr(request.app.state, "blob_manager", None)
     if blob_manager is None:
@@ -291,8 +347,6 @@ async def capture_voice(
     audio_bytes = await _validate_and_read_audio(file)
     blob_url = await blob_manager.upload_audio(audio_bytes=audio_bytes)
 
-    client = request.app.state.classifier_client
-    tools = request.app.state.classifier_agent_tools
     cosmos_manager = request.app.state.cosmos_manager
     thread_id = f"thread-{uuid4()}"
     run_id = f"run-{uuid4()}"
@@ -307,11 +361,88 @@ async def capture_voice(
         _current.set_attribute("capture.trace_id", capture_trace_id)
     log_extra = _capture_extra(capture_trace_id)
 
+    # --- Phase 24 D-01..D-04 + F-11: direct-call transcribe BEFORE classify ---
+    transcription_tools = getattr(request.app.state, "transcription_tools", None)
+    if transcription_tools is None:
+        # Clean up blob — transcription is unavailable, no further work.
+        try:
+            await blob_manager.delete_audio(blob_url)
+        except Exception:
+            logger.warning(
+                "Failed to delete voice blob after unavailable transcription: %s",
+                blob_url,
+                extra=log_extra,
+            )
+        return StreamingResponse(
+            _voice_unavailable_stream(),
+            media_type="text/event-stream",
+            headers=SSE_HEADERS,
+        )
+
+    try:
+        transcript = await transcription_tools.transcribe_audio(blob_url)
+    except Exception as exc:
+        logger.warning(
+            "Voice transcription failed: %s",
+            exc,
+            extra={
+                "capture_trace_id": capture_trace_id,
+                "blob_url": blob_url,
+                "component": "capture",
+            },
+            exc_info=True,
+        )
+        try:
+            await blob_manager.delete_audio(blob_url)
+        except Exception:
+            logger.warning(
+                "Failed to delete voice blob after transcription failure: %s",
+                blob_url,
+                extra=log_extra,
+            )
+        return StreamingResponse(
+            _voice_transcription_failed_stream(str(exc)),
+            media_type="text/event-stream",
+            headers=SSE_HEADERS,
+        )
+
+    # Empty/whitespace-only transcript means no speech detected.
+    if not transcript or not transcript.strip():
+        try:
+            await blob_manager.delete_audio(blob_url)
+        except Exception:
+            logger.warning(
+                "Failed to delete voice blob after empty transcription: %s",
+                blob_url,
+                extra=log_extra,
+            )
+        return StreamingResponse(
+            _voice_transcription_empty_stream(),
+            media_type="text/event-stream",
+            headers=SSE_HEADERS,
+        )
+
+    logger.info(
+        "Voice transcribed (len=%d): %s",
+        len(transcript),
+        transcript[:80],
+        extra=log_extra,
+    )
+
+    # --- Transcription succeeded → route through TEXT classifier path ---
+    # NOTE: Until plan 24-16 rewrites stream_text_capture to GA, this still
+    # reads app.state.classifier_client (set to None by 24-14). The path is
+    # intentionally non-functional end-to-end between commits 24-14 and 24-16;
+    # the CONTEXT D-12 push guard prevents the broken state from reaching
+    # production. End-to-end voice verification belongs in 24-22 UAT.
+    client = request.app.state.classifier_client
+    tools = request.app.state.classifier_agent_tools
+
     async def stream_with_cleanup_and_persistence():
-        """Wrap voice capture with blob cleanup and foundryThreadId persistence."""
-        inner = stream_voice_capture(
+        """Wrap text-path stream with blob cleanup and foundryThreadId persistence."""
+        inner = stream_text_capture(
             client=client,
-            blob_url=blob_url,
+            user_text=transcript,
             tools=tools,
             thread_id=thread_id,
             run_id=run_id,
