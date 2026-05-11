@@ -1,7 +1,17 @@
 """Tests for Phase 17.4 observability features.
 
-Covers: parameterized middleware, health endpoint cache, warmup self-heal,
-investigation timeout.
+Covers: health endpoint cache, warmup self-heal, investigation timeout.
+
+Phase 24 plan 24-18 cleanup: the parameterized-middleware tests previously
+in this file have been REMOVED because they exercised the RC-era
+`AuditAgentMiddleware` class in `agents/middleware.py`, which is deleted
+by plan 24-18 (F-17). The replacement GA middleware lives at
+`agents/agent_middleware/capture_trace.py` (`CaptureTraceAgentMiddleware` /
+`CaptureTraceFunctionMiddleware`). The GA classes do NOT take an
+`agent_name` constructor arg -- they read `capture.trace_id` from a
+ContextVar instead -- so the assertions about `_span_name == "classifier_agent_run"`
+no longer apply. Coverage of the GA middleware lives in
+`tests/test_agent_middleware_capture_trace.py` (added in plan 24-03).
 """
 
 import asyncio
@@ -13,37 +23,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from second_brain.agents.middleware import AuditAgentMiddleware
 from second_brain.api.health import _FOUNDRY_CACHE_TTL, router
 from second_brain.warmup import MAX_CONSECUTIVE_FAILURES, agent_warmup_loop
-
-# ---------------------------------------------------------------------------
-# Parameterized middleware
-# ---------------------------------------------------------------------------
-
-
-def test_parameterized_middleware_sets_distinct_span_names() -> None:
-    """Each agent gets its own span name via the agent_name constructor arg."""
-    classifier = AuditAgentMiddleware(agent_name="classifier")
-    admin = AuditAgentMiddleware(agent_name="admin")
-    investigation = AuditAgentMiddleware(agent_name="investigation")
-
-    assert classifier._span_name == "classifier_agent_run"
-    assert classifier._agent_name == "classifier"
-
-    assert admin._span_name == "admin_agent_run"
-    assert admin._agent_name == "admin"
-
-    assert investigation._span_name == "investigation_agent_run"
-    assert investigation._agent_name == "investigation"
-
-
-def test_parameterized_middleware_default_is_classifier() -> None:
-    """Default agent_name is 'classifier' for backwards compat."""
-    mw = AuditAgentMiddleware()
-    assert mw._agent_name == "classifier"
-    assert mw._span_name == "classifier_agent_run"
-
 
 # ---------------------------------------------------------------------------
 # Health endpoint helpers

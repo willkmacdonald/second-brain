@@ -50,10 +50,6 @@ from second_brain.agents.agent_middleware.capture_trace import (  # noqa: E402
 )
 from second_brain.agents.classifier import build_classifier_agent  # noqa: E402
 from second_brain.agents.investigation import build_investigation_agent  # noqa: E402
-from second_brain.agents.middleware import (  # noqa: E402
-    AuditAgentMiddleware,
-    ToolTimingMiddleware,
-)
 from second_brain.api.capture import router as capture_router  # noqa: E402
 from second_brain.api.eval import router as eval_router  # noqa: E402
 from second_brain.api.health import router as health_router  # noqa: E402
@@ -820,14 +816,20 @@ async def lifespan(app: FastAPI):
             # Factory functions for self-healing: recreate agent clients on
             # consecutive warmup failures without manual Container App restart.
             def _make_classifier_client() -> AzureAIAgentClient:
+                # W-03 dead-code path: this factory is never invoked because
+                # app.state.classifier_client is None (see line ~621 + 24-19
+                # scope). Kept for the warmup-factory shape until 24-19 sweeps
+                # the whole _make_*_client cluster + the AzureAIAgentClient
+                # import. Middleware swapped to the GA path so this file stays
+                # importable after 24-18 deletes agents/middleware.py.
                 return AzureAIAgentClient(
                     credential=credential,
                     project_endpoint=settings.azure_ai_project_endpoint,
                     agent_id=classifier_agent_id,
                     should_cleanup_agent=False,
                     middleware=[
-                        AuditAgentMiddleware(agent_name="classifier"),
-                        ToolTimingMiddleware(),
+                        CaptureTraceAgentMiddleware(),
+                        CaptureTraceFunctionMiddleware(),
                     ],
                 )
 
@@ -837,14 +839,18 @@ async def lifespan(app: FastAPI):
             if app.state.admin_client is not None:
 
                 def _make_admin_client() -> AzureAIAgentClient:
+                    # W-03 dead-code path -- guarded by app.state.admin_client is
+                    # not None which is permanently False post-24-09. Middleware
+                    # swapped to GA path so main.py stays importable after 24-18
+                    # deletes agents/middleware.py.
                     return AzureAIAgentClient(
                         credential=credential,
                         project_endpoint=settings.azure_ai_project_endpoint,
                         agent_id=app.state.admin_agent_id,
                         should_cleanup_agent=False,
                         middleware=[
-                            AuditAgentMiddleware(agent_name="admin"),
-                            ToolTimingMiddleware(),
+                            CaptureTraceAgentMiddleware(),
+                            CaptureTraceFunctionMiddleware(),
                         ],
                     )
 
@@ -852,14 +858,18 @@ async def lifespan(app: FastAPI):
             if getattr(app.state, "investigation_client", None) is not None:
 
                 def _make_investigation_client() -> AzureAIAgentClient:
+                    # W-03 dead-code path -- guarded by app.state.investigation_client
+                    # is not None which is permanently False post-24-04. Middleware
+                    # swapped to GA path so main.py stays importable after 24-18
+                    # deletes agents/middleware.py.
                     return AzureAIAgentClient(
                         credential=credential,
                         project_endpoint=settings.azure_ai_project_endpoint,
                         agent_id=app.state.investigation_agent_id,
                         should_cleanup_agent=False,
                         middleware=[
-                            AuditAgentMiddleware(agent_name="investigation"),
-                            ToolTimingMiddleware(),
+                            CaptureTraceAgentMiddleware(),
+                            CaptureTraceFunctionMiddleware(),
                         ],
                     )
 
