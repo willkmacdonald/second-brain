@@ -5,6 +5,16 @@ calls the Admin Agent non-streaming, routes errand items to destination lists,
 and handles the inbox item after processing. Responses that need user attention
 are kept on the inbox item for delivery; simple confirmations trigger deletion.
 Failed items remain with adminProcessingStatus = 'failed' for retry.
+
+Phase 24 task group 23.2 (GA migration):
+- Uses GA Agent.run() in place of RC AzureAIAgentClient.get_response().
+- Tool detection is post-hoc: walks response.messages for role='tool'
+  entries per FOUNDRY-PROBE-FINDINGS.md probe 2 (tool_call_extraction).
+- Custom admin_agent_process / admin_agent_batch_process spans removed
+  (F-16). Capture-trace correlation rides on the framework's
+  invoke_agent span via CaptureTraceAgentMiddleware (24-03).
+- admin.* observability attributes ride structured log extras instead
+  of a custom span.
 """
 
 import asyncio
@@ -13,7 +23,6 @@ import time
 
 from agent_framework import Agent, ChatOptions
 from azure.cosmos.exceptions import CosmosResourceNotFoundError
-from opentelemetry import trace
 
 from second_brain.db.cosmos import CosmosManager
 from second_brain.spine.agent_emitter import emit_agent_workload
@@ -22,21 +31,6 @@ from second_brain.spine.storage import SpineRepository
 from second_brain.tools.admin import build_routing_context
 
 logger = logging.getLogger(__name__)
-tracer = trace.get_tracer("second_brain.processing")
-
-
-def _count_tool_invocations(tools: list) -> int:
-    """Sum invocation_count across all FunctionTool instances in a tool list.
-
-    Uses duck typing (hasattr) rather than isinstance so that test mocks
-    with an invocation_count attribute also work correctly.
-    """
-    total = 0
-    for t in tools:
-        count = getattr(t, "invocation_count", None)
-        if count is not None:
-            total += count
-    return total
 
 
 # Tools that produce user-visible output. Intermediate tools like
@@ -51,20 +45,28 @@ _OUTPUT_TOOL_NAMES = {
 }
 
 
-def _count_output_tool_invocations(tools: list) -> int:
-    """Count invocations of output-producing tools only.
+def _output_tool_called(response) -> tuple[bool, set[str]]:
+    """Inspect response.messages for tool calls.
 
-    fetch_recipe_url and get_routing_context are intermediate tools — calling
-    them without following up with add_errand_items or add_task_items means
-    the agent didn't complete its work.
+    Returns (output_tool_fired, all_tools_called).
+
+    Per FOUNDRY-PROBE-FINDINGS.md probe 2 (tool_call_extraction.json):
+    tool calls are in messages with role='tool'. The Content blocks
+    inside have a `name` (or `function_name`) field for the function
+    called. Walks response.messages defensively (treats missing
+    attributes as no tool call).
     """
-    total = 0
-    for t in tools:
-        name = getattr(t, "name", None)
-        count = getattr(t, "invocation_count", None)
-        if name in _OUTPUT_TOOL_NAMES and count is not None:
-            total += count
-    return total
+    tools_called: set[str] = set()
+    for msg in getattr(response, "messages", None) or []:
+        if getattr(msg, "role", None) != "tool":
+            continue
+        for content in getattr(msg, "contents", None) or []:
+            name = getattr(content, "name", None) or getattr(
+                content, "function_name", None
+            )
+            if name:
+                tools_called.add(str(name))
+    return bool(tools_called & _OUTPUT_TOOL_NAMES), tools_called
 
 
 def _response_needs_delivery(response_text: str | None) -> bool:
@@ -118,7 +120,14 @@ async def _mark_inbox_failed(
     span,
     capture_trace_id: str = "",
 ) -> None:
-    """Set adminProcessingStatus='failed' on an inbox item (best-effort)."""
+    """Set adminProcessingStatus='failed' on an inbox item (best-effort).
+
+    The `span` parameter is accepted for back-compat with the pre-Phase-24
+    call shape but is now always None — the custom admin_agent_process
+    span was deleted (F-16). The framework's invoke_agent span (auto-
+    emitted by GA SDK + tagged by CaptureTraceAgentMiddleware) is the
+    canonical correlation surface.
+    """
     th = trace_headers(capture_trace_id or None)
     try:
         doc = await inbox_container.read_item(
@@ -138,7 +147,6 @@ async def _mark_inbox_failed(
 
 async def process_admin_capture(
     admin_agent: Agent,
-    admin_tools: list,
     cosmos_manager: CosmosManager,
     inbox_item_id: str,
     raw_text: str,
@@ -149,7 +157,8 @@ async def process_admin_capture(
 
     Calls the Admin Agent (non-streaming) with routing context (destinations
     and affinity rules) prepended to the user's capture text. Routes errand
-    items to destinations via tools. After processing:
+    items to destinations via tools that are pre-registered on the Agent
+    at lifespan construction time (D-05). After processing:
 
     - If the response needs user attention (rule queries, conflicts, etc.),
       the inbox item is kept with status "completed" and the response stored.
@@ -160,261 +169,265 @@ async def process_admin_capture(
     it never raises (all exceptions are caught and logged).
 
     Args:
-        admin_agent: GA Agent configured for the Admin Agent (tools pre-registered).
-        admin_tools: List of tool functions retained for invocation-count
-            snapshots during the migration window (Task 2 swaps these for
-            post-hoc response.messages walking).
+        admin_agent: GA Agent configured for the Admin Agent (tools and
+            middleware pre-registered at lifespan construction).
         cosmos_manager: CosmosManager for inbox status updates.
         inbox_item_id: The Cosmos inbox document ID to update after processing.
         raw_text: The user's original capture text to send to the Admin Agent.
         capture_trace_id: Trace ID from the originating capture.
+        spine_repo: Optional SpineRepository for workload emission at boundary.
     """
     from second_brain.tools.classification import capture_trace_id_var
 
     if capture_trace_id:
         capture_trace_id_var.set(capture_trace_id)
 
-    with tracer.start_as_current_span("admin_agent_process") as span:
-        span.set_attribute("admin.inbox_item_id", inbox_item_id)
-        span.set_attribute("admin.raw_text_length", len(raw_text))
-        if capture_trace_id:
-            span.set_attribute("capture.trace_id", capture_trace_id)
+    # Spine workload tracking
+    _spine_start = time.perf_counter()
+    _spine_outcome = "success"
+    _spine_error_class: str | None = None
 
-        # Spine workload tracking
-        _spine_start = time.perf_counter()
-        _spine_outcome = "success"
-        _spine_error_class: str | None = None
+    # Defensive initialization: ensure variables are bound even if the
+    # first try block raises before assignment.
+    inbox_container = None
+    log_extra: dict = {
+        "component": "admin_agent",
+        "inbox_item_id": inbox_item_id,
+        "raw_text_length": len(raw_text),
+    }
 
-        # Defensive initialization: ensure variables are bound even if the
-        # first try block raises before assignment.
-        inbox_container = None
-        log_extra: dict = {"component": "admin_agent"}
+    # Set status to pending immediately
+    th = trace_headers(capture_trace_id or None)
+    try:
+        inbox_container = cosmos_manager.get_container("Inbox")
+        doc = await inbox_container.read_item(
+            item=inbox_item_id, partition_key="will", **th
+        )
+        # Resolve trace ID: prefer inbox doc field, fall back to parameter
+        trace_id = doc.get("captureTraceId", capture_trace_id or "unknown")
+        log_extra = {
+            "capture_trace_id": trace_id,
+            "component": "admin_agent",
+            "inbox_item_id": inbox_item_id,
+            "raw_text_length": len(raw_text),
+        }
+        doc["adminProcessingStatus"] = "pending"
+        await inbox_container.upsert_item(body=doc, **th)
+    except Exception as exc:
+        logger.error(
+            "Failed to set pending status for inbox item %s: %s",
+            inbox_item_id,
+            exc,
+            exc_info=True,
+        )
+        return  # Cannot proceed without the inbox item
 
-        # Set status to pending immediately
-        th = trace_headers(capture_trace_id or None)
+    try:
+        # Build routing context (destinations + rules)
         try:
-            inbox_container = cosmos_manager.get_container("Inbox")
-            doc = await inbox_container.read_item(
-                item=inbox_item_id, partition_key="will", **th
-            )
-            # Resolve trace ID: prefer inbox doc field, fall back to parameter
-            trace_id = doc.get("captureTraceId", capture_trace_id or "unknown")
-            span.set_attribute("capture.trace_id", trace_id)
-            log_extra: dict = {
-                "capture_trace_id": trace_id,
-                "component": "admin_agent",
-            }
-            doc["adminProcessingStatus"] = "pending"
-            await inbox_container.upsert_item(body=doc, **th)
-        except Exception as exc:
-            span.record_exception(exc)
-            logger.error(
-                "Failed to set pending status for inbox item %s: %s",
+            routing_context = await build_routing_context(cosmos_manager)
+            enriched_text = f"{routing_context}\n\n---\nUser capture: {raw_text}"
+        except Exception as ctx_exc:
+            logger.warning(
+                "Failed to build routing context for %s: %s. Falling back to raw text.",
                 inbox_item_id,
-                exc,
-                exc_info=True,
+                ctx_exc,
+                extra=log_extra,
             )
-            return  # Cannot proceed without the inbox item
+            enriched_text = raw_text
 
-        try:
-            # Build routing context (destinations + rules)
-            try:
-                routing_context = await build_routing_context(cosmos_manager)
-                enriched_text = f"{routing_context}\n\n---\nUser capture: {raw_text}"
-            except Exception as ctx_exc:
-                logger.warning(
-                    "Failed to build routing context for %s: %s. "
-                    "Falling back to raw text.",
-                    inbox_item_id,
-                    ctx_exc,
-                    extra=log_extra,
-                )
-                enriched_text = raw_text
+        # D-07 EXPLICIT JUSTIFICATION (CONTEXT D-11):
+        # 1. Framework primitive considered: tool_choice='required' (forces
+        #    SOME tool call).
+        # 2. What custom code provides: pin which SUBSET of tools
+        #    (add_errand_items OR add_task_items) the model must call.
+        #    Framework primitive cannot pin a subset.
+        # 3. Why not middleware/context provider/tool/configuration:
+        #    provider-dict {"mode":"required",...} schema is undocumented
+        #    (probe 3 confirmed); spiking rejected as time-risky in
+        #    CONTEXT D-10.
+        # 4. Permanent or temporary: temporary bridge. Deletion trigger:
+        #    when 'mode' dict schema is documented OR Foundry adds
+        #    tool_choice subset pinning.
+        async with asyncio.timeout(60):
+            response = await admin_agent.run(
+                enriched_text,
+                options=ChatOptions(tool_choice="required"),
+            )
 
-            # Snapshot tool invocation counts before calling the agent
-            pre_count = _count_tool_invocations(admin_tools)
-            pre_output_count = _count_output_tool_invocations(admin_tools)
+        # Post-hoc tool detection per FOUNDRY-PROBE-FINDINGS.md probe 2:
+        # walk response.messages for role='tool' entries instead of
+        # FunctionTool invocation_count snapshots (GA removes those).
+        output_fired, tools_called = _output_tool_called(response)
+        any_tool_fired = bool(tools_called)
 
+        if not any_tool_fired:
+            # Agent responded without calling any tools at all.
+            logger.warning(
+                "Admin Agent did not call any tool for inbox item %s "
+                "(text: %.80s). Marking as failed. outcome=no_tool_call",
+                inbox_item_id,
+                raw_text,
+                extra=log_extra,
+            )
+            await _mark_inbox_failed(
+                inbox_container, inbox_item_id, None, capture_trace_id
+            )
+            return
+
+        if not output_fired:
+            # Agent called intermediate tools (e.g. fetch_recipe_url)
+            # but never followed up with add_errand_items/add_task_items.
+            # Retry once with the agent's text response as context.
+            response_text = response.text if response.text else ""
+            logger.warning(
+                "Admin Agent called intermediate tools but not "
+                "add_errand_items/add_task_items for inbox item %s. "
+                "Retrying with nudge. tools_called=%s",
+                inbox_item_id,
+                tools_called,
+                extra=log_extra,
+            )
+
+            retry_prompt = (
+                f"{enriched_text}\n\n"
+                f"---\n"
+                f"IMPORTANT: You already gathered data above but "
+                f"did not complete the user's request. You MUST "
+                f"call the appropriate tool (add_errand_items, "
+                f"add_task_items, manage_destination, etc.) to "
+                f"finish. Do NOT respond with text -- call the "
+                f"tool.\n\n"
+                f"Your previous response was:\n{response_text}"
+            )
+
+            # D-09 bounded retry: exactly one retry, no loop. Same D-07
+            # justification as the initial call above — tool_choice="required"
+            # forces SOME tool but cannot pin to the output-tool subset.
             async with asyncio.timeout(60):
                 response = await admin_agent.run(
-                    enriched_text,
+                    retry_prompt,
                     options=ChatOptions(tool_choice="required"),
                 )
 
-            # Check whether the agent produced output (errands or tasks)
-            post_count = _count_tool_invocations(admin_tools)
-            post_output_count = _count_output_tool_invocations(admin_tools)
-            any_tool_called = post_count > pre_count
-            output_tool_called = post_output_count > pre_output_count
+            retry_output_fired, retry_tools_called = _output_tool_called(response)
 
-            span.set_attribute("admin.tool_invoked", any_tool_called)
-            span.set_attribute("admin.output_tool_invoked", output_tool_called)
-
-            if not any_tool_called:
-                # Agent responded without calling any tools at all.
-                logger.warning(
-                    "Admin Agent did not call any tool for inbox item %s "
-                    "(text: %.80s). Marking as failed.",
+            if not retry_output_fired:
+                logger.error(
+                    "Admin Agent retry also failed to call output "
+                    "tools for inbox item %s. Marking as failed. "
+                    "outcome=no_output_tool retry_tools_called=%s",
                     inbox_item_id,
-                    raw_text,
+                    retry_tools_called,
                     extra=log_extra,
                 )
-                span.set_attribute("admin.outcome", "no_tool_call")
                 await _mark_inbox_failed(
-                    inbox_container, inbox_item_id, span, capture_trace_id
+                    inbox_container, inbox_item_id, None, capture_trace_id
                 )
                 return
 
-            if not output_tool_called:
-                # Agent called intermediate tools (e.g. fetch_recipe_url)
-                # but never followed up with add_errand_items/add_task_items.
-                # Retry once with the agent's text response as context.
-                response_text = response.text if response.text else ""
-                logger.warning(
-                    "Admin Agent called intermediate tools but not "
-                    "add_errand_items/add_task_items for inbox item %s. "
-                    "Retrying with nudge.",
+            logger.info(
+                "Admin Agent retry succeeded for inbox item %s. "
+                "outcome=retry_succeeded retry_tools_called=%s",
+                inbox_item_id,
+                retry_tools_called,
+                extra=log_extra,
+            )
+
+        # Tool was called -- decide whether to keep or delete inbox item
+        response_text = response.text if response.text else None
+
+        if _response_needs_delivery(response_text):
+            # Response contains info the user needs to see --
+            # keep the inbox item with response attached
+            try:
+                doc = await inbox_container.read_item(
+                    item=inbox_item_id, partition_key="will", **th
+                )
+                doc["adminProcessingStatus"] = "completed"
+                doc["adminAgentResponse"] = response_text
+                await inbox_container.upsert_item(body=doc, **th)
+                logger.info(
+                    "Stored admin response for delivery on inbox item %s. "
+                    "outcome=response_stored",
                     inbox_item_id,
                     extra=log_extra,
                 )
-                span.set_attribute("admin.retry", True)
-
-                retry_prompt = (
-                    f"{enriched_text}\n\n"
-                    f"---\n"
-                    f"IMPORTANT: You already gathered data above but "
-                    f"did not complete the user's request. You MUST "
-                    f"call the appropriate tool (add_errand_items, "
-                    f"add_task_items, manage_destination, etc.) to "
-                    f"finish. Do NOT respond with text -- call the "
-                    f"tool.\n\n"
-                    f"Your previous response was:\n{response_text}"
+            except Exception as store_exc:
+                logger.warning(
+                    "Failed to store admin response for %s: %s",
+                    inbox_item_id,
+                    store_exc,
+                    extra=log_extra,
+                )
+        else:
+            # Simple confirmation -- delete the inbox item
+            try:
+                await inbox_container.delete_item(
+                    item=inbox_item_id, partition_key="will", **th
+                )
+                logger.info(
+                    "Deleted processed inbox item %s. outcome=processed",
+                    inbox_item_id,
+                    extra=log_extra,
+                )
+            except CosmosResourceNotFoundError:
+                # User may have swipe-deleted while processing
+                logger.info(
+                    "Inbox item %s already deleted (user may have removed it)",
+                    inbox_item_id,
+                    extra=log_extra,
+                )
+            except Exception as del_exc:
+                # Non-fatal: errand items are the durable output
+                logger.warning(
+                    "Failed to delete processed inbox item %s: %s",
+                    inbox_item_id,
+                    del_exc,
+                    extra=log_extra,
                 )
 
-                pre_output_count_2 = _count_output_tool_invocations(admin_tools)
+        logger.info(
+            "Admin Agent processed inbox item %s: %s",
+            inbox_item_id,
+            response.text[:100] if response.text else "(no text)",
+            extra=log_extra,
+        )
 
-                async with asyncio.timeout(60):
-                    response = await admin_agent.run(
-                        retry_prompt,
-                        options=ChatOptions(tool_choice="required"),
-                    )
+    except Exception as exc:
+        _spine_outcome = "failure"
+        _spine_error_class = type(exc).__name__
+        logger.error(
+            "Admin Agent failed for inbox item %s: %s. outcome=failed",
+            inbox_item_id,
+            exc,
+            exc_info=True,
+            extra=log_extra,
+        )
 
-                post_output_count_2 = _count_output_tool_invocations(admin_tools)
-                output_tool_called = post_output_count_2 > pre_output_count_2
-
-                if not output_tool_called:
-                    logger.error(
-                        "Admin Agent retry also failed to call output "
-                        "tools for inbox item %s. Marking as failed.",
-                        inbox_item_id,
-                        extra=log_extra,
-                    )
-                    span.set_attribute("admin.outcome", "no_output_tool")
-                    await _mark_inbox_failed(
-                        inbox_container, inbox_item_id, span, capture_trace_id
-                    )
-                    return
-
-                span.set_attribute("admin.outcome", "retry_succeeded")
-
-            # Tool was called -- decide whether to keep or delete inbox item
-            response_text = response.text if response.text else None
-
-            if _response_needs_delivery(response_text):
-                # Response contains info the user needs to see --
-                # keep the inbox item with response attached
-                try:
-                    doc = await inbox_container.read_item(
-                        item=inbox_item_id, partition_key="will", **th
-                    )
-                    doc["adminProcessingStatus"] = "completed"
-                    doc["adminAgentResponse"] = response_text
-                    await inbox_container.upsert_item(body=doc, **th)
-                    logger.info(
-                        "Stored admin response for delivery on inbox item %s",
-                        inbox_item_id,
-                        extra=log_extra,
-                    )
-                except Exception as store_exc:
-                    logger.warning(
-                        "Failed to store admin response for %s: %s",
-                        inbox_item_id,
-                        store_exc,
-                        extra=log_extra,
-                    )
-                span.set_attribute("admin.outcome", "response_stored")
-            else:
-                # Simple confirmation -- delete the inbox item
-                try:
-                    await inbox_container.delete_item(
-                        item=inbox_item_id, partition_key="will", **th
-                    )
-                    logger.info(
-                        "Deleted processed inbox item %s",
-                        inbox_item_id,
-                        extra=log_extra,
-                    )
-                except CosmosResourceNotFoundError:
-                    # User may have swipe-deleted while processing
-                    logger.info(
-                        "Inbox item %s already deleted (user may have removed it)",
-                        inbox_item_id,
-                        extra=log_extra,
-                    )
-                except Exception as del_exc:
-                    # Non-fatal: errand items are the durable output
-                    logger.warning(
-                        "Failed to delete processed inbox item %s: %s",
-                        inbox_item_id,
-                        del_exc,
-                        extra=log_extra,
-                    )
-                span.set_attribute("admin.outcome", "processed")
-
-            logger.info(
-                "Admin Agent processed inbox item %s: %s",
-                inbox_item_id,
-                response.text[:100] if response.text else "(no text)",
-                extra=log_extra,
+        # Update inbox item status to failed (only if container was resolved)
+        if inbox_container is not None:
+            await _mark_inbox_failed(
+                inbox_container, inbox_item_id, None, capture_trace_id
             )
-
-        except Exception as exc:
-            _spine_outcome = "failure"
-            _spine_error_class = type(exc).__name__
-            span.record_exception(exc)
-            span.set_attribute("admin.outcome", "failed")
-            logger.error(
-                "Admin Agent failed for inbox item %s: %s",
-                inbox_item_id,
-                exc,
-                exc_info=True,
-                extra=log_extra,
+    finally:
+        if spine_repo:
+            _duration = int((time.perf_counter() - _spine_start) * 1000)
+            await emit_agent_workload(
+                repo=spine_repo,
+                segment_id="admin",
+                operation="process_capture",
+                outcome=_spine_outcome,
+                duration_ms=_duration,
+                capture_trace_id=capture_trace_id or None,
+                run_id=None,
+                thread_id=None,
+                error_class=_spine_error_class,
             )
-
-            # Update inbox item status to failed (only if container was resolved)
-            if inbox_container is not None:
-                await _mark_inbox_failed(
-                    inbox_container, inbox_item_id, span, capture_trace_id
-                )
-        finally:
-            if spine_repo:
-                _duration = int((time.perf_counter() - _spine_start) * 1000)
-                await emit_agent_workload(
-                    repo=spine_repo,
-                    segment_id="admin",
-                    operation="process_capture",
-                    outcome=_spine_outcome,
-                    duration_ms=_duration,
-                    capture_trace_id=capture_trace_id or None,
-                    run_id=None,
-                    thread_id=None,
-                    error_class=_spine_error_class,
-                )
 
 
 async def process_admin_captures_batch(
     admin_agent: Agent,
-    admin_tools: list,
     cosmos_manager: CosmosManager,
     admin_items: list[dict],
     capture_trace_id: str = "",
@@ -430,25 +443,28 @@ async def process_admin_captures_batch(
 
     Args:
         admin_agent: GA Agent configured for the Admin Agent (tools pre-registered).
-        admin_tools: List of tool functions retained for invocation-count
-            snapshots during the migration window (Task 2 swaps these for
-            post-hoc response.messages walking).
         cosmos_manager: CosmosManager for inbox status updates.
         admin_items: List of dicts with "inbox_item_id" and "raw_text" keys.
         capture_trace_id: Trace ID from the originating capture.
         spine_repo: Optional SpineRepository for workload emission.
     """
-    with tracer.start_as_current_span("admin_agent_batch_process") as span:
-        span.set_attribute("admin.batch_size", len(admin_items))
-        span.set_attribute("capture.trace_id", capture_trace_id)
-        for item in admin_items:
-            item_trace_id = item.get("capture_trace_id", "") or capture_trace_id
-            await process_admin_capture(
-                admin_agent=admin_agent,
-                admin_tools=admin_tools,
-                cosmos_manager=cosmos_manager,
-                inbox_item_id=item["inbox_item_id"],
-                raw_text=item["raw_text"],
-                capture_trace_id=item_trace_id,
-                spine_repo=spine_repo,
-            )
+    logger.info(
+        "Admin Agent batch processing %d item(s) capture_trace_id=%s",
+        len(admin_items),
+        capture_trace_id or "(none)",
+        extra={
+            "component": "admin_agent",
+            "batch_size": len(admin_items),
+            "capture_trace_id": capture_trace_id or "",
+        },
+    )
+    for item in admin_items:
+        item_trace_id = item.get("capture_trace_id", "") or capture_trace_id
+        await process_admin_capture(
+            admin_agent=admin_agent,
+            cosmos_manager=cosmos_manager,
+            inbox_item_id=item["inbox_item_id"],
+            raw_text=item["raw_text"],
+            capture_trace_id=item_trace_id,
+            spine_repo=spine_repo,
+        )

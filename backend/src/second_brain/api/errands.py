@@ -199,7 +199,6 @@ async def get_errands(request: Request) -> ErrandsResponse:
 
             if new_items:
                 processing_count = len(new_items)
-                admin_tools = getattr(request.app.state, "admin_agent_tools", [])
                 bg_tasks: set = getattr(request.app.state, "background_tasks", set())
 
                 # Mark items as in-flight before creating tasks
@@ -218,7 +217,6 @@ async def get_errands(request: Request) -> ErrandsResponse:
                     task = asyncio.create_task(
                         process_admin_capture(
                             admin_agent=admin_agent,
-                            admin_tools=admin_tools,
                             cosmos_manager=cosmos_manager,
                             inbox_item_id=new_items[0]["id"],
                             raw_text=new_items[0].get("rawText", ""),
@@ -230,7 +228,6 @@ async def get_errands(request: Request) -> ErrandsResponse:
                     task = asyncio.create_task(
                         process_admin_captures_batch(
                             admin_agent=admin_agent,
-                            admin_tools=admin_tools,
                             cosmos_manager=cosmos_manager,
                             admin_items=[
                                 {
