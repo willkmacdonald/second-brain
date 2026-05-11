@@ -1,36 +1,17 @@
-"""Phase 24 P1-3 regression guard.
+"""Phase 24 P1-3 regression guard (post-24-18 state).
 
-Asserts that during the migration window (24-03 .. 24-17), the legacy module
-`backend/src/second_brain/agents/middleware.py` remains importable. The new
-GA middleware lives at `agents/agent_middleware/capture_trace.py` (distinct
-package name -- the original plan put it at `agents/middleware/` which would
-shadow the legacy module).
+After plan 24-18 deletes backend/src/second_brain/agents/middleware.py,
+this test asserts:
+- The new GA middleware imports at second_brain.agents.agent_middleware.capture_trace.
+- No file or directory exists at second_brain/agents/middleware{,.py}.
 
-This test passes during the migration window. After 24-18 deletes the legacy
-module, this test will fail -- that's the trigger to retire the test (or
-invert the assertion to negative coverage). 24-18 is responsible for
-updating/removing this test as part of its cleanup.
+The legacy-importable sub-test from 24-03 is retired here per P1-3 spec
+(the legacy module is gone -- its import would now correctly raise ImportError).
 """
 
 from __future__ import annotations
 
 import importlib
-
-
-def test_legacy_agents_middleware_module_still_importable() -> None:
-    """During the migration window, legacy imports from agents/middleware.py
-    must keep resolving. This proves the new agent_middleware/ package did
-    not accidentally shadow the module."""
-    mod = importlib.import_module("second_brain.agents.middleware")
-    # AuditAgentMiddleware + ToolTimingMiddleware are the two RC-era classes
-    assert hasattr(mod, "AuditAgentMiddleware"), (
-        "Legacy AuditAgentMiddleware must still be importable from "
-        "second_brain.agents.middleware during migration. The new GA "
-        "middleware lives at second_brain.agents.agent_middleware.capture_trace."
-    )
-    assert hasattr(mod, "ToolTimingMiddleware"), (
-        "Legacy ToolTimingMiddleware must still be importable during migration."
-    )
 
 
 def test_new_ga_middleware_imports_at_distinct_path() -> None:
@@ -40,18 +21,22 @@ def test_new_ga_middleware_imports_at_distinct_path() -> None:
     assert hasattr(mod, "CaptureTraceFunctionMiddleware")
 
 
-def test_no_package_shadowing() -> None:
-    """Confirm there is no second_brain.agents.middleware package (only the module).
-
-    If a directory `backend/src/second_brain/agents/middleware/` exists, Python
-    will prefer the package and shadow the legacy module -- that's the P1-3 defect.
+def test_legacy_middleware_module_is_gone() -> None:
+    """Post-24-18: confirm the legacy agents/middleware.py is deleted AND
+    no replacement package exists at the same path. The new GA middleware
+    lives at agents/agent_middleware/.
     """
     from pathlib import Path
 
     project_root = Path(__file__).resolve().parents[1]
-    package_dir = project_root / "src" / "second_brain" / "agents" / "middleware"
-    assert not package_dir.is_dir(), (
-        f"P1-3 violation: found package directory at {package_dir}. "
-        "The new GA middleware must live under agents/agent_middleware/ "
-        "(not agents/middleware/) until 24-18 deletes the legacy file."
+    legacy_module = project_root / "src" / "second_brain" / "agents" / "middleware.py"
+    legacy_package = project_root / "src" / "second_brain" / "agents" / "middleware"
+    assert not legacy_module.exists(), (
+        f"Legacy module still present at {legacy_module}. "
+        "Plan 24-18 should have deleted it."
+    )
+    assert not legacy_package.is_dir(), (
+        f"P1-3 invariant: no package at {legacy_package} (would shadow "
+        "if the legacy module were ever resurrected). The GA path is "
+        "agents/agent_middleware/."
     )
