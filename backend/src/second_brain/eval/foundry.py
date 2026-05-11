@@ -839,21 +839,29 @@ async def generate_app_mediated_dataset(
     cosmos_manager: CosmosManager,
     eval_type: str,
     *,
-    classifier_client: Any | None = None,
-    classifier_tools: list | None = None,
-    admin_client: Any | None = None,
-    admin_tools: list | None = None,
+    invoker: Any | None = None,
     project_client: AIProjectClient | None = None,
 ) -> dict:
     """Generate app-mediated response/tool-call artifacts for Foundry scoring.
 
-    Uses production clients/tools to invoke agents, captures response_text
-    and tool_calls into JSONL rows, and uploads to Foundry.
+    Uses an ``EvalAgentInvoker`` to invoke the agent for each case, captures
+    predictions via the EvalClassifierTools / DryRunAdminTools side-effect
+    contract, synthesises ``tool_calls`` rows from those side effects, and
+    uploads to Foundry.
 
     This is the fallback path when direct Foundry target evaluation cannot
     capture production-equivalent tool calls.
+
+    Phase 24 plan 24-12: the duck-typed ``hasattr(msg, 'tool_calls')``
+    extraction is replaced by the side-effect read pattern (per
+    EVAL-INVENTORY.md). The ``classifier_client`` / ``classifier_tools``
+    / ``admin_client`` / ``admin_tools`` parameters are removed in favour
+    of a single ``invoker`` parameter.
     """
-    from agent_framework import ChatOptions, Message
+    from second_brain.eval.dry_run_tools import (
+        DryRunAdminTools,
+        EvalClassifierTools,
+    )
 
     golden_container = cosmos_manager.get_container("GoldenDataset")
 
@@ -872,27 +880,27 @@ async def generate_app_mediated_dataset(
                 "tool_calls": [],
             }
 
-            if classifier_client and classifier_tools:
+            if invoker is not None:
                 try:
-                    messages = [Message(role="user", text=item["inputText"])]
-                    options = ChatOptions(tools=classifier_tools)
+                    eval_tools = EvalClassifierTools()
                     async with asyncio.timeout(60):
-                        response = await classifier_client.get_response(
-                            messages=messages, options=options
+                        await invoker.invoke_classifier(item["inputText"], eval_tools)
+                    # Side-effect read: synthesise the file_capture tool_call
+                    # row from EvalClassifierTools state. This matches what
+                    # the production classifier would have called via the
+                    # file_capture tool stub.
+                    if eval_tools.last_bucket is not None:
+                        row["tool_calls"].append(
+                            {
+                                "name": "file_capture",
+                                "arguments": {
+                                    "text": item["inputText"],
+                                    "bucket": eval_tools.last_bucket,
+                                    "confidence": eval_tools.last_confidence or 0.0,
+                                    "status": eval_tools.last_status or "",
+                                },
+                            }
                         )
-                    # Extract tool calls from response
-                    if hasattr(response, "messages"):
-                        for msg in response.messages:
-                            if hasattr(msg, "tool_calls") and msg.tool_calls:
-                                for tc in msg.tool_calls:
-                                    row["tool_calls"].append(
-                                        {
-                                            "name": getattr(tc, "name", ""),
-                                            "arguments": getattr(tc, "arguments", {}),
-                                        }
-                                    )
-                            if hasattr(msg, "text") and msg.text:
-                                row["response_text"] = msg.text
                 except Exception as exc:
                     row["error"] = str(exc)
 
@@ -915,31 +923,30 @@ async def generate_app_mediated_dataset(
                 "tool_calls": [],
             }
 
-            if admin_client and admin_tools:
+            if invoker is not None:
                 try:
-                    messages = [
-                        Message(
-                            role="user",
-                            text=query_text,
-                        )
-                    ]
-                    options = ChatOptions(tools=admin_tools)
+                    dry_run_tools = DryRunAdminTools(routing_context=routing_context)
                     async with asyncio.timeout(60):
-                        response = await admin_client.get_response(
-                            messages=messages, options=options
+                        await invoker.invoke_admin(
+                            item["inputText"], dry_run_tools, routing_context
                         )
-                    if hasattr(response, "messages"):
-                        for msg in response.messages:
-                            if hasattr(msg, "tool_calls") and msg.tool_calls:
-                                for tc in msg.tool_calls:
-                                    row["tool_calls"].append(
-                                        {
-                                            "name": getattr(tc, "name", ""),
-                                            "arguments": getattr(tc, "arguments", {}),
-                                        }
-                                    )
-                            if hasattr(msg, "text") and msg.text:
-                                row["response_text"] = msg.text
+                    # Side-effect read: synthesise the add_errand_items
+                    # tool_call row from DryRunAdminTools state. Mirrors what
+                    # the production admin agent would have called.
+                    if dry_run_tools.captured_items:
+                        row["tool_calls"].append(
+                            {
+                                "name": "add_errand_items",
+                                "arguments": {"items": dry_run_tools.captured_items},
+                            }
+                        )
+                    if dry_run_tools.captured_tasks:
+                        row["tool_calls"].append(
+                            {
+                                "name": "add_task_items",
+                                "arguments": {"tasks": dry_run_tools.captured_tasks},
+                            }
+                        )
                 except Exception as exc:
                     row["error"] = str(exc)
 
@@ -999,8 +1006,7 @@ async def run_classifier_eval(
     project_client: AIProjectClient,
     cosmos_manager: CosmosManager,
     *,
-    classifier_client: Any | None = None,
-    classifier_tools: list | None = None,
+    invoker: Any | None = None,
     execution_mode: str | None = None,
 ) -> dict:
     """Create and start a classifier evaluation run in Foundry.
@@ -1008,8 +1014,9 @@ async def run_classifier_eval(
     Args:
         project_client: Foundry project client.
         cosmos_manager: Cosmos DB manager.
-        classifier_client: Optional production classifier client (for fallback).
-        classifier_tools: Optional production tool list (for fallback).
+        invoker: Optional ``EvalAgentInvoker`` for app-mediated artifact
+            generation. Plan 24-12 replaces the older
+            ``classifier_client`` + ``classifier_tools`` parameter pair.
         execution_mode: Force "direct_target" or "app_mediated". None = auto.
 
     Returns:
@@ -1032,12 +1039,14 @@ async def run_classifier_eval(
             project_client, cosmos_manager, "classifier"
         )
     else:
-        # App-mediated fallback: generate artifacts
+        # App-mediated fallback: generate artifacts via the eval invoker.
+        # Phase 24 plan 24-12: classifier_client / classifier_tools removed
+        # from generate_app_mediated_dataset; pass through whichever invoker
+        # the caller built (None if running purely against Foundry's target).
         ds = await generate_app_mediated_dataset(
             cosmos_manager,
             "classifier",
-            classifier_client=classifier_client,
-            classifier_tools=classifier_tools,
+            invoker=invoker,
             project_client=project_client,
         )
 
@@ -1168,14 +1177,17 @@ async def run_admin_eval(
     project_client: AIProjectClient,
     cosmos_manager: CosmosManager,
     *,
-    admin_client: Any | None = None,
-    admin_tools: list | None = None,
+    invoker: Any | None = None,
     execution_mode: str | None = None,
 ) -> dict:
     """Create and start an admin agent evaluation run in Foundry.
 
     Same pattern as classifier but with admin-specific evaluators and
     deterministic routing context preservation.
+
+    Plan 24-12: the ``admin_client`` + ``admin_tools`` parameter pair is
+    replaced by a single ``invoker: EvalAgentInvoker`` for app-mediated
+    artifact generation.
     """
     from openai.types.eval_create_params import DataSourceConfigCustom
 
@@ -1193,11 +1205,11 @@ async def run_admin_eval(
             project_client, cosmos_manager, "admin_agent"
         )
     else:
+        # Plan 24-12: admin_client / admin_tools collapsed into invoker.
         ds = await generate_app_mediated_dataset(
             cosmos_manager,
             "admin_agent",
-            admin_client=admin_client,
-            admin_tools=admin_tools,
+            invoker=invoker,
             project_client=project_client,
         )
 
