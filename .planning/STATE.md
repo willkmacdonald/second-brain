@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Observability & Evals
 status: executing
-stopped_at: 24-20 fully PASS — Gate 8 RBAC verified by operator 2026-05-11T12:04Z, Gate 5 accepted-with-justification (golden-trace runner deferred to post-UAT follow-up). Wave 5 complete. 24-22 deploy event UNBLOCKED.
-last_updated: "2026-05-11T06:46:30.424Z"
-last_activity: 2026-05-11
+stopped_at: 24-22 deploy event COMPLETE — GA revision sha-1bc40d8 active 100% traffic, /health=ok, all 3 GA agents ready. /health probe hotfixed mid-deploy (24-19 deferred follow-up). Wave 6 done. Wave 7 (24-23 UAT + env-var cleanup) ready.
+last_updated: "2026-05-11T14:36:00.000Z"
+last_activity: 2026-05-11 -- Phase 24 deployed to production
 progress:
   total_phases: 18
   completed_phases: 14
   total_plans: 81
-  completed_plans: 76
-  percent: 94
+  completed_plans: 77
+  percent: 95
 ---
 
 # Project State
