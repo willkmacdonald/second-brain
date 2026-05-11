@@ -154,6 +154,15 @@ def _persist_conversation_history_inplace(
     return body
 
 
+def _get_inbox_id(inbox_doc) -> str | None:
+    """Extract the doc id from a dict body or Pydantic attribute object."""
+    if inbox_doc is None:
+        return None
+    if isinstance(inbox_doc, dict):
+        return inbox_doc.get("id")
+    return getattr(inbox_doc, "id", None)
+
+
 async def _upsert_inbox_with_history(
     cosmos_manager,
     inbox_doc,
@@ -161,6 +170,12 @@ async def _upsert_inbox_with_history(
     capture_trace_id: str,
 ) -> None:
     """Persist the updated ``conversationHistory`` to Cosmos (best-effort).
+
+    Race-safe: re-reads the doc from Cosmos before writing so we don't wipe
+    out concurrent classification field writes from ``file_capture`` which
+    ran INSIDE the stream. The caller-provided ``inbox_doc`` is only used
+    to find the doc id; the upsert body is the freshly-read Cosmos doc
+    with ``conversationHistory`` overwritten.
 
     Failures are logged but do NOT raise -- the SSE stream has already
     delivered the classification result to the client. Losing the history
@@ -170,11 +185,28 @@ async def _upsert_inbox_with_history(
     if cosmos_manager is None or inbox_doc is None:
         return
     log_extra = {"capture_trace_id": capture_trace_id, "component": "classifier"}
+    doc_id = _get_inbox_id(inbox_doc)
+    if not doc_id:
+        return
+    serialized = [t.model_dump() for t in history]
     try:
-        body = _persist_conversation_history_inplace(inbox_doc, history)
         inbox_container = cosmos_manager.get_container("Inbox")
+        # Re-read the latest doc state so we don't clobber concurrent
+        # file_capture writes that ran inside agent.run().
+        try:
+            fresh_doc = await inbox_container.read_item(
+                item=doc_id,
+                partition_key="will",
+                **trace_headers(capture_trace_id or None),
+            )
+        except Exception:
+            # Doc not yet written (e.g. classifier hit forced_tool_failure
+            # before file_capture ran). Fall back to the caller's body.
+            fresh_doc = _persist_conversation_history_inplace(inbox_doc, history)
+        else:
+            fresh_doc["conversationHistory"] = serialized
         await inbox_container.upsert_item(
-            body=body, **trace_headers(capture_trace_id or None)
+            body=fresh_doc, **trace_headers(capture_trace_id or None)
         )
     except Exception:
         logger.warning(
@@ -404,8 +436,16 @@ async def stream_text_capture(
                         role="assistant", content=accumulated_assistant_text
                     )
                 )
+            # If the caller didn't pre-supply an inbox doc (new-capture path),
+            # use file_capture's own inbox_id from the tool result so the
+            # conversationHistory lands on the doc file_capture created.
+            persist_target = inbox_doc
+            if _get_inbox_id(persist_target) is None and file_capture_results:
+                primary_item_id = file_capture_results[0].get("item_id")
+                if primary_item_id:
+                    persist_target = {"id": primary_item_id}
             await _upsert_inbox_with_history(
-                cosmos_manager, inbox_doc, history, capture_trace_id
+                cosmos_manager, persist_target, history, capture_trace_id
             )
 
             # COMPLETE event: thread_id is a fresh UUID per turn for mobile
