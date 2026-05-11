@@ -1,0 +1,61 @@
+# Phase 24 P1-7 admin golden seeding manifest.
+# Operator: curate >= 10 representative admin captures from real production
+# traffic before running seed_admin_golden_dataset.py. The phone-side admin
+# errors that triggered this defect are excellent source material -- the
+# capture texts that produced errors are exactly the cases the eval suite
+# needs to cover.
+#
+# Each case must specify:
+# - capture_text: the user's input (typed or transcribed)
+# - expected_destination: the routing destination string the admin agent should pick
+# - expected_tool: "add_errand_items" or "add_task_items"
+#
+# Format: snake_case here; the seed script translates to camelCase before upsert.
+
+cases:
+  - capture_text: "Pick up dry cleaning tomorrow"
+    expected_destination: "errands"
+    expected_tool: "add_errand_items"
+
+  - capture_text: "Buy milk and eggs at the grocery store"
+    expected_destination: "errands"
+    expected_tool: "add_errand_items"
+
+  - capture_text: "Schedule a dentist appointment for next week"
+    expected_destination: "tasks"
+    expected_tool: "add_task_items"
+
+  - capture_text: "Renew driver license"
+    expected_destination: "tasks"
+    expected_tool: "add_task_items"
+
+  - capture_text: "Pick up prescription from pharmacy"
+    expected_destination: "errands"
+    expected_tool: "add_errand_items"
+
+  - capture_text: "Call insurance company about claim"
+    expected_destination: "tasks"
+    expected_tool: "add_task_items"
+
+  - capture_text: "Drop off package at UPS"
+    expected_destination: "errands"
+    expected_tool: "add_errand_items"
+
+  - capture_text: "Book flight for business trip"
+    expected_destination: "tasks"
+    expected_tool: "add_task_items"
+
+  - capture_text: "Get oil change for the car"
+    expected_destination: "errands"
+    expected_tool: "add_errand_items"
+
+  - capture_text: "Submit expense report by Friday"
+    expected_destination: "tasks"
+    expected_tool: "add_task_items"
+
+# Operator: replace these starter cases with real production captures before
+# running the seed script. The 10 cases above are placeholders -- they may not
+# match the actual destinations configured for this user. Confirm each
+# expected_destination string matches a real configured destination in
+# the user's affinity rules. Use `/investigate "show me admin destinations"`
+# to enumerate.
