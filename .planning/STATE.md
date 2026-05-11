@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Observability & Evals
 status: executing
-stopped_at: Completed 24-10-PLAN.md
-last_updated: "2026-05-11T01:52:34.394Z"
+stopped_at: Completed 24-11-PLAN.md
+last_updated: "2026-05-11T02:05:01.069Z"
 last_activity: 2026-05-11
 progress:
   total_phases: 18
   completed_phases: 14
   total_plans: 81
-  completed_plans: 64
-  percent: 79
+  completed_plans: 65
+  percent: 80
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 ## Current Position
 
 Phase: 24 (foundry-ga-migration) — EXECUTING
-Plan: 3 of 26
+Plan: 4 of 26
 Status: Ready to execute
 Last activity: 2026-05-11
 
-Progress: [████████░░] 79%
+Progress: [████████░░] 80%
 
 ## Performance Metrics
 
@@ -49,7 +49,7 @@ Progress: [████████░░] 79%
 **Velocity (v3.1):**
 
 - Plans completed: 18 fully + 2 code-complete awaiting bundled human-verify checkpoint (19.2-04 + 19.2-05)
-- Last plan duration: 4 min (24-10 -- AdminTools + RecipeTools @tool decorator strip; 2 tasks, 2 files)
+- Last plan duration: 7 min (24-11 -- admin_handoff.py GA rewrite; 2 tasks, 3 files)
 - Timeline: 2026-04-05 to present
 
 *Updated after each plan completion*
@@ -199,6 +199,11 @@ v3.0 decisions archived to .planning/milestones/v3.0-ROADMAP.md
 - [24-10]: Single Write per file (not Edit chain) used to land decorator strips + unused-import removal atomically — avoids ruff auto-format trap. Mirrors 24-05 pattern; established norm across all Phase 24 tool-decorator strips.
 - [24-10]: Docstring grep-guard fix mirrors 24-09 deviation #1 — literal substring '@tool(approval_mode=' in module docstring tripped the plan's automated grep check. Reworded to 'RC tool-registration decorator'. Pattern is now established for any future decorator/symbol strips: avoid the literal name in docstrings.
 - [24-10]: AdminTools 6-tool surface verified — add_errand_items, add_task_items, get_routing_context, manage_destination, manage_affinity_rule, query_rules (decorator-free async coroutines). RecipeTools 1-tool surface — fetch_recipe_url (decorator-free). All Annotated[..., Field(description=...)] parameter shapes and __init__ DI signatures preserved verbatim per D-05/D-06.
+- [24-11]: admin_tools list param DROPPED from process_admin_capture signature — post-hoc tool detection from response.messages replaces FunctionTool.invocation_count snapshots; lifespan-bound tools list (24-09) is the canonical surface
+- [24-11]: admin.* observability attributes lifted to structured log_extra dicts (not trace.get_current_span().set_attribute) because process_admin_capture runs in asyncio.create_task() AFTER HTTP request span ends — get_current_span() returns NoOpSpan outside agent.run(). Diverges from 24-07 Investigation pattern (which sets investigate.* on AppRequests via api/capture.py:228) because admin_handoff runs OFF the request thread.
+- [24-11]: _output_tool_called(response) -> tuple[bool, set[str]] walks response.messages for role='tool' entries and reads Content.name or Content.function_name per probe 2 (tool_call_extraction.json). Now the canonical pattern for any Agent.run() call site needing to know which tools fired; 24-12 (EvalAgentInvoker) and 24-13 (admin eval runner) inherit this shape.
+- [24-11]: D-07 EXPLICIT JUSTIFICATION block recorded inline once above the initial agent.run() call per CONTEXT D-11; back-reference comment above the retry call (D-09 + same D-07 reasoning) avoids duplication. Deletion trigger pinned: when 'mode' dict schema documented OR Foundry adds tool_choice subset pinning.
+- [24-11]: Test rewrite landed in same commit as Task 2 (not separate test-only commit) so every commit is individually green for tests/test_admin_handoff.py — plan's Task 2 acceptance gate requires pytest -x exit 0.
 
 ### Pending Todos
 
@@ -230,8 +235,8 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-05-11T01:52:33.983Z
-Stopped at: Completed 24-10-PLAN.md
+Last session: 2026-05-11T02:04:26.382Z
+Stopped at: Completed 24-11-PLAN.md
 Resume action: Continue Phase 23 (next plan: 23-05, depends on 23-02 probe findings)
 
 **Planned Phase:** 24 (foundry-ga-migration) — 23 plans — 2026-05-10T03:08:32.888Z
