@@ -15,51 +15,43 @@ no longer apply. Coverage of the GA middleware lives in
 """
 
 import asyncio
-import time
-from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from second_brain.api.health import _FOUNDRY_CACHE_TTL, router
+from second_brain.api.health import router
 from second_brain.warmup import MAX_CONSECUTIVE_FAILURES, agent_warmup_loop
 
 # ---------------------------------------------------------------------------
-# Health endpoint helpers
+# Health endpoint helpers (GA-shape — Phase 24 plan 24-22)
 # ---------------------------------------------------------------------------
+#
+# Phase 24 plan 24-19 retired the RC `AzureAIAgentClient` (formerly
+# `app.state.foundry_client`); the /health probe was rewritten in plan 24-22
+# (post-deploy hotfix) to read per-agent readiness from
+# `app.state.classifier_agent` / `admin_agent` / `investigation_agent`
+# (the GA `Agent` instances built via `build_*_agent` factories). The legacy
+# `_FOUNDRY_CACHE_TTL` + list_agents TTL cache + foundry_client probe no
+# longer exist. Health is now a pure attribute presence check.
 
 
 def _make_health_app(
     *,
-    foundry_client: object | None = None,
+    classifier_agent: object | None = None,
+    admin_agent: object | None = None,
+    investigation_agent: object | None = None,
     cosmos_manager: object | None = None,
-    admin_client: object | None = None,
-    investigation_client: object | None = None,
 ) -> FastAPI:
     """Build a minimal FastAPI app with the health router and mock state."""
     app = FastAPI()
     app.include_router(router)
-    app.state.foundry_client = foundry_client
+    app.state.classifier_agent = classifier_agent
+    app.state.admin_agent = admin_agent
+    app.state.investigation_agent = investigation_agent
     app.state.cosmos_manager = cosmos_manager
-    app.state.admin_client = admin_client
-    app.state.investigation_client = investigation_client
     return app
-
-
-class _FakeAgentsClient:
-    """Simulates foundry_client.agents_client.list_agents()."""
-
-    def __init__(self, *, should_fail: bool = False) -> None:
-        self._should_fail = should_fail
-        self.call_count = 0
-
-    async def list_agents(self, limit: int = 10):  # noqa: ANN201
-        self.call_count += 1
-        if self._should_fail:
-            raise ConnectionError("Foundry is down")
-        yield MagicMock()  # async generator yielding one item
 
 
 # ---------------------------------------------------------------------------
@@ -67,51 +59,33 @@ class _FakeAgentsClient:
 # ---------------------------------------------------------------------------
 
 
-def test_health_cache_returns_cached_result_within_ttl() -> None:
-    """Second /health call within TTL uses cached result (no Foundry ping)."""
-    agents_client = _FakeAgentsClient()
-    foundry = SimpleNamespace(agents_client=agents_client)
-    app = _make_health_app(foundry_client=foundry)
+def test_health_ok_when_all_three_agents_present() -> None:
+    """All three GA agents on app.state -> foundry=connected, status=ok."""
+    app = _make_health_app(
+        classifier_agent=MagicMock(),
+        admin_agent=MagicMock(),
+        investigation_agent=MagicMock(),
+        cosmos_manager=MagicMock(),
+    )
 
     with TestClient(app) as client:
-        r1 = client.get("/health")
-        assert r1.status_code == 200
-        assert r1.json()["foundry"] == "connected"
-
-        r2 = client.get("/health")
-        assert r2.status_code == 200
-        assert r2.json()["foundry"] == "connected"
-
-    # list_agents called only once (second hit cache)
-    assert agents_client.call_count == 1
+        resp = client.get("/health")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "ok"
+        assert data["foundry"] == "connected"
+        assert data["cosmos"] == "connected"
+        assert data["admin_agent"] == "ready"
+        assert data["investigation_agent"] == "ready"
 
 
-def test_health_cache_expires_after_ttl() -> None:
-    """After TTL expires, /health makes a fresh Foundry ping."""
-    agents_client = _FakeAgentsClient()
-    foundry = SimpleNamespace(agents_client=agents_client)
-    app = _make_health_app(foundry_client=foundry)
-
-    with TestClient(app) as client:
-        client.get("/health")
-        assert agents_client.call_count == 1
-
-        # Fast-forward past TTL
-        with patch("second_brain.api.health.time") as mock_time:
-            # Return a time well past the TTL
-            mock_time.monotonic.return_value = (
-                time.monotonic() + _FOUNDRY_CACHE_TTL + 10
-            )
-            client.get("/health")
-
-    assert agents_client.call_count == 2
-
-
-def test_health_returns_degraded_when_foundry_ping_fails() -> None:
-    """Failed Foundry ping results in 'degraded' status."""
-    agents_client = _FakeAgentsClient(should_fail=True)
-    foundry = SimpleNamespace(agents_client=agents_client)
-    app = _make_health_app(foundry_client=foundry)
+def test_health_degraded_when_any_agent_missing() -> None:
+    """If at least one but not all three agents present -> foundry=degraded."""
+    app = _make_health_app(
+        classifier_agent=MagicMock(),
+        admin_agent=None,  # missing
+        investigation_agent=MagicMock(),
+    )
 
     with TestClient(app) as client:
         resp = client.get("/health")
@@ -119,21 +93,33 @@ def test_health_returns_degraded_when_foundry_ping_fails() -> None:
         data = resp.json()
         assert data["foundry"] == "degraded"
         assert data["status"] == "degraded"
-
-
-def test_health_includes_investigation_agent_status() -> None:
-    """Investigation agent status is included in health response."""
-    # With investigation client
-    app = _make_health_app(investigation_client=MagicMock())
-    with TestClient(app) as client:
-        data = client.get("/health").json()
+        assert data["admin_agent"] == "not_initialized"
         assert data["investigation_agent"] == "ready"
 
-    # Without investigation client
-    app = _make_health_app(investigation_client=None)
+
+def test_health_not_configured_when_no_agents() -> None:
+    """No agents on app.state -> foundry=not_configured, status=degraded."""
+    app = _make_health_app()
+
     with TestClient(app) as client:
-        data = client.get("/health").json()
+        resp = client.get("/health")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["foundry"] == "not_configured"
+        assert data["status"] == "degraded"
+        assert data["admin_agent"] == "not_initialized"
         assert data["investigation_agent"] == "not_initialized"
+
+
+def test_health_investigation_agent_status_toggles_with_attr() -> None:
+    """investigation_agent field reflects app.state.investigation_agent presence."""
+    app_ready = _make_health_app(investigation_agent=MagicMock())
+    with TestClient(app_ready) as client:
+        assert client.get("/health").json()["investigation_agent"] == "ready"
+
+    app_missing = _make_health_app(investigation_agent=None)
+    with TestClient(app_missing) as client:
+        assert client.get("/health").json()["investigation_agent"] == "not_initialized"
 
 
 # ---------------------------------------------------------------------------

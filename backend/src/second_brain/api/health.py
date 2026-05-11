@@ -1,8 +1,6 @@
 """Health check and dashboard summary endpoints."""
 
-import asyncio
 import logging
-import time
 
 from fastapi import APIRouter, HTTPException, Request
 
@@ -12,35 +10,31 @@ logger = logging.getLogger("second_brain")
 
 router = APIRouter()
 
-# Cache TTL for Foundry health check (seconds). Mutable state lives on
-# app.state to avoid cross-process leakage in tests.
-_FOUNDRY_CACHE_TTL = 60.0
-
 
 @router.get("/health")
 async def health_check(request: Request) -> dict:
-    """Return service health status including Foundry connectivity."""
-    foundry_status = "not_configured"
-    foundry_client = getattr(request.app.state, "foundry_client", None)
+    """Return service health status including Foundry connectivity.
 
-    if foundry_client is not None:
-        # Active Foundry connectivity check with TTL cache on app.state
-        now = time.monotonic()
-        cache = getattr(request.app.state, "_foundry_health_cache", None)
-        if cache is not None and (now - cache["checked_at"]) < _FOUNDRY_CACHE_TTL:
-            foundry_status = cache["status"]
-        else:
-            try:
-                async with asyncio.timeout(5):
-                    async for _ in foundry_client.agents_client.list_agents(limit=1):
-                        break
-                foundry_status = "connected"
-            except Exception:
-                foundry_status = "degraded"
-            request.app.state._foundry_health_cache = {
-                "status": foundry_status,
-                "checked_at": now,
-            }
+    Foundry connectivity is inferred from per-agent readiness on app.state.
+    The legacy ``foundry_client`` (RC AzureAIAgentClient) was retired in
+    Phase 24; agents are now constructed individually via FoundryChatClient
+    factories, so connectivity is asserted indirectly via agent readiness.
+    """
+    classifier_agent = getattr(request.app.state, "classifier_agent", None)
+    admin_agent = getattr(request.app.state, "admin_agent", None)
+    investigation_agent = getattr(request.app.state, "investigation_agent", None)
+
+    foundry_status = (
+        "connected"
+        if classifier_agent is not None
+        and admin_agent is not None
+        and investigation_agent is not None
+        else "degraded"
+        if any(
+            a is not None for a in (classifier_agent, admin_agent, investigation_agent)
+        )
+        else "not_configured"
+    )
 
     cosmos_status = (
         "connected"
@@ -48,16 +42,9 @@ async def health_check(request: Request) -> dict:
         else "not_configured"
     )
 
-    admin_status = (
-        "ready"
-        if getattr(request.app.state, "admin_client", None) is not None
-        else "not_initialized"
-    )
-
+    admin_status = "ready" if admin_agent is not None else "not_initialized"
     investigation_status = (
-        "ready"
-        if getattr(request.app.state, "investigation_client", None) is not None
-        else "not_initialized"
+        "ready" if investigation_agent is not None else "not_initialized"
     )
 
     overall = "ok" if foundry_status == "connected" else "degraded"
