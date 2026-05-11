@@ -1,0 +1,2904 @@
+diff --git a/backend/src/second_brain/agents/admin.py b/backend/src/second_brain/agents/admin.py
+index 8e3db7f..3927512 100644
+--- a/backend/src/second_brain/agents/admin.py
++++ b/backend/src/second_brain/agents/admin.py
+@@ -1,67 +1,34 @@
+-"""Admin agent registration for Foundry Agent Service.
++"""Admin agent factory.
+ 
+-This module provides:
+-- ensure_admin_agent(): Self-healing agent registration at startup
+-
+-Agent instructions live in the AI Foundry portal -- editable without
+-redeployment. No local copy is kept in the repo.
++GA pattern (Phase 24 task group 23.2): mirrors agents/investigation.py.
++Reuses load_instructions from agents/investigation. Replaces the
++RC portal-shell creation pattern (F-19).
+ """
+ 
+ from __future__ import annotations
+ 
+ import logging
+-from typing import TYPE_CHECKING
+-
+-if TYPE_CHECKING:
+-    from agent_framework.azure import AzureAIAgentClient
+-
+-logger = logging.getLogger(__name__)
++from collections.abc import Sequence
++from typing import Any
+ 
++from agent_framework import Agent
++from agent_framework_foundry import FoundryChatClient
+ 
+-async def ensure_admin_agent(
+-    foundry_client: AzureAIAgentClient,
+-    stored_agent_id: str,
+-) -> str:
+-    """Ensure the Admin agent exists in Foundry.
++from second_brain.agents.investigation import load_instructions
+ 
+-    Self-healing: if the stored agent ID is valid, returns it. If missing
+-    or invalid, creates a new agent and returns the new ID.
+-
+-    Unlike the Classifier, Admin Agent registration is non-fatal -- if it
+-    fails, the app still starts (Admin processing is not required for core
+-    capture flow). The caller should catch exceptions.
+-
+-    Args:
+-        foundry_client: Initialized AzureAIAgentClient instance.
+-        stored_agent_id: Agent ID from AZURE_AI_ADMIN_AGENT_ID env var.
++logger = logging.getLogger(__name__)
+ 
+-    Returns:
+-        The validated or newly created agent ID.
+-    """
+-    if stored_agent_id:
+-        try:
+-            agent_info = await foundry_client.agents_client.get_agent(stored_agent_id)
+-            logger.info(
+-                "Admin agent loaded: id=%s name=%s",
+-                agent_info.id,
+-                agent_info.name,
+-            )
+-            return stored_agent_id
+-        except Exception:
+-            logger.warning(
+-                "Stored Admin agent ID %s not found in Foundry, creating new agent",
+-                stored_agent_id,
+-            )
+ 
+-    # Create agent shell -- instructions are managed in the AI Foundry portal
+-    new_agent = await foundry_client.agents_client.create_agent(
+-        model="gpt-4o",
+-        name="AdminAgent",
+-    )
+-    logger.info(
+-        "NEW Admin agent: id=%s -- "
+-        "SET INSTRUCTIONS IN AI FOUNDRY PORTAL and "
+-        "UPDATE AZURE_AI_ADMIN_AGENT_ID in env",
+-        new_agent.id,
++def build_admin_agent(
++    chat_client: FoundryChatClient,
++    tools: Sequence[Any],
++    middleware: Sequence[Any],
++) -> Agent:
++    """Construct the Admin Agent (single-turn, non-streaming)."""
++    instructions = load_instructions("admin")
++    return Agent(
++        client=chat_client,
++        instructions=instructions,
++        tools=list(tools),
++        middleware=list(middleware),
+     )
+-    return new_agent.id
+diff --git a/backend/src/second_brain/agents/instructions/admin.md b/backend/src/second_brain/agents/instructions/admin.md
+new file mode 100644
+index 0000000..ae44bcd
+--- /dev/null
++++ b/backend/src/second_brain/agents/instructions/admin.md
+@@ -0,0 +1,87 @@
++<!--
++Source: Azure AI Foundry portal, agent asst_17oFXNHNq7kzmspQGMUrgERM (Admin)
++Exported: 2026-05-09
++Portal exporter: Will Macdonald
++Canonicalized doc in repo: NONE (portal text IS the source for Admin)
++Phase 24 promotion target: backend/src/second_brain/agents/instructions/admin.md
++D-02 status: After Phase 24 task group 23.2 promotes this file, the portal instructions
++             field becomes display-only / unused. Code reads this file at startup.
++-->
++
++You are the Admin Agent for a personal errand tracking system. Your job is to parse captures and route them using the right tool.
++
++  ## Your Tools
++
++  1. **get_routing_context** — Call this FIRST on every capture. Returns all destinations and affinity rules. Use this to make routing decisions.
++
++  2. **add_errand_items** — For shopping/grocery items. Route each item to the best destination using affinity rules from get_routing_context. If no rule
++  matches and you're unsure, use destination "unrouted".
++
++  3. **add_task_items** — For actionable to-dos that are NOT shopping: appointments, expenses, phone calls, emails, returns, bookings.
++
++  4. **manage_destination** — When the user wants to create, rename, or remove a destination. Examples: "add Costco as a destination", "rename pet_store to
++  PetSmart", "remove Gangnam Market".
++
++  5. **manage_affinity_rule** — When the user is setting a routing preference, not requesting an errand. Examples: "meat goes to Agora", "chicken always from
++  Jewel", "cat food goes to Chewy, except treats from PetSmart".
++
++  6. **query_rules** — When the user asks about their rules or routing. Examples: "where does chicken go?", "what are my rules?", "where do I get pet food?".
++
++  ## How to Decide Which Tool
++
++  - "need chicken" → errand → get_routing_context, then add_errand_items
++  - "book eye appointment" → task → add_task_items
++  - "add Costco as a store" → destination management → manage_destination
++  - "meat goes to Agora" → rule setting → manage_affinity_rule
++  - "where does chicken go?" → rule query → query_rules
++
++  ## Routing Errands
++
++  1. Call get_routing_context to load destinations and affinity rules
++  2. For each item, check affinity rules:
++     - Specific rules beat general category rules ("fish → Nick's" overrides "meat → Agora")
++     - Use semantic matching: "chicken thighs" matches a "chicken" rule
++  3. If no rule matches, use your best judgment based on the destination names (e.g., pharmacy items → CVS). If genuinely unsure, use "unrouted" — the user
++  will route it manually.
++  4. Call add_errand_items with ALL items in a single call
++  5. Keep item names natural and lowercase, quantities inline ("3 cans of tuna")
++
++  ## Examples
++
++  User: "need cat litter and milk"
++  → get_routing_context() → check rules → add_errand_items(items=[
++      {"name": "cat litter", "destination": "pet_store"},
++      {"name": "milk", "destination": "jewel"}
++    ])
++
++  User: "chicken always goes to Agora"
++  → manage_affinity_rule(action="create", item_pattern="chicken", destination_slug="agora", rule_type="item", natural_language="chicken always goes to Agora")
++
++  User: "fill out Peloton expenses"
++  → add_task_items(tasks=[{"name": "fill out Peloton expenses"}])
++
++  User: "where does chicken go?"
++  → query_rules(query="where does chicken go")
++
++## Recipe URL Extraction
++
++  When the user capture contains a URL (starts with http:// or https://):
++  1. ALWAYS call fetch_recipe_url with the URL to get the page content
++  2. From the returned content, extract the recipe name and all ingredients
++  3. Normalize each ingredient to shopper-friendly format (what you'd look for in-store):
++     - Include quantities: "2 lbs ground beef", "14 oz can diced tomatoes"
++     - Use common names: "diced tomatoes" not "Muir Glen Organic Diced Tomatoes"
++  4. Include ALL ingredients — do not skip pantry staples (salt, pepper, oil, water)
++  5. Assign each ingredient to the appropriate destination using routing context and affinity rules
++  6. You MUST call add_errand_items after extracting ingredients. Do NOT just describe the recipe in text — the items must be added to shopping lists via
++  the tool.
++  7. Call add_errand_items with ALL ingredients in a single call. For each item include:
++     - name: the shopper-friendly ingredient text (lowercase)
++     - destination: the destination slug from routing context
++     - sourceName: the recipe title (e.g., "Chicken Tikka Masala")
++     - sourceUrl: the original URL from the user capture
++  8. If fetch_recipe_url returns an error, report the error message back
++  9. If the page loads but no recipe content is found, respond: "No recipe found on this page."
++
++  IMPORTANT: After calling fetch_recipe_url, you MUST follow up by calling add_errand_items with the extracted ingredients. Never stop after just fetching —
++   the user needs items on their shopping lists.
+diff --git a/backend/src/second_brain/api/errands.py b/backend/src/second_brain/api/errands.py
+index 7274a82..469e0e7 100644
+--- a/backend/src/second_brain/api/errands.py
++++ b/backend/src/second_brain/api/errands.py
+@@ -169,8 +169,8 @@ async def get_errands(request: Request) -> ErrandsResponse:
+     # Side effect: trigger Admin Agent processing for unprocessed items
+     processing_count = 0
+     try:
+-        admin_client = getattr(request.app.state, "admin_client", None)
+-        if admin_client is not None:
++        admin_agent = getattr(request.app.state, "admin_agent", None)
++        if admin_agent is not None:
+             inbox_container = cosmos_manager.get_container("Inbox")
+             query = (
+                 "SELECT c.id, c.rawText, c.captureTraceId FROM c "
+@@ -199,7 +199,6 @@ async def get_errands(request: Request) -> ErrandsResponse:
+ 
+             if new_items:
+                 processing_count = len(new_items)
+-                admin_tools = getattr(request.app.state, "admin_agent_tools", [])
+                 bg_tasks: set = getattr(request.app.state, "background_tasks", set())
+ 
+                 # Mark items as in-flight before creating tasks
+@@ -217,8 +216,7 @@ async def get_errands(request: Request) -> ErrandsResponse:
+                 if len(new_items) == 1:
+                     task = asyncio.create_task(
+                         process_admin_capture(
+-                            admin_client=admin_client,
+-                            admin_tools=admin_tools,
++                            admin_agent=admin_agent,
+                             cosmos_manager=cosmos_manager,
+                             inbox_item_id=new_items[0]["id"],
+                             raw_text=new_items[0].get("rawText", ""),
+@@ -229,8 +227,7 @@ async def get_errands(request: Request) -> ErrandsResponse:
+                 else:
+                     task = asyncio.create_task(
+                         process_admin_captures_batch(
+-                            admin_client=admin_client,
+-                            admin_tools=admin_tools,
++                            admin_agent=admin_agent,
+                             cosmos_manager=cosmos_manager,
+                             admin_items=[
+                                 {
+diff --git a/backend/src/second_brain/api/eval.py b/backend/src/second_brain/api/eval.py
+index 1e6b6c4..134ef74 100644
+--- a/backend/src/second_brain/api/eval.py
++++ b/backend/src/second_brain/api/eval.py
+@@ -1,4 +1,18 @@
+-"""Eval API endpoints for triggering and monitoring eval runs."""
++"""Eval API endpoints for triggering and monitoring eval runs.
++
++Phase 24 plan 24-12: the runner now takes an ``EvalAgentInvoker`` instead
++of raw RC clients. During the 23.2-23.3 migration window, this endpoint
++constructs a ``_MigrationHybridInvoker`` that routes:
++
++- ``invoke_classifier`` -> ``RCEvalAgentInvoker`` (classifier still RC until
++  plans 24-13..24-17).
++- ``invoke_admin`` -> ``GAEvalAgentInvoker`` (admin migrated to GA in
++  plans 24-09..24-11).
++
++Plan 24-18 deletes the hybrid + RC class together; this endpoint will then
++construct a plain ``GAEvalAgentInvoker`` from ``app.state.classifier_agent``
++and ``app.state.admin_agent``.
++"""
+ 
+ import asyncio
+ import logging
+@@ -8,6 +22,11 @@ from uuid import uuid4
+ from fastapi import APIRouter, HTTPException, Query, Request
+ from pydantic import BaseModel
+ 
++from second_brain.eval.invoker import (
++    GAEvalAgentInvoker,
++    RCEvalAgentInvoker,
++    _MigrationHybridInvoker,
++)
+ from second_brain.eval.runner import run_admin_eval, run_classifier_eval
+ 
+ logger = logging.getLogger(__name__)
+@@ -25,6 +44,36 @@ class EvalRunRequest(BaseModel):
+     routing_context: str | None = None  # Required for admin_agent eval per D-13
+ 
+ 
++def _build_migration_invoker(
++    classifier_client: object | None,
++    admin_agent: object | None,
++) -> _MigrationHybridInvoker:
++    """Construct the hybrid invoker for the 23.2-23.3 migration window.
++
++    Classifier path is RC (``classifier_client`` is an ``AzureAIAgentClient``
++    set by main.py lifespan). Admin path is GA (``admin_agent`` is an
++    ``agent_framework.Agent`` set by 24-09's ``build_admin_agent``).
++
++    Either side may be ``None`` if the corresponding agent failed to
++    initialize at startup. The caller has already validated that the side
++    needed for the requested eval_type is non-None before calling here, so
++    we pass through whatever the lifespan produced.
++    """
++    rc_invoker = RCEvalAgentInvoker(
++        classifier_client=classifier_client,  # type: ignore[arg-type]
++        # Admin client is no longer published on app.state after 24-09;
++        # admin path goes through the GA invoker below. Pass None safely.
++        admin_client=None,  # type: ignore[arg-type]
++    )
++    ga_invoker = GAEvalAgentInvoker(
++        # Classifier agent is not yet built in GA (migration window).
++        # Pass None safely; classifier path goes through the RC invoker above.
++        classifier_agent=None,  # type: ignore[arg-type]
++        admin_agent=admin_agent,  # type: ignore[arg-type]
++    )
++    return _MigrationHybridInvoker(rc_invoker=rc_invoker, ga_invoker=ga_invoker)
++
++
+ @router.post("/api/eval/run", status_code=202)
+ async def start_eval_run(request: Request, body: EvalRunRequest) -> dict:
+     """Trigger an eval run as a background task.
+@@ -77,24 +126,34 @@ async def start_eval_run(request: Request, body: EvalRunRequest) -> dict:
+             raise HTTPException(
+                 status_code=503, detail="Classifier agent not configured."
+             )
++        admin_agent = getattr(request.app.state, "admin_agent", None)
++        invoker = _build_migration_invoker(
++            classifier_client=classifier_client,
++            admin_agent=admin_agent,
++        )
+         task = asyncio.create_task(
+             run_classifier_eval(
+                 run_id=run_id,
+                 cosmos_manager=cosmos_manager,
+-                classifier_client=classifier_client,
++                invoker=invoker,
+                 runs_dict=_eval_runs,
+             )
+         )
+     else:
+-        admin_client = getattr(request.app.state, "admin_client", None)
+-        if admin_client is None:
++        admin_agent = getattr(request.app.state, "admin_agent", None)
++        if admin_agent is None:
+             del _eval_runs[run_id]
+             raise HTTPException(status_code=503, detail="Admin agent not configured.")
++        classifier_client = getattr(request.app.state, "classifier_client", None)
++        invoker = _build_migration_invoker(
++            classifier_client=classifier_client,
++            admin_agent=admin_agent,
++        )
+         task = asyncio.create_task(
+             run_admin_eval(
+                 run_id=run_id,
+                 cosmos_manager=cosmos_manager,
+-                admin_client=admin_client,
++                invoker=invoker,
+                 routing_context=body.routing_context,
+                 runs_dict=_eval_runs,
+             )
+diff --git a/backend/src/second_brain/eval/foundry.py b/backend/src/second_brain/eval/foundry.py
+index 22572d8..e076890 100644
+--- a/backend/src/second_brain/eval/foundry.py
++++ b/backend/src/second_brain/eval/foundry.py
+@@ -839,21 +839,29 @@ async def generate_app_mediated_dataset(
+     cosmos_manager: CosmosManager,
+     eval_type: str,
+     *,
+-    classifier_client: Any | None = None,
+-    classifier_tools: list | None = None,
+-    admin_client: Any | None = None,
+-    admin_tools: list | None = None,
++    invoker: Any | None = None,
+     project_client: AIProjectClient | None = None,
+ ) -> dict:
+     """Generate app-mediated response/tool-call artifacts for Foundry scoring.
+ 
+-    Uses production clients/tools to invoke agents, captures response_text
+-    and tool_calls into JSONL rows, and uploads to Foundry.
++    Uses an ``EvalAgentInvoker`` to invoke the agent for each case, captures
++    predictions via the EvalClassifierTools / DryRunAdminTools side-effect
++    contract, synthesises ``tool_calls`` rows from those side effects, and
++    uploads to Foundry.
+ 
+     This is the fallback path when direct Foundry target evaluation cannot
+     capture production-equivalent tool calls.
++
++    Phase 24 plan 24-12: the duck-typed ``hasattr(msg, 'tool_calls')``
++    extraction is replaced by the side-effect read pattern (per
++    EVAL-INVENTORY.md). The ``classifier_client`` / ``classifier_tools``
++    / ``admin_client`` / ``admin_tools`` parameters are removed in favour
++    of a single ``invoker`` parameter.
+     """
+-    from agent_framework import ChatOptions, Message
++    from second_brain.eval.dry_run_tools import (
++        DryRunAdminTools,
++        EvalClassifierTools,
++    )
+ 
+     golden_container = cosmos_manager.get_container("GoldenDataset")
+ 
+@@ -872,27 +880,27 @@ async def generate_app_mediated_dataset(
+                 "tool_calls": [],
+             }
+ 
+-            if classifier_client and classifier_tools:
++            if invoker is not None:
+                 try:
+-                    messages = [Message(role="user", text=item["inputText"])]
+-                    options = ChatOptions(tools=classifier_tools)
++                    eval_tools = EvalClassifierTools()
+                     async with asyncio.timeout(60):
+-                        response = await classifier_client.get_response(
+-                            messages=messages, options=options
++                        await invoker.invoke_classifier(item["inputText"], eval_tools)
++                    # Side-effect read: synthesise the file_capture tool_call
++                    # row from EvalClassifierTools state. This matches what
++                    # the production classifier would have called via the
++                    # file_capture tool stub.
++                    if eval_tools.last_bucket is not None:
++                        row["tool_calls"].append(
++                            {
++                                "name": "file_capture",
++                                "arguments": {
++                                    "text": item["inputText"],
++                                    "bucket": eval_tools.last_bucket,
++                                    "confidence": eval_tools.last_confidence or 0.0,
++                                    "status": eval_tools.last_status or "",
++                                },
++                            }
+                         )
+-                    # Extract tool calls from response
+-                    if hasattr(response, "messages"):
+-                        for msg in response.messages:
+-                            if hasattr(msg, "tool_calls") and msg.tool_calls:
+-                                for tc in msg.tool_calls:
+-                                    row["tool_calls"].append(
+-                                        {
+-                                            "name": getattr(tc, "name", ""),
+-                                            "arguments": getattr(tc, "arguments", {}),
+-                                        }
+-                                    )
+-                            if hasattr(msg, "text") and msg.text:
+-                                row["response_text"] = msg.text
+                 except Exception as exc:
+                     row["error"] = str(exc)
+ 
+@@ -915,31 +923,30 @@ async def generate_app_mediated_dataset(
+                 "tool_calls": [],
+             }
+ 
+-            if admin_client and admin_tools:
++            if invoker is not None:
+                 try:
+-                    messages = [
+-                        Message(
+-                            role="user",
+-                            text=query_text,
+-                        )
+-                    ]
+-                    options = ChatOptions(tools=admin_tools)
++                    dry_run_tools = DryRunAdminTools(routing_context=routing_context)
+                     async with asyncio.timeout(60):
+-                        response = await admin_client.get_response(
+-                            messages=messages, options=options
++                        await invoker.invoke_admin(
++                            item["inputText"], dry_run_tools, routing_context
++                        )
++                    # Side-effect read: synthesise the add_errand_items
++                    # tool_call row from DryRunAdminTools state. Mirrors what
++                    # the production admin agent would have called.
++                    if dry_run_tools.captured_items:
++                        row["tool_calls"].append(
++                            {
++                                "name": "add_errand_items",
++                                "arguments": {"items": dry_run_tools.captured_items},
++                            }
++                        )
++                    if dry_run_tools.captured_tasks:
++                        row["tool_calls"].append(
++                            {
++                                "name": "add_task_items",
++                                "arguments": {"tasks": dry_run_tools.captured_tasks},
++                            }
+                         )
+-                    if hasattr(response, "messages"):
+-                        for msg in response.messages:
+-                            if hasattr(msg, "tool_calls") and msg.tool_calls:
+-                                for tc in msg.tool_calls:
+-                                    row["tool_calls"].append(
+-                                        {
+-                                            "name": getattr(tc, "name", ""),
+-                                            "arguments": getattr(tc, "arguments", {}),
+-                                        }
+-                                    )
+-                            if hasattr(msg, "text") and msg.text:
+-                                row["response_text"] = msg.text
+                 except Exception as exc:
+                     row["error"] = str(exc)
+ 
+@@ -999,8 +1006,7 @@ async def run_classifier_eval(
+     project_client: AIProjectClient,
+     cosmos_manager: CosmosManager,
+     *,
+-    classifier_client: Any | None = None,
+-    classifier_tools: list | None = None,
++    invoker: Any | None = None,
+     execution_mode: str | None = None,
+ ) -> dict:
+     """Create and start a classifier evaluation run in Foundry.
+@@ -1008,8 +1014,9 @@ async def run_classifier_eval(
+     Args:
+         project_client: Foundry project client.
+         cosmos_manager: Cosmos DB manager.
+-        classifier_client: Optional production classifier client (for fallback).
+-        classifier_tools: Optional production tool list (for fallback).
++        invoker: Optional ``EvalAgentInvoker`` for app-mediated artifact
++            generation. Plan 24-12 replaces the older
++            ``classifier_client`` + ``classifier_tools`` parameter pair.
+         execution_mode: Force "direct_target" or "app_mediated". None = auto.
+ 
+     Returns:
+@@ -1032,12 +1039,14 @@ async def run_classifier_eval(
+             project_client, cosmos_manager, "classifier"
+         )
+     else:
+-        # App-mediated fallback: generate artifacts
++        # App-mediated fallback: generate artifacts via the eval invoker.
++        # Phase 24 plan 24-12: classifier_client / classifier_tools removed
++        # from generate_app_mediated_dataset; pass through whichever invoker
++        # the caller built (None if running purely against Foundry's target).
+         ds = await generate_app_mediated_dataset(
+             cosmos_manager,
+             "classifier",
+-            classifier_client=classifier_client,
+-            classifier_tools=classifier_tools,
++            invoker=invoker,
+             project_client=project_client,
+         )
+ 
+@@ -1168,14 +1177,17 @@ async def run_admin_eval(
+     project_client: AIProjectClient,
+     cosmos_manager: CosmosManager,
+     *,
+-    admin_client: Any | None = None,
+-    admin_tools: list | None = None,
++    invoker: Any | None = None,
+     execution_mode: str | None = None,
+ ) -> dict:
+     """Create and start an admin agent evaluation run in Foundry.
+ 
+     Same pattern as classifier but with admin-specific evaluators and
+     deterministic routing context preservation.
++
++    Plan 24-12: the ``admin_client`` + ``admin_tools`` parameter pair is
++    replaced by a single ``invoker: EvalAgentInvoker`` for app-mediated
++    artifact generation.
+     """
+     from openai.types.eval_create_params import DataSourceConfigCustom
+ 
+@@ -1193,11 +1205,11 @@ async def run_admin_eval(
+             project_client, cosmos_manager, "admin_agent"
+         )
+     else:
++        # Plan 24-12: admin_client / admin_tools collapsed into invoker.
+         ds = await generate_app_mediated_dataset(
+             cosmos_manager,
+             "admin_agent",
+-            admin_client=admin_client,
+-            admin_tools=admin_tools,
++            invoker=invoker,
+             project_client=project_client,
+         )
+ 
+diff --git a/backend/src/second_brain/eval/invoker.py b/backend/src/second_brain/eval/invoker.py
+new file mode 100644
+index 0000000..c5bf34f
+--- /dev/null
++++ b/backend/src/second_brain/eval/invoker.py
+@@ -0,0 +1,201 @@
++"""EvalAgentInvoker -- temporary facade hiding RC/GA call shape during migration.
++
++Introduced in Phase 24 task group 23.2 (plan 24-12) when the Admin agent
++migrates to GA. The RC implementation is deleted at end of 23.3 (plan 24-18)
++when no caller remains.
++
++D-07 EXPLICIT JUSTIFICATION (per EVAL-INVENTORY.md round-15):
++
++1. Framework primitive considered: Agent.run(messages) direct.
++2. What custom code provides: translation between eval cases
++   (input + expected label) and agent.run() call shape, AND adapting
++   the response back to the eval runner's existing per-case dict format.
++3. Why not middleware/context provider/tool/configuration: it CAN be
++   solved by either, but during the migration window we have BOTH RC and
++   GA call shapes alive (classifier on RC until plans 24-13..24-17,
++   admin on GA after plans 24-09..24-11). The facade hides that split
++   for one migration window.
++4. Permanent or temporary: temporary. Deletion trigger: end of plan 24-18,
++   when no RCEvalAgentInvoker caller remains.
++"""
++
++from __future__ import annotations
++
++from typing import TYPE_CHECKING, Protocol
++
++from agent_framework import ChatOptions
++
++if TYPE_CHECKING:
++    from agent_framework import Agent
++    from agent_framework.azure import AzureAIAgentClient
++
++    from second_brain.eval.dry_run_tools import (
++        DryRunAdminTools,
++        EvalClassifierTools,
++    )
++
++
++class EvalAgentInvoker(Protocol):
++    """Protocol for eval-side agent invocation.
++
++    Implementations capture predictions via side effects on the
++    tools_instance (last_bucket / last_confidence for classifier;
++    captured_destinations / captured_tasks for admin). The runner
++    reads side effects, not the response.
++    """
++
++    async def invoke_classifier(
++        self,
++        input_text: str,
++        tools_instance: EvalClassifierTools,
++    ) -> None: ...
++
++    async def invoke_admin(
++        self,
++        input_text: str,
++        tools_instance: DryRunAdminTools,
++        routing_context: str,
++    ) -> None: ...
++
++
++class GAEvalAgentInvoker:
++    """GA implementation -- calls Agent.run(...).
++
++    Per probe tool_call_extraction.json: tools registered via `tools=` kwarg
++    on agent.run(). Side effects already captured on tools_instance attributes
++    when the model invokes the stub tools.
++
++    Per-case tools (EvalClassifierTools / DryRunAdminTools) are passed via
++    Agent.run(tools=[...]) rather than registered at Agent construction time,
++    because each eval case uses a fresh tool instance whose state captures
++    that case's prediction (case-scoped, not lifespan-scoped).
++    """
++
++    def __init__(self, classifier_agent: Agent, admin_agent: Agent) -> None:
++        self._classifier = classifier_agent
++        self._admin = admin_agent
++
++    async def invoke_classifier(
++        self,
++        input_text: str,
++        tools_instance: EvalClassifierTools,
++    ) -> None:
++        await self._classifier.run(
++            input_text,
++            tools=[tools_instance.file_capture],
++            options=ChatOptions(tool_choice="required"),
++        )
++
++    async def invoke_admin(
++        self,
++        input_text: str,
++        tools_instance: DryRunAdminTools,
++        routing_context: str,
++    ) -> None:
++        prompt = f"{routing_context}\n\n---\n{input_text}"
++        await self._admin.run(
++            prompt,
++            tools=[
++                tools_instance.add_errand_items,
++                tools_instance.add_task_items,
++                tools_instance.get_routing_context,
++            ],
++            # tool_choice not set -- admin eval contract uses default (auto)
++            # per EVAL-INVENTORY.md call site 2 behavior contract.
++        )
++
++
++class RCEvalAgentInvoker:
++    """RC implementation -- temporary, deleted in plan 24-18.
++
++    Body lifted from eval/runner.py:133-149 (classifier) and 278-294 (admin)
++    verbatim. Used while the corresponding agent has not yet migrated to GA.
++    After 24-18, the classifier is GA and this class has no callers.
++
++    Imports of RC-only types (Message, ChatOptions with tool_choice dict)
++    happen inside the methods so this module does not place a top-level
++    dependency on RC types at import time.
++    """
++
++    def __init__(
++        self,
++        classifier_client: AzureAIAgentClient,
++        admin_client: AzureAIAgentClient,
++    ) -> None:
++        self._classifier_client = classifier_client
++        self._admin_client = admin_client
++
++    async def invoke_classifier(
++        self,
++        input_text: str,
++        tools_instance: EvalClassifierTools,
++    ) -> None:
++        from agent_framework import ChatOptions as RCChatOptions
++        from agent_framework import Message
++
++        messages = [Message(role="user", text=input_text)]
++        options = RCChatOptions(
++            tools=[tools_instance.file_capture],
++            tool_choice={
++                "mode": "required",
++                "required_function_name": "file_capture",
++            },
++        )
++        await self._classifier_client.get_response(messages=messages, options=options)
++
++    async def invoke_admin(
++        self,
++        input_text: str,
++        tools_instance: DryRunAdminTools,
++        routing_context: str,
++    ) -> None:
++        from agent_framework import ChatOptions as RCChatOptions
++        from agent_framework import Message
++
++        prompt = f"{routing_context}\n\n---\n{input_text}"
++        messages = [Message(role="user", text=prompt)]
++        options = RCChatOptions(
++            tools=[
++                tools_instance.add_errand_items,
++                tools_instance.add_task_items,
++                tools_instance.get_routing_context,
++            ],
++        )
++        await self._admin_client.get_response(messages=messages, options=options)
++
++
++class _MigrationHybridInvoker:
++    """Hybrid composition for the 23.2-23.3 migration window.
++
++    Routes invoke_classifier -> RC implementation (classifier still RC until
++    plans 24-13..24-17) and invoke_admin -> GA implementation (admin migrated
++    in plans 24-09..24-11).
++
++    Deletion trigger: end of plan 24-18 (cleanup commit), once both agents
++    are GA and the call-site can construct a single GAEvalAgentInvoker. The
++    leading underscore signals deletion-trigger-aligned private API, matching
++    the RC/GA siblings.
++    """
++
++    def __init__(
++        self,
++        rc_invoker: RCEvalAgentInvoker,
++        ga_invoker: GAEvalAgentInvoker,
++    ) -> None:
++        self._rc = rc_invoker
++        self._ga = ga_invoker
++
++    async def invoke_classifier(
++        self,
++        input_text: str,
++        tools_instance: EvalClassifierTools,
++    ) -> None:
++        await self._rc.invoke_classifier(input_text, tools_instance)
++
++    async def invoke_admin(
++        self,
++        input_text: str,
++        tools_instance: DryRunAdminTools,
++        routing_context: str,
++    ) -> None:
++        await self._ga.invoke_admin(input_text, tools_instance, routing_context)
+diff --git a/backend/src/second_brain/eval/runner.py b/backend/src/second_brain/eval/runner.py
+index 6c79827..2ad2872 100644
+--- a/backend/src/second_brain/eval/runner.py
++++ b/backend/src/second_brain/eval/runner.py
+@@ -7,6 +7,19 @@ in-memory for status polling.
+ 
+ Each eval case runs in a fresh tool instance with no state leakage (Pitfall #2).
+ Agent calls have a 60-second timeout per case (Pitfall #5 / T-21-05).
++
++Phase 24 task group 23.2 (plan 24-12, GA migration):
++- Agent invocation is now indirected through ``EvalAgentInvoker`` so the
++  runner stays agnostic of RC vs. GA call shapes during the migration
++  window. See ``second_brain.eval.invoker`` for the Protocol + the two
++  concrete implementations (RC for classifier until 24-13..24-17, GA for
++  admin after 24-09..24-11).
++- The caller (api/eval.py or tools/investigation.py) constructs a
++  ``_MigrationHybridInvoker(rc_invoker=..., ga_invoker=...)`` and passes
++  that single hybrid as the ``invoker`` argument. Plan 24-18 deletes the
++  hybrid + RC class together once the classifier is GA.
++- The runner does NOT import ``_MigrationHybridInvoker`` directly; it
++  only types the parameter as the Protocol.
+ """
+ 
+ from __future__ import annotations
+@@ -18,9 +31,8 @@ from collections.abc import Callable
+ from datetime import UTC, datetime
+ from typing import TYPE_CHECKING
+ 
+-from agent_framework import ChatOptions, Message
+-
+ from second_brain.eval.dry_run_tools import DryRunAdminTools, EvalClassifierTools
++from second_brain.eval.invoker import EvalAgentInvoker
+ from second_brain.eval.metrics import (
+     compute_admin_metrics,
+     compute_classifier_metrics,
+@@ -29,8 +41,6 @@ from second_brain.eval.metrics import (
+ from second_brain.models.documents import EvalResultsDocument
+ 
+ if TYPE_CHECKING:
+-    from agent_framework.azure import AzureAIAgentClient
+-
+     from second_brain.db.cosmos import CosmosManager
+ 
+ logger = logging.getLogger(__name__)
+@@ -82,20 +92,23 @@ async def _call_with_retry(
+ async def run_classifier_eval(
+     run_id: str,
+     cosmos_manager: CosmosManager,
+-    classifier_client: AzureAIAgentClient,
++    invoker: EvalAgentInvoker,
+     runs_dict: dict,
+ ) -> None:
+     """Run classifier evaluation against golden dataset.
+ 
+     Reads classifier test cases from GoldenDataset container, sends each
+-    through the real Foundry Classifier agent with dry-run tools, computes
+-    accuracy/precision/recall/calibration metrics, persists results, and
+-    updates run status.
++    through the real Foundry Classifier agent (via ``invoker``) with
++    dry-run tools, computes accuracy/precision/recall/calibration metrics,
++    persists results, and updates run status.
+ 
+     Args:
+         run_id: Unique identifier for this eval run.
+         cosmos_manager: Cosmos DB manager for reading/writing containers.
+-        classifier_client: AzureAIAgentClient for the Classifier agent.
++        invoker: ``EvalAgentInvoker`` implementation. During plan 24-12's
++            migration window, callers construct a ``_MigrationHybridInvoker``
++            that routes invoke_classifier -> RCEvalAgentInvoker. After plan
++            24-18 this becomes a plain ``GAEvalAgentInvoker``.
+         runs_dict: In-memory dict for tracking run status/progress.
+     """
+     try:
+@@ -130,18 +143,9 @@ async def run_classifier_eval(
+                 # Fresh tool instance per case -- no state leakage (Pitfall #2)
+                 eval_tools = EvalClassifierTools()
+ 
+-                messages = [Message(role="user", text=case["inputText"])]
+-                options = ChatOptions(
+-                    tools=[eval_tools.file_capture],
+-                    tool_choice={
+-                        "mode": "required",
+-                        "required_function_name": "file_capture",
+-                    },
+-                )
+-
+                 await _call_with_retry(
+-                    lambda m=messages, o=options: classifier_client.get_response(
+-                        messages=m, options=o
++                    lambda et=eval_tools, txt=case["inputText"]: (
++                        invoker.invoke_classifier(txt, et)
+                     ),
+                     run_id=run_id,
+                     case_index=i,
+@@ -226,21 +230,26 @@ async def run_classifier_eval(
+ async def run_admin_eval(
+     run_id: str,
+     cosmos_manager: CosmosManager,
+-    admin_client: AzureAIAgentClient,
++    invoker: EvalAgentInvoker,
+     routing_context: str,
+     runs_dict: dict,
+ ) -> None:
+     """Run admin agent evaluation against golden dataset.
+ 
+     Reads admin test cases from GoldenDataset container, sends each through
+-    the real Foundry Admin agent with dry-run tools, computes routing
+-    accuracy metrics, persists results, and updates run status.
++    the real Foundry Admin agent (via ``invoker``) with dry-run tools,
++    computes routing accuracy metrics, persists results, and updates run
++    status.
+ 
+     Args:
+         run_id: Unique identifier for this eval run.
+         cosmos_manager: Cosmos DB manager for reading/writing containers.
+-        admin_client: AzureAIAgentClient for the Admin agent.
+-        routing_context: Pre-built routing context string for DryRunAdminTools.
++        invoker: ``EvalAgentInvoker`` implementation. During plan 24-12's
++            migration window, callers construct a ``_MigrationHybridInvoker``
++            that routes invoke_admin -> GAEvalAgentInvoker. After plan
++            24-18 this becomes a plain ``GAEvalAgentInvoker``.
++        routing_context: Pre-built routing context string for
++            ``DryRunAdminTools`` and passed into ``invoker.invoke_admin``.
+         runs_dict: In-memory dict for tracking run status/progress.
+     """
+     try:
+@@ -274,19 +283,11 @@ async def run_admin_eval(
+             try:
+                 # Fresh tool instance per case -- no state leakage (Pitfall #2)
+                 dry_run_tools = DryRunAdminTools(routing_context=routing_context)
+-
+-                messages = [Message(role="user", text=case["inputText"])]
+-                options = ChatOptions(
+-                    tools=[
+-                        dry_run_tools.add_errand_items,
+-                        dry_run_tools.add_task_items,
+-                        dry_run_tools.get_routing_context,
+-                    ],
+-                )
++                input_text = case["inputText"]
+ 
+                 await _call_with_retry(
+-                    lambda m=messages, o=options: admin_client.get_response(
+-                        messages=m, options=o
++                    lambda dt=dry_run_tools, txt=input_text, rc=routing_context: (
++                        invoker.invoke_admin(txt, dt, rc)
+                     ),
+                     run_id=run_id,
+                     case_index=i,
+diff --git a/backend/src/second_brain/main.py b/backend/src/second_brain/main.py
+index 749177f..60d7778 100644
+--- a/backend/src/second_brain/main.py
++++ b/backend/src/second_brain/main.py
+@@ -43,7 +43,7 @@ from azure.keyvault.secrets.aio import SecretClient as KeyVaultSecretClient  # n
+ from fastapi import FastAPI  # noqa: E402
+ from openai import AsyncAzureOpenAI  # noqa: E402
+ 
+-from second_brain.agents.admin import ensure_admin_agent  # noqa: E402
++from second_brain.agents.admin import build_admin_agent  # noqa: E402
+ from second_brain.agents.agent_middleware.capture_trace import (  # noqa: E402
+     CaptureTraceAgentMiddleware,
+     CaptureTraceFunctionMiddleware,
+@@ -620,49 +620,20 @@ async def lifespan(app: FastAPI):
+             len(agent_tools),
+         )
+ 
+-        # --- Admin Agent Registration (non-fatal) ---
+-        # Admin Agent is not required for core capture flow. If registration
+-        # fails, log warning and continue -- Phase 11 will handle the
+-        # capture-to-admin handoff and can check if admin_client is available.
++        # --- Admin Agent (non-fatal, GA pattern) ---
++        # Phase 24 task group 23.2: GA Agent constructed via build_admin_agent
++        # using the shared FoundryChatClient. Instructions live in repo (D-02).
++        # Capture-trace middleware tags framework spans at source (D-07a, P1-3).
++        # Admin Agent is not required for core capture flow; registration
++        # failure leaves admin features unavailable but app still starts.
+         try:
+-            admin_agent_id = await ensure_admin_agent(
+-                foundry_client=foundry_client,
+-                stored_agent_id=settings.azure_ai_admin_agent_id,
+-            )
+-            app.state.admin_agent_id = admin_agent_id
+-
+             # --- AdminTools (uses Cosmos for errand item writes) ---
+             admin_tools = AdminTools(cosmos_manager=cosmos_mgr)
+             app.state.admin_tools = admin_tools
+ 
+-            # --- Admin AzureAIAgentClient (separate from Classifier) ---
+-            admin_client = AzureAIAgentClient(
+-                credential=credential,
+-                project_endpoint=settings.azure_ai_project_endpoint,
+-                agent_id=admin_agent_id,
+-                should_cleanup_agent=False,
+-                middleware=[
+-                    AuditAgentMiddleware(agent_name="admin"),
+-                    ToolTimingMiddleware(),
+-                ],
+-            )
+-            app.state.admin_client = admin_client
+-            app.state.admin_agent_tools = [
+-                admin_tools.add_errand_items,
+-                admin_tools.add_task_items,
+-                admin_tools.get_routing_context,
+-                admin_tools.manage_destination,
+-                admin_tools.manage_affinity_rule,
+-                admin_tools.query_rules,
+-            ]
+-
+-            logger.info(
+-                "Admin agent ready: id=%s tools=%d",
+-                admin_agent_id,
+-                len(app.state.admin_agent_tools),
+-            )
+-
+-            # --- Playwright browser for recipe URL fetching ---
++            # --- Playwright browser for recipe URL fetching (sets recipe_tools) ---
++            # Must run BEFORE build_admin_agent so fetch_recipe_url is in the
++            # tools list passed to the Agent constructor.
+             try:
+                 pw = await async_playwright().start()
+                 browser = await pw.chromium.launch(
+@@ -682,7 +653,6 @@ async def lifespan(app: FastAPI):
+                     spine_repo=getattr(app.state, "spine_repo", None),
+                 )
+                 app.state.recipe_tools = recipe_tools
+-                app.state.admin_agent_tools.append(recipe_tools.fetch_recipe_url)
+ 
+                 logger.info(
+                     "Playwright browser started, fetch_recipe_url tool registered "
+@@ -697,16 +667,52 @@ async def lifespan(app: FastAPI):
+                 app.state.playwright = None
+                 app.state.browser = None
+                 app.state.recipe_tools = None
++                recipe_tools = None
++
++            # --- Build Admin Agent via GA factory ---
++            admin_agent_tools = [
++                admin_tools.add_errand_items,
++                admin_tools.add_task_items,
++                admin_tools.get_routing_context,
++                admin_tools.manage_destination,
++                admin_tools.manage_affinity_rule,
++                admin_tools.query_rules,
++            ]
++            if recipe_tools is not None:
++                admin_agent_tools.append(recipe_tools.fetch_recipe_url)
++
++            admin_agent = build_admin_agent(
++                chat_client=chat_client,
++                tools=admin_agent_tools,
++                middleware=[
++                    CaptureTraceAgentMiddleware(),
++                    CaptureTraceFunctionMiddleware(),
++                ],
++            )
++            app.state.admin_agent = admin_agent
++
++            # Mid-migration: RC client/agent_id attrs no longer set by Admin slice.
++            # Set to None so warmup loop's `if app.state.admin_client is not None`
++            # guard skips Admin (warmup migrates to GA in plan 24-19). Spine
++            # FoundryAgentAdapter for "admin" segment similarly skips while
++            # admin_agent_id is None.
++            app.state.admin_client = None
++            app.state.admin_agent_id = None
++
++            logger.info(
++                "Admin agent ready (GA): tools=%d middleware=2",
++                len(admin_agent_tools),
++            )
+ 
+         except Exception:
+             logger.warning(
+                 "Admin agent registration failed -- admin features unavailable",
+                 exc_info=True,
+             )
++            app.state.admin_agent = None
+             app.state.admin_agent_id = None
+             app.state.admin_client = None
+             app.state.admin_tools = None
+-            app.state.admin_agent_tools = []
+             app.state.playwright = None
+             app.state.browser = None
+             app.state.recipe_tools = None
+@@ -726,6 +732,11 @@ async def lifespan(app: FastAPI):
+                     cosmos_manager=app.state.cosmos_manager,
+                     classifier_client=app.state.classifier_client,
+                     admin_client=getattr(app.state, "admin_client", None),
++                    # Phase 24 plan 24-12: admin path is now GA via Agent
++                    # singleton; classifier path stays RC during migration
++                    # window. EvalAgentInvoker hybrid constructed in
++                    # InvestigationTools._build_eval_invoker().
++                    admin_agent=getattr(app.state, "admin_agent", None),
+                 )
+                 app.state.investigation_tools_instance = investigation_tools
+ 
+diff --git a/backend/src/second_brain/processing/admin_handoff.py b/backend/src/second_brain/processing/admin_handoff.py
+index 1f5d78d..abd5ad9 100644
+--- a/backend/src/second_brain/processing/admin_handoff.py
++++ b/backend/src/second_brain/processing/admin_handoff.py
+@@ -5,16 +5,24 @@ calls the Admin Agent non-streaming, routes errand items to destination lists,
+ and handles the inbox item after processing. Responses that need user attention
+ are kept on the inbox item for delivery; simple confirmations trigger deletion.
+ Failed items remain with adminProcessingStatus = 'failed' for retry.
++
++Phase 24 task group 23.2 (GA migration):
++- Uses GA Agent.run() in place of RC AzureAIAgentClient.get_response().
++- Tool detection is post-hoc: walks response.messages for role='tool'
++  entries per FOUNDRY-PROBE-FINDINGS.md probe 2 (tool_call_extraction).
++- Custom admin_agent_process / admin_agent_batch_process spans removed
++  (F-16). Capture-trace correlation rides on the framework's
++  invoke_agent span via CaptureTraceAgentMiddleware (24-03).
++- admin.* observability attributes ride structured log extras instead
++  of a custom span.
+ """
+ 
+ import asyncio
+ import logging
+ import time
+ 
+-from agent_framework import ChatOptions, Message
+-from agent_framework.azure import AzureAIAgentClient
++from agent_framework import Agent, ChatOptions
+ from azure.cosmos.exceptions import CosmosResourceNotFoundError
+-from opentelemetry import trace
+ 
+ from second_brain.db.cosmos import CosmosManager
+ from second_brain.spine.agent_emitter import emit_agent_workload
+@@ -23,21 +31,6 @@ from second_brain.spine.storage import SpineRepository
+ from second_brain.tools.admin import build_routing_context
+ 
+ logger = logging.getLogger(__name__)
+-tracer = trace.get_tracer("second_brain.processing")
+-
+-
+-def _count_tool_invocations(tools: list) -> int:
+-    """Sum invocation_count across all FunctionTool instances in a tool list.
+-
+-    Uses duck typing (hasattr) rather than isinstance so that test mocks
+-    with an invocation_count attribute also work correctly.
+-    """
+-    total = 0
+-    for t in tools:
+-        count = getattr(t, "invocation_count", None)
+-        if count is not None:
+-            total += count
+-    return total
+ 
+ 
+ # Tools that produce user-visible output. Intermediate tools like
+@@ -52,20 +45,28 @@ _OUTPUT_TOOL_NAMES = {
+ }
+ 
+ 
+-def _count_output_tool_invocations(tools: list) -> int:
+-    """Count invocations of output-producing tools only.
++def _output_tool_called(response) -> tuple[bool, set[str]]:
++    """Inspect response.messages for tool calls.
++
++    Returns (output_tool_fired, all_tools_called).
+ 
+-    fetch_recipe_url and get_routing_context are intermediate tools — calling
+-    them without following up with add_errand_items or add_task_items means
+-    the agent didn't complete its work.
++    Per FOUNDRY-PROBE-FINDINGS.md probe 2 (tool_call_extraction.json):
++    tool calls are in messages with role='tool'. The Content blocks
++    inside have a `name` (or `function_name`) field for the function
++    called. Walks response.messages defensively (treats missing
++    attributes as no tool call).
+     """
+-    total = 0
+-    for t in tools:
+-        name = getattr(t, "name", None)
+-        count = getattr(t, "invocation_count", None)
+-        if name in _OUTPUT_TOOL_NAMES and count is not None:
+-            total += count
+-    return total
++    tools_called: set[str] = set()
++    for msg in getattr(response, "messages", None) or []:
++        if getattr(msg, "role", None) != "tool":
++            continue
++        for content in getattr(msg, "contents", None) or []:
++            name = getattr(content, "name", None) or getattr(
++                content, "function_name", None
++            )
++            if name:
++                tools_called.add(str(name))
++    return bool(tools_called & _OUTPUT_TOOL_NAMES), tools_called
+ 
+ 
+ def _response_needs_delivery(response_text: str | None) -> bool:
+@@ -119,7 +120,14 @@ async def _mark_inbox_failed(
+     span,
+     capture_trace_id: str = "",
+ ) -> None:
+-    """Set adminProcessingStatus='failed' on an inbox item (best-effort)."""
++    """Set adminProcessingStatus='failed' on an inbox item (best-effort).
++
++    The `span` parameter is accepted for back-compat with the pre-Phase-24
++    call shape but is now always None — the custom admin_agent_process
++    span was deleted (F-16). The framework's invoke_agent span (auto-
++    emitted by GA SDK + tagged by CaptureTraceAgentMiddleware) is the
++    canonical correlation surface.
++    """
+     th = trace_headers(capture_trace_id or None)
+     try:
+         doc = await inbox_container.read_item(
+@@ -138,8 +146,7 @@ async def _mark_inbox_failed(
+ 
+ 
+ async def process_admin_capture(
+-    admin_client: AzureAIAgentClient,
+-    admin_tools: list,
++    admin_agent: Agent,
+     cosmos_manager: CosmosManager,
+     inbox_item_id: str,
+     raw_text: str,
+@@ -150,7 +157,8 @@ async def process_admin_capture(
+ 
+     Calls the Admin Agent (non-streaming) with routing context (destinations
+     and affinity rules) prepended to the user's capture text. Routes errand
+-    items to destinations via tools. After processing:
++    items to destinations via tools that are pre-registered on the Agent
++    at lifespan construction time (D-05). After processing:
+ 
+     - If the response needs user attention (rule queries, conflicts, etc.),
+       the inbox item is kept with status "completed" and the response stored.
+@@ -161,262 +169,265 @@ async def process_admin_capture(
+     it never raises (all exceptions are caught and logged).
+ 
+     Args:
+-        admin_client: AzureAIAgentClient configured for the Admin Agent.
+-        admin_tools: List of tool functions
+-            (e.g., [admin_tools.add_errand_items]).
++        admin_agent: GA Agent configured for the Admin Agent (tools and
++            middleware pre-registered at lifespan construction).
+         cosmos_manager: CosmosManager for inbox status updates.
+         inbox_item_id: The Cosmos inbox document ID to update after processing.
+         raw_text: The user's original capture text to send to the Admin Agent.
+         capture_trace_id: Trace ID from the originating capture.
++        spine_repo: Optional SpineRepository for workload emission at boundary.
+     """
+     from second_brain.tools.classification import capture_trace_id_var
+ 
+     if capture_trace_id:
+         capture_trace_id_var.set(capture_trace_id)
+ 
+-    with tracer.start_as_current_span("admin_agent_process") as span:
+-        span.set_attribute("admin.inbox_item_id", inbox_item_id)
+-        span.set_attribute("admin.raw_text_length", len(raw_text))
+-        if capture_trace_id:
+-            span.set_attribute("capture.trace_id", capture_trace_id)
+-
+-        # Spine workload tracking
+-        _spine_start = time.perf_counter()
+-        _spine_outcome = "success"
+-        _spine_error_class: str | None = None
+-
+-        # Defensive initialization: ensure variables are bound even if the
+-        # first try block raises before assignment.
+-        inbox_container = None
+-        log_extra: dict = {"component": "admin_agent"}
++    # Spine workload tracking
++    _spine_start = time.perf_counter()
++    _spine_outcome = "success"
++    _spine_error_class: str | None = None
++
++    # Defensive initialization: ensure variables are bound even if the
++    # first try block raises before assignment.
++    inbox_container = None
++    log_extra: dict = {
++        "component": "admin_agent",
++        "inbox_item_id": inbox_item_id,
++        "raw_text_length": len(raw_text),
++    }
++
++    # Set status to pending immediately
++    th = trace_headers(capture_trace_id or None)
++    try:
++        inbox_container = cosmos_manager.get_container("Inbox")
++        doc = await inbox_container.read_item(
++            item=inbox_item_id, partition_key="will", **th
++        )
++        # Resolve trace ID: prefer inbox doc field, fall back to parameter
++        trace_id = doc.get("captureTraceId", capture_trace_id or "unknown")
++        log_extra = {
++            "capture_trace_id": trace_id,
++            "component": "admin_agent",
++            "inbox_item_id": inbox_item_id,
++            "raw_text_length": len(raw_text),
++        }
++        doc["adminProcessingStatus"] = "pending"
++        await inbox_container.upsert_item(body=doc, **th)
++    except Exception as exc:
++        logger.error(
++            "Failed to set pending status for inbox item %s: %s",
++            inbox_item_id,
++            exc,
++            exc_info=True,
++        )
++        return  # Cannot proceed without the inbox item
+ 
+-        # Set status to pending immediately
+-        th = trace_headers(capture_trace_id or None)
++    try:
++        # Build routing context (destinations + rules)
+         try:
+-            inbox_container = cosmos_manager.get_container("Inbox")
+-            doc = await inbox_container.read_item(
+-                item=inbox_item_id, partition_key="will", **th
+-            )
+-            # Resolve trace ID: prefer inbox doc field, fall back to parameter
+-            trace_id = doc.get("captureTraceId", capture_trace_id or "unknown")
+-            span.set_attribute("capture.trace_id", trace_id)
+-            log_extra: dict = {
+-                "capture_trace_id": trace_id,
+-                "component": "admin_agent",
+-            }
+-            doc["adminProcessingStatus"] = "pending"
+-            await inbox_container.upsert_item(body=doc, **th)
+-        except Exception as exc:
+-            span.record_exception(exc)
+-            logger.error(
+-                "Failed to set pending status for inbox item %s: %s",
++            routing_context = await build_routing_context(cosmos_manager)
++            enriched_text = f"{routing_context}\n\n---\nUser capture: {raw_text}"
++        except Exception as ctx_exc:
++            logger.warning(
++                "Failed to build routing context for %s: %s. Falling back to raw text.",
+                 inbox_item_id,
+-                exc,
+-                exc_info=True,
++                ctx_exc,
++                extra=log_extra,
++            )
++            enriched_text = raw_text
++
++        # D-07 EXPLICIT JUSTIFICATION (CONTEXT D-11):
++        # 1. Framework primitive considered: tool_choice='required' (forces
++        #    SOME tool call).
++        # 2. What custom code provides: pin which SUBSET of tools
++        #    (add_errand_items OR add_task_items) the model must call.
++        #    Framework primitive cannot pin a subset.
++        # 3. Why not middleware/context provider/tool/configuration:
++        #    provider-dict {"mode":"required",...} schema is undocumented
++        #    (probe 3 confirmed); spiking rejected as time-risky in
++        #    CONTEXT D-10.
++        # 4. Permanent or temporary: temporary bridge. Deletion trigger:
++        #    when 'mode' dict schema is documented OR Foundry adds
++        #    tool_choice subset pinning.
++        async with asyncio.timeout(60):
++            response = await admin_agent.run(
++                enriched_text,
++                options=ChatOptions(tool_choice="required"),
+             )
+-            return  # Cannot proceed without the inbox item
+-
+-        try:
+-            # Build routing context (destinations + rules)
+-            try:
+-                routing_context = await build_routing_context(cosmos_manager)
+-                enriched_text = f"{routing_context}\n\n---\nUser capture: {raw_text}"
+-            except Exception as ctx_exc:
+-                logger.warning(
+-                    "Failed to build routing context for %s: %s. "
+-                    "Falling back to raw text.",
+-                    inbox_item_id,
+-                    ctx_exc,
+-                    extra=log_extra,
+-                )
+-                enriched_text = raw_text
+ 
+-            messages = [Message(role="user", text=enriched_text)]
+-            options = ChatOptions(tools=admin_tools)
++        # Post-hoc tool detection per FOUNDRY-PROBE-FINDINGS.md probe 2:
++        # walk response.messages for role='tool' entries instead of
++        # FunctionTool invocation_count snapshots (GA removes those).
++        output_fired, tools_called = _output_tool_called(response)
++        any_tool_fired = bool(tools_called)
++
++        if not any_tool_fired:
++            # Agent responded without calling any tools at all.
++            logger.warning(
++                "Admin Agent did not call any tool for inbox item %s "
++                "(text: %.80s). Marking as failed. outcome=no_tool_call",
++                inbox_item_id,
++                raw_text,
++                extra=log_extra,
++            )
++            await _mark_inbox_failed(
++                inbox_container, inbox_item_id, None, capture_trace_id
++            )
++            return
++
++        if not output_fired:
++            # Agent called intermediate tools (e.g. fetch_recipe_url)
++            # but never followed up with add_errand_items/add_task_items.
++            # Retry once with the agent's text response as context.
++            response_text = response.text if response.text else ""
++            logger.warning(
++                "Admin Agent called intermediate tools but not "
++                "add_errand_items/add_task_items for inbox item %s. "
++                "Retrying with nudge. tools_called=%s",
++                inbox_item_id,
++                tools_called,
++                extra=log_extra,
++            )
+ 
+-            # Snapshot tool invocation counts before calling the agent
+-            pre_count = _count_tool_invocations(admin_tools)
+-            pre_output_count = _count_output_tool_invocations(admin_tools)
++            retry_prompt = (
++                f"{enriched_text}\n\n"
++                f"---\n"
++                f"IMPORTANT: You already gathered data above but "
++                f"did not complete the user's request. You MUST "
++                f"call the appropriate tool (add_errand_items, "
++                f"add_task_items, manage_destination, etc.) to "
++                f"finish. Do NOT respond with text -- call the "
++                f"tool.\n\n"
++                f"Your previous response was:\n{response_text}"
++            )
+ 
++            # D-09 bounded retry: exactly one retry, no loop. Same D-07
++            # justification as the initial call above — tool_choice="required"
++            # forces SOME tool but cannot pin to the output-tool subset.
+             async with asyncio.timeout(60):
+-                response = await admin_client.get_response(
+-                    messages=messages, options=options
++                response = await admin_agent.run(
++                    retry_prompt,
++                    options=ChatOptions(tool_choice="required"),
+                 )
+ 
+-            # Check whether the agent produced output (errands or tasks)
+-            post_count = _count_tool_invocations(admin_tools)
+-            post_output_count = _count_output_tool_invocations(admin_tools)
+-            any_tool_called = post_count > pre_count
+-            output_tool_called = post_output_count > pre_output_count
++            retry_output_fired, retry_tools_called = _output_tool_called(response)
+ 
+-            span.set_attribute("admin.tool_invoked", any_tool_called)
+-            span.set_attribute("admin.output_tool_invoked", output_tool_called)
+-
+-            if not any_tool_called:
+-                # Agent responded without calling any tools at all.
+-                logger.warning(
+-                    "Admin Agent did not call any tool for inbox item %s "
+-                    "(text: %.80s). Marking as failed.",
++            if not retry_output_fired:
++                logger.error(
++                    "Admin Agent retry also failed to call output "
++                    "tools for inbox item %s. Marking as failed. "
++                    "outcome=no_output_tool retry_tools_called=%s",
+                     inbox_item_id,
+-                    raw_text,
++                    retry_tools_called,
+                     extra=log_extra,
+                 )
+-                span.set_attribute("admin.outcome", "no_tool_call")
+                 await _mark_inbox_failed(
+-                    inbox_container, inbox_item_id, span, capture_trace_id
++                    inbox_container, inbox_item_id, None, capture_trace_id
+                 )
+                 return
+ 
+-            if not output_tool_called:
+-                # Agent called intermediate tools (e.g. fetch_recipe_url)
+-                # but never followed up with add_errand_items/add_task_items.
+-                # Retry once with the agent's text response as context.
+-                response_text = response.text if response.text else ""
+-                logger.warning(
+-                    "Admin Agent called intermediate tools but not "
+-                    "add_errand_items/add_task_items for inbox item %s. "
+-                    "Retrying with nudge.",
+-                    inbox_item_id,
+-                    extra=log_extra,
+-                )
+-                span.set_attribute("admin.retry", True)
+-
+-                retry_prompt = (
+-                    f"{enriched_text}\n\n"
+-                    f"---\n"
+-                    f"IMPORTANT: You already gathered data above but "
+-                    f"did not complete the user's request. You MUST "
+-                    f"call the appropriate tool (add_errand_items, "
+-                    f"add_task_items, manage_destination, etc.) to "
+-                    f"finish. Do NOT respond with text -- call the "
+-                    f"tool.\n\n"
+-                    f"Your previous response was:\n{response_text}"
+-                )
+-                retry_messages = [Message(role="user", text=retry_prompt)]
+-
+-                pre_output_count_2 = _count_output_tool_invocations(admin_tools)
+-
+-                async with asyncio.timeout(60):
+-                    response = await admin_client.get_response(
+-                        messages=retry_messages, options=options
+-                    )
+-
+-                post_output_count_2 = _count_output_tool_invocations(admin_tools)
+-                output_tool_called = post_output_count_2 > pre_output_count_2
+-
+-                if not output_tool_called:
+-                    logger.error(
+-                        "Admin Agent retry also failed to call output "
+-                        "tools for inbox item %s. Marking as failed.",
+-                        inbox_item_id,
+-                        extra=log_extra,
+-                    )
+-                    span.set_attribute("admin.outcome", "no_output_tool")
+-                    await _mark_inbox_failed(
+-                        inbox_container, inbox_item_id, span, capture_trace_id
+-                    )
+-                    return
+-
+-                span.set_attribute("admin.outcome", "retry_succeeded")
+-
+-            # Tool was called -- decide whether to keep or delete inbox item
+-            response_text = response.text if response.text else None
+-
+-            if _response_needs_delivery(response_text):
+-                # Response contains info the user needs to see --
+-                # keep the inbox item with response attached
+-                try:
+-                    doc = await inbox_container.read_item(
+-                        item=inbox_item_id, partition_key="will", **th
+-                    )
+-                    doc["adminProcessingStatus"] = "completed"
+-                    doc["adminAgentResponse"] = response_text
+-                    await inbox_container.upsert_item(body=doc, **th)
+-                    logger.info(
+-                        "Stored admin response for delivery on inbox item %s",
+-                        inbox_item_id,
+-                        extra=log_extra,
+-                    )
+-                except Exception as store_exc:
+-                    logger.warning(
+-                        "Failed to store admin response for %s: %s",
+-                        inbox_item_id,
+-                        store_exc,
+-                        extra=log_extra,
+-                    )
+-                span.set_attribute("admin.outcome", "response_stored")
+-            else:
+-                # Simple confirmation -- delete the inbox item
+-                try:
+-                    await inbox_container.delete_item(
+-                        item=inbox_item_id, partition_key="will", **th
+-                    )
+-                    logger.info(
+-                        "Deleted processed inbox item %s",
+-                        inbox_item_id,
+-                        extra=log_extra,
+-                    )
+-                except CosmosResourceNotFoundError:
+-                    # User may have swipe-deleted while processing
+-                    logger.info(
+-                        "Inbox item %s already deleted (user may have removed it)",
+-                        inbox_item_id,
+-                        extra=log_extra,
+-                    )
+-                except Exception as del_exc:
+-                    # Non-fatal: errand items are the durable output
+-                    logger.warning(
+-                        "Failed to delete processed inbox item %s: %s",
+-                        inbox_item_id,
+-                        del_exc,
+-                        extra=log_extra,
+-                    )
+-                span.set_attribute("admin.outcome", "processed")
+-
+             logger.info(
+-                "Admin Agent processed inbox item %s: %s",
++                "Admin Agent retry succeeded for inbox item %s. "
++                "outcome=retry_succeeded retry_tools_called=%s",
+                 inbox_item_id,
+-                response.text[:100] if response.text else "(no text)",
++                retry_tools_called,
+                 extra=log_extra,
+             )
+ 
+-        except Exception as exc:
+-            _spine_outcome = "failure"
+-            _spine_error_class = type(exc).__name__
+-            span.record_exception(exc)
+-            span.set_attribute("admin.outcome", "failed")
+-            logger.error(
+-                "Admin Agent failed for inbox item %s: %s",
+-                inbox_item_id,
+-                exc,
+-                exc_info=True,
+-                extra=log_extra,
+-            )
++        # Tool was called -- decide whether to keep or delete inbox item
++        response_text = response.text if response.text else None
+ 
+-            # Update inbox item status to failed (only if container was resolved)
+-            if inbox_container is not None:
+-                await _mark_inbox_failed(
+-                    inbox_container, inbox_item_id, span, capture_trace_id
++        if _response_needs_delivery(response_text):
++            # Response contains info the user needs to see --
++            # keep the inbox item with response attached
++            try:
++                doc = await inbox_container.read_item(
++                    item=inbox_item_id, partition_key="will", **th
+                 )
+-        finally:
+-            if spine_repo:
+-                _duration = int((time.perf_counter() - _spine_start) * 1000)
+-                await emit_agent_workload(
+-                    repo=spine_repo,
+-                    segment_id="admin",
+-                    operation="process_capture",
+-                    outcome=_spine_outcome,
+-                    duration_ms=_duration,
+-                    capture_trace_id=capture_trace_id or None,
+-                    run_id=None,
+-                    thread_id=None,
+-                    error_class=_spine_error_class,
++                doc["adminProcessingStatus"] = "completed"
++                doc["adminAgentResponse"] = response_text
++                await inbox_container.upsert_item(body=doc, **th)
++                logger.info(
++                    "Stored admin response for delivery on inbox item %s. "
++                    "outcome=response_stored",
++                    inbox_item_id,
++                    extra=log_extra,
++                )
++            except Exception as store_exc:
++                logger.warning(
++                    "Failed to store admin response for %s: %s",
++                    inbox_item_id,
++                    store_exc,
++                    extra=log_extra,
++                )
++        else:
++            # Simple confirmation -- delete the inbox item
++            try:
++                await inbox_container.delete_item(
++                    item=inbox_item_id, partition_key="will", **th
+                 )
++                logger.info(
++                    "Deleted processed inbox item %s. outcome=processed",
++                    inbox_item_id,
++                    extra=log_extra,
++                )
++            except CosmosResourceNotFoundError:
++                # User may have swipe-deleted while processing
++                logger.info(
++                    "Inbox item %s already deleted (user may have removed it)",
++                    inbox_item_id,
++                    extra=log_extra,
++                )
++            except Exception as del_exc:
++                # Non-fatal: errand items are the durable output
++                logger.warning(
++                    "Failed to delete processed inbox item %s: %s",
++                    inbox_item_id,
++                    del_exc,
++                    extra=log_extra,
++                )
++
++        logger.info(
++            "Admin Agent processed inbox item %s: %s",
++            inbox_item_id,
++            response.text[:100] if response.text else "(no text)",
++            extra=log_extra,
++        )
++
++    except Exception as exc:
++        _spine_outcome = "failure"
++        _spine_error_class = type(exc).__name__
++        logger.error(
++            "Admin Agent failed for inbox item %s: %s. outcome=failed",
++            inbox_item_id,
++            exc,
++            exc_info=True,
++            extra=log_extra,
++        )
++
++        # Update inbox item status to failed (only if container was resolved)
++        if inbox_container is not None:
++            await _mark_inbox_failed(
++                inbox_container, inbox_item_id, None, capture_trace_id
++            )
++    finally:
++        if spine_repo:
++            _duration = int((time.perf_counter() - _spine_start) * 1000)
++            await emit_agent_workload(
++                repo=spine_repo,
++                segment_id="admin",
++                operation="process_capture",
++                outcome=_spine_outcome,
++                duration_ms=_duration,
++                capture_trace_id=capture_trace_id or None,
++                run_id=None,
++                thread_id=None,
++                error_class=_spine_error_class,
++            )
+ 
+ 
+ async def process_admin_captures_batch(
+-    admin_client: AzureAIAgentClient,
+-    admin_tools: list,
++    admin_agent: Agent,
+     cosmos_manager: CosmosManager,
+     admin_items: list[dict],
+     capture_trace_id: str = "",
+@@ -431,24 +442,29 @@ async def process_admin_captures_batch(
+     it never raises (all exceptions are caught internally by process_admin_capture).
+ 
+     Args:
+-        admin_client: AzureAIAgentClient configured for the Admin Agent.
+-        admin_tools: List of tool functions for the Admin Agent.
++        admin_agent: GA Agent configured for the Admin Agent (tools pre-registered).
+         cosmos_manager: CosmosManager for inbox status updates.
+         admin_items: List of dicts with "inbox_item_id" and "raw_text" keys.
+         capture_trace_id: Trace ID from the originating capture.
+         spine_repo: Optional SpineRepository for workload emission.
+     """
+-    with tracer.start_as_current_span("admin_agent_batch_process") as span:
+-        span.set_attribute("admin.batch_size", len(admin_items))
+-        span.set_attribute("capture.trace_id", capture_trace_id)
+-        for item in admin_items:
+-            item_trace_id = item.get("capture_trace_id", "") or capture_trace_id
+-            await process_admin_capture(
+-                admin_client=admin_client,
+-                admin_tools=admin_tools,
+-                cosmos_manager=cosmos_manager,
+-                inbox_item_id=item["inbox_item_id"],
+-                raw_text=item["raw_text"],
+-                capture_trace_id=item_trace_id,
+-                spine_repo=spine_repo,
+-            )
++    logger.info(
++        "Admin Agent batch processing %d item(s) capture_trace_id=%s",
++        len(admin_items),
++        capture_trace_id or "(none)",
++        extra={
++            "component": "admin_agent",
++            "batch_size": len(admin_items),
++            "capture_trace_id": capture_trace_id or "",
++        },
++    )
++    for item in admin_items:
++        item_trace_id = item.get("capture_trace_id", "") or capture_trace_id
++        await process_admin_capture(
++            admin_agent=admin_agent,
++            cosmos_manager=cosmos_manager,
++            inbox_item_id=item["inbox_item_id"],
++            raw_text=item["raw_text"],
++            capture_trace_id=item_trace_id,
++            spine_repo=spine_repo,
++        )
+diff --git a/backend/src/second_brain/tools/admin.py b/backend/src/second_brain/tools/admin.py
+index 0285da7..d68cc09 100644
+--- a/backend/src/second_brain/tools/admin.py
++++ b/backend/src/second_brain/tools/admin.py
+@@ -1,15 +1,22 @@
+ """Admin agent tools for errand item and destination management.
+ 
+-Uses the class-based tool pattern to bind CosmosManager references to @tool
+-functions. AdminTools provides 6 tools: add_errand_items, add_task_items,
+-get_routing_context, manage_destination, manage_affinity_rule, and query_rules.
++Uses the class-based tool pattern to bind CosmosManager references to
++async tool methods. AdminTools provides 6 tools: add_errand_items,
++add_task_items, get_routing_context, manage_destination,
++manage_affinity_rule, and query_rules.
++
++Phase 24 GA migration: per D-05/D-06, the RC tool-registration decorator
++was removed from every method. Each tool method is now a plain async
++coroutine. `Annotated[..., Field(description=...)]` parameter shapes and
++docstrings remain as the GA-recommended way to describe tool inputs and
++the tool itself; GA `Agent(tools=[instance.method, ...])` binds bound
++methods directly at construction time.
+ """
+ 
+ import logging
+ from datetime import UTC, datetime
+ from typing import Annotated
+ 
+-from agent_framework import tool
+ from pydantic import Field
+ 
+ from second_brain.db.cosmos import CosmosManager
+@@ -80,6 +87,9 @@ async def build_routing_context(cosmos_manager: CosmosManager) -> str:
+ class AdminTools:
+     """Admin agent tools bound to a CosmosManager instance.
+ 
++    Each tool method is a plain async coroutine. GA Agent binds the bound
++    methods directly via `tools=[instance.method, ...]` at construction time.
++
+     Usage:
+         tools = AdminTools(cosmos_manager=cosmos_mgr)
+         agent_tools = [
+@@ -118,7 +128,6 @@ class AdminTools:
+     # Tool 1: add_errand_items (modified -- dynamic destinations)
+     # ------------------------------------------------------------------
+ 
+-    @tool(approval_mode="never_require")
+     async def add_errand_items(
+         self,
+         items: Annotated[
+@@ -188,7 +197,6 @@ class AdminTools:
+     # Tool 2: add_task_items (unchanged)
+     # ------------------------------------------------------------------
+ 
+-    @tool(approval_mode="never_require")
+     async def add_task_items(
+         self,
+         tasks: Annotated[
+@@ -232,7 +240,6 @@ class AdminTools:
+     # Tool 3: get_routing_context
+     # ------------------------------------------------------------------
+ 
+-    @tool(approval_mode="never_require")
+     async def get_routing_context(self) -> str:
+         """Load all destinations and affinity rules for routing decisions.
+ 
+@@ -246,7 +253,6 @@ class AdminTools:
+     # Tool 4: manage_destination
+     # ------------------------------------------------------------------
+ 
+-    @tool(approval_mode="never_require")
+     async def manage_destination(
+         self,
+         action: Annotated[
+@@ -367,7 +373,6 @@ class AdminTools:
+     # Tool 5: manage_affinity_rule
+     # ------------------------------------------------------------------
+ 
+-    @tool(approval_mode="never_require")
+     async def manage_affinity_rule(
+         self,
+         action: Annotated[
+@@ -534,7 +539,6 @@ class AdminTools:
+     # Tool 6: query_rules
+     # ------------------------------------------------------------------
+ 
+-    @tool(approval_mode="never_require")
+     async def query_rules(
+         self,
+         query_text: Annotated[
+diff --git a/backend/src/second_brain/tools/investigation.py b/backend/src/second_brain/tools/investigation.py
+index 3d7589c..299feb7 100644
+--- a/backend/src/second_brain/tools/investigation.py
++++ b/backend/src/second_brain/tools/investigation.py
+@@ -101,12 +101,48 @@ class InvestigationTools:
+         cosmos_manager: CosmosManager | None = None,
+         classifier_client: Any = None,
+         admin_client: Any = None,
++        admin_agent: Any = None,
+     ) -> None:
+         self._logs_client = logs_client
+         self._workspace_id = workspace_id
+         self._cosmos_manager = cosmos_manager
+         self._classifier_client = classifier_client
+         self._admin_client = admin_client
++        # Phase 24 plan 24-12: admin path is GA (Agent), classifier path
++        # is still RC (AzureAIAgentClient) during the 23.2-23.3 migration
++        # window. After plan 24-18 admin_client is removed and a single
++        # GAEvalAgentInvoker replaces the hybrid.
++        self._admin_agent = admin_agent
++
++    def _build_eval_invoker(self) -> Any:
++        """Construct the migration-window hybrid eval invoker.
++
++        Routes invoke_classifier -> RCEvalAgentInvoker (classifier still RC
++        until plans 24-13..24-17) and invoke_admin -> GAEvalAgentInvoker
++        (admin migrated to GA in plans 24-09..24-11).
++
++        Deletion trigger: plan 24-18 (cleanup commit) when both agents are
++        GA and a plain ``GAEvalAgentInvoker`` replaces this helper.
++        """
++        # Local imports keep the migration-temporary symbols out of the
++        # module-level surface during the migration window; auto-format
++        # is also less likely to strip them mid-edit. Module-level imports
++        # land in the same plan, below.
++        from second_brain.eval.invoker import (
++            GAEvalAgentInvoker,
++            RCEvalAgentInvoker,
++            _MigrationHybridInvoker,
++        )
++
++        rc_invoker = RCEvalAgentInvoker(
++            classifier_client=self._classifier_client,
++            admin_client=None,  # admin path uses GA invoker below
++        )
++        ga_invoker = GAEvalAgentInvoker(
++            classifier_agent=None,  # classifier path uses RC invoker above
++            admin_agent=self._admin_agent,
++        )
++        return _MigrationHybridInvoker(rc_invoker=rc_invoker, ga_invoker=ga_invoker)
+ 
+     # ------------------------------------------------------------------
+     # Tool 1: trace_lifecycle
+@@ -625,11 +661,12 @@ class InvestigationTools:
+                 "eval_type": "classifier",
+                 "started_at": datetime.now(UTC).isoformat(),
+             }
++            invoker = self._build_eval_invoker()
+             asyncio.create_task(
+                 _run_classifier_eval(
+                     run_id=run_id,
+                     cosmos_manager=self._cosmos_manager,
+-                    classifier_client=self._classifier_client,
++                    invoker=invoker,
+                     runs_dict=_eval_runs,
+                 )
+             )
+@@ -678,8 +715,8 @@ class InvestigationTools:
+         logger.info("run_admin_eval called", extra=log_extra)
+ 
+         try:
+-            if self._admin_client is None:
+-                return json.dumps({"error": "Admin client not available"})
++            if self._admin_agent is None and self._admin_client is None:
++                return json.dumps({"error": "Admin agent not available"})
+             if self._cosmos_manager is None:
+                 return json.dumps({"error": "Cosmos not configured"})
+ 
+@@ -703,11 +740,12 @@ class InvestigationTools:
+                 "eval_type": "admin_agent",
+                 "started_at": datetime.now(UTC).isoformat(),
+             }
++            invoker = self._build_eval_invoker()
+             asyncio.create_task(
+                 _run_admin_eval(
+                     run_id=run_id,
+                     cosmos_manager=self._cosmos_manager,
+-                    admin_client=self._admin_client,
++                    invoker=invoker,
+                     routing_context=routing_context,
+                     runs_dict=_eval_runs,
+                 )
+diff --git a/backend/src/second_brain/tools/recipe.py b/backend/src/second_brain/tools/recipe.py
+index f01d461..30073a7 100644
+--- a/backend/src/second_brain/tools/recipe.py
++++ b/backend/src/second_brain/tools/recipe.py
+@@ -6,6 +6,11 @@ Three-tier fetch strategy:
+ 3. Playwright headless browser — fallback for JS-rendered pages
+ 
+ Returns extracted text for LLM-based classification and ingredient extraction.
++
++Phase 24 GA migration: per D-05/D-06, the RC tool-registration decorator
++was removed from `fetch_recipe_url`. The method is a plain async coroutine
++that GA `Agent(tools=[instance.fetch_recipe_url, ...])` binds directly at
++construction time.
+ """
+ 
+ from __future__ import annotations
+@@ -21,7 +26,6 @@ from typing import TYPE_CHECKING, Annotated
+ from urllib.parse import urlparse, urlunparse
+ 
+ import httpx
+-from agent_framework import tool
+ from bs4 import BeautifulSoup
+ from playwright.async_api import Browser, Route
+ from pydantic import Field
+@@ -89,7 +93,11 @@ def _is_safe_url(url: str) -> bool:
+ 
+ 
+ class RecipeTools:
+-    """URL fetching tools bound to a Playwright Browser instance."""
++    """URL fetching tools bound to a Playwright Browser instance.
++
++    `fetch_recipe_url` is a plain async coroutine; GA Agent binds the bound
++    method directly via `tools=[instance.fetch_recipe_url, ...]`.
++    """
+ 
+     def __init__(
+         self,
+@@ -99,7 +107,6 @@ class RecipeTools:
+         self._browser = browser
+         self._spine_repo = spine_repo
+ 
+-    @tool(approval_mode="never_require")
+     async def fetch_recipe_url(
+         self,
+         url: Annotated[
+diff --git a/backend/tests/test_admin_handoff.py b/backend/tests/test_admin_handoff.py
+index 2980737..790c284 100644
+--- a/backend/tests/test_admin_handoff.py
++++ b/backend/tests/test_admin_handoff.py
+@@ -1,8 +1,13 @@
+ """Unit tests for Admin Agent background processing.
+ 
+-Tests the process_admin_capture function with mocked Azure services.
++Tests process_admin_capture against the GA Agent.run() shape introduced
++in Phase 24 plan 24-11:
++- Replaces RC AzureAIAgentClient.get_response with GA Agent.run
++- Tool detection is post-hoc via response.messages (role='tool' walk)
++- D-09 bounded retry with directive prompt preserved
++
+ Validates status transitions, delete-on-success, error handling,
+-and timeout behavior.
++timeout behavior, and the bounded retry semantics.
+ """
+ 
+ import asyncio
+@@ -17,49 +22,72 @@ from second_brain.processing.admin_handoff import (
+ )
+ 
+ 
+-def _make_mock_tool(
+-    name: str = "add_errand_items", invocation_count: int = 0
+-) -> MagicMock:
+-    """Create a mock tool with name and invocation_count attributes.
++def _tool_content(name: str) -> MagicMock:
++    """Construct a Content block representing a tool call/result.
+ 
+-    Simulates FunctionTool's invocation tracking used by
+-    _count_tool_invocations and _count_output_tool_invocations.
++    Per FOUNDRY-PROBE-FINDINGS.md probe 2 (tool_call_extraction.json),
++    tool-result message contents have a `name` (or `function_name`) field
++    identifying the function that was called. _output_tool_called walks
++    response.messages for role='tool' entries and reads this field.
+     """
+-    tool_fn = MagicMock()
+-    tool_fn.name = name
+-    tool_fn.invocation_count = invocation_count
+-    return tool_fn
++    content = MagicMock()
++    content.name = name
++    return content
+ 
+ 
+-@pytest.fixture
+-def mock_admin_tools():
+-    """Mock tool list for Admin Agent (starts with 0 invocations).
++def _tool_message(tool_name: str) -> MagicMock:
++    """Construct a Message with role='tool' carrying one Content block."""
++    msg = MagicMock()
++    msg.role = "tool"
++    msg.contents = [_tool_content(tool_name)]
++    msg.text = ""
++    return msg
++
++
++def _assistant_message(text: str = "") -> MagicMock:
++    """Construct a Message with role='assistant' and the given text."""
++    msg = MagicMock()
++    msg.role = "assistant"
++    msg.contents = []
++    msg.text = text
++    return msg
++
+ 
+-    Uses add_errand_items as the default tool name so it counts as an
+-    output tool in _count_output_tool_invocations.
++def _agent_response(text: str, tool_names: list[str] | None = None) -> MagicMock:
++    """Construct an AgentResponse-shaped mock.
++
++    Per probe 2: response.text is the final assistant answer; response.messages
++    is the full conversation walk including role='tool' entries for each tool
++    invocation. We mirror that shape so _output_tool_called can detect calls.
+     """
+-    return [_make_mock_tool(name="add_errand_items", invocation_count=0)]
++    response = MagicMock()
++    response.text = text
++    messages: list[MagicMock] = [_assistant_message("")]
++    for name in tool_names or []:
++        messages.append(_tool_message(name))
++    messages.append(_assistant_message(text))
++    response.messages = messages
++    return response
+ 
+ 
+ @pytest.fixture
+-def mock_admin_client(mock_admin_tools):
+-    """Mock AzureAIAgentClient for non-streaming calls.
++def mock_admin_agent():
++    """Mock GA Agent for non-streaming calls.
+ 
+-    When get_response is called, increments the first tool's
+-    invocation_count to simulate the framework auto-executing the tool.
++    By default, returns a response indicating add_errand_items was called
++    (an output tool). Individual tests override this to simulate different
++    tool-call sequences (no-tool-call, intermediate-only, retry-succeeds).
+     """
+-    client = AsyncMock()
+-    response = MagicMock()
+-    response.text = "Added 2 items: 1 to jewel, 1 to pet_store"
++    agent = AsyncMock()
+ 
+-    async def _get_response_with_tool_call(*args, **kwargs):
+-        # Simulate framework calling the tool during get_response
+-        if mock_admin_tools:
+-            mock_admin_tools[0].invocation_count += 1
+-        return response
++    async def _default_run(*args, **kwargs):
++        return _agent_response(
++            text="Added 2 items: 1 to jewel, 1 to pet_store",
++            tool_names=["add_errand_items"],
++        )
+ 
+-    client.get_response = AsyncMock(side_effect=_get_response_with_tool_call)
+-    return client
++    agent.run = AsyncMock(side_effect=_default_run)
++    return agent
+ 
+ 
+ def _inbox_doc(status: str | None = None) -> dict:
+@@ -88,12 +116,11 @@ class TestProcessAdminCaptureSuccess:
+     """Tests for the happy path."""
+ 
+     async def test_sets_pending_then_deletes_on_success(
+-        self, mock_admin_client, mock_cosmos_manager, mock_admin_tools
++        self, mock_admin_agent, mock_cosmos_manager
+     ):
+         """Status transitions: None -> pending, then delete on success."""
+         await process_admin_capture(
+-            admin_client=mock_admin_client,
+-            admin_tools=mock_admin_tools,
++            admin_agent=mock_admin_agent,
+             cosmos_manager=mock_cosmos_manager,
+             inbox_item_id="test-inbox-id",
+             raw_text="need cat litter and milk",
+@@ -115,7 +142,7 @@ class TestProcessAdminCaptureSuccess:
+         )
+ 
+     async def test_delete_not_found_is_non_fatal(
+-        self, mock_admin_client, mock_cosmos_manager, mock_admin_tools
++        self, mock_admin_agent, mock_cosmos_manager
+     ):
+         """CosmosResourceNotFoundError on delete does not raise."""
+         container = mock_cosmos_manager.get_container("Inbox")
+@@ -127,15 +154,14 @@ class TestProcessAdminCaptureSuccess:
+ 
+         # Should NOT raise
+         await process_admin_capture(
+-            admin_client=mock_admin_client,
+-            admin_tools=mock_admin_tools,
++            admin_agent=mock_admin_agent,
+             cosmos_manager=mock_cosmos_manager,
+             inbox_item_id="test-inbox-id",
+             raw_text="need cat litter and milk",
+         )
+ 
+     async def test_delete_failure_is_non_fatal(
+-        self, mock_admin_client, mock_cosmos_manager, mock_admin_tools
++        self, mock_admin_agent, mock_cosmos_manager
+     ):
+         """Generic Exception on delete does not raise."""
+         container = mock_cosmos_manager.get_container("Inbox")
+@@ -143,49 +169,47 @@ class TestProcessAdminCaptureSuccess:
+ 
+         # Should NOT raise
+         await process_admin_capture(
+-            admin_client=mock_admin_client,
+-            admin_tools=mock_admin_tools,
++            admin_agent=mock_admin_agent,
+             cosmos_manager=mock_cosmos_manager,
+             inbox_item_id="test-inbox-id",
+             raw_text="need cat litter and milk",
+         )
+ 
+     async def test_calls_admin_agent_with_enriched_text(
+-        self, mock_admin_client, mock_cosmos_manager, mock_admin_tools
++        self, mock_admin_agent, mock_cosmos_manager
+     ):
+         """Admin Agent receives routing context + user's capture text."""
+         await process_admin_capture(
+-            admin_client=mock_admin_client,
+-            admin_tools=mock_admin_tools,
++            admin_agent=mock_admin_agent,
+             cosmos_manager=mock_cosmos_manager,
+             inbox_item_id="test-inbox-id",
+             raw_text="need cat litter and milk",
+         )
+ 
+-        mock_admin_client.get_response.assert_called_once()
+-        call_kwargs = mock_admin_client.get_response.call_args
+-        messages = call_kwargs.kwargs.get("messages") or call_kwargs[1].get("messages")
+-        assert len(messages) == 1
+-        text = messages[0].text
++        mock_admin_agent.run.assert_called_once()
++        # First positional arg is the enriched_text string
++        call_args = mock_admin_agent.run.call_args
++        text = call_args.args[0] if call_args.args else call_args.kwargs.get("input")
+         # Enriched text includes routing context header and the raw text
+         assert "DESTINATIONS:" in text
+         assert "need cat litter and milk" in text
+ 
+-    async def test_passes_tools_to_agent(
+-        self, mock_admin_client, mock_cosmos_manager, mock_admin_tools
++    async def test_passes_tool_choice_required(
++        self, mock_admin_agent, mock_cosmos_manager
+     ):
+-        """Admin Agent receives the tool list."""
++        """Admin Agent receives ChatOptions with tool_choice='required' per D-08."""
+         await process_admin_capture(
+-            admin_client=mock_admin_client,
+-            admin_tools=mock_admin_tools,
++            admin_agent=mock_admin_agent,
+             cosmos_manager=mock_cosmos_manager,
+             inbox_item_id="test-inbox-id",
+             raw_text="need milk",
+         )
+ 
+-        call_kwargs = mock_admin_client.get_response.call_args
+-        options = call_kwargs.kwargs.get("options") or call_kwargs[1].get("options")
+-        assert options["tools"] == mock_admin_tools
++        call_kwargs = mock_admin_agent.run.call_args.kwargs
++        options = call_kwargs.get("options")
++        assert options is not None
++        # ChatOptions is a dict-subclass in agent_framework; access via key
++        assert options["tool_choice"] == "required"
+ 
+ 
+ # ---------------------------------------------------------------------------
+@@ -197,14 +221,13 @@ class TestProcessAdminCaptureFailure:
+     """Tests for error handling paths."""
+ 
+     async def test_agent_error_sets_status_to_failed(
+-        self, mock_admin_client, mock_cosmos_manager, mock_admin_tools
++        self, mock_admin_agent, mock_cosmos_manager
+     ):
+         """When Admin Agent raises, status transitions to 'failed'."""
+-        mock_admin_client.get_response.side_effect = RuntimeError("Foundry timeout")
++        mock_admin_agent.run.side_effect = RuntimeError("Foundry timeout")
+ 
+         await process_admin_capture(
+-            admin_client=mock_admin_client,
+-            admin_tools=mock_admin_tools,
++            admin_agent=mock_admin_agent,
+             cosmos_manager=mock_cosmos_manager,
+             inbox_item_id="test-inbox-id",
+             raw_text="need cat litter",
+@@ -220,43 +243,41 @@ class TestProcessAdminCaptureFailure:
+         assert last_body["adminProcessingStatus"] == "failed"
+ 
+     async def test_agent_error_does_not_raise(
+-        self, mock_admin_client, mock_cosmos_manager, mock_admin_tools
++        self, mock_admin_agent, mock_cosmos_manager
+     ):
+         """process_admin_capture never raises -- safe for fire-and-forget."""
+-        mock_admin_client.get_response.side_effect = RuntimeError("Foundry timeout")
++        mock_admin_agent.run.side_effect = RuntimeError("Foundry timeout")
+ 
+         # Should NOT raise
+         await process_admin_capture(
+-            admin_client=mock_admin_client,
+-            admin_tools=mock_admin_tools,
++            admin_agent=mock_admin_agent,
+             cosmos_manager=mock_cosmos_manager,
+             inbox_item_id="test-inbox-id",
+             raw_text="need cat litter",
+         )
+ 
+     async def test_cosmos_read_failure_returns_early(
+-        self, mock_admin_client, mock_cosmos_manager, mock_admin_tools
++        self, mock_admin_agent, mock_cosmos_manager
+     ):
+         """If initial read fails, function returns without calling Admin Agent."""
+         container = mock_cosmos_manager.get_container("Inbox")
+         container.read_item.side_effect = Exception("Cosmos 404")
+ 
+         await process_admin_capture(
+-            admin_client=mock_admin_client,
+-            admin_tools=mock_admin_tools,
++            admin_agent=mock_admin_agent,
+             cosmos_manager=mock_cosmos_manager,
+             inbox_item_id="nonexistent-id",
+             raw_text="need cat litter",
+         )
+ 
+         # Admin Agent should NOT be called
+-        mock_admin_client.get_response.assert_not_called()
++        mock_admin_agent.run.assert_not_called()
+ 
+     async def test_failed_status_update_does_not_raise(
+-        self, mock_admin_client, mock_cosmos_manager, mock_admin_tools
++        self, mock_admin_agent, mock_cosmos_manager
+     ):
+         """If updating status to 'failed' itself fails, no exception propagates."""
+-        mock_admin_client.get_response.side_effect = RuntimeError("Agent error")
++        mock_admin_agent.run.side_effect = RuntimeError("Agent error")
+         container = mock_cosmos_manager.get_container("Inbox")
+ 
+         # First read succeeds (for pending), second read raises (for failed update)
+@@ -273,8 +294,7 @@ class TestProcessAdminCaptureFailure:
+ 
+         # Should NOT raise even when failed-status update fails
+         await process_admin_capture(
+-            admin_client=mock_admin_client,
+-            admin_tools=mock_admin_tools,
++            admin_agent=mock_admin_agent,
+             cosmos_manager=mock_cosmos_manager,
+             inbox_item_id="test-id",
+             raw_text="need cat litter",
+@@ -282,34 +302,29 @@ class TestProcessAdminCaptureFailure:
+ 
+ 
+ # ---------------------------------------------------------------------------
+-# Tests: no tool call (agent responds without invoking add_errand_items)
++# Tests: no tool call (agent responds without invoking any tool)
+ # ---------------------------------------------------------------------------
+ 
+ 
+ class TestProcessAdminCaptureNoToolCall:
+-    """Tests for the scenario where the agent responds without calling the tool.
++    """Tests for the scenario where the agent responds without calling any tool.
+ 
+-    This is the root cause of the "admin-other-store-vanish" bug: items get
+-    deleted from Inbox even though no errand items were written.
++    With tool_choice='required' (D-08), the model is forced to call SOME tool,
++    so this path is mostly defensive. Post-hoc detection per probe 2 means a
++    response with zero role='tool' messages classifies as no_tool_call.
+     """
+ 
+-    async def test_no_tool_call_marks_failed_not_deleted(
+-        self, mock_cosmos_manager, mock_admin_tools
+-    ):
++    async def test_no_tool_call_marks_failed_not_deleted(self, mock_cosmos_manager):
+         """When agent responds without calling tool, inbox item is NOT deleted."""
+-        client = AsyncMock()
+-        response = MagicMock()
+-        response.text = "I've noted your request."
+-
+-        # get_response succeeds but does NOT increment invocation_count
+-        async def _no_tool_response(*args, **kwargs):
+-            return response
+-
+-        client.get_response = AsyncMock(side_effect=_no_tool_response)
++        agent = AsyncMock()
++        agent.run = AsyncMock(
++            side_effect=lambda *a, **kw: _agent_response(
++                text="I've noted your request.", tool_names=[]
++            )
++        )
+ 
+         await process_admin_capture(
+-            admin_client=client,
+-            admin_tools=mock_admin_tools,
++            admin_agent=agent,
+             cosmos_manager=mock_cosmos_manager,
+             inbox_item_id="test-inbox-id",
+             raw_text="pick up screws at the hardware store",
+@@ -332,50 +347,39 @@ class TestProcessAdminCaptureNoToolCall:
+         )
+         assert last_body["adminProcessingStatus"] == "failed"
+ 
+-    async def test_no_tool_call_does_not_raise(
+-        self, mock_cosmos_manager, mock_admin_tools
+-    ):
++    async def test_no_tool_call_does_not_raise(self, mock_cosmos_manager):
+         """No-tool-call path never raises -- safe for fire-and-forget."""
+-        client = AsyncMock()
+-        response = MagicMock()
+-        response.text = "I don't understand this request."
+-
+-        async def _no_tool_response(*args, **kwargs):
+-            return response
+-
+-        client.get_response = AsyncMock(side_effect=_no_tool_response)
++        agent = AsyncMock()
++        agent.run = AsyncMock(
++            side_effect=lambda *a, **kw: _agent_response(
++                text="I don't understand this request.", tool_names=[]
++            )
++        )
+ 
+         # Should NOT raise
+         await process_admin_capture(
+-            admin_client=client,
+-            admin_tools=mock_admin_tools,
++            admin_agent=agent,
+             cosmos_manager=mock_cosmos_manager,
+             inbox_item_id="test-inbox-id",
+             raw_text="random text",
+         )
+ 
+-    async def test_output_tool_called_deletes_inbox_item(
+-        self, mock_cosmos_manager, mock_admin_tools
+-    ):
+-        """Output tool called — inbox item is deleted.
++    async def test_output_tool_called_deletes_inbox_item(self, mock_cosmos_manager):
++        """Output tool called -- inbox item is deleted.
+ 
+         We trust that if the agent invoked an output tool (add_errand_items,
+         add_task_items, etc.), it completed its job.
+         """
+-        client = AsyncMock()
+-        response = MagicMock()
+-        response.text = "Done processing your capture."
+-
+-        async def _tool_called_empty(*args, **kwargs):
+-            if mock_admin_tools:
+-                mock_admin_tools[0].invocation_count += 1
+-            return response
+-
+-        client.get_response = AsyncMock(side_effect=_tool_called_empty)
++        agent = AsyncMock()
++        agent.run = AsyncMock(
++            side_effect=lambda *a, **kw: _agent_response(
++                text="Done processing your capture.",
++                tool_names=["add_task_items"],
++            )
++        )
+ 
+         await process_admin_capture(
+-            admin_client=client,
+-            admin_tools=mock_admin_tools,
++            admin_agent=agent,
+             cosmos_manager=mock_cosmos_manager,
+             inbox_item_id="test-inbox-id",
+             raw_text="book an appointment with an orthopedist",
+@@ -389,31 +393,25 @@ class TestProcessAdminCaptureNoToolCall:
+     async def test_intermediate_tool_only_retries_then_marks_failed(
+         self, mock_cosmos_manager
+     ):
+-        """Agent calls fetch_recipe_url but not add_errand_items — retries once.
++        """Agent calls fetch_recipe_url but not add_errand_items -- retries once.
+ 
+-        This is the recipe URL bug: agent fetches the page but doesn't
+-        follow through with add_errand_items. The code retries with a
+-        nudge prompt. If retry also fails, marks as failed.
++        D-09 bounded retry: if neither add_errand_items nor add_task_items ran
++        on the initial call, retry once with a directive prompt. If retry also
++        fails to call an output tool, mark as failed.
+         """
+-        # Two tools: fetch_recipe_url (intermediate) and add_errand_items (output)
+-        fetch_tool = _make_mock_tool(name="fetch_recipe_url", invocation_count=0)
+-        errand_tool = _make_mock_tool(name="add_errand_items", invocation_count=0)
+-        tools = [fetch_tool, errand_tool]
+-
+-        client = AsyncMock()
+-        response = MagicMock()
+-        response.text = "Here's the recipe for Chicken Tikka Masala..."
++        agent = AsyncMock()
+ 
+         async def _only_fetch(*args, **kwargs):
+-            # Only fetch_recipe_url is called, not add_errand_items
+-            fetch_tool.invocation_count += 1
+-            return response
++            # Both initial and retry only call fetch_recipe_url
++            return _agent_response(
++                text="Here's the recipe for Chicken Tikka Masala...",
++                tool_names=["fetch_recipe_url"],
++            )
+ 
+-        client.get_response = AsyncMock(side_effect=_only_fetch)
++        agent.run = AsyncMock(side_effect=_only_fetch)
+ 
+         await process_admin_capture(
+-            admin_client=client,
+-            admin_tools=tools,
++            admin_agent=agent,
+             cosmos_manager=mock_cosmos_manager,
+             inbox_item_id="test-inbox-id",
+             raw_text="https://www.allrecipes.com/recipe/chicken-tikka-masala/",
+@@ -421,15 +419,17 @@ class TestProcessAdminCaptureNoToolCall:
+ 
+         container = mock_cosmos_manager.get_container("Inbox")
+ 
+-        # Agent called twice (initial + retry)
+-        assert client.get_response.call_count == 2
++        # Agent called twice (initial + bounded retry per D-09)
++        assert agent.run.call_count == 2
+ 
+-        # Retry prompt should contain the nudge
+-        retry_call = client.get_response.call_args_list[1]
+-        retry_msgs = retry_call.kwargs.get("messages") or retry_call[1].get("messages")
+-        assert "MUST call the appropriate tool" in retry_msgs[0].text
++        # Retry prompt should contain the directive nudge
++        retry_call = agent.run.call_args_list[1]
++        retry_text = (
++            retry_call.args[0] if retry_call.args else retry_call.kwargs.get("input")
++        )
++        assert "MUST call the appropriate tool" in retry_text
+ 
+-        # Inbox item should NOT be deleted — retry also failed
++        # Inbox item should NOT be deleted -- retry also failed
+         container.delete_item.assert_not_called()
+ 
+         # Should be marked as failed
+@@ -445,14 +445,7 @@ class TestProcessAdminCaptureNoToolCall:
+         First call: only fetch_recipe_url. Retry: add_errand_items called.
+         Inbox item should be deleted (success).
+         """
+-        fetch_tool = _make_mock_tool(name="fetch_recipe_url", invocation_count=0)
+-        errand_tool = _make_mock_tool(name="add_errand_items", invocation_count=0)
+-        tools = [fetch_tool, errand_tool]
+-
+-        client = AsyncMock()
+-        response = MagicMock()
+-        response.text = "Added 12 items: 8 to jewel, 4 to agora"
+-
++        agent = AsyncMock()
+         call_count = 0
+ 
+         async def _fetch_then_add(*args, **kwargs):
+@@ -460,17 +453,20 @@ class TestProcessAdminCaptureNoToolCall:
+             call_count += 1
+             if call_count == 1:
+                 # First call: only intermediate tool
+-                fetch_tool.invocation_count += 1
+-            else:
+-                # Retry: output tool called
+-                errand_tool.invocation_count += 1
+-            return response
++                return _agent_response(
++                    text="Here's the recipe...",
++                    tool_names=["fetch_recipe_url"],
++                )
++            # Retry: output tool called
++            return _agent_response(
++                text="Added 12 items: 8 to jewel, 4 to agora",
++                tool_names=["add_errand_items"],
++            )
+ 
+-        client.get_response = AsyncMock(side_effect=_fetch_then_add)
++        agent.run = AsyncMock(side_effect=_fetch_then_add)
+ 
+         await process_admin_capture(
+-            admin_client=client,
+-            admin_tools=tools,
++            admin_agent=agent,
+             cosmos_manager=mock_cosmos_manager,
+             inbox_item_id="test-inbox-id",
+             raw_text="https://www.allrecipes.com/recipe/chicken-tikka-masala/",
+@@ -478,16 +474,13 @@ class TestProcessAdminCaptureNoToolCall:
+ 
+         container = mock_cosmos_manager.get_container("Inbox")
+ 
+-        # Inbox item SHOULD be deleted — retry succeeded
++        # Inbox item SHOULD be deleted -- retry succeeded
+         container.delete_item.assert_called_once()
+ 
+-    async def test_tool_call_still_deletes(
+-        self, mock_admin_client, mock_cosmos_manager, mock_admin_tools
+-    ):
+-        """When agent DOES call the tool, inbox item is deleted (regression check)."""
++    async def test_tool_call_still_deletes(self, mock_admin_agent, mock_cosmos_manager):
++        """When agent DOES call an output tool, inbox item is deleted."""
+         await process_admin_capture(
+-            admin_client=mock_admin_client,
+-            admin_tools=mock_admin_tools,
++            admin_agent=mock_admin_agent,
+             cosmos_manager=mock_cosmos_manager,
+             inbox_item_id="test-inbox-id",
+             raw_text="need milk and eggs",
+@@ -507,16 +500,14 @@ class TestProcessAdminCaptureNoToolCall:
+ class TestProcessAdminCaptureTimeout:
+     """Tests for timeout behavior."""
+ 
+-    async def test_timeout_sets_status_to_failed(
+-        self, mock_cosmos_manager, mock_admin_tools
+-    ):
++    async def test_timeout_sets_status_to_failed(self, mock_cosmos_manager):
+         """60-second timeout triggers failed status."""
+-        slow_client = AsyncMock()
++        slow_agent = AsyncMock()
+ 
+-        async def slow_response(*args, **kwargs):
++        async def slow_run(*args, **kwargs):
+             await asyncio.sleep(120)  # Simulate very slow response
+ 
+-        slow_client.get_response = slow_response
++        slow_agent.run = slow_run
+ 
+         # Patch asyncio.timeout to use a very short timeout for testing
+         with patch(
+@@ -524,8 +515,7 @@ class TestProcessAdminCaptureTimeout:
+             return_value=asyncio.timeout(0.01),
+         ):
+             await process_admin_capture(
+-                admin_client=slow_client,
+-                admin_tools=mock_admin_tools,
++                admin_agent=slow_agent,
+                 cosmos_manager=mock_cosmos_manager,
+                 inbox_item_id="test-inbox-id",
+                 raw_text="need cat litter",
+@@ -548,30 +538,25 @@ class TestProcessAdminCapturesBatch:
+     """Tests for process_admin_captures_batch."""
+ 
+     async def test_batch_calls_process_for_each_item(
+-        self, mock_admin_client, mock_cosmos_manager, mock_admin_tools
++        self, mock_admin_agent, mock_cosmos_manager
+     ):
+-        """Given 2 admin items, admin_client.get_response is called twice."""
++        """Given 2 admin items, admin_agent.run is called twice."""
+         admin_items = [
+             {"inbox_item_id": "item-1", "raw_text": "need milk"},
+             {"inbox_item_id": "item-2", "raw_text": "buy eggs"},
+         ]
+ 
+         await process_admin_captures_batch(
+-            admin_client=mock_admin_client,
+-            admin_tools=mock_admin_tools,
++            admin_agent=mock_admin_agent,
+             cosmos_manager=mock_cosmos_manager,
+             admin_items=admin_items,
+         )
+ 
+-        assert mock_admin_client.get_response.call_count == 2
++        assert mock_admin_agent.run.call_count == 2
+ 
+-    async def test_batch_one_failure_does_not_block_second(
+-        self, mock_cosmos_manager, mock_admin_tools
+-    ):
++    async def test_batch_one_failure_does_not_block_second(self, mock_cosmos_manager):
+         """First item fails, second still processes successfully."""
+-        client = AsyncMock()
+-        response_ok = MagicMock()
+-        response_ok.text = "Processed items"
++        agent = AsyncMock()
+ 
+         call_count = 0
+ 
+@@ -580,12 +565,13 @@ class TestProcessAdminCapturesBatch:
+             call_count += 1
+             if call_count == 1:
+                 raise RuntimeError("Foundry timeout")
+-            # Simulate tool invocation for the successful call
+-            if mock_admin_tools:
+-                mock_admin_tools[0].invocation_count += 1
+-            return response_ok
++            # Simulate output tool invocation for the successful call
++            return _agent_response(
++                text="Processed items",
++                tool_names=["add_errand_items"],
++            )
+ 
+-        client.get_response = AsyncMock(side_effect=side_effect)
++        agent.run = AsyncMock(side_effect=side_effect)
+ 
+         # Need separate docs per item -- set up read_item to return fresh docs
+         container = mock_cosmos_manager.get_container("Inbox")
+@@ -597,14 +583,13 @@ class TestProcessAdminCapturesBatch:
+         ]
+ 
+         await process_admin_captures_batch(
+-            admin_client=client,
+-            admin_tools=mock_admin_tools,
++            admin_agent=agent,
+             cosmos_manager=mock_cosmos_manager,
+             admin_items=admin_items,
+         )
+ 
+         # Both items were attempted
+-        assert client.get_response.call_count == 2
++        assert agent.run.call_count == 2
+ 
+         # Failed item gets "failed" upsert; successful item gets delete
+         upsert_calls = container.upsert_item.call_args_list
+@@ -620,14 +605,13 @@ class TestProcessAdminCapturesBatch:
+         assert container.delete_item.call_count >= 1
+ 
+     async def test_batch_empty_list_is_noop(
+-        self, mock_admin_client, mock_cosmos_manager, mock_admin_tools
++        self, mock_admin_agent, mock_cosmos_manager
+     ):
+-        """Empty admin_items list returns without calling admin_client."""
++        """Empty admin_items list returns without calling admin_agent."""
+         await process_admin_captures_batch(
+-            admin_client=mock_admin_client,
+-            admin_tools=mock_admin_tools,
++            admin_agent=mock_admin_agent,
+             cosmos_manager=mock_cosmos_manager,
+             admin_items=[],
+         )
+ 
+-        mock_admin_client.get_response.assert_not_called()
++        mock_admin_agent.run.assert_not_called()
+diff --git a/backend/tests/test_eval.py b/backend/tests/test_eval.py
+index c5a71a5..5cb9257 100644
+--- a/backend/tests/test_eval.py
++++ b/backend/tests/test_eval.py
+@@ -119,48 +119,49 @@ def _make_mock_cosmos(golden_items: list[dict]) -> MagicMock:
+     return manager
+ 
+ 
+-def _make_classifier_agent_mock(bucket_map: dict[str, tuple[str, float]]):
+-    """Create a mock agent client whose get_response calls file_capture.
++def _make_classifier_invoker_mock(bucket_map: dict[str, tuple[str, float]]):
++    """Create a mock EvalAgentInvoker whose invoke_classifier calls file_capture.
++
++    Phase 24 plan 24-12: runner.py now takes an ``EvalAgentInvoker`` instead
++    of raw clients. The mock exposes ``invoke_classifier(input_text,
++    tools_instance)`` that drives the side-effect contract on
++    ``tools_instance.last_bucket`` / ``tools_instance.last_confidence``
++    by directly calling ``tools_instance.file_capture(...)``.
+ 
+     bucket_map: maps input text to (bucket, confidence) pairs.
+     """
+-    mock_client = AsyncMock()
+-
+-    async def fake_get_response(*, messages, options):
+-        text = messages[0].text
+-        bucket, confidence = bucket_map.get(text, ("Admin", 0.5))
+-        tool_fn = options["tools"][0]
+-        await tool_fn(
+-            text=text,
++    mock_invoker = AsyncMock()
++
++    async def fake_invoke_classifier(input_text, tools_instance):
++        bucket, confidence = bucket_map.get(input_text, ("Admin", 0.5))
++        await tools_instance.file_capture(
++            text=input_text,
+             bucket=bucket,
+             confidence=confidence,
+             status="classified",
+         )
+-        return MagicMock()
+ 
+-    mock_client.get_response = AsyncMock(side_effect=fake_get_response)
+-    return mock_client
++    mock_invoker.invoke_classifier = AsyncMock(side_effect=fake_invoke_classifier)
++    return mock_invoker
+ 
+ 
+-def _make_admin_agent_mock(dest_map: dict[str, str]):
+-    """Create a mock agent client that calls add_errand_items.
++def _make_admin_invoker_mock(dest_map: dict[str, str]):
++    """Create a mock EvalAgentInvoker whose invoke_admin calls add_errand_items.
++
++    Phase 24 plan 24-12: see ``_make_classifier_invoker_mock`` docstring.
+ 
+     dest_map: maps input text to destination string.
+     """
+-    mock_client = AsyncMock()
+-
+-    async def fake_get_response(*, messages, options):
+-        text = messages[0].text
+-        destination = dest_map.get(text, "unrouted")
+-        # Find add_errand_items tool (first tool in list)
+-        add_errand_fn = options["tools"][0]
+-        await add_errand_fn(
+-            items=[{"name": text[:30], "destination": destination}],
++    mock_invoker = AsyncMock()
++
++    async def fake_invoke_admin(input_text, tools_instance, routing_context):
++        destination = dest_map.get(input_text, "unrouted")
++        await tools_instance.add_errand_items(
++            items=[{"name": input_text[:30], "destination": destination}],
+         )
+-        return MagicMock()
+ 
+-    mock_client.get_response = AsyncMock(side_effect=fake_get_response)
+-    return mock_client
++    mock_invoker.invoke_admin = AsyncMock(side_effect=fake_invoke_admin)
++    return mock_invoker
+ 
+ 
+ # ======================================================================
+@@ -172,7 +173,7 @@ def _make_admin_agent_mock(dest_map: dict[str, str]):
+ async def test_classifier_eval_produces_accuracy() -> None:
+     """run_classifier_eval with 3 golden entries produces correct accuracy."""
+     cosmos = _make_mock_cosmos(MIXED_GOLDEN)
+-    agent = _make_classifier_agent_mock(
++    invoker = _make_classifier_invoker_mock(
+         {
+             "Buy groceries from the store": ("Admin", 0.95),
+             "Talk to Sarah about the new project": ("People", 0.85),
+@@ -184,7 +185,7 @@ async def test_classifier_eval_produces_accuracy() -> None:
+     await run_classifier_eval(
+         run_id="test-run-1",
+         cosmos_manager=cosmos,
+-        classifier_client=agent,
++        invoker=invoker,
+         runs_dict=runs,
+     )
+ 
+@@ -199,13 +200,13 @@ async def test_classifier_eval_empty_dataset() -> None:
+     """run_classifier_eval with no classifier cases fails gracefully."""
+     # Only admin cases in golden dataset (no classifier-only entries)
+     cosmos = _make_mock_cosmos(ADMIN_GOLDEN)
+-    agent = AsyncMock()
++    invoker = AsyncMock()
+     runs: dict = {}
+ 
+     await run_classifier_eval(
+         run_id="test-run-2",
+         cosmos_manager=cosmos,
+-        classifier_client=agent,
++        invoker=invoker,
+         runs_dict=runs,
+     )
+ 
+@@ -217,7 +218,7 @@ async def test_classifier_eval_empty_dataset() -> None:
+ async def test_classifier_eval_writes_to_cosmos() -> None:
+     """run_classifier_eval writes EvalResultsDocument to EvalResults container."""
+     cosmos = _make_mock_cosmos(MIXED_GOLDEN)
+-    agent = _make_classifier_agent_mock(
++    invoker = _make_classifier_invoker_mock(
+         {
+             "Buy groceries from the store": ("Admin", 0.95),
+             "Talk to Sarah about the new project": ("People", 0.85),
+@@ -229,7 +230,7 @@ async def test_classifier_eval_writes_to_cosmos() -> None:
+     await run_classifier_eval(
+         run_id="test-run-3",
+         cosmos_manager=cosmos,
+-        classifier_client=agent,
++        invoker=invoker,
+         runs_dict=runs,
+     )
+ 
+@@ -253,26 +254,24 @@ async def test_classifier_eval_updates_progress() -> None:
+ 
+     original_runs: dict = {}
+ 
+-    async def fake_get_response(*, messages, options):
++    async def fake_invoke_classifier(input_text, tools_instance):
+         # Record progress at each call
+         if "test-run-4" in original_runs:
+             progress_snapshots.append(original_runs["test-run-4"].get("progress", ""))
+-        tool_fn = options["tools"][0]
+-        await tool_fn(
+-            text=messages[0].text,
++        await tools_instance.file_capture(
++            text=input_text,
+             bucket="Admin",
+             confidence=0.9,
+             status="classified",
+         )
+-        return MagicMock()
+ 
+-    agent = AsyncMock()
+-    agent.get_response = AsyncMock(side_effect=fake_get_response)
++    invoker = AsyncMock()
++    invoker.invoke_classifier = AsyncMock(side_effect=fake_invoke_classifier)
+ 
+     await run_classifier_eval(
+         run_id="test-run-4",
+         cosmos_manager=cosmos,
+-        classifier_client=agent,
++        invoker=invoker,
+         runs_dict=original_runs,
+     )
+ 
+@@ -289,28 +288,26 @@ async def test_classifier_eval_handles_timeout() -> None:
+     cosmos = _make_mock_cosmos(MIXED_GOLDEN)
+     call_count = 0
+ 
+-    async def fake_get_response(*, messages, options):
++    async def fake_invoke_classifier(input_text, tools_instance):
+         nonlocal call_count
+         call_count += 1
+         if call_count == 2:
+             raise TimeoutError("Agent timed out")
+-        tool_fn = options["tools"][0]
+-        await tool_fn(
+-            text=messages[0].text,
++        await tools_instance.file_capture(
++            text=input_text,
+             bucket="Admin",
+             confidence=0.9,
+             status="classified",
+         )
+-        return MagicMock()
+ 
+-    agent = AsyncMock()
+-    agent.get_response = AsyncMock(side_effect=fake_get_response)
++    invoker = AsyncMock()
++    invoker.invoke_classifier = AsyncMock(side_effect=fake_invoke_classifier)
+     runs: dict = {}
+ 
+     await run_classifier_eval(
+         run_id="test-run-5",
+         cosmos_manager=cosmos,
+-        classifier_client=agent,
++        invoker=invoker,
+         runs_dict=runs,
+     )
+ 
+@@ -331,13 +328,13 @@ async def test_classifier_eval_catches_toplevel_exception() -> None:
+     golden_container.query_items.side_effect = RuntimeError("Cosmos is down")
+     manager.get_container = MagicMock(return_value=golden_container)
+ 
+-    agent = AsyncMock()
++    invoker = AsyncMock()
+     runs: dict = {}
+ 
+     await run_classifier_eval(
+         run_id="test-run-6",
+         cosmos_manager=manager,
+-        classifier_client=agent,
++        invoker=invoker,
+         runs_dict=runs,
+     )
+ 
+@@ -630,29 +627,27 @@ async def test_classifier_eval_retries_on_rate_limit() -> None:
+ 
+     call_count = 0
+ 
+-    async def fake_get_response(*, messages, options):
++    async def fake_invoke_classifier(input_text, tools_instance):
+         nonlocal call_count
+         call_count += 1
+         if call_count <= 2:
+             raise Exception(
+                 "exceeded the token rate limit. Please retry after 1 seconds."
+             )
+-        tool_fn = options["tools"][0]
+-        await tool_fn(
+-            text=messages[0].text,
++        await tools_instance.file_capture(
++            text=input_text,
+             bucket="Admin",
+             confidence=0.9,
+             status="classified",
+         )
+-        return MagicMock()
+ 
+-    mock_client = AsyncMock()
+-    mock_client.get_response = AsyncMock(side_effect=fake_get_response)
++    mock_invoker = AsyncMock()
++    mock_invoker.invoke_classifier = AsyncMock(side_effect=fake_invoke_classifier)
+ 
+     await run_classifier_eval(
+         run_id="retry-test",
+         cosmos_manager=cosmos,
+-        classifier_client=mock_client,
++        invoker=mock_invoker,
+         runs_dict=runs,
+     )
+ 
+@@ -666,16 +661,16 @@ async def test_classifier_eval_exhausts_retries() -> None:
+     cosmos = _make_mock_cosmos(MIXED_GOLDEN)
+     runs: dict = {}
+ 
+-    async def always_rate_limit(*, messages, options):
++    async def always_rate_limit(input_text, tools_instance):
+         raise Exception("exceeded the token rate limit. Please retry after 0 seconds.")
+ 
+-    mock_client = AsyncMock()
+-    mock_client.get_response = AsyncMock(side_effect=always_rate_limit)
++    mock_invoker = AsyncMock()
++    mock_invoker.invoke_classifier = AsyncMock(side_effect=always_rate_limit)
+ 
+     await run_classifier_eval(
+         run_id="exhaust-test",
+         cosmos_manager=cosmos,
+-        classifier_client=mock_client,
++        invoker=mock_invoker,
+         runs_dict=runs,
+     )
+ 
