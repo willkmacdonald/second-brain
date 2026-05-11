@@ -10,10 +10,7 @@ class Settings(BaseSettings):
 
     # Azure AI Foundry
     azure_ai_project_endpoint: str = ""
-    foundry_model: str = "gpt-4o"  # NEW (Phase 24 task group 23.1)
-    azure_ai_classifier_agent_id: str = ""  # KEEP — deleted in plan 24-21
-    azure_ai_admin_agent_id: str = ""  # KEEP — deleted in plan 24-21
-    azure_ai_investigation_agent_id: str = ""  # KEEP — deleted in plan 24-21
+    foundry_model: str = "gpt-4o"  # Phase 24 task group 23.1 (GA chat client model)
 
     # Azure OpenAI (transcription API -- separate from Foundry project endpoint)
     azure_openai_endpoint: str = ""
@@ -57,6 +54,12 @@ class Settings(BaseSettings):
     model_config = {
         "env_file": ".env",
         "case_sensitive": False,
+        # Tolerate orphan env vars (e.g. AZURE_AI_CLASSIFIER_AGENT_ID) that
+        # remain on the Container App between Phase 24 source-code cleanup
+        # (this plan, 24-21) and post-UAT env-var removal (24-23). Per
+        # 23-foundry-ga-prep/CONFIG-DELTAS.md Step C the GA image must boot
+        # cleanly even though those vars are still set in the environment.
+        "extra": "ignore",
     }
 
 
