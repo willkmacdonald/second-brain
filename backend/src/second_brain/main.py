@@ -30,7 +30,7 @@ from agent_framework.observability import enable_instrumentation  # noqa: E402
 # and gen_ai.operation.duration as OTel metrics for every get_response() call.
 enable_instrumentation()
 
-from agent_framework.azure import AzureAIAgentClient  # noqa: E402
+from agent_framework import Agent  # noqa: E402
 from agent_framework_foundry import FoundryChatClient  # noqa: E402
 from azure.identity import (  # noqa: E402
     ManagedIdentityCredential,  # SYNC (P1-5 — NOT azure.identity.aio)
@@ -509,34 +509,16 @@ async def lifespan(app: FastAPI):
             )
             raise
 
-        # --- Foundry Agent Service (fail fast) ---
-        # KEPT for Admin/Classifier slices that still use AzureAIAgentClient.
-        # Removed in plans 24-09 (Admin) and 24-14 (Classifier).
-        try:
-            foundry_client = AzureAIAgentClient(
-                credential=credential,
-                project_endpoint=settings.azure_ai_project_endpoint,
-                # model_deployment_name needed for constructor validation
-                # when no agent_id is provided (Phase 7 sets agent_id)
-                model_deployment_name="gpt-4o",
-            )
-            # AzureAIAgentClient is a lazy client -- construction alone does
-            # NOT make a network call, so wrong credentials would pass
-            # silently. Force an auth round-trip to genuinely validate
-            # connectivity + RBAC.
-            async for _ in foundry_client.agents_client.list_agents(limit=1):
-                break
-            app.state.foundry_client = foundry_client
-            logger.info(
-                "Foundry client initialized and connectivity validated: %s",
-                settings.azure_ai_project_endpoint,
-            )
-        except Exception:
-            logger.error(
-                "FATAL: Could not initialize Foundry client",
-                exc_info=True,
-            )
-            raise  # Fail fast -- backend is useless without Foundry
+        # --- RC Foundry agents-client deleted (Phase 24 plan 24-19) ---
+        # The legacy RC client (formerly used here for connectivity validation
+        # via agents_client.list_agents) is gone. FoundryChatClient above is
+        # the single GA chat client driving all 3 agents. The health endpoint's
+        # Foundry connectivity probe (api/health.py) reads app.state.foundry_client
+        # via getattr(..., None) and gracefully reports "not_configured" when it
+        # is None -- there is no module-level NameError risk. Migrating the
+        # health probe to a GA-shaped check (e.g. app.state.classifier_agent.run)
+        # is a follow-up; the goal of this plan is zero RC references in src/.
+        app.state.foundry_client = None
 
         # --- ClassifierTools (uses Cosmos for filing) ---
         classifier_tools = ClassifierTools(
@@ -616,12 +598,6 @@ async def lifespan(app: FastAPI):
         # against app.state.classifier_agent.
         app.state.classifier_client = None
         app.state.classifier_agent_id = None
-        # Placeholder local for the _make_classifier_client warmup factory
-        # closure (line ~815). Warmup will skip Classifier because
-        # app.state.classifier_client is None; factory body never executes.
-        # Removed in plan 24-19 (warmup migration to GA).
-        classifier_agent_id = None
-        classifier_client = None
 
         logger.info(
             "Classifier agent ready (GA): tools=1 (file_capture only) middleware=2",
@@ -803,95 +779,110 @@ async def lifespan(app: FastAPI):
         if getattr(app.state, "recipe_tools", None) and app.state.spine_repo:
             app.state.recipe_tools._spine_repo = app.state.spine_repo
 
-        # --- Agent warm-up background task ---
+        # --- Agent warm-up background task (GA) ---
+        # Phase 24 plan 24-19: warmup loop and self-heal factories migrated
+        # to GA. The loop pings each Agent via ``agent.run("ping")``; on
+        # MAX_CONSECUTIVE_FAILURES the factory rebuilds the Agent via the
+        # corresponding ``build_*_agent`` helper and the replacement is
+        # written back to app.state via ``on_recreate``.
         warmup_task = None
         if settings.agent_warmup_enabled:
-            warmup_clients: list = [("classifier", classifier_client)]
-            if app.state.admin_client is not None:
-                warmup_clients.append(("admin", app.state.admin_client))
-            if getattr(app.state, "investigation_client", None) is not None:
-                warmup_clients.append(("investigation", app.state.investigation_client))
+            warmup_agents: list[tuple[str, Agent]] = []
+            if getattr(app.state, "classifier_agent", None) is not None:
+                warmup_agents.append(("classifier", app.state.classifier_agent))
+            if getattr(app.state, "admin_agent", None) is not None:
+                warmup_agents.append(("admin", app.state.admin_agent))
+            if getattr(app.state, "investigation_agent", None) is not None:
+                warmup_agents.append(("investigation", app.state.investigation_agent))
 
-            # Factory functions for self-healing: recreate agent clients on
-            # consecutive warmup failures without manual Container App restart.
-            def _make_classifier_client() -> AzureAIAgentClient:
-                # W-03 dead-code path: this factory is never invoked because
-                # app.state.classifier_client is None (see line ~621 + 24-19
-                # scope). Kept for the warmup-factory shape until 24-19 sweeps
-                # the whole _make_*_client cluster + the AzureAIAgentClient
-                # import. Middleware swapped to the GA path so this file stays
-                # importable after 24-18 deletes agents/middleware.py.
-                return AzureAIAgentClient(
-                    credential=credential,
-                    project_endpoint=settings.azure_ai_project_endpoint,
-                    agent_id=classifier_agent_id,
-                    should_cleanup_agent=False,
+            # Factory functions for self-healing: rebuild the GA Agent on
+            # consecutive warmup failures without a Container App restart.
+            # Factories read tool instances from app.state at call time so
+            # they survive any future tool-instance replacement.
+            def _make_classifier_agent() -> Agent:
+                tools_inst = app.state.classifier_tools
+                return build_classifier_agent(
+                    chat_client=chat_client,
+                    tools=[tools_inst.file_capture],
                     middleware=[
                         CaptureTraceAgentMiddleware(),
                         CaptureTraceFunctionMiddleware(),
                     ],
                 )
 
-            warmup_factories: dict[str, Callable[[], AzureAIAgentClient]] = {
-                "classifier": _make_classifier_client,
-            }
-            if app.state.admin_client is not None:
+            warmup_factories: dict[str, Callable[[], Agent]] = {}
+            if getattr(app.state, "classifier_agent", None) is not None:
+                warmup_factories["classifier"] = _make_classifier_agent
 
-                def _make_admin_client() -> AzureAIAgentClient:
-                    # W-03 dead-code path -- guarded by app.state.admin_client is
-                    # not None which is permanently False post-24-09. Middleware
-                    # swapped to GA path so main.py stays importable after 24-18
-                    # deletes agents/middleware.py.
-                    return AzureAIAgentClient(
-                        credential=credential,
-                        project_endpoint=settings.azure_ai_project_endpoint,
-                        agent_id=app.state.admin_agent_id,
-                        should_cleanup_agent=False,
+            if getattr(app.state, "admin_agent", None) is not None:
+
+                def _make_admin_agent() -> Agent:
+                    admin_tools_inst = app.state.admin_tools
+                    recipe_tools_inst = getattr(app.state, "recipe_tools", None)
+                    rebuilt_tools = [
+                        admin_tools_inst.add_errand_items,
+                        admin_tools_inst.add_task_items,
+                        admin_tools_inst.get_routing_context,
+                        admin_tools_inst.manage_destination,
+                        admin_tools_inst.manage_affinity_rule,
+                        admin_tools_inst.query_rules,
+                    ]
+                    if recipe_tools_inst is not None:
+                        rebuilt_tools.append(recipe_tools_inst.fetch_recipe_url)
+                    return build_admin_agent(
+                        chat_client=chat_client,
+                        tools=rebuilt_tools,
                         middleware=[
                             CaptureTraceAgentMiddleware(),
                             CaptureTraceFunctionMiddleware(),
                         ],
                     )
 
-                warmup_factories["admin"] = _make_admin_client
-            if getattr(app.state, "investigation_client", None) is not None:
+                warmup_factories["admin"] = _make_admin_agent
 
-                def _make_investigation_client() -> AzureAIAgentClient:
-                    # W-03 dead-code path -- guarded by app.state.investigation_client
-                    # is not None which is permanently False post-24-04. Middleware
-                    # swapped to GA path so main.py stays importable after 24-18
-                    # deletes agents/middleware.py.
-                    return AzureAIAgentClient(
-                        credential=credential,
-                        project_endpoint=settings.azure_ai_project_endpoint,
-                        agent_id=app.state.investigation_agent_id,
-                        should_cleanup_agent=False,
+            if getattr(app.state, "investigation_agent", None) is not None:
+
+                def _make_investigation_agent() -> Agent:
+                    inv_tools_inst = app.state.investigation_tools_instance
+                    return build_investigation_agent(
+                        chat_client=chat_client,
+                        tools=[
+                            inv_tools_inst.trace_lifecycle,
+                            inv_tools_inst.recent_errors,
+                            inv_tools_inst.system_health,
+                            inv_tools_inst.usage_patterns,
+                            inv_tools_inst.query_feedback_signals,
+                            inv_tools_inst.promote_to_golden_dataset,
+                            inv_tools_inst.run_classifier_eval,
+                            inv_tools_inst.run_admin_eval,
+                            inv_tools_inst.get_eval_results,
+                        ],
                         middleware=[
                             CaptureTraceAgentMiddleware(),
                             CaptureTraceFunctionMiddleware(),
                         ],
                     )
 
-                warmup_factories["investigation"] = _make_investigation_client
+                warmup_factories["investigation"] = _make_investigation_agent
 
-            def _on_recreate(name: str, new_client: AzureAIAgentClient) -> None:
-                """Update app.state with the recreated client."""
-                attr = f"{name}_client"
-                setattr(app.state, attr, new_client)
+            def _on_recreate(name: str, new_agent: Agent) -> None:
+                """Write the rebuilt Agent back to app.state."""
+                attr = f"{name}_agent"
+                setattr(app.state, attr, new_agent)
                 logger.info("app.state.%s replaced by warmup self-heal", attr)
 
             warmup_task = asyncio.create_task(
                 agent_warmup_loop(
-                    clients=warmup_clients,
+                    agents=warmup_agents,
                     interval_seconds=settings.agent_warmup_interval_minutes * 60,
-                    client_factories=warmup_factories,
+                    agent_factories=warmup_factories,
                     on_recreate=_on_recreate,
                 )
             )
             logger.info(
                 "Agent warmup started: interval=%dm agents=%d",
                 settings.agent_warmup_interval_minutes,
-                len(warmup_clients),
+                len(warmup_agents),
             )
 
         yield

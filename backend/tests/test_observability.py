@@ -142,16 +142,21 @@ def test_health_includes_investigation_agent_status() -> None:
 
 
 @pytest.mark.asyncio
-async def test_warmup_recreates_client_after_consecutive_failures() -> None:
-    """After MAX_CONSECUTIVE_FAILURES pings fail, factory is called."""
-    failing_client = AsyncMock()
-    failing_client.get_response = AsyncMock(side_effect=ConnectionError("down"))
+async def test_warmup_recreates_agent_after_consecutive_failures() -> None:
+    """After MAX_CONSECUTIVE_FAILURES pings fail, factory is called.
 
-    new_client = MagicMock()
-    factory = MagicMock(return_value=new_client)
+    Phase 24 plan 24-19: warmup loop migrated to GA. The loop now pings via
+    ``agent.run("ping")`` instead of ``client.get_response(...)``; the
+    self-heal factory rebuilds an ``Agent`` rather than an ``AzureAIAgentClient``.
+    """
+    failing_agent = AsyncMock()
+    failing_agent.run = AsyncMock(side_effect=ConnectionError("down"))
+
+    new_agent = MagicMock()
+    factory = MagicMock(return_value=new_agent)
     on_recreate = MagicMock()
 
-    clients: list[tuple[str, object]] = [("test_agent", failing_client)]
+    agents: list[tuple[str, object]] = [("test_agent", failing_agent)]
     iteration = 0
 
     async def _fake_sleep(seconds: float) -> None:
@@ -165,19 +170,22 @@ async def test_warmup_recreates_client_after_consecutive_failures() -> None:
         pytest.raises(asyncio.CancelledError),
     ):
         await agent_warmup_loop(
-            clients=clients,
+            agents=agents,
             interval_seconds=1,
-            client_factories={"test_agent": factory},
+            agent_factories={"test_agent": factory},
             on_recreate=on_recreate,
         )
 
     factory.assert_called_once()
-    on_recreate.assert_called_once_with("test_agent", new_client)
+    on_recreate.assert_called_once_with("test_agent", new_agent)
 
 
 @pytest.mark.asyncio
 async def test_warmup_resets_failure_count_on_success() -> None:
-    """Success between failures resets the counter — no recreation."""
+    """Success between failures resets the counter — no recreation.
+
+    Phase 24 plan 24-19 GA signature: ``agent.run("ping")`` is the ping path.
+    """
     call_count = 0
 
     async def _alternating_response(*args, **kwargs):  # noqa: ANN002, ANN003
@@ -187,11 +195,11 @@ async def test_warmup_resets_failure_count_on_success() -> None:
         if call_count in (1, 2, 4, 5):
             raise ConnectionError("down")
 
-    mock_client = AsyncMock()
-    mock_client.get_response = AsyncMock(side_effect=_alternating_response)
+    mock_agent = AsyncMock()
+    mock_agent.run = AsyncMock(side_effect=_alternating_response)
 
     factory = MagicMock()
-    clients: list[tuple[str, object]] = [("test_agent", mock_client)]
+    agents: list[tuple[str, object]] = [("test_agent", mock_agent)]
     iteration = 0
 
     async def _fake_sleep(seconds: float) -> None:
@@ -205,9 +213,9 @@ async def test_warmup_resets_failure_count_on_success() -> None:
         pytest.raises(asyncio.CancelledError),
     ):
         await agent_warmup_loop(
-            clients=clients,
+            agents=agents,
             interval_seconds=1,
-            client_factories={"test_agent": factory},
+            agent_factories={"test_agent": factory},
         )
 
     # Factory never called because success at call 3 resets counter

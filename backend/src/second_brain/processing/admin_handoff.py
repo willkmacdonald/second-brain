@@ -7,7 +7,7 @@ are kept on the inbox item for delivery; simple confirmations trigger deletion.
 Failed items remain with adminProcessingStatus = 'failed' for retry.
 
 Phase 24 task group 23.2 (GA migration):
-- Uses GA Agent.run() in place of RC AzureAIAgentClient.get_response().
+- Uses GA Agent.run() in place of the legacy RC client's get_response().
 - Tool detection is post-hoc: walks response.messages for role='tool'
   entries per FOUNDRY-PROBE-FINDINGS.md probe 2 (tool_call_extraction).
 - Custom admin_agent_process / admin_agent_batch_process spans removed

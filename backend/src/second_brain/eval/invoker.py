@@ -7,8 +7,8 @@ classifier is on GA:
 - RCEvalAgentInvoker (the RC implementation lifted verbatim from
   eval/runner.py:133-149 + 278-294)
 - _MigrationHybridInvoker (the classifier->RC, admin->GA composition class)
-- The TYPE_CHECKING import of AzureAIAgentClient that supported the
-  RC implementation's type hints
+- The TYPE_CHECKING import of the legacy RC client class that supported
+  the RC implementation's type hints
 
 What remains: the EvalAgentInvoker Protocol + the single GA implementation.
 The Protocol stays because the eval runner types its parameter against it
