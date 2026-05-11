@@ -1,66 +1,43 @@
-"""Classifier agent registration for Foundry Agent Service.
+"""Classifier agent factory.
 
-This module provides:
-- ensure_classifier_agent(): Self-healing agent registration at startup
+GA pattern (Phase 24 task group 23.3): mirrors agents/investigation.py and
+agents/admin.py. Per D-04 (voice path split): classifier registers ONLY
+file_capture. Transcription is a direct helper called from api/capture.py
+when audio is on the request -- no longer a registered tool.
 
-Agent instructions live in the AI Foundry portal -- editable without
-redeployment. No local copy is kept in the repo.
+Replaces the RC portal-shell creation pattern (F-19).
 """
 
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from collections.abc import Sequence
+from typing import Any
 
-if TYPE_CHECKING:
-    from agent_framework.azure import AzureAIAgentClient
+from agent_framework import Agent
+from agent_framework_foundry import FoundryChatClient
+
+from second_brain.agents.investigation import load_instructions
 
 logger = logging.getLogger(__name__)
 
 
-async def ensure_classifier_agent(
-    foundry_client: AzureAIAgentClient,
-    stored_agent_id: str,
-) -> str:
-    """Ensure the Classifier agent exists in Foundry.
+def build_classifier_agent(
+    chat_client: FoundryChatClient,
+    tools: Sequence[Any],
+    middleware: Sequence[Any],
+) -> Agent:
+    """Construct the Classifier Agent (streaming, single-tool: file_capture).
 
-    Self-healing: if the stored agent ID is valid, returns it. If missing
-    or invalid, creates a new agent and returns the new ID.
-
-    If agent registration fails, the exception propagates up to the
-    lifespan and crashes the app (hard dependency per CONTEXT.md).
-
-    Args:
-        foundry_client: Initialized AzureAIAgentClient instance.
-        stored_agent_id: Agent ID from AZURE_AI_CLASSIFIER_AGENT_ID env var.
-
-    Returns:
-        The validated or newly created agent ID.
+    Per CONTEXT D-04: tools list MUST contain ONLY file_capture. With one
+    tool registered, tool_choice='required' (set on agent.run() options) is
+    unambiguous -- the model must call file_capture. The Python safety net
+    is deleted (D-03); failures route to forced_tool_failure SSE sub-code.
     """
-    if stored_agent_id:
-        try:
-            agent_info = await foundry_client.agents_client.get_agent(stored_agent_id)
-            logger.info(
-                "Classifier agent loaded: id=%s name=%s",
-                agent_info.id,
-                agent_info.name,
-            )
-            return stored_agent_id
-        except Exception:
-            logger.warning(
-                "Stored agent ID %s not found in Foundry, creating new agent",
-                stored_agent_id,
-            )
-
-    # Create agent shell -- instructions are managed in the AI Foundry portal
-    new_agent = await foundry_client.agents_client.create_agent(
-        model="gpt-4o",
-        name="Classifier",
+    instructions = load_instructions("classifier")
+    return Agent(
+        client=chat_client,
+        instructions=instructions,
+        tools=list(tools),
+        middleware=list(middleware),
     )
-    logger.info(
-        "NEW Classifier agent: id=%s -- "
-        "SET INSTRUCTIONS IN AI FOUNDRY PORTAL and "
-        "UPDATE AZURE_AI_CLASSIFIER_AGENT_ID in env",
-        new_agent.id,
-    )
-    return new_agent.id
