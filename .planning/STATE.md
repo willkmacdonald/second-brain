@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Observability & Evals
 status: executing
-stopped_at: Completed 24-16 (classifier streaming GA + P0-1 Option A)
-last_updated: "2026-05-11T05:36:29.691Z"
+stopped_at: Completed 24-17 (InboxDocument conversationHistory + dry_run_tools decorator strip)
+last_updated: "2026-05-11T05:43:22.756Z"
 last_activity: 2026-05-11
 progress:
   total_phases: 18
   completed_phases: 14
   total_plans: 81
-  completed_plans: 71
-  percent: 88
+  completed_plans: 72
+  percent: 89
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 ## Current Position
 
 Phase: 24 (foundry-ga-migration) — EXECUTING
-Plan: 18 of 26 (Wave 3 complete: 24-09 through 24-13.5)
+Plan: 19 of 26 (Wave 3 complete: 24-09 through 24-13.5)
 Status: Ready to execute
 Last activity: 2026-05-11
 
-Progress: [█████████░] 88%
+Progress: [█████████░] 89%
 
 ## Performance Metrics
 
@@ -49,7 +49,7 @@ Progress: [█████████░] 88%
 **Velocity (v3.1):**
 
 - Plans completed: 18 fully + 2 code-complete awaiting bundled human-verify checkpoint (19.2-04 + 19.2-05)
-- Last plan duration: 8 min (24-16 -- classifier streaming GA + P0-1 OUTCOME Option A; 2 tasks, 3 commits, 2 files)
+- Last plan duration: 2 min (24-17 -- InboxDocument conversationHistory + dry_run_tools decorator strip; 2 tasks, 2 commits, 2 files)
 - Timeline: 2026-04-05 to present
 
 *Updated after each plan completion*
@@ -226,6 +226,9 @@ v3.0 decisions archived to .planning/milestones/v3.0-ROADMAP.md
 - [24-16]: Race-safe conversationHistory upsert — adapter re-reads inbox doc before writing because file_capture also writes to the same doc inside agent.run() with full-body upsert; without re-read, post-stream upsert would clobber file_capture's classification field writes
 - [24-16]: _stream_with_thread_id_persistence helper deleted entirely — foundryThreadId persistence replaced by adapter's conversationHistory write. _stream_with_follow_up_context simplified to 2-line context-manager wrap (only _follow_up_inbox_item_id ContextVar still load-bearing)
 - [24-16]: forced_tool_failure has two emission points in each streaming function — (a) tool_choice=required produced no file_capture result after stream completes; (b) agent.run raised any exception. Both converge on same wire shape {type: ERROR, sub_code: forced_tool_failure}. Mobile already handles ERROR; sub_code is for dashboard/monitoring distinction
+- [24-17]: ConversationTurn imported from cosmos/inbox_conversation_history (24-15) — single canonical type source, no circular import risk (stdlib + pydantic only)
+- [24-17]: All 4 @tool decorators stripped from eval/dry_run_tools.py (F-08 is class-wide) — EvalClassifierTools.file_capture + DryRunAdminTools.{add_errand_items, add_task_items, get_routing_context}
+- [24-17]: P0-1 OUTCOME field declaration cites session_rehydration_fresh_process.json (recalled_pineapple=false) by name in doc comment — design driver discoverable from source without leaving the file
 
 ### Pending Todos
 
@@ -257,8 +260,8 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-05-11T05:36:12.827Z
-Stopped at: Completed 24-16 (classifier streaming GA + P0-1 Option A)
+Last session: 2026-05-11T05:42:45.851Z
+Stopped at: Completed 24-17 (InboxDocument conversationHistory + dry_run_tools decorator strip)
 Resume action: Continue Phase 23 (next plan: 23-05, depends on 23-02 probe findings)
 
 **Planned Phase:** 24 (foundry-ga-migration) — 23 plans — 2026-05-10T03:08:32.888Z

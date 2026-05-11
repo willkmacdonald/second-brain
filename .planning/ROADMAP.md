@@ -479,7 +479,7 @@ Plans:
 - [x] 24-14-PLAN.md — Promote classifier instructions + agent rewrite + main.py file_capture-only (Wave 4, sequential 23.3)
 - [x] 24-15-PLAN.md — Strip @tool decorators from classification + transcription + voice direct call in api/capture.py (Wave 4, sequential 23.3)
 - [x] 24-16-PLAN.md — Rewrite streaming/adapter.py: GA agent.run + delete safety net + forced_tool_failure SSE (Wave 4, sequential 23.3)
-- [ ] 24-17-PLAN.md — Inbox.foundryThreadId -> sessionId rename + dry_run_tools strip + backfill script (Wave 4, sequential 23.3)
+- [x] 24-17-PLAN.md — Add InboxDocument.conversationHistory (P0-1 OUTCOME Option A; keep foundryThreadId for rollback) + dry_run_tools strip (Wave 4, sequential 23.3)
 - [ ] 24-18-PLAN.md — Delete agents/middleware.py + RCEvalAgentInvoker + add forced_tool_failure KQL (Wave 4, sequential 23.3)
 - [ ] 24-19-PLAN.md — Rewrite warmup.py + main.py warmup factories; remove last RC import (Wave 4, sequential 23.3)
 - [ ] 24-20-PLAN.md — Cumulative framework-fidelity audit + pre-deploy gates (tests/replays/eval/auth/RBAC/backfill) (Wave 5, checkpoint)
