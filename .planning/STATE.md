@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Observability & Evals
 status: executing
-stopped_at: Completed 24-17 (InboxDocument conversationHistory + dry_run_tools decorator strip)
-last_updated: "2026-05-11T05:43:22.756Z"
+stopped_at: "Completed 24-18 (end-of-23.3 cleanup: F-17 + RCEvalAgentInvoker deletion + FORCED_TOOL_FAILURE_COUNT KQL)"
+last_updated: "2026-05-11T05:58:59.110Z"
 last_activity: 2026-05-11
 progress:
   total_phases: 18
   completed_phases: 14
   total_plans: 81
-  completed_plans: 72
-  percent: 89
+  completed_plans: 73
+  percent: 90
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 ## Current Position
 
 Phase: 24 (foundry-ga-migration) — EXECUTING
-Plan: 19 of 26 (Wave 3 complete: 24-09 through 24-13.5)
+Plan: 20 of 26 (Wave 3 complete: 24-09 through 24-13.5)
 Status: Ready to execute
 Last activity: 2026-05-11
 
-Progress: [█████████░] 89%
+Progress: [█████████░] 90%
 
 ## Performance Metrics
 
@@ -48,8 +48,8 @@ Progress: [█████████░] 89%
 
 **Velocity (v3.1):**
 
-- Plans completed: 18 fully + 2 code-complete awaiting bundled human-verify checkpoint (19.2-04 + 19.2-05)
-- Last plan duration: 2 min (24-17 -- InboxDocument conversationHistory + dry_run_tools decorator strip; 2 tasks, 2 commits, 2 files)
+- Plans completed: 19 fully + 2 code-complete awaiting bundled human-verify checkpoint (19.2-04 + 19.2-05)
+- Last plan duration: 9 min (24-18 -- end-of-23.3 cleanup: F-17 + RCEvalAgentInvoker + _MigrationHybridInvoker deletion + FORCED_TOOL_FAILURE_COUNT KQL template; 4 tasks, 4 commits, 9 files modified + 1 deleted)
 - Timeline: 2026-04-05 to present
 
 *Updated after each plan completion*
@@ -229,6 +229,10 @@ v3.0 decisions archived to .planning/milestones/v3.0-ROADMAP.md
 - [24-17]: ConversationTurn imported from cosmos/inbox_conversation_history (24-15) — single canonical type source, no circular import risk (stdlib + pydantic only)
 - [24-17]: All 4 @tool decorators stripped from eval/dry_run_tools.py (F-08 is class-wide) — EvalClassifierTools.file_capture + DryRunAdminTools.{add_errand_items, add_task_items, get_routing_context}
 - [24-17]: P0-1 OUTCOME field declaration cites session_rehydration_fresh_process.json (recalled_pineapple=false) by name in doc comment — design driver discoverable from source without leaving the file
+- [24-18]: F-17 cleared (agents/middleware.py deleted) + W-04-23.2 resolved (RCEvalAgentInvoker + _MigrationHybridInvoker deleted from eval/invoker.py); W-03-23.2 half-cleared (factory middleware= lists swapped to GA path; full sweep stays 24-19)
+- [24-18]: InvestigationTools constructor surface cleaned to GA-only: classifier_agent + admin_agent params (dropped classifier_client + admin_client). _build_eval_invoker returns plain GAEvalAgentInvoker.
+- [24-18]: FORCED_TOOL_FAILURE_COUNT KQL template filters on Properties.["capture.outcome"] (bracket access for dotted key) and unions AppTraces + AppExceptions to cover both adapter emission shapes (warning empty-result + error exception).
+- [24-18]: AST scan red test offender count 4 -> 2 (eval/invoker.py dropped off; main.py + warmup.py remain — both 24-19 scope). Optional polish (rename agent_middleware/ -> middleware/; rename GAEvalAgentInvoker -> EvalAgentInvoker single class) explicitly DEFERRED per plan.
 
 ### Pending Todos
 
@@ -260,8 +264,8 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-05-11T05:42:45.851Z
-Stopped at: Completed 24-17 (InboxDocument conversationHistory + dry_run_tools decorator strip)
+Last session: 2026-05-11T05:58:59.103Z
+Stopped at: Completed 24-18 (end-of-23.3 cleanup: F-17 + RCEvalAgentInvoker deletion + FORCED_TOOL_FAILURE_COUNT KQL)
 Resume action: Continue Phase 23 (next plan: 23-05, depends on 23-02 probe findings)
 
 **Planned Phase:** 24 (foundry-ga-migration) — 23 plans — 2026-05-10T03:08:32.888Z
