@@ -1,35 +1,42 @@
-"""Transcription tool for the Classifier agent.
+"""Transcription helper for the voice capture path.
 
 TranscriptionTools wraps gpt-4o-transcribe via AsyncAzureOpenAI to convert
-voice recordings into text. The Classifier agent calls transcribe_audio
-first, reads the transcript, then calls file_capture to classify and file it.
+voice recordings into text.
+
+Phase 24 GA migration (D-01..D-04 + F-11): ``transcribe_audio`` is NO LONGER
+registered as a Classifier Agent tool. The on-device SFSpeechRecognizer
+(shipped Phase 12.5) is the primary voice path; the backend transcription
+helper is a rare cloud fallback only. The voice path now splits at the API
+layer: ``api/capture.py`` direct-calls ``transcribe_audio`` to produce text,
+then routes the transcribed text through the text-only classifier path. The
+Classifier Agent registers only ``file_capture``; ``tool_choice='required'``
+is unambiguous because exactly one tool is registered.
 """
 
 import logging
-from typing import Annotated
 
-from agent_framework import tool
 from azure.identity.aio import DefaultAzureCredential
 from azure.storage.blob.aio import BlobClient
 from openai import AsyncAzureOpenAI
-from pydantic import Field
 
 logger = logging.getLogger(__name__)
 
 
 class TranscriptionTools:
-    """Transcription tools bound to an AsyncAzureOpenAI client.
+    """Audio-to-text helper bound to an AsyncAzureOpenAI client.
 
     Uses gpt-4o-transcribe for audio-to-text conversion. Audio is downloaded
     from Azure Blob Storage before being sent to the transcription API.
 
+    Direct helper called from api/capture.py voice handler. NOT registered as
+    an agent tool (see Phase 24 D-04 voice path split). The Classifier Agent
+    sees only the resulting transcript text.
+
     Usage:
-        tools = TranscriptionTools(
+        transcription_tools = TranscriptionTools(
             openai_client, credential, "gpt-4o-transcribe"
         )
-        agent = client.create_agent(
-            tools=[tools.transcribe_audio],
-        )
+        transcript = await transcription_tools.transcribe_audio(blob_url)
     """
 
     def __init__(
@@ -55,24 +62,14 @@ class TranscriptionTools:
         finally:
             await blob_client.close()
 
-    @tool(approval_mode="never_require")
-    async def transcribe_audio(
-        self,
-        blob_url: Annotated[
-            str,
-            Field(
-                description=(
-                    "Azure Blob Storage URL of the voice "
-                    "recording to transcribe"
-                )
-            ),
-        ],
-    ) -> str:
+    async def transcribe_audio(self, blob_url: str) -> str:
         """Transcribe a voice recording to text using gpt-4o-transcribe.
 
-        Downloads audio from Blob Storage, sends to Azure OpenAI Audio API,
-        and returns the transcript text. The Classifier agent should read the
-        returned transcript, then call file_capture to classify and file it.
+        Direct helper called from api/capture.py voice handler. NOT registered
+        as an agent tool (see Phase 24 D-04 voice path split). Downloads audio
+        from Blob Storage, sends to Azure OpenAI Audio API, and returns the
+        transcript text. The voice handler then routes the transcript through
+        the text-only classifier path.
         """
         try:
             audio_bytes = await self._download_blob(blob_url)
