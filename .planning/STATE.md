@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Observability & Evals
 status: executing
-stopped_at: Completed 24-12-PLAN.md
-last_updated: "2026-05-11T02:26:48.822Z"
+stopped_at: Completed 24-13-PLAN.md
+last_updated: "2026-05-11T02:44:44.591Z"
 last_activity: 2026-05-11
 progress:
   total_phases: 18
   completed_phases: 14
   total_plans: 81
-  completed_plans: 66
-  percent: 81
+  completed_plans: 67
+  percent: 83
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 ## Current Position
 
 Phase: 24 (foundry-ga-migration) — EXECUTING
-Plan: 5 of 26
+Plan: 6 of 26
 Status: Ready to execute
 Last activity: 2026-05-11
 
-Progress: [████████░░] 81%
+Progress: [████████░░] 83%
 
 ## Performance Metrics
 
@@ -210,6 +210,8 @@ v3.0 decisions archived to .planning/milestones/v3.0-ROADMAP.md
 - [24-12]: Admin path uses default tool_choice (auto) -- matches pre-migration admin contract per EVAL-INVENTORY call site 2 behavior. Only classifier path forces tool_choice='required' (single tool registered).
 - [24-12]: generate_app_mediated_dataset constructs EvalClassifierTools / DryRunAdminTools instances per case INTERNALLY (not via the existing classifier_tools / admin_tools parameter pair). The tool_calls JSONL rows are synthesised from side-effect state (last_bucket, captured_items, captured_tasks) post-invocation.
 - [24-12]: Auto-format-safe pattern for migration-temporary symbols: imports of RCEvalAgentInvoker / GAEvalAgentInvoker / _MigrationHybridInvoker placed INSIDE _build_eval_invoker() helper method body (local imports), not at module-level. Ruff cannot strip them mid-edit since usage is in the same code block. Pattern repeatable for any future RC-bridge code.
+- 23.2 audit checkpoint PASS-WITH-WARNINGS (0 in-scope failures); TG 23.3 (24-14) unblocked
+- Auditor procedure executed inline (no Task tool available); produced FRAMEWORK-FIDELITY-23.2.md following gsd-framework-fidelity-auditor.md execution_flow verbatim
 
 ### Pending Todos
 
@@ -241,8 +243,8 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-05-11T02:26:34.055Z
-Stopped at: Completed 24-12-PLAN.md
+Last session: 2026-05-11T02:44:44.582Z
+Stopped at: Completed 24-13-PLAN.md
 Resume action: Continue Phase 23 (next plan: 23-05, depends on 23-02 probe findings)
 
 **Planned Phase:** 24 (foundry-ga-migration) — 23 plans — 2026-05-10T03:08:32.888Z
