@@ -5,12 +5,19 @@ POST /api/capture/voice -- voice capture (multipart file upload)
 POST /api/capture/follow-up -- follow-up for misunderstood captures (SSE)
 POST /api/capture/follow-up/voice -- voice follow-up for misunderstood captures (SSE)
 
-Both capture endpoints stream Foundry agent classification results as
+All capture endpoints stream Foundry agent classification results as
 AG-UI-compatible SSE events. The mobile Expo app consumes these via
 react-native-sse EventSource.
+
+Phase 24 GA: the streaming adapter is invoked against ``app.state.classifier_agent``
+(GA ``Agent`` instance), not the deleted RC singleton. Conversation
+continuity for follow-ups rides on the inbox doc's ``conversationHistory``
+field via the 24-15 ``resolve_inbox_conversation_history`` helper (P0-1
+OUTCOME Option A). The RC ``foundryThreadId`` round-trip helpers are deleted
+in this commit -- the adapter now persists conversationHistory back to the
+doc directly.
 """
 
-import json
 import logging
 from uuid import uuid4
 
@@ -19,7 +26,6 @@ from fastapi.responses import StreamingResponse
 from opentelemetry import trace
 from pydantic import BaseModel, Field
 
-from second_brain.spine.cosmos_request_id import trace_headers
 from second_brain.spine.stream_wrapper import spine_stream_wrapper
 from second_brain.streaming.adapter import (
     stream_follow_up_capture,
@@ -138,110 +144,26 @@ class FollowUpBody(BaseModel):
     follow_up_round: int = 1
 
 
-async def _stream_with_thread_id_persistence(
-    inner_generator,
-    cosmos_manager,
-    capture_trace_id: str = "",
-):
-    """Wrap a capture stream generator to persist foundryThreadId on MISUNDERSTOOD.
-
-    Yields all SSE events through to the client. When a MISUNDERSTOOD event is
-    detected, immediately persists the foundryThreadId to Cosmos before
-    yielding any further events -- this prevents a race condition where the
-    client disconnects after COMPLETE and the Cosmos write never happens.
-    """
-    log_extra = _capture_extra(capture_trace_id)
-    async for event in inner_generator:
-        # Intercept MISUNDERSTOOD events to persist foundryThreadId immediately
-        if event.startswith("data: "):
-            try:
-                payload = json.loads(event[6:].strip())
-                if payload.get("type") == "MISUNDERSTOOD":
-                    value = payload.get("value", {})
-                    item_id = value.get("inboxItemId")
-                    conversation_id = value.get("foundryConversationId")
-                    if item_id and conversation_id:
-                        try:
-                            inbox_container = cosmos_manager.get_container("Inbox")
-                            doc = await inbox_container.read_item(
-                                item=item_id, partition_key="will"
-                            )
-                            doc["foundryThreadId"] = conversation_id
-                            await inbox_container.upsert_item(
-                                body=doc,
-                                **trace_headers(capture_trace_id or None),
-                            )
-                            logger.info(
-                                "Persisted foundryThreadId=%s for inbox item %s",
-                                conversation_id,
-                                item_id,
-                                extra=log_extra,
-                            )
-                        except Exception:
-                            logger.warning(
-                                "Failed to persist foundryThreadId for %s",
-                                item_id,
-                                extra=log_extra,
-                            )
-            except (json.JSONDecodeError, AttributeError):
-                pass
-
-        yield event
-
-
 async def _stream_with_follow_up_context(
     inner_generator,
     inbox_item_id: str,
-    cosmos_manager,
-    capture_trace_id: str = "",
 ):
-    """Set follow-up context so file_capture updates existing doc in-place.
+    """Set follow-up context so file_capture updates the existing doc in-place.
 
-    Wraps a follow-up stream generator. The follow_up_context context manager
-    sets _follow_up_inbox_item_id so that file_capture (called by the Foundry
-    agent during streaming) updates the existing misunderstood inbox doc
-    instead of creating a new orphan.
+    Wraps a follow-up stream generator. The ``follow_up_context`` context
+    manager sets ``_follow_up_inbox_item_id`` so that ``file_capture``
+    (called by the Foundry agent during streaming) updates the existing
+    misunderstood inbox doc instead of creating a new orphan.
 
-    Also handles foundryThreadId persistence when the follow-up results in
-    MISUNDERSTOOD again (needed for further follow-up rounds).
+    Phase 24 P0-1 OUTCOME Option A: the legacy ``foundryThreadId``
+    persistence on MISUNDERSTOOD is GONE -- the adapter persists
+    ``conversationHistory`` back to the doc directly after the stream
+    completes. This wrapper now exists solely to manage the ContextVar
+    used by ``file_capture`` for in-place updates.
     """
-    log_extra = _capture_extra(capture_trace_id)
     with follow_up_context(inbox_item_id):
-        foundry_conversation_id = None
         async for event in inner_generator:
-            if event.startswith("data: "):
-                try:
-                    payload = json.loads(event[6:].strip())
-                    if payload.get("type") == "MISUNDERSTOOD":
-                        value = payload.get("value", {})
-                        foundry_conversation_id = value.get("foundryConversationId")
-                except (json.JSONDecodeError, AttributeError):
-                    pass
             yield event
-
-        # After stream: if re-misunderstood, update foundryThreadId on original doc
-        if foundry_conversation_id:
-            try:
-                inbox_container = cosmos_manager.get_container("Inbox")
-                doc = await inbox_container.read_item(
-                    item=inbox_item_id, partition_key="will"
-                )
-                doc["foundryThreadId"] = foundry_conversation_id
-                await inbox_container.upsert_item(
-                    body=doc, **trace_headers(capture_trace_id or None)
-                )
-                logger.info(
-                    "Updated foundryThreadId=%s for ongoing follow-up on %s",
-                    foundry_conversation_id,
-                    inbox_item_id,
-                    extra=log_extra,
-                )
-            except Exception:
-                logger.warning(
-                    "Failed to update foundryThreadId on follow-up for %s",
-                    inbox_item_id,
-                    extra=log_extra,
-                )
 
 
 @router.post("/api/capture")
@@ -250,13 +172,20 @@ async def capture(request: Request, body: TextCaptureBody) -> StreamingResponse:
 
     Accepts a JSON body with the capture text, streams the Foundry agent
     classification result as SSE events (STEP_START, STEP_END, CLASSIFIED/
-    MISUNDERSTOOD/UNRESOLVED, COMPLETE).
+    MISUNDERSTOOD/UNRESOLVED/ERROR, COMPLETE).
 
-    When the outcome is MISUNDERSTOOD, the foundryThreadId is persisted to the
-    inbox document for use in follow-up calls.
+    Phase 24 GA: invokes ``stream_text_capture`` against the lifespan
+    ``app.state.classifier_agent`` (GA ``Agent``). No pre-created inbox doc
+    is passed -- the adapter uses ``file_capture``'s tool result to locate
+    the doc and persists ``conversationHistory`` onto it after the stream
+    completes (P0-1 OUTCOME Option A).
     """
-    client = request.app.state.classifier_client
-    tools = request.app.state.classifier_agent_tools
+    classifier_agent = getattr(request.app.state, "classifier_agent", None)
+    if classifier_agent is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Classifier agent is unavailable.",
+        )
     cosmos_manager = request.app.state.cosmos_manager
     thread_id = body.thread_id or f"thread-{uuid4()}"
     run_id = body.run_id or f"run-{uuid4()}"
@@ -283,10 +212,13 @@ async def capture(request: Request, body: TextCaptureBody) -> StreamingResponse:
             extra=log_extra,
         )
 
+    # P0-1 OUTCOME Option A: new captures pass inbox_doc=None. The adapter
+    # uses file_capture's primary item_id from the tool result to locate
+    # the doc and persists conversationHistory onto it.
     generator = stream_text_capture(
-        client=client,
+        agent=classifier_agent,
         user_text=body.text,
-        tools=tools,
+        inbox_doc=None,
         thread_id=thread_id,
         run_id=run_id,
         cosmos_manager=cosmos_manager,
@@ -294,9 +226,7 @@ async def capture(request: Request, body: TextCaptureBody) -> StreamingResponse:
     )
 
     spine_repo = getattr(request.app.state, "spine_repo", None)
-    stream = _stream_with_thread_id_persistence(
-        generator, cosmos_manager, capture_trace_id
-    )
+    stream = generator
     if spine_repo:
         stream = spine_stream_wrapper(
             stream,
@@ -321,20 +251,17 @@ async def capture_voice(
 ) -> StreamingResponse:
     """Stream voice capture classification as AG-UI SSE events.
 
-    Phase 24 D-01..D-04 + F-11 voice path split: the handler now direct-calls
-    ``TranscriptionTools.transcribe_audio`` BEFORE classifying. The classifier
-    Agent sees only the resulting transcript text and registers only
-    ``file_capture`` (``tool_choice='required'`` is unambiguous). On
+    Phase 24 D-01..D-04 + F-11 voice path split: the handler direct-calls
+    ``TranscriptionTools.transcribe_audio`` BEFORE classifying. The
+    classifier Agent sees only the resulting transcript text and registers
+    only ``file_capture`` (``tool_choice='required'`` is unambiguous). On
     transcription failure, one of three single-event SSE error streams is
     returned with a ``forced_tool_failure``-style ``sub_code``
     (``transcription_unavailable`` / ``transcription_failed`` /
     ``transcription_empty``).
 
-    Accepts a multipart audio file upload. The endpoint uploads the audio to
-    Blob Storage (for audit trail), direct-calls transcribe_audio, then
-    streams the Foundry classifier result via the text path. The blob is
-    cleaned up after the stream completes. When the outcome is MISUNDERSTOOD,
-    the foundryThreadId is persisted.
+    After transcription, the path routes through ``stream_text_capture``
+    against the lifespan GA Classifier Agent (P0-1 OUTCOME Option A).
     """
     blob_manager = getattr(request.app.state, "blob_manager", None)
     if blob_manager is None:
@@ -430,29 +357,30 @@ async def capture_voice(
     )
 
     # --- Transcription succeeded → route through TEXT classifier path ---
-    # NOTE: Until plan 24-16 rewrites stream_text_capture to GA, this still
-    # reads app.state.classifier_client (set to None by 24-14). The path is
-    # intentionally non-functional end-to-end between commits 24-14 and 24-16;
-    # the CONTEXT D-12 push guard prevents the broken state from reaching
-    # production. End-to-end voice verification belongs in 24-22 UAT.
-    client = request.app.state.classifier_client
-    tools = request.app.state.classifier_agent_tools
+    classifier_agent = getattr(request.app.state, "classifier_agent", None)
+    if classifier_agent is None:
+        try:
+            await blob_manager.delete_audio(blob_url)
+        except Exception:
+            logger.warning("Failed to delete voice blob: %s", blob_url, extra=log_extra)
+        raise HTTPException(
+            status_code=503,
+            detail="Classifier agent is unavailable.",
+        )
 
-    async def stream_with_cleanup_and_persistence():
-        """Wrap text-path stream with blob cleanup and foundryThreadId persistence."""
+    async def stream_with_cleanup():
+        """Wrap text-path stream with blob cleanup after stream completes."""
         inner = stream_text_capture(
-            client=client,
+            agent=classifier_agent,
             user_text=transcript,
-            tools=tools,
+            inbox_doc=None,
             thread_id=thread_id,
             run_id=run_id,
             cosmos_manager=cosmos_manager,
             capture_trace_id=capture_trace_id,
         )
         try:
-            async for event in _stream_with_thread_id_persistence(
-                inner, cosmos_manager, capture_trace_id
-            ):
+            async for event in inner:
                 yield event
         finally:
             try:
@@ -465,7 +393,7 @@ async def capture_voice(
                 )
 
     spine_repo = getattr(request.app.state, "spine_repo", None)
-    stream = stream_with_cleanup_and_persistence()
+    stream = stream_with_cleanup()
     if spine_repo:
         stream = spine_stream_wrapper(
             stream,
@@ -485,13 +413,27 @@ async def capture_voice(
 
 @router.post("/api/capture/follow-up")
 async def follow_up(request: Request, body: FollowUpBody) -> StreamingResponse:
-    """Stream a follow-up classification attempt on the same Foundry thread.
+    """Stream a follow-up classification attempt under P0-1 OUTCOME Option A.
 
-    Used for misunderstood captures that need conversational follow-up.
-    Reads the original inbox item to get the stored foundryThreadId, then
-    streams the follow-up classification with thread reuse. Sets follow-up
-    context so file_capture updates the existing misunderstood doc in-place.
+    Loads the existing inbox doc and passes it to ``stream_follow_up_capture``;
+    the adapter reads ``conversationHistory`` via
+    ``resolve_inbox_conversation_history`` (24-15), threads it as an
+    explicit Message list to ``agent.run(...)``, and persists the updated
+    history back to the doc. Sets ``follow_up_context`` so ``file_capture``
+    updates the existing misunderstood doc in-place rather than creating a
+    new orphan.
+
+    For legacy docs that carry only ``foundryThreadId`` (no
+    ``conversationHistory``), the helper returns an empty history and the
+    follow-up proceeds as a fresh conversation (Option A graceful-loss
+    trade-off).
     """
+    classifier_agent = getattr(request.app.state, "classifier_agent", None)
+    if classifier_agent is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Classifier agent is unavailable.",
+        )
     cosmos_manager = request.app.state.cosmos_manager
     inbox_container = cosmos_manager.get_container("Inbox")
     capture_trace_id = request.headers.get("X-Trace-Id", str(uuid4()))
@@ -504,9 +446,9 @@ async def follow_up(request: Request, body: FollowUpBody) -> StreamingResponse:
     if _current.is_recording():
         _current.set_attribute("capture.trace_id", capture_trace_id)
 
-    # Look up the original inbox item to get the Foundry thread ID
+    # Load the inbox doc; the adapter resolves conversationHistory from it.
     try:
-        item = await inbox_container.read_item(
+        inbox_doc = await inbox_container.read_item(
             item=body.inbox_item_id, partition_key="will"
         )
     except Exception as exc:
@@ -515,33 +457,22 @@ async def follow_up(request: Request, body: FollowUpBody) -> StreamingResponse:
             detail=f"Inbox item {body.inbox_item_id} not found",
         ) from exc
 
-    foundry_thread_id = item.get("foundryThreadId")
-    if not foundry_thread_id:
-        raise HTTPException(
-            status_code=400,
-            detail="No thread ID for follow-up. Item may not be misunderstood.",
-        )
-
-    client = request.app.state.classifier_client
-    tools = request.app.state.classifier_agent_tools
+    thread_id = f"thread-{uuid4()}"
     run_id = f"run-{uuid4()}"
 
     generator = stream_follow_up_capture(
-        client=client,
+        agent=classifier_agent,
         follow_up_text=body.follow_up_text,
-        foundry_thread_id=foundry_thread_id,
+        inbox_doc=inbox_doc,
         original_inbox_item_id=body.inbox_item_id,
-        tools=tools,
-        thread_id=foundry_thread_id,
+        thread_id=thread_id,
         run_id=run_id,
         cosmos_manager=cosmos_manager,
         capture_trace_id=capture_trace_id,
     )
 
     spine_repo = getattr(request.app.state, "spine_repo", None)
-    stream = _stream_with_follow_up_context(
-        generator, body.inbox_item_id, cosmos_manager, capture_trace_id
-    )
+    stream = _stream_with_follow_up_context(generator, body.inbox_item_id)
     if spine_repo:
         stream = spine_stream_wrapper(
             stream,
@@ -550,7 +481,7 @@ async def follow_up(request: Request, body: FollowUpBody) -> StreamingResponse:
             operation="classify_follow_up",
             capture_trace_id=capture_trace_id,
             run_id=run_id,
-            thread_id=foundry_thread_id,
+            thread_id=thread_id,
         )
 
     return StreamingResponse(
@@ -567,18 +498,27 @@ async def follow_up_voice(
     inbox_item_id: str = Form(...),  # noqa: B008
     follow_up_round: int = Form(1),  # noqa: B008
 ) -> StreamingResponse:
-    """Stream a voice follow-up classification on the same Foundry thread.
+    """Stream a voice follow-up classification under P0-1 OUTCOME Option A.
 
     Accepts multipart audio upload with inbox_item_id. Uploads audio to Blob
     Storage for audit trail, transcribes via gpt-4o-transcribe from in-memory
-    bytes, then streams the follow-up reclassification with follow-up context
-    set so file_capture updates the existing misunderstood doc in-place.
-    Blob is cleaned up after the stream completes.
+    bytes, then loads the existing inbox doc and routes through
+    ``stream_follow_up_capture`` against the lifespan GA Classifier Agent.
+    Sets ``follow_up_context`` so ``file_capture`` updates the existing
+    misunderstood doc in-place. Blob is cleaned up after the stream
+    completes.
     """
     # Validate blob storage
     blob_manager = getattr(request.app.state, "blob_manager", None)
     if blob_manager is None:
         raise HTTPException(status_code=503, detail="Blob storage not configured.")
+
+    classifier_agent = getattr(request.app.state, "classifier_agent", None)
+    if classifier_agent is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Classifier agent is unavailable.",
+        )
 
     # Validate and read audio upload, then upload to blob for audit trail
     audio_bytes = await _validate_and_read_audio(file)
@@ -597,6 +537,12 @@ async def follow_up_voice(
     # Transcribe from in-memory bytes (no blob re-download)
     openai_client = request.app.state.openai_client
     if openai_client is None:
+        try:
+            await blob_manager.delete_audio(blob_url)
+        except Exception:
+            logger.warning(
+                "Failed to delete voice follow-up blob: %s", blob_url, extra=log_extra
+            )
         raise HTTPException(status_code=503, detail="Transcription not configured.")
 
     transcript = await openai_client.audio.transcriptions.create(
@@ -613,36 +559,29 @@ async def follow_up_voice(
         extra=log_extra,
     )
 
-    # Look up original inbox item for Foundry thread ID
+    # Load original inbox doc; adapter resolves conversationHistory from it.
     cosmos_manager = request.app.state.cosmos_manager
     inbox_container = cosmos_manager.get_container("Inbox")
 
     try:
-        item = await inbox_container.read_item(item=inbox_item_id, partition_key="will")
+        inbox_doc = await inbox_container.read_item(
+            item=inbox_item_id, partition_key="will"
+        )
     except Exception as exc:
         raise HTTPException(
             status_code=404,
             detail=f"Inbox item {inbox_item_id} not found",
         ) from exc
 
-    foundry_thread_id = item.get("foundryThreadId")
-    if not foundry_thread_id:
-        raise HTTPException(
-            status_code=400,
-            detail="No thread ID for follow-up. Item may not be misunderstood.",
-        )
-
-    client = request.app.state.classifier_client
-    tools = request.app.state.classifier_agent_tools
+    thread_id = f"thread-{uuid4()}"
     run_id = f"run-{uuid4()}"
 
     generator = stream_follow_up_capture(
-        client=client,
+        agent=classifier_agent,
         follow_up_text=follow_up_text,
-        foundry_thread_id=foundry_thread_id,
+        inbox_doc=inbox_doc,
         original_inbox_item_id=inbox_item_id,
-        tools=tools,
-        thread_id=foundry_thread_id,
+        thread_id=thread_id,
         run_id=run_id,
         cosmos_manager=cosmos_manager,
         capture_trace_id=capture_trace_id,
@@ -651,9 +590,7 @@ async def follow_up_voice(
     async def stream_with_cleanup():
         """Wrap follow-up stream with blob cleanup and follow-up context."""
         try:
-            async for event in _stream_with_follow_up_context(
-                generator, inbox_item_id, cosmos_manager, capture_trace_id
-            ):
+            async for event in _stream_with_follow_up_context(generator, inbox_item_id):
                 yield event
         finally:
             try:
@@ -675,7 +612,7 @@ async def follow_up_voice(
             operation="classify_follow_up_voice",
             capture_trace_id=capture_trace_id,
             run_id=run_id,
-            thread_id=foundry_thread_id,
+            thread_id=thread_id,
         )
 
     return StreamingResponse(
