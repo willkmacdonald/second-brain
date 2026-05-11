@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Observability & Evals
 status: executing
-stopped_at: Wave 3 complete (24-13.5 baseline seeded, 90.91% routing accuracy); ready for Wave 4 (Classifier task group, plans 24-14..24-19)
-last_updated: "2026-05-11T05:05:00.000Z"
-last_activity: 2026-05-11 -- 24-13.5 admin baseline seeded with real metrics
+stopped_at: Completed 24-14 (Classifier migration to GA Foundry)
+last_updated: "2026-05-11T05:11:55.351Z"
+last_activity: 2026-05-11
 progress:
   total_phases: 18
   completed_phases: 14
   total_plans: 81
-  completed_plans: 68
-  percent: 84
+  completed_plans: 69
+  percent: 85
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 ## Current Position
 
 Phase: 24 (foundry-ga-migration) — EXECUTING
-Plan: 15 of 26 (Wave 3 complete: 24-09 through 24-13.5)
-Status: Ready for Wave 4 (Classifier task group, 24-14 next)
-Last activity: 2026-05-11 -- 24-13.5 admin baseline seeded (90.91% routing accuracy)
+Plan: 16 of 26 (Wave 3 complete: 24-09 through 24-13.5)
+Status: Ready to execute
+Last activity: 2026-05-11
 
-Progress: [████████▌░] 84%
+Progress: [█████████░] 85%
 
 ## Performance Metrics
 
@@ -212,6 +212,11 @@ v3.0 decisions archived to .planning/milestones/v3.0-ROADMAP.md
 - [24-12]: Auto-format-safe pattern for migration-temporary symbols: imports of RCEvalAgentInvoker / GAEvalAgentInvoker / _MigrationHybridInvoker placed INSIDE _build_eval_invoker() helper method body (local imports), not at module-level. Ruff cannot strip them mid-edit since usage is in the same code block. Pattern repeatable for any future RC-bridge code.
 - 23.2 audit checkpoint PASS-WITH-WARNINGS (0 in-scope failures); TG 23.3 (24-14) unblocked
 - Auditor procedure executed inline (no Task tool available); produced FRAMEWORK-FIDELITY-23.2.md following gsd-framework-fidelity-auditor.md execution_flow verbatim
+- [24-14]: Classifier slice mirrors Investigation (24-04) and Admin (24-09) factory pattern; build_classifier_agent reuses load_instructions helper
+- [24-14]: F-11 fix lands at lifespan level — tools=[classifier_tools.file_capture] ONLY; transcribe_audio direct call wires in 24-15. TranscriptionTools instance still constructed for direct consumption.
+- [24-14]: Mid-migration safe-defaults pattern (matches 24-09 Admin) — app.state.classifier_client = None and classifier_agent_id = None so spine adapter, warmup loop, and streaming/adapter.py all short-circuit Classifier until 24-16/24-19 finish wave 4
+- [24-14]: Placeholder locals classifier_agent_id = None / classifier_client = None preserve _make_classifier_client warmup factory closure without NameError; factory body never executes because app.state.classifier_client is None. Full warmup-loop GA migration in 24-19
+- [24-14]: Plan acceptance criterion '! grep -q agent_tools.append' was overbroad — conflicted with own <verify> block which has precise F-11 check. Used precise check; legitimate admin_agent_tools.append from 24-09 preserved. Documented as Rule 1 deviation.
 
 ### Pending Todos
 
@@ -243,8 +248,8 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-05-11T02:49:37.103Z
-Stopped at: Tasks 1+2 committed for 24-13.5; awaiting operator Task 3 (human-verify)
+Last session: 2026-05-11T05:11:32.032Z
+Stopped at: Completed 24-14 (Classifier migration to GA Foundry)
 Resume action: Continue Phase 23 (next plan: 23-05, depends on 23-02 probe findings)
 
 **Planned Phase:** 24 (foundry-ga-migration) — 23 plans — 2026-05-10T03:08:32.888Z
