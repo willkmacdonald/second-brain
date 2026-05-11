@@ -708,7 +708,11 @@ async def test_get_errands_triggers_processing(
     )
 
     # Set up admin client on app state
-    errands_app.state.admin_client = AsyncMock()
+    # Phase 24 GA migration: api/errands.py now reads admin_agent (not
+    # admin_client). The legacy admin_client attribute name was retired in
+    # 24-09; this test was not updated at the time and surfaced under Gate 3
+    # of plan 24-20.
+    errands_app.state.admin_agent = AsyncMock()
     errands_app.state.admin_agent_tools = [AsyncMock()]
     errands_app.state.background_tasks = set()
 
@@ -746,7 +750,11 @@ async def test_get_errands_no_processing_when_query_returns_empty(
     _setup_trigger_mocks(errands_app, mock_cosmos_manager, [])
 
     # Set up admin client on app state
-    errands_app.state.admin_client = AsyncMock()
+    # Phase 24 GA migration: api/errands.py now reads admin_agent (not
+    # admin_client). The legacy admin_client attribute name was retired in
+    # 24-09; this test was not updated at the time and surfaced under Gate 3
+    # of plan 24-20.
+    errands_app.state.admin_agent = AsyncMock()
     errands_app.state.admin_agent_tools = [AsyncMock()]
     errands_app.state.background_tasks = set()
 
@@ -775,16 +783,20 @@ async def test_get_errands_no_trigger_when_no_admin_client(
     errands_app: FastAPI,
     mock_cosmos_manager: MagicMock,
 ) -> None:
-    """GET returns processingCount=0 when admin_client not configured."""
+    """GET returns processingCount=0 when admin_agent not configured.
+
+    Phase 24 GA migration: the attribute that gates background processing
+    on api/errands.py is admin_agent (was admin_client pre-GA).
+    """
     _setup_trigger_mocks(
         errands_app,
         mock_cosmos_manager,
         [{"id": "inbox-1", "rawText": "need milk"}],
     )
 
-    # Explicitly ensure admin_client is NOT set
-    if hasattr(errands_app.state, "admin_client"):
-        delattr(errands_app.state, "admin_client")
+    # Explicitly ensure admin_agent is NOT set
+    if hasattr(errands_app.state, "admin_agent"):
+        delattr(errands_app.state, "admin_agent")
 
     transport = httpx.ASGITransport(app=errands_app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:

@@ -1,0 +1,106 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.12.12, pytest-9.0.2, pluggy-1.6.0
+rootdir: /Users/willmacdonald/Documents/Code/claude/second-brain/backend
+configfile: pyproject.toml
+testpaths: tests
+plugins: asyncio-1.3.0, anyio-4.13.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 516 items
+
+tests/test_admin_eval_baseline_seeded.py .                               [  0%]
+tests/test_admin_handoff.py ...................                          [  3%]
+tests/test_admin_integration.py s.                                       [  4%]
+tests/test_admin_task_tools.py ......                                    [  5%]
+tests/test_admin_tools.py ............................                   [ 10%]
+tests/test_app_startup_smoke.py .                                        [ 11%]
+tests/test_audit_api.py ....                                             [ 11%]
+tests/test_audit_chains.py ..........                                    [ 13%]
+tests/test_audit_instrumentation_warning.py ..                           [ 14%]
+tests/test_audit_integration.py s                                        [ 14%]
+tests/test_audit_mcp_tool.py ..                                          [ 14%]
+tests/test_audit_models.py ..............                                [ 17%]
+tests/test_audit_native_lookup_facade.py ..                              [ 17%]
+tests/test_audit_native_queries.py ........                              [ 19%]
+tests/test_audit_walker_integrity.py .....                               [ 20%]
+tests/test_audit_walker_misattribution.py .......                        [ 21%]
+tests/test_audit_walker_orphans.py ..                                    [ 22%]
+tests/test_audit_walker_sample.py ...                                    [ 22%]
+tests/test_auth.py ......                                                [ 23%]
+tests/test_classification.py ............                                [ 26%]
+tests/test_cosmos_request_id_propagation.py .....                        [ 27%]
+tests/test_cosmos_trace_headers_coverage.py ...                          [ 27%]
+tests/test_deployed_health.py s                                          [ 27%]
+tests/test_errands_api.py ..................                             [ 31%]
+tests/test_eval.py ...................                                   [ 35%]
+tests/test_eval_dry_run.py ...........                                   [ 37%]
+tests/test_eval_metrics.py .......                                       [ 38%]
+tests/test_feedback.py ................                                  [ 41%]
+tests/test_foundry_credential_shape.py ..                                [ 42%]
+tests/test_foundry_eval.py ...............                               [ 44%]
+tests/test_health.py ....                                                [ 45%]
+tests/test_inbox_api.py ......                                           [ 46%]
+tests/test_inbox_delete.py .....                                         [ 47%]
+tests/test_inbox_dual_read.py .......                                    [ 49%]
+tests/test_investigation_client.py ......                                [ 50%]
+tests/test_investigation_queries.py ......                               [ 51%]
+tests/test_kql_projections.py ...........                                [ 53%]
+tests/test_legacy_middleware_imports_survive.py ..                       [ 54%]
+tests/test_no_rc_imports_after_cleanup.py .                              [ 54%]
+tests/test_observability.py .......                                      [ 55%]
+tests/test_observability_backend_api_queries.py ...............          [ 58%]
+tests/test_observability_models.py ...........                           [ 60%]
+tests/test_probe_replay_invariants.py ......                             [ 61%]
+tests/test_probe_replay_normalized_diff.py ssssss                        [ 62%]
+tests/test_recipe_tools.py ..............                                [ 65%]
+tests/test_recipe_workload_emission.py ...                               [ 66%]
+tests/test_session_rehydration_fresh_process.py .                        [ 66%]
+tests/test_span_processor.py .......                                     [ 67%]
+tests/test_spine_agent_emitter.py ......                                 [ 68%]
+tests/test_spine_api.py ..................                               [ 72%]
+tests/test_spine_backend_api_adapter.py ..                               [ 72%]
+tests/test_spine_background.py .                                         [ 73%]
+tests/test_spine_capture_correlation_contract.py .................       [ 76%]
+tests/test_spine_composite_adapter.py ..                                 [ 76%]
+tests/test_spine_cosmos_adapter.py ...                                   [ 77%]
+tests/test_spine_evaluator.py ..........                                 [ 79%]
+tests/test_spine_foundry_adapter.py ...                                  [ 79%]
+tests/test_spine_lifespan_wiring.py ......                               [ 81%]
+tests/test_spine_middleware.py ........                                  [ 82%]
+tests/test_spine_mobile_telemetry_adapter.py ..                          [ 82%]
+tests/test_spine_models.py ......                                        [ 84%]
+tests/test_spine_registry.py ......                                      [ 85%]
+tests/test_spine_registry_phase2.py ....                                 [ 86%]
+tests/test_spine_registry_phase3.py ..                                   [ 86%]
+tests/test_spine_registry_phase4.py ...                                  [ 87%]
+tests/test_spine_sentry_adapter.py .......                               [ 88%]
+tests/test_spine_storage.py ...............                              [ 91%]
+tests/test_spine_storage_sample_correlation_ids.py ....                  [ 92%]
+tests/test_spine_stream_wrapper.py ...                                   [ 92%]
+tests/test_streaming_adapter.py ..........................               [ 97%]
+tests/test_tasks_api.py .....                                            [ 98%]
+tests/test_telemetry_crud_failure.py ....                                [ 99%]
+tests/test_transcription.py ...                                          [100%]
+
+=============================== warnings summary ===============================
+<frozen abc>:106
+  <frozen abc>:106: ExperimentalWarning: [HARNESS] MemoryStore is experimental and may change or be removed in future versions without notice.
+
+<frozen abc>:106
+  <frozen abc>:106: ExperimentalWarning: [SKILLS] SkillResource is experimental and may change or be removed in future versions without notice.
+
+tests/test_probe_replay_normalized_diff.py:28
+  /Users/willmacdonald/Documents/Code/claude/second-brain/backend/tests/test_probe_replay_normalized_diff.py:28: PytestUnknownMarkWarning: Unknown pytest.mark.live_endpoint - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    @pytest.mark.live_endpoint
+
+tests/test_session_rehydration_fresh_process.py:43
+  /Users/willmacdonald/Documents/Code/claude/second-brain/backend/tests/test_session_rehydration_fresh_process.py:43: PytestUnknownMarkWarning: Unknown pytest.mark.live_endpoint - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    @pytest.mark.live_endpoint
+
+tests/test_spine_lifespan_wiring.py::test_wire_spine_shutdown_cancels_tasks_cleanly
+  /Users/willmacdonald/Documents/Code/claude/second-brain/backend/src/second_brain/spine/storage.py:147: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+    async for item in self._events.query_items(
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+================= 507 passed, 9 skipped, 5 warnings in 16.79s ==================

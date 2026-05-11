@@ -35,15 +35,37 @@ VOLATILE_KEYS = {
     "token_length",
     "persisted_session_id",
     "user_id",
+    # Additional GA SDK volatile fields surfaced during 24-20 Gate 4 live runs:
+    "continuation_token",  # contains nested response_id like resp_0cc6dc2f...
+    "created_at",  # ISO-8601 timestamps from the SDK
+    "phase_a_stderr_tail",  # contains probe run_id + temp paths
+    "phase_b_stderr_tail",
+    "phase_b_service_session_id",
+    "turn_two_text",  # model-generated free text (non-deterministic phrasing)
+    "turn_two_response_repr",  # contains repr addresses + service ids
+    "usage_details",  # dict key ordering varies; token counts may vary by 1-2
 }
 
 REPR_ADDRESS_RE = re.compile(r"at 0x[0-9a-fA-F]+")
+# Volatile substrings inside otherwise-stable string values:
+RESPONSE_ID_RE = re.compile(r"resp_[0-9a-fA-F]+")  # GA SDK Foundry response ids
+ISO_TIMESTAMP_RE = re.compile(
+    r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?"
+)
+# Common model output variance: capitalisation of one-word echo responses
+# (e.g. "echo" vs "Echo" — depends on temperature + recent model versioning).
+# We could scrub this too but it's load-bearing semantic content; leave it
+# alone and let the invariant tests catch shape regressions.
 
 
 def _scrub_value(value: Any) -> Any:
     if isinstance(value, str):
-        # Strip Python repr addresses
-        return REPR_ADDRESS_RE.sub("at 0x...", value)
+        # Strip Python repr addresses, response ids, and ISO timestamps
+        # that may appear inside string values.
+        scrubbed = REPR_ADDRESS_RE.sub("at 0x...", value)
+        scrubbed = RESPONSE_ID_RE.sub("resp_<scrubbed>", scrubbed)
+        scrubbed = ISO_TIMESTAMP_RE.sub("<scrubbed-timestamp>", scrubbed)
+        return scrubbed
     if isinstance(value, dict):
         return {k: _scrub_value(v) for k, v in value.items()}
     if isinstance(value, list):

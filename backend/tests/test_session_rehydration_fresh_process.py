@@ -1,12 +1,20 @@
-"""Phase 24 P0-1 red test: cross-process AgentSession rehydration.
+"""Phase 24 P0-1 OUTCOME regression guard: cross-process AgentSession
+rehydration is PROVEN BROKEN on GA Foundry SDK 1.3.0.
 
-Spawns the fresh-process session-rehydration probe end-to-end against the
-deployed Foundry endpoint. Asserts that a SEPARATE Python process can
-reconstruct conversation continuity from a persisted `session_id` alone.
+This test was originally authored as a RED gate for plans 24-07, 24-16,
+24-17 — asserting that a SEPARATE Python process could reconstruct
+conversation continuity from a persisted ``session_id`` alone. The
+probe ran live TWICE during 24-06.5 (both runs returned
+``recalled_pineapple=False``) and a 3rd time during 24-08's auditor
+re-pin. The operator locked **Option A** (persist full conversation
+history on the Inbox doc) as a result.
 
-This test gates plans 24-07, 24-16, 24-17. If it fails, the singleton-agent
-+ session_id rehydration design is invalid and Phase 24 must fall back to
-full message-history persistence on the Inbox doc.
+Per the P0-1 OUTCOME closure in 24-PLAN-DEFECTS.md the assertion is
+INVERTED in TG 23.3 cleanup (target was 24-18; landed in 24-20 Gate 3
+auto-fix): the locked invariant is ``recalled_pineapple is False``.
+If this test ever flips to True (i.e. cross-process recall starts
+working), the conversationHistory design becomes OPTIONAL not
+mandatory — revisit the design before continuing.
 
 Skips cleanly if the probe env vars (APPLICATIONINSIGHTS_CONNECTION_STRING
 or FOUNDRY_PROJECT_ENDPOINT / AZURE_AI_PROJECT_ENDPOINT) are not set --
@@ -34,7 +42,8 @@ FIXTURE_PATH = (
 
 @pytest.mark.live_endpoint
 def test_session_rehydration_fresh_process_recalls_prior_turn() -> None:
-    """Run the fresh-process session rehydration probe and assert recall.
+    """Run the fresh-process session rehydration probe and assert the
+    P0-1 OUTCOME locked invariant: cross-process recall FAILS.
 
     The probe spawns two SEPARATE Python subprocesses:
       - Phase A creates an AgentSession, sends turn 1 with magic word
@@ -46,7 +55,9 @@ def test_session_rehydration_fresh_process_recalls_prior_turn() -> None:
     The probe writes a fixture with phase_a_exit_code, phase_b_exit_code,
     persisted_session_id, turn_two_text, and recalled_pineapple.
 
-    This test asserts recalled_pineapple is True.
+    P0-1 OUTCOME: 3+ independent live runs all produced
+    recalled_pineapple=False. Operator locked Option A. This test asserts
+    the locked invariant — if it flips to True, the design changes.
     """
     if not os.environ.get("APPLICATIONINSIGHTS_CONNECTION_STRING") or not (
         os.environ.get("FOUNDRY_PROJECT_ENDPOINT")
@@ -80,8 +91,12 @@ def test_session_rehydration_fresh_process_recalls_prior_turn() -> None:
     assert payload.get("phase_b_exit_code") == 0, (
         f"Phase B failed: {payload.get('phase_b_stderr_tail')}"
     )
-    assert payload.get("recalled_pineapple") is True, (
-        f"Cross-process recall FAILED. Turn 2 did not recall the magic word.\n"
+    assert payload.get("recalled_pineapple") is False, (
+        f"P0-1 OUTCOME REGRESSION: cross-process recall flipped to True.\n"
+        f"The conversationHistory design (Option A, locked 2026-05-10) was "
+        f"built on the assumption that cross-process AgentSession rehydration "
+        f"FAILS on GA Foundry SDK 1.3.0. If this assertion fires, the design "
+        f"becomes optional, not mandatory — revisit before continuing.\n"
         f"persisted_session_id={payload.get('persisted_session_id')}\n"
         f"turn_two_text={payload.get('turn_two_text')!r}"
     )

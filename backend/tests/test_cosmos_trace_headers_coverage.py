@@ -45,13 +45,32 @@ EXEMPTED_PATTERNS: list[str] = [
 
 
 def _extract_cosmos_write_lines(file_path: pathlib.Path) -> list[tuple[int, str]]:
-    """Return (line_number, line_text) for each Cosmos write call in the file."""
+    """Return (line_number, line_text) for each Cosmos write call in the file.
+
+    Skips matches that appear inside markdown-style backtick code spans (e.g.
+    ``container.upsert_item(...)`` inside a docstring) — those are
+    documentation references, not actual call sites. Without this filter the
+    scan produces false positives on narrative docstrings that mention Cosmos
+    write method names for context (introduced in 24-16 when
+    streaming/adapter.py grew the conversationHistory persistence helper
+    docstring).
+    """
     text = file_path.read_text()
     lines = text.splitlines()
     results: list[tuple[int, str]] = []
     for i, line in enumerate(lines, start=1):
-        if COSMOS_WRITE_PATTERN.search(line):
-            results.append((i, line))
+        match = COSMOS_WRITE_PATTERN.search(line)
+        if not match:
+            continue
+        # Skip matches inside markdown-style backtick code spans (``…``
+        # or `…`). Count backticks before the match position — if any
+        # backtick group precedes AND a closing group follows, the match
+        # is inside a code span and is documentation, not a call site.
+        before = line[: match.start()]
+        after = line[match.end() :]
+        if "`" in before and "`" in after:
+            continue
+        results.append((i, line))
     return results
 
 
