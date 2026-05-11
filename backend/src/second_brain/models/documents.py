@@ -9,6 +9,8 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
+from second_brain.cosmos.inbox_conversation_history import ConversationTurn
+
 VALID_BUCKETS: frozenset[str] = frozenset({"People", "Projects", "Ideas", "Admin"})
 
 
@@ -50,6 +52,16 @@ class InboxDocument(BaseDocument):
     title: str | None = None
     clarificationText: str | None = None
     foundryThreadId: str | None = None
+    # Per CONTEXT D-07b + probe 4 (session_rehydration.json) + P0-1 OUTCOME (Option A):
+    # Holds the explicit conversation history reconstructed into Message[] on
+    # each follow-up. Cross-process AgentSession.session_id rehydration FAILS on
+    # GA Foundry SDK 1.3.0 (proven by session_rehydration_fresh_process.json,
+    # recalled_pineapple=false). Operator locked Option A -- persist full message
+    # history client-side and pass it to agent.run(messages=[...]) on each turn.
+    # ADDED alongside foundryThreadId (NOT a rename) for rollback safety during
+    # the deploy window. Both fields coexist until plan 24-24 (post-UAT)
+    # deletes foundryThreadId.
+    conversationHistory: list[ConversationTurn] | None = None
     adminProcessingStatus: str | None = None  # None, "pending", "processed", "failed"
 
 
