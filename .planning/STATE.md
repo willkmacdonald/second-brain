@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Observability & Evals
 status: executing
-stopped_at: Completed 24-13-PLAN.md
-last_updated: "2026-05-11T02:44:44.591Z"
-last_activity: 2026-05-11
+stopped_at: Wave 3 complete (24-13.5 baseline seeded, 90.91% routing accuracy); ready for Wave 4 (Classifier task group, plans 24-14..24-19)
+last_updated: "2026-05-11T05:05:00.000Z"
+last_activity: 2026-05-11 -- 24-13.5 admin baseline seeded with real metrics
 progress:
   total_phases: 18
   completed_phases: 14
   total_plans: 81
-  completed_plans: 67
-  percent: 83
+  completed_plans: 68
+  percent: 84
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 ## Current Position
 
 Phase: 24 (foundry-ga-migration) — EXECUTING
-Plan: 6 of 26
-Status: Ready to execute
-Last activity: 2026-05-11
+Plan: 15 of 26 (Wave 3 complete: 24-09 through 24-13.5)
+Status: Ready for Wave 4 (Classifier task group, 24-14 next)
+Last activity: 2026-05-11 -- 24-13.5 admin baseline seeded (90.91% routing accuracy)
 
-Progress: [████████░░] 83%
+Progress: [████████▌░] 84%
 
 ## Performance Metrics
 
@@ -243,8 +243,8 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-05-11T02:44:44.582Z
-Stopped at: Completed 24-13-PLAN.md
+Last session: 2026-05-11T02:49:37.103Z
+Stopped at: Tasks 1+2 committed for 24-13.5; awaiting operator Task 3 (human-verify)
 Resume action: Continue Phase 23 (next plan: 23-05, depends on 23-02 probe findings)
 
 **Planned Phase:** 24 (foundry-ga-migration) — 23 plans — 2026-05-10T03:08:32.888Z

@@ -1,10 +1,11 @@
 {
   "captured_at": "2026-05-09T18:42:52Z",
+  "admin_baseline_captured_at": "2026-05-11T04:52:40Z",
   "deployed_against": "brain.willmacdonald.com (RC, agent-framework-azure-ai==1.0.0rc2)",
   "model_deployment": "gpt-4o",
   "framework_version": "agent-framework-azure-ai==1.0.0rc2",
-  "admin_routing_context_seed": "Costco: olive oil; Amazon: diapers",
-  "golden_dataset_note": "Classifier: 26 cases seeded (all prior runs show 26). Admin: 0 cases seeded (no expectedDestination in GoldenDataset). Plan EVAL-01 aspirational target was 50 classifier cases but actual seeded dataset has 26. Admin baseline requires seeding admin test cases before Phase 24 can use the ±2pp gate.",
+  "admin_routing_context_seed": "Live routing context from production Cosmos: 13 destinations (jewel, cvs, pet_store, agora, gangnam_market, chewy, other, home_depot, whole_latte_love, srx, dirks_fishmarket, costco, walgreens) + 10 affinity rules (groceries->jewel, hardware->home_depot, meat->agora, coffee->whole_latte_love, cat food->chewy, toilet paper/paper towels/hand soap->cvs, tools->home_depot). Captured 2026-05-11 via cosmos query.",
+  "golden_dataset_note": "Classifier: 26 cases seeded (all prior runs show 26). Admin: 11 cases seeded 2026-05-11 by backend/scripts/seed_admin_golden_dataset.py from real production captures (8 task captures expecting 'unrouted' + 3 errand captures expecting 'jewel'). Source manifest: backend/scripts/admin_golden_seed/cases.yaml. Plan EVAL-01 aspirational target was 50 classifier cases but actual seeded dataset has 26.",
   "classifier": {
     "runId": "9383e038-017c-4277-9e1d-4b5fe74c9b36",
     "status": "completed",
@@ -46,19 +47,21 @@
     }
   },
   "admin": {
-    "runId": "b876a461-8a45-48f5-b2b5-e94c7c91f105",
-    "status": "failed",
-    "error": "No admin test cases found in golden dataset",
+    "runId": "8b6a8d83-1745-472c-a1db-433d056bae78",
+    "status": "completed",
     "evalType": "admin_agent",
-    "routing_accuracy": null,
-    "total": 0,
-    "correct": 0,
+    "routing_accuracy": 0.9091,
+    "total": 11,
+    "correct": 10,
     "aggregateScores": {
-      "routing_accuracy": 0.0,
-      "total": 0,
-      "correct": 0,
-      "per_destination": {}
+      "routing_accuracy": 0.9091,
+      "total": 11,
+      "correct": 10,
+      "per_destination": {
+        "unrouted": 1.0,
+        "jewel": 0.6667
+      }
     },
-    "note": "GoldenDataset contains zero cases with expectedDestination. Admin eval baseline requires seeding admin test cases first. The runner correctly reports empty dataset (eval/runner.py:261-267). Phase 24 admin eval gate (task group 23.2) must seed admin golden dataset cases before the ±2pp gate can produce a meaningful signal."
+    "note": "Pre-migration baseline captured 2026-05-11T04:52:40Z against deployed RC backend (asst_17oFXNHNq7kzmspQGMUrgERM, gpt-4o, agent-framework-azure-ai==1.0.0rc2). 11 cases: 8 task captures (expected=unrouted, 8/8 correct) + 3 errand captures (expected=jewel, 2/3 correct, one mispredicted to unrouted). Phase 24 Gate 6 (24-20) compares post-migration admin eval against this baseline using ±2pp tolerance."
   }
 }

@@ -1,61 +1,72 @@
 # Phase 24 P1-7 admin golden seeding manifest.
-# Operator: curate >= 10 representative admin captures from real production
-# traffic before running seed_admin_golden_dataset.py. The phone-side admin
-# errors that triggered this defect are excellent source material -- the
-# capture texts that produced errors are exactly the cases the eval suite
-# needs to cover.
 #
-# Each case must specify:
-# - capture_text: the user's input (typed or transcribed)
-# - expected_destination: the routing destination string the admin agent should pick
-# - expected_tool: "add_errand_items" or "add_task_items"
+# Cases curated 2026-05-11 from real production admin agent traces
+# (last 7 days, AppTraces "Admin Agent processed inbox item ..." messages).
+# Source query: /investigate "show me last 20 admin agent runs"
+# Captured via mcp__second-brain-telemetry__run_kql on AppTraces.
+#
+# Field semantics:
+# - capture_text: verbatim (or near-verbatim) reconstruction of the user's input
+# - expected_destination:
+#     - For errand captures: the destination SLUG (lowercase, url-safe) that
+#       add_errand_items should attach to each item. "jewel" matches what
+#       appeared in destination deletion logs.
+#     - For task captures: "unrouted". add_task_items captures no destination,
+#       so DryRunAdminTools leaves captured_destinations empty, and the runner
+#       defaults predicted to "unrouted" — this is the correct expected value
+#       for non-routed admin captures.
+# - expected_tool: which output tool the agent MUST call
+#     ("add_errand_items" or "add_task_items"). Used by post-hoc inspection.
 #
 # Format: snake_case here; the seed script translates to camelCase before upsert.
+# The script writes documents with userId="will" + inputText (not captureText)
+# to match the admin eval runner's existing query contract.
 
 cases:
-  - capture_text: "Pick up dry cleaning tomorrow"
-    expected_destination: "errands"
-    expected_tool: "add_errand_items"
+  # ---- Task captures (8 cases) ----
 
-  - capture_text: "Buy milk and eggs at the grocery store"
-    expected_destination: "errands"
-    expected_tool: "add_errand_items"
-
-  - capture_text: "Schedule a dentist appointment for next week"
-    expected_destination: "tasks"
+  - capture_text: "Pay the electric bill before it is due next Friday"
+    expected_destination: "unrouted"
     expected_tool: "add_task_items"
 
-  - capture_text: "Renew driver license"
-    expected_destination: "tasks"
+  - capture_text: "pick up the dry cleaning Friday"
+    expected_destination: "unrouted"
     expected_tool: "add_task_items"
 
-  - capture_text: "Pick up prescription from pharmacy"
-    expected_destination: "errands"
-    expected_tool: "add_errand_items"
-
-  - capture_text: "Call insurance company about claim"
-    expected_destination: "tasks"
+  - capture_text: "Book the veterinarian appointment for the cats next Tuesday"
+    expected_destination: "unrouted"
     expected_tool: "add_task_items"
 
-  - capture_text: "Drop off package at UPS"
-    expected_destination: "errands"
-    expected_tool: "add_errand_items"
-
-  - capture_text: "Book flight for business trip"
-    expected_destination: "tasks"
+  - capture_text: "Call the dentist to schedule annual cleaning appointment"
+    expected_destination: "unrouted"
     expected_tool: "add_task_items"
 
-  - capture_text: "Get oil change for the car"
-    expected_destination: "errands"
-    expected_tool: "add_errand_items"
+  - capture_text: "Schedule annual physical checkup next month"
+    expected_destination: "unrouted"
+    expected_tool: "add_task_items"
+
+  - capture_text: "do your expenses"
+    expected_destination: "unrouted"
+    expected_tool: "add_task_items"
+
+  - capture_text: "remind me about the thing"
+    expected_destination: "unrouted"
+    expected_tool: "add_task_items"
 
   - capture_text: "Submit expense report by Friday"
-    expected_destination: "tasks"
+    expected_destination: "unrouted"
     expected_tool: "add_task_items"
 
-# Operator: replace these starter cases with real production captures before
-# running the seed script. The 10 cases above are placeholders -- they may not
-# match the actual destinations configured for this user. Confirm each
-# expected_destination string matches a real configured destination in
-# the user's affinity rules. Use `/investigate "show me admin destinations"`
-# to enumerate.
+  # ---- Errand captures (3 cases) ----
+
+  - capture_text: "apples and bread"
+    expected_destination: "jewel"
+    expected_tool: "add_errand_items"
+
+  - capture_text: "milk"
+    expected_destination: "jewel"
+    expected_tool: "add_errand_items"
+
+  - capture_text: "get the ingredients from the Best Chocolate Chip Cookies recipe"
+    expected_destination: "jewel"
+    expected_tool: "add_errand_items"

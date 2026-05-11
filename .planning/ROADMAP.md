@@ -475,6 +475,7 @@ Plans:
 - [x] 24-11-PLAN.md — Rewrite processing/admin_handoff.py + post-hoc tool detection + bounded retry (Wave 3, sequential 23.2)
 - [x] 24-12-PLAN.md — Introduce EvalAgentInvoker facade; route admin call through GA (Wave 3, sequential 23.2)
 - [x] 24-13-PLAN.md — Framework-fidelity auditor at end of 23.2 (Wave 3, checkpoint)
+- [x] 24-13.5-PLAN.md — Seed admin golden dataset + real pre-migration baseline (Wave 3, checkpoint, P1-7)
 - [ ] 24-14-PLAN.md — Promote classifier instructions + agent rewrite + main.py file_capture-only (Wave 4, sequential 23.3)
 - [ ] 24-15-PLAN.md — Strip @tool decorators from classification + transcription + voice direct call in api/capture.py (Wave 4, sequential 23.3)
 - [ ] 24-16-PLAN.md — Rewrite streaming/adapter.py: GA agent.run + delete safety net + forced_tool_failure SSE (Wave 4, sequential 23.3)
