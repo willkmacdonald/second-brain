@@ -43,7 +43,7 @@ from azure.keyvault.secrets.aio import SecretClient as KeyVaultSecretClient  # n
 from fastapi import FastAPI  # noqa: E402
 from openai import AsyncAzureOpenAI  # noqa: E402
 
-from second_brain.agents.admin import ensure_admin_agent  # noqa: E402
+from second_brain.agents.admin import build_admin_agent  # noqa: E402
 from second_brain.agents.agent_middleware.capture_trace import (  # noqa: E402
     CaptureTraceAgentMiddleware,
     CaptureTraceFunctionMiddleware,
@@ -620,49 +620,20 @@ async def lifespan(app: FastAPI):
             len(agent_tools),
         )
 
-        # --- Admin Agent Registration (non-fatal) ---
-        # Admin Agent is not required for core capture flow. If registration
-        # fails, log warning and continue -- Phase 11 will handle the
-        # capture-to-admin handoff and can check if admin_client is available.
+        # --- Admin Agent (non-fatal, GA pattern) ---
+        # Phase 24 task group 23.2: GA Agent constructed via build_admin_agent
+        # using the shared FoundryChatClient. Instructions live in repo (D-02).
+        # Capture-trace middleware tags framework spans at source (D-07a, P1-3).
+        # Admin Agent is not required for core capture flow; registration
+        # failure leaves admin features unavailable but app still starts.
         try:
-            admin_agent_id = await ensure_admin_agent(
-                foundry_client=foundry_client,
-                stored_agent_id=settings.azure_ai_admin_agent_id,
-            )
-            app.state.admin_agent_id = admin_agent_id
-
             # --- AdminTools (uses Cosmos for errand item writes) ---
             admin_tools = AdminTools(cosmos_manager=cosmos_mgr)
             app.state.admin_tools = admin_tools
 
-            # --- Admin AzureAIAgentClient (separate from Classifier) ---
-            admin_client = AzureAIAgentClient(
-                credential=credential,
-                project_endpoint=settings.azure_ai_project_endpoint,
-                agent_id=admin_agent_id,
-                should_cleanup_agent=False,
-                middleware=[
-                    AuditAgentMiddleware(agent_name="admin"),
-                    ToolTimingMiddleware(),
-                ],
-            )
-            app.state.admin_client = admin_client
-            app.state.admin_agent_tools = [
-                admin_tools.add_errand_items,
-                admin_tools.add_task_items,
-                admin_tools.get_routing_context,
-                admin_tools.manage_destination,
-                admin_tools.manage_affinity_rule,
-                admin_tools.query_rules,
-            ]
-
-            logger.info(
-                "Admin agent ready: id=%s tools=%d",
-                admin_agent_id,
-                len(app.state.admin_agent_tools),
-            )
-
-            # --- Playwright browser for recipe URL fetching ---
+            # --- Playwright browser for recipe URL fetching (sets recipe_tools) ---
+            # Must run BEFORE build_admin_agent so fetch_recipe_url is in the
+            # tools list passed to the Agent constructor.
             try:
                 pw = await async_playwright().start()
                 browser = await pw.chromium.launch(
@@ -682,7 +653,6 @@ async def lifespan(app: FastAPI):
                     spine_repo=getattr(app.state, "spine_repo", None),
                 )
                 app.state.recipe_tools = recipe_tools
-                app.state.admin_agent_tools.append(recipe_tools.fetch_recipe_url)
 
                 logger.info(
                     "Playwright browser started, fetch_recipe_url tool registered "
@@ -697,16 +667,52 @@ async def lifespan(app: FastAPI):
                 app.state.playwright = None
                 app.state.browser = None
                 app.state.recipe_tools = None
+                recipe_tools = None
+
+            # --- Build Admin Agent via GA factory ---
+            admin_agent_tools = [
+                admin_tools.add_errand_items,
+                admin_tools.add_task_items,
+                admin_tools.get_routing_context,
+                admin_tools.manage_destination,
+                admin_tools.manage_affinity_rule,
+                admin_tools.query_rules,
+            ]
+            if recipe_tools is not None:
+                admin_agent_tools.append(recipe_tools.fetch_recipe_url)
+
+            admin_agent = build_admin_agent(
+                chat_client=chat_client,
+                tools=admin_agent_tools,
+                middleware=[
+                    CaptureTraceAgentMiddleware(),
+                    CaptureTraceFunctionMiddleware(),
+                ],
+            )
+            app.state.admin_agent = admin_agent
+
+            # Mid-migration: RC client/agent_id attrs no longer set by Admin slice.
+            # Set to None so warmup loop's `if app.state.admin_client is not None`
+            # guard skips Admin (warmup migrates to GA in plan 24-19). Spine
+            # FoundryAgentAdapter for "admin" segment similarly skips while
+            # admin_agent_id is None.
+            app.state.admin_client = None
+            app.state.admin_agent_id = None
+
+            logger.info(
+                "Admin agent ready (GA): tools=%d middleware=2",
+                len(admin_agent_tools),
+            )
 
         except Exception:
             logger.warning(
                 "Admin agent registration failed -- admin features unavailable",
                 exc_info=True,
             )
+            app.state.admin_agent = None
             app.state.admin_agent_id = None
             app.state.admin_client = None
             app.state.admin_tools = None
-            app.state.admin_agent_tools = []
             app.state.playwright = None
             app.state.browser = None
             app.state.recipe_tools = None
