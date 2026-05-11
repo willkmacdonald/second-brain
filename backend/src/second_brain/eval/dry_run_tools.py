@@ -4,13 +4,19 @@ These classes mirror the production tool interfaces (ClassifierTools, AdminTools
 but capture predictions in memory instead of writing to Cosmos DB.  The Foundry
 agent matches tools by JSON schema, so parameter signatures (Annotated types,
 Field descriptions) MUST be byte-for-byte identical to the production versions.
+
+Phase 24 GA migration (F-08): tool methods are registered with the GA Agent
+constructor via ``Agent(tools=[instance.method, ...])`` at the eval call site
+(see ``eval/invoker.py`` GAEvalAgentInvoker). The RC tool-registration
+decorator has been removed; ``Annotated[..., Field(description=...)]``
+parameter shapes plus the method docstring continue to serve as the GA
+tool description payload.
 """
 
 from __future__ import annotations
 
 from typing import Annotated
 
-from agent_framework import tool
 from pydantic import Field
 
 
@@ -20,6 +26,10 @@ class EvalClassifierTools:
     Captures bucket, confidence, and status predictions without any Cosmos
     writes.  Use ``last_bucket`` / ``last_confidence`` / ``last_status``
     after the agent run to read the prediction.
+
+    Tool methods are decorator-free per Phase 24 D-05/D-06: registered via
+    ``Agent(tools=[instance.file_capture])`` rather than the RC tool-registration
+    decorator pattern.
     """
 
     def __init__(self) -> None:
@@ -27,7 +37,6 @@ class EvalClassifierTools:
         self.last_confidence: float | None = None
         self.last_status: str | None = None
 
-    @tool(approval_mode="never_require")
     async def file_capture(
         self,
         text: Annotated[str, Field(description="The original captured text to file")],
@@ -79,6 +88,11 @@ class DryRunAdminTools:
     of writing to Cosmos DB.  Use ``captured_destinations``,
     ``captured_items``, and ``captured_tasks`` after the agent run to read
     the predictions.
+
+    Tool methods are decorator-free per Phase 24 D-05/D-06: registered via
+    ``Agent(tools=[instance.add_errand_items, instance.add_task_items,
+    instance.get_routing_context])`` rather than the RC tool-registration
+    decorator pattern.
     """
 
     def __init__(self, routing_context: str) -> None:
@@ -87,7 +101,6 @@ class DryRunAdminTools:
         self.captured_items: list[dict] = []
         self.captured_tasks: list[dict] = []
 
-    @tool(approval_mode="never_require")
     async def add_errand_items(
         self,
         items: Annotated[
@@ -117,7 +130,6 @@ class DryRunAdminTools:
             self.captured_items.append(item)
         return f"[DRY RUN] Would add {len(items)} errand items"
 
-    @tool(approval_mode="never_require")
     async def add_task_items(
         self,
         tasks: Annotated[
@@ -140,7 +152,6 @@ class DryRunAdminTools:
         self.captured_tasks.extend(tasks)
         return f"[DRY RUN] Would add {len(tasks)} task items"
 
-    @tool(approval_mode="never_require")
     async def get_routing_context(self) -> str:
         """Load all destinations and affinity rules for routing decisions.
 
