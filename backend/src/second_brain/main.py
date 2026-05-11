@@ -732,6 +732,11 @@ async def lifespan(app: FastAPI):
                     cosmos_manager=app.state.cosmos_manager,
                     classifier_client=app.state.classifier_client,
                     admin_client=getattr(app.state, "admin_client", None),
+                    # Phase 24 plan 24-12: admin path is now GA via Agent
+                    # singleton; classifier path stays RC during migration
+                    # window. EvalAgentInvoker hybrid constructed in
+                    # InvestigationTools._build_eval_invoker().
+                    admin_agent=getattr(app.state, "admin_agent", None),
                 )
                 app.state.investigation_tools_instance = investigation_tools
 

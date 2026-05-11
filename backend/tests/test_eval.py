@@ -119,48 +119,49 @@ def _make_mock_cosmos(golden_items: list[dict]) -> MagicMock:
     return manager
 
 
-def _make_classifier_agent_mock(bucket_map: dict[str, tuple[str, float]]):
-    """Create a mock agent client whose get_response calls file_capture.
+def _make_classifier_invoker_mock(bucket_map: dict[str, tuple[str, float]]):
+    """Create a mock EvalAgentInvoker whose invoke_classifier calls file_capture.
+
+    Phase 24 plan 24-12: runner.py now takes an ``EvalAgentInvoker`` instead
+    of raw clients. The mock exposes ``invoke_classifier(input_text,
+    tools_instance)`` that drives the side-effect contract on
+    ``tools_instance.last_bucket`` / ``tools_instance.last_confidence``
+    by directly calling ``tools_instance.file_capture(...)``.
 
     bucket_map: maps input text to (bucket, confidence) pairs.
     """
-    mock_client = AsyncMock()
+    mock_invoker = AsyncMock()
 
-    async def fake_get_response(*, messages, options):
-        text = messages[0].text
-        bucket, confidence = bucket_map.get(text, ("Admin", 0.5))
-        tool_fn = options["tools"][0]
-        await tool_fn(
-            text=text,
+    async def fake_invoke_classifier(input_text, tools_instance):
+        bucket, confidence = bucket_map.get(input_text, ("Admin", 0.5))
+        await tools_instance.file_capture(
+            text=input_text,
             bucket=bucket,
             confidence=confidence,
             status="classified",
         )
-        return MagicMock()
 
-    mock_client.get_response = AsyncMock(side_effect=fake_get_response)
-    return mock_client
+    mock_invoker.invoke_classifier = AsyncMock(side_effect=fake_invoke_classifier)
+    return mock_invoker
 
 
-def _make_admin_agent_mock(dest_map: dict[str, str]):
-    """Create a mock agent client that calls add_errand_items.
+def _make_admin_invoker_mock(dest_map: dict[str, str]):
+    """Create a mock EvalAgentInvoker whose invoke_admin calls add_errand_items.
+
+    Phase 24 plan 24-12: see ``_make_classifier_invoker_mock`` docstring.
 
     dest_map: maps input text to destination string.
     """
-    mock_client = AsyncMock()
+    mock_invoker = AsyncMock()
 
-    async def fake_get_response(*, messages, options):
-        text = messages[0].text
-        destination = dest_map.get(text, "unrouted")
-        # Find add_errand_items tool (first tool in list)
-        add_errand_fn = options["tools"][0]
-        await add_errand_fn(
-            items=[{"name": text[:30], "destination": destination}],
+    async def fake_invoke_admin(input_text, tools_instance, routing_context):
+        destination = dest_map.get(input_text, "unrouted")
+        await tools_instance.add_errand_items(
+            items=[{"name": input_text[:30], "destination": destination}],
         )
-        return MagicMock()
 
-    mock_client.get_response = AsyncMock(side_effect=fake_get_response)
-    return mock_client
+    mock_invoker.invoke_admin = AsyncMock(side_effect=fake_invoke_admin)
+    return mock_invoker
 
 
 # ======================================================================
@@ -172,7 +173,7 @@ def _make_admin_agent_mock(dest_map: dict[str, str]):
 async def test_classifier_eval_produces_accuracy() -> None:
     """run_classifier_eval with 3 golden entries produces correct accuracy."""
     cosmos = _make_mock_cosmos(MIXED_GOLDEN)
-    agent = _make_classifier_agent_mock(
+    invoker = _make_classifier_invoker_mock(
         {
             "Buy groceries from the store": ("Admin", 0.95),
             "Talk to Sarah about the new project": ("People", 0.85),
@@ -184,7 +185,7 @@ async def test_classifier_eval_produces_accuracy() -> None:
     await run_classifier_eval(
         run_id="test-run-1",
         cosmos_manager=cosmos,
-        classifier_client=agent,
+        invoker=invoker,
         runs_dict=runs,
     )
 
@@ -199,13 +200,13 @@ async def test_classifier_eval_empty_dataset() -> None:
     """run_classifier_eval with no classifier cases fails gracefully."""
     # Only admin cases in golden dataset (no classifier-only entries)
     cosmos = _make_mock_cosmos(ADMIN_GOLDEN)
-    agent = AsyncMock()
+    invoker = AsyncMock()
     runs: dict = {}
 
     await run_classifier_eval(
         run_id="test-run-2",
         cosmos_manager=cosmos,
-        classifier_client=agent,
+        invoker=invoker,
         runs_dict=runs,
     )
 
@@ -217,7 +218,7 @@ async def test_classifier_eval_empty_dataset() -> None:
 async def test_classifier_eval_writes_to_cosmos() -> None:
     """run_classifier_eval writes EvalResultsDocument to EvalResults container."""
     cosmos = _make_mock_cosmos(MIXED_GOLDEN)
-    agent = _make_classifier_agent_mock(
+    invoker = _make_classifier_invoker_mock(
         {
             "Buy groceries from the store": ("Admin", 0.95),
             "Talk to Sarah about the new project": ("People", 0.85),
@@ -229,7 +230,7 @@ async def test_classifier_eval_writes_to_cosmos() -> None:
     await run_classifier_eval(
         run_id="test-run-3",
         cosmos_manager=cosmos,
-        classifier_client=agent,
+        invoker=invoker,
         runs_dict=runs,
     )
 
@@ -253,26 +254,24 @@ async def test_classifier_eval_updates_progress() -> None:
 
     original_runs: dict = {}
 
-    async def fake_get_response(*, messages, options):
+    async def fake_invoke_classifier(input_text, tools_instance):
         # Record progress at each call
         if "test-run-4" in original_runs:
             progress_snapshots.append(original_runs["test-run-4"].get("progress", ""))
-        tool_fn = options["tools"][0]
-        await tool_fn(
-            text=messages[0].text,
+        await tools_instance.file_capture(
+            text=input_text,
             bucket="Admin",
             confidence=0.9,
             status="classified",
         )
-        return MagicMock()
 
-    agent = AsyncMock()
-    agent.get_response = AsyncMock(side_effect=fake_get_response)
+    invoker = AsyncMock()
+    invoker.invoke_classifier = AsyncMock(side_effect=fake_invoke_classifier)
 
     await run_classifier_eval(
         run_id="test-run-4",
         cosmos_manager=cosmos,
-        classifier_client=agent,
+        invoker=invoker,
         runs_dict=original_runs,
     )
 
@@ -289,28 +288,26 @@ async def test_classifier_eval_handles_timeout() -> None:
     cosmos = _make_mock_cosmos(MIXED_GOLDEN)
     call_count = 0
 
-    async def fake_get_response(*, messages, options):
+    async def fake_invoke_classifier(input_text, tools_instance):
         nonlocal call_count
         call_count += 1
         if call_count == 2:
             raise TimeoutError("Agent timed out")
-        tool_fn = options["tools"][0]
-        await tool_fn(
-            text=messages[0].text,
+        await tools_instance.file_capture(
+            text=input_text,
             bucket="Admin",
             confidence=0.9,
             status="classified",
         )
-        return MagicMock()
 
-    agent = AsyncMock()
-    agent.get_response = AsyncMock(side_effect=fake_get_response)
+    invoker = AsyncMock()
+    invoker.invoke_classifier = AsyncMock(side_effect=fake_invoke_classifier)
     runs: dict = {}
 
     await run_classifier_eval(
         run_id="test-run-5",
         cosmos_manager=cosmos,
-        classifier_client=agent,
+        invoker=invoker,
         runs_dict=runs,
     )
 
@@ -331,13 +328,13 @@ async def test_classifier_eval_catches_toplevel_exception() -> None:
     golden_container.query_items.side_effect = RuntimeError("Cosmos is down")
     manager.get_container = MagicMock(return_value=golden_container)
 
-    agent = AsyncMock()
+    invoker = AsyncMock()
     runs: dict = {}
 
     await run_classifier_eval(
         run_id="test-run-6",
         cosmos_manager=manager,
-        classifier_client=agent,
+        invoker=invoker,
         runs_dict=runs,
     )
 
@@ -630,29 +627,27 @@ async def test_classifier_eval_retries_on_rate_limit() -> None:
 
     call_count = 0
 
-    async def fake_get_response(*, messages, options):
+    async def fake_invoke_classifier(input_text, tools_instance):
         nonlocal call_count
         call_count += 1
         if call_count <= 2:
             raise Exception(
                 "exceeded the token rate limit. Please retry after 1 seconds."
             )
-        tool_fn = options["tools"][0]
-        await tool_fn(
-            text=messages[0].text,
+        await tools_instance.file_capture(
+            text=input_text,
             bucket="Admin",
             confidence=0.9,
             status="classified",
         )
-        return MagicMock()
 
-    mock_client = AsyncMock()
-    mock_client.get_response = AsyncMock(side_effect=fake_get_response)
+    mock_invoker = AsyncMock()
+    mock_invoker.invoke_classifier = AsyncMock(side_effect=fake_invoke_classifier)
 
     await run_classifier_eval(
         run_id="retry-test",
         cosmos_manager=cosmos,
-        classifier_client=mock_client,
+        invoker=mock_invoker,
         runs_dict=runs,
     )
 
@@ -666,16 +661,16 @@ async def test_classifier_eval_exhausts_retries() -> None:
     cosmos = _make_mock_cosmos(MIXED_GOLDEN)
     runs: dict = {}
 
-    async def always_rate_limit(*, messages, options):
+    async def always_rate_limit(input_text, tools_instance):
         raise Exception("exceeded the token rate limit. Please retry after 0 seconds.")
 
-    mock_client = AsyncMock()
-    mock_client.get_response = AsyncMock(side_effect=always_rate_limit)
+    mock_invoker = AsyncMock()
+    mock_invoker.invoke_classifier = AsyncMock(side_effect=always_rate_limit)
 
     await run_classifier_eval(
         run_id="exhaust-test",
         cosmos_manager=cosmos,
-        classifier_client=mock_client,
+        invoker=mock_invoker,
         runs_dict=runs,
     )
 

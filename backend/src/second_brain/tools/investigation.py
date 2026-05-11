@@ -101,12 +101,48 @@ class InvestigationTools:
         cosmos_manager: CosmosManager | None = None,
         classifier_client: Any = None,
         admin_client: Any = None,
+        admin_agent: Any = None,
     ) -> None:
         self._logs_client = logs_client
         self._workspace_id = workspace_id
         self._cosmos_manager = cosmos_manager
         self._classifier_client = classifier_client
         self._admin_client = admin_client
+        # Phase 24 plan 24-12: admin path is GA (Agent), classifier path
+        # is still RC (AzureAIAgentClient) during the 23.2-23.3 migration
+        # window. After plan 24-18 admin_client is removed and a single
+        # GAEvalAgentInvoker replaces the hybrid.
+        self._admin_agent = admin_agent
+
+    def _build_eval_invoker(self) -> Any:
+        """Construct the migration-window hybrid eval invoker.
+
+        Routes invoke_classifier -> RCEvalAgentInvoker (classifier still RC
+        until plans 24-13..24-17) and invoke_admin -> GAEvalAgentInvoker
+        (admin migrated to GA in plans 24-09..24-11).
+
+        Deletion trigger: plan 24-18 (cleanup commit) when both agents are
+        GA and a plain ``GAEvalAgentInvoker`` replaces this helper.
+        """
+        # Local imports keep the migration-temporary symbols out of the
+        # module-level surface during the migration window; auto-format
+        # is also less likely to strip them mid-edit. Module-level imports
+        # land in the same plan, below.
+        from second_brain.eval.invoker import (
+            GAEvalAgentInvoker,
+            RCEvalAgentInvoker,
+            _MigrationHybridInvoker,
+        )
+
+        rc_invoker = RCEvalAgentInvoker(
+            classifier_client=self._classifier_client,
+            admin_client=None,  # admin path uses GA invoker below
+        )
+        ga_invoker = GAEvalAgentInvoker(
+            classifier_agent=None,  # classifier path uses RC invoker above
+            admin_agent=self._admin_agent,
+        )
+        return _MigrationHybridInvoker(rc_invoker=rc_invoker, ga_invoker=ga_invoker)
 
     # ------------------------------------------------------------------
     # Tool 1: trace_lifecycle
@@ -625,11 +661,12 @@ class InvestigationTools:
                 "eval_type": "classifier",
                 "started_at": datetime.now(UTC).isoformat(),
             }
+            invoker = self._build_eval_invoker()
             asyncio.create_task(
                 _run_classifier_eval(
                     run_id=run_id,
                     cosmos_manager=self._cosmos_manager,
-                    classifier_client=self._classifier_client,
+                    invoker=invoker,
                     runs_dict=_eval_runs,
                 )
             )
@@ -678,8 +715,8 @@ class InvestigationTools:
         logger.info("run_admin_eval called", extra=log_extra)
 
         try:
-            if self._admin_client is None:
-                return json.dumps({"error": "Admin client not available"})
+            if self._admin_agent is None and self._admin_client is None:
+                return json.dumps({"error": "Admin agent not available"})
             if self._cosmos_manager is None:
                 return json.dumps({"error": "Cosmos not configured"})
 
@@ -703,11 +740,12 @@ class InvestigationTools:
                 "eval_type": "admin_agent",
                 "started_at": datetime.now(UTC).isoformat(),
             }
+            invoker = self._build_eval_invoker()
             asyncio.create_task(
                 _run_admin_eval(
                     run_id=run_id,
                     cosmos_manager=self._cosmos_manager,
-                    admin_client=self._admin_client,
+                    invoker=invoker,
                     routing_context=routing_context,
                     runs_dict=_eval_runs,
                 )

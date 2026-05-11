@@ -7,6 +7,19 @@ in-memory for status polling.
 
 Each eval case runs in a fresh tool instance with no state leakage (Pitfall #2).
 Agent calls have a 60-second timeout per case (Pitfall #5 / T-21-05).
+
+Phase 24 task group 23.2 (plan 24-12, GA migration):
+- Agent invocation is now indirected through ``EvalAgentInvoker`` so the
+  runner stays agnostic of RC vs. GA call shapes during the migration
+  window. See ``second_brain.eval.invoker`` for the Protocol + the two
+  concrete implementations (RC for classifier until 24-13..24-17, GA for
+  admin after 24-09..24-11).
+- The caller (api/eval.py or tools/investigation.py) constructs a
+  ``_MigrationHybridInvoker(rc_invoker=..., ga_invoker=...)`` and passes
+  that single hybrid as the ``invoker`` argument. Plan 24-18 deletes the
+  hybrid + RC class together once the classifier is GA.
+- The runner does NOT import ``_MigrationHybridInvoker`` directly; it
+  only types the parameter as the Protocol.
 """
 
 from __future__ import annotations
@@ -18,9 +31,8 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from agent_framework import ChatOptions, Message
-
 from second_brain.eval.dry_run_tools import DryRunAdminTools, EvalClassifierTools
+from second_brain.eval.invoker import EvalAgentInvoker
 from second_brain.eval.metrics import (
     compute_admin_metrics,
     compute_classifier_metrics,
@@ -29,8 +41,6 @@ from second_brain.eval.metrics import (
 from second_brain.models.documents import EvalResultsDocument
 
 if TYPE_CHECKING:
-    from agent_framework.azure import AzureAIAgentClient
-
     from second_brain.db.cosmos import CosmosManager
 
 logger = logging.getLogger(__name__)
@@ -82,20 +92,23 @@ async def _call_with_retry(
 async def run_classifier_eval(
     run_id: str,
     cosmos_manager: CosmosManager,
-    classifier_client: AzureAIAgentClient,
+    invoker: EvalAgentInvoker,
     runs_dict: dict,
 ) -> None:
     """Run classifier evaluation against golden dataset.
 
     Reads classifier test cases from GoldenDataset container, sends each
-    through the real Foundry Classifier agent with dry-run tools, computes
-    accuracy/precision/recall/calibration metrics, persists results, and
-    updates run status.
+    through the real Foundry Classifier agent (via ``invoker``) with
+    dry-run tools, computes accuracy/precision/recall/calibration metrics,
+    persists results, and updates run status.
 
     Args:
         run_id: Unique identifier for this eval run.
         cosmos_manager: Cosmos DB manager for reading/writing containers.
-        classifier_client: AzureAIAgentClient for the Classifier agent.
+        invoker: ``EvalAgentInvoker`` implementation. During plan 24-12's
+            migration window, callers construct a ``_MigrationHybridInvoker``
+            that routes invoke_classifier -> RCEvalAgentInvoker. After plan
+            24-18 this becomes a plain ``GAEvalAgentInvoker``.
         runs_dict: In-memory dict for tracking run status/progress.
     """
     try:
@@ -130,18 +143,9 @@ async def run_classifier_eval(
                 # Fresh tool instance per case -- no state leakage (Pitfall #2)
                 eval_tools = EvalClassifierTools()
 
-                messages = [Message(role="user", text=case["inputText"])]
-                options = ChatOptions(
-                    tools=[eval_tools.file_capture],
-                    tool_choice={
-                        "mode": "required",
-                        "required_function_name": "file_capture",
-                    },
-                )
-
                 await _call_with_retry(
-                    lambda m=messages, o=options: classifier_client.get_response(
-                        messages=m, options=o
+                    lambda et=eval_tools, txt=case["inputText"]: (
+                        invoker.invoke_classifier(txt, et)
                     ),
                     run_id=run_id,
                     case_index=i,
@@ -226,21 +230,26 @@ async def run_classifier_eval(
 async def run_admin_eval(
     run_id: str,
     cosmos_manager: CosmosManager,
-    admin_client: AzureAIAgentClient,
+    invoker: EvalAgentInvoker,
     routing_context: str,
     runs_dict: dict,
 ) -> None:
     """Run admin agent evaluation against golden dataset.
 
     Reads admin test cases from GoldenDataset container, sends each through
-    the real Foundry Admin agent with dry-run tools, computes routing
-    accuracy metrics, persists results, and updates run status.
+    the real Foundry Admin agent (via ``invoker``) with dry-run tools,
+    computes routing accuracy metrics, persists results, and updates run
+    status.
 
     Args:
         run_id: Unique identifier for this eval run.
         cosmos_manager: Cosmos DB manager for reading/writing containers.
-        admin_client: AzureAIAgentClient for the Admin agent.
-        routing_context: Pre-built routing context string for DryRunAdminTools.
+        invoker: ``EvalAgentInvoker`` implementation. During plan 24-12's
+            migration window, callers construct a ``_MigrationHybridInvoker``
+            that routes invoke_admin -> GAEvalAgentInvoker. After plan
+            24-18 this becomes a plain ``GAEvalAgentInvoker``.
+        routing_context: Pre-built routing context string for
+            ``DryRunAdminTools`` and passed into ``invoker.invoke_admin``.
         runs_dict: In-memory dict for tracking run status/progress.
     """
     try:
@@ -274,19 +283,11 @@ async def run_admin_eval(
             try:
                 # Fresh tool instance per case -- no state leakage (Pitfall #2)
                 dry_run_tools = DryRunAdminTools(routing_context=routing_context)
-
-                messages = [Message(role="user", text=case["inputText"])]
-                options = ChatOptions(
-                    tools=[
-                        dry_run_tools.add_errand_items,
-                        dry_run_tools.add_task_items,
-                        dry_run_tools.get_routing_context,
-                    ],
-                )
+                input_text = case["inputText"]
 
                 await _call_with_retry(
-                    lambda m=messages, o=options: admin_client.get_response(
-                        messages=m, options=o
+                    lambda dt=dry_run_tools, txt=input_text, rc=routing_context: (
+                        invoker.invoke_admin(txt, dt, rc)
                     ),
                     run_id=run_id,
                     case_index=i,
