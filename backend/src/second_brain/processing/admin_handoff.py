@@ -11,8 +11,7 @@ import asyncio
 import logging
 import time
 
-from agent_framework import ChatOptions, Message
-from agent_framework.azure import AzureAIAgentClient
+from agent_framework import Agent, ChatOptions
 from azure.cosmos.exceptions import CosmosResourceNotFoundError
 from opentelemetry import trace
 
@@ -138,7 +137,7 @@ async def _mark_inbox_failed(
 
 
 async def process_admin_capture(
-    admin_client: AzureAIAgentClient,
+    admin_agent: Agent,
     admin_tools: list,
     cosmos_manager: CosmosManager,
     inbox_item_id: str,
@@ -161,9 +160,10 @@ async def process_admin_capture(
     it never raises (all exceptions are caught and logged).
 
     Args:
-        admin_client: AzureAIAgentClient configured for the Admin Agent.
-        admin_tools: List of tool functions
-            (e.g., [admin_tools.add_errand_items]).
+        admin_agent: GA Agent configured for the Admin Agent (tools pre-registered).
+        admin_tools: List of tool functions retained for invocation-count
+            snapshots during the migration window (Task 2 swaps these for
+            post-hoc response.messages walking).
         cosmos_manager: CosmosManager for inbox status updates.
         inbox_item_id: The Cosmos inbox document ID to update after processing.
         raw_text: The user's original capture text to send to the Admin Agent.
@@ -231,16 +231,14 @@ async def process_admin_capture(
                 )
                 enriched_text = raw_text
 
-            messages = [Message(role="user", text=enriched_text)]
-            options = ChatOptions(tools=admin_tools)
-
             # Snapshot tool invocation counts before calling the agent
             pre_count = _count_tool_invocations(admin_tools)
             pre_output_count = _count_output_tool_invocations(admin_tools)
 
             async with asyncio.timeout(60):
-                response = await admin_client.get_response(
-                    messages=messages, options=options
+                response = await admin_agent.run(
+                    enriched_text,
+                    options=ChatOptions(tool_choice="required"),
                 )
 
             # Check whether the agent produced output (errands or tasks)
@@ -292,13 +290,13 @@ async def process_admin_capture(
                     f"tool.\n\n"
                     f"Your previous response was:\n{response_text}"
                 )
-                retry_messages = [Message(role="user", text=retry_prompt)]
 
                 pre_output_count_2 = _count_output_tool_invocations(admin_tools)
 
                 async with asyncio.timeout(60):
-                    response = await admin_client.get_response(
-                        messages=retry_messages, options=options
+                    response = await admin_agent.run(
+                        retry_prompt,
+                        options=ChatOptions(tool_choice="required"),
                     )
 
                 post_output_count_2 = _count_output_tool_invocations(admin_tools)
@@ -415,7 +413,7 @@ async def process_admin_capture(
 
 
 async def process_admin_captures_batch(
-    admin_client: AzureAIAgentClient,
+    admin_agent: Agent,
     admin_tools: list,
     cosmos_manager: CosmosManager,
     admin_items: list[dict],
@@ -431,8 +429,10 @@ async def process_admin_captures_batch(
     it never raises (all exceptions are caught internally by process_admin_capture).
 
     Args:
-        admin_client: AzureAIAgentClient configured for the Admin Agent.
-        admin_tools: List of tool functions for the Admin Agent.
+        admin_agent: GA Agent configured for the Admin Agent (tools pre-registered).
+        admin_tools: List of tool functions retained for invocation-count
+            snapshots during the migration window (Task 2 swaps these for
+            post-hoc response.messages walking).
         cosmos_manager: CosmosManager for inbox status updates.
         admin_items: List of dicts with "inbox_item_id" and "raw_text" keys.
         capture_trace_id: Trace ID from the originating capture.
@@ -444,7 +444,7 @@ async def process_admin_captures_batch(
         for item in admin_items:
             item_trace_id = item.get("capture_trace_id", "") or capture_trace_id
             await process_admin_capture(
-                admin_client=admin_client,
+                admin_agent=admin_agent,
                 admin_tools=admin_tools,
                 cosmos_manager=cosmos_manager,
                 inbox_item_id=item["inbox_item_id"],

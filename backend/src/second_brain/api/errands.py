@@ -169,8 +169,8 @@ async def get_errands(request: Request) -> ErrandsResponse:
     # Side effect: trigger Admin Agent processing for unprocessed items
     processing_count = 0
     try:
-        admin_client = getattr(request.app.state, "admin_client", None)
-        if admin_client is not None:
+        admin_agent = getattr(request.app.state, "admin_agent", None)
+        if admin_agent is not None:
             inbox_container = cosmos_manager.get_container("Inbox")
             query = (
                 "SELECT c.id, c.rawText, c.captureTraceId FROM c "
@@ -217,7 +217,7 @@ async def get_errands(request: Request) -> ErrandsResponse:
                 if len(new_items) == 1:
                     task = asyncio.create_task(
                         process_admin_capture(
-                            admin_client=admin_client,
+                            admin_agent=admin_agent,
                             admin_tools=admin_tools,
                             cosmos_manager=cosmos_manager,
                             inbox_item_id=new_items[0]["id"],
@@ -229,7 +229,7 @@ async def get_errands(request: Request) -> ErrandsResponse:
                 else:
                     task = asyncio.create_task(
                         process_admin_captures_batch(
-                            admin_client=admin_client,
+                            admin_agent=admin_agent,
                             admin_tools=admin_tools,
                             cosmos_manager=cosmos_manager,
                             admin_items=[
