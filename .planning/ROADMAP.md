@@ -483,7 +483,7 @@ Plans:
 - [x] 24-18-PLAN.md — Delete agents/middleware.py + RCEvalAgentInvoker + add forced_tool_failure KQL (Wave 4, sequential 23.3)
 - [x] 24-19-PLAN.md — Rewrite warmup.py + main.py warmup factories; remove last RC import (Wave 4, sequential 23.3)
 - [ ] 24-20-PLAN.md — Cumulative framework-fidelity audit + pre-deploy gates (tests/replays/eval/auth/RBAC/backfill) (Wave 5, checkpoint)
-- [ ] 24-21-PLAN.md — Final config.py cleanup: remove azure_ai_*_agent_id orphan settings (Wave 5, sequential)
+- [x] 24-21-PLAN.md — Final config.py cleanup: remove azure_ai_*_agent_id orphan settings (Wave 5, sequential)
 - [ ] 24-22-PLAN.md — Step A env vars + unguard + git push origin main (Step B) (Wave 6, checkpoint)
 - [ ] 24-23-PLAN.md — Day-after UAT + Step C orphan env-var removal + 7-day forced_tool_failure tracking (Wave 7, checkpoint)
 
