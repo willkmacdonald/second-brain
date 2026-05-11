@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Observability & Evals
 status: executing
-stopped_at: Completed 24-11-PLAN.md
-last_updated: "2026-05-11T02:05:01.069Z"
+stopped_at: Completed 24-12-PLAN.md
+last_updated: "2026-05-11T02:26:48.822Z"
 last_activity: 2026-05-11
 progress:
   total_phases: 18
   completed_phases: 14
   total_plans: 81
-  completed_plans: 65
-  percent: 80
+  completed_plans: 66
+  percent: 81
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 ## Current Position
 
 Phase: 24 (foundry-ga-migration) — EXECUTING
-Plan: 4 of 26
+Plan: 5 of 26
 Status: Ready to execute
 Last activity: 2026-05-11
 
-Progress: [████████░░] 80%
+Progress: [████████░░] 81%
 
 ## Performance Metrics
 
@@ -204,6 +204,12 @@ v3.0 decisions archived to .planning/milestones/v3.0-ROADMAP.md
 - [24-11]: _output_tool_called(response) -> tuple[bool, set[str]] walks response.messages for role='tool' entries and reads Content.name or Content.function_name per probe 2 (tool_call_extraction.json). Now the canonical pattern for any Agent.run() call site needing to know which tools fired; 24-12 (EvalAgentInvoker) and 24-13 (admin eval runner) inherit this shape.
 - [24-11]: D-07 EXPLICIT JUSTIFICATION block recorded inline once above the initial agent.run() call per CONTEXT D-11; back-reference comment above the retry call (D-09 + same D-07 reasoning) avoids duplication. Deletion trigger pinned: when 'mode' dict schema documented OR Foundry adds tool_choice subset pinning.
 - [24-11]: Test rewrite landed in same commit as Task 2 (not separate test-only commit) so every commit is individually green for tests/test_admin_handoff.py — plan's Task 2 acceptance gate requires pytest -x exit 0.
+- [24-12]: EvalAgentInvoker Protocol facade introduced with 4 classes (Protocol + RC + GA + _MigrationHybridInvoker). Hybrid lives in eval/invoker.py per N-5 lock-in, NOT in eval/runner.py. Runner takes single invoker: Protocol parameter; call-site (api/eval.py + tools/investigation.py) constructs the hybrid. Single deletion target in plan 24-18.
+- [24-12]: RC-only types (Message, ChatOptions with tool_choice dict) imported INSIDE RCEvalAgentInvoker method bodies (local imports). Module-level invoker.py only imports ChatOptions used by GAEvalAgentInvoker. Minimises RC-dependency footprint.
+- [24-12]: GAEvalAgentInvoker passes tools per-call via agent.run(tools=[...]) rather than constructing per-case Agents. Per probe tool_call_extraction.json this is supported. Per-case tools (EvalClassifierTools / DryRunAdminTools) hold case-scoped state -- cannot be lifespan-registered.
+- [24-12]: Admin path uses default tool_choice (auto) -- matches pre-migration admin contract per EVAL-INVENTORY call site 2 behavior. Only classifier path forces tool_choice='required' (single tool registered).
+- [24-12]: generate_app_mediated_dataset constructs EvalClassifierTools / DryRunAdminTools instances per case INTERNALLY (not via the existing classifier_tools / admin_tools parameter pair). The tool_calls JSONL rows are synthesised from side-effect state (last_bucket, captured_items, captured_tasks) post-invocation.
+- [24-12]: Auto-format-safe pattern for migration-temporary symbols: imports of RCEvalAgentInvoker / GAEvalAgentInvoker / _MigrationHybridInvoker placed INSIDE _build_eval_invoker() helper method body (local imports), not at module-level. Ruff cannot strip them mid-edit since usage is in the same code block. Pattern repeatable for any future RC-bridge code.
 
 ### Pending Todos
 
@@ -235,8 +241,8 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-05-11T02:04:26.382Z
-Stopped at: Completed 24-11-PLAN.md
+Last session: 2026-05-11T02:26:34.055Z
+Stopped at: Completed 24-12-PLAN.md
 Resume action: Continue Phase 23 (next plan: 23-05, depends on 23-02 probe findings)
 
 **Planned Phase:** 24 (foundry-ga-migration) — 23 plans — 2026-05-10T03:08:32.888Z
