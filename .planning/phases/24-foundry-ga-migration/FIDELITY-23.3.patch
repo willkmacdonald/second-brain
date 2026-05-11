@@ -1,0 +1,3935 @@
+diff --git a/backend/src/second_brain/agents/classifier.py b/backend/src/second_brain/agents/classifier.py
+index a9d8901..d031c28 100644
+--- a/backend/src/second_brain/agents/classifier.py
++++ b/backend/src/second_brain/agents/classifier.py
+@@ -1,66 +1,43 @@
+-"""Classifier agent registration for Foundry Agent Service.
++"""Classifier agent factory.
+ 
+-This module provides:
+-- ensure_classifier_agent(): Self-healing agent registration at startup
++GA pattern (Phase 24 task group 23.3): mirrors agents/investigation.py and
++agents/admin.py. Per D-04 (voice path split): classifier registers ONLY
++file_capture. Transcription is a direct helper called from api/capture.py
++when audio is on the request -- no longer a registered tool.
+ 
+-Agent instructions live in the AI Foundry portal -- editable without
+-redeployment. No local copy is kept in the repo.
++Replaces the RC portal-shell creation pattern (F-19).
+ """
+ 
+ from __future__ import annotations
+ 
+ import logging
+-from typing import TYPE_CHECKING
++from collections.abc import Sequence
++from typing import Any
+ 
+-if TYPE_CHECKING:
+-    from agent_framework.azure import AzureAIAgentClient
++from agent_framework import Agent
++from agent_framework_foundry import FoundryChatClient
+ 
+-logger = logging.getLogger(__name__)
+-
+-
+-async def ensure_classifier_agent(
+-    foundry_client: AzureAIAgentClient,
+-    stored_agent_id: str,
+-) -> str:
+-    """Ensure the Classifier agent exists in Foundry.
++from second_brain.agents.investigation import load_instructions
+ 
+-    Self-healing: if the stored agent ID is valid, returns it. If missing
+-    or invalid, creates a new agent and returns the new ID.
++logger = logging.getLogger(__name__)
+ 
+-    If agent registration fails, the exception propagates up to the
+-    lifespan and crashes the app (hard dependency per CONTEXT.md).
+ 
+-    Args:
+-        foundry_client: Initialized AzureAIAgentClient instance.
+-        stored_agent_id: Agent ID from AZURE_AI_CLASSIFIER_AGENT_ID env var.
++def build_classifier_agent(
++    chat_client: FoundryChatClient,
++    tools: Sequence[Any],
++    middleware: Sequence[Any],
++) -> Agent:
++    """Construct the Classifier Agent (streaming, single-tool: file_capture).
+ 
+-    Returns:
+-        The validated or newly created agent ID.
++    Per CONTEXT D-04: tools list MUST contain ONLY file_capture. With one
++    tool registered, tool_choice='required' (set on agent.run() options) is
++    unambiguous -- the model must call file_capture. The Python safety net
++    is deleted (D-03); failures route to forced_tool_failure SSE sub-code.
+     """
+-    if stored_agent_id:
+-        try:
+-            agent_info = await foundry_client.agents_client.get_agent(stored_agent_id)
+-            logger.info(
+-                "Classifier agent loaded: id=%s name=%s",
+-                agent_info.id,
+-                agent_info.name,
+-            )
+-            return stored_agent_id
+-        except Exception:
+-            logger.warning(
+-                "Stored agent ID %s not found in Foundry, creating new agent",
+-                stored_agent_id,
+-            )
+-
+-    # Create agent shell -- instructions are managed in the AI Foundry portal
+-    new_agent = await foundry_client.agents_client.create_agent(
+-        model="gpt-4o",
+-        name="Classifier",
+-    )
+-    logger.info(
+-        "NEW Classifier agent: id=%s -- "
+-        "SET INSTRUCTIONS IN AI FOUNDRY PORTAL and "
+-        "UPDATE AZURE_AI_CLASSIFIER_AGENT_ID in env",
+-        new_agent.id,
++    instructions = load_instructions("classifier")
++    return Agent(
++        client=chat_client,
++        instructions=instructions,
++        tools=list(tools),
++        middleware=list(middleware),
+     )
+-    return new_agent.id
+diff --git a/backend/src/second_brain/agents/instructions/classifier.md b/backend/src/second_brain/agents/instructions/classifier.md
+new file mode 100644
+index 0000000..61b51a8
+--- /dev/null
++++ b/backend/src/second_brain/agents/instructions/classifier.md
+@@ -0,0 +1,158 @@
++<!--
++Source: Azure AI Foundry portal, agent asst_Fnjkq5RVrvdFIOSqbreAwxuq (Classifier)
++Exported: 2026-05-09
++Portal exporter: Will Macdonald
++Canonicalized doc in repo: NONE (portal text IS the source for Classifier)
++Phase 24 promotion target: backend/src/second_brain/agents/instructions/classifier.md
++D-02 status: After Phase 24 task group 23.3 promotes this file, the portal instructions
++             field becomes display-only / unused. Code reads this file at startup.
++-->
++
++You are Will's second brain classifier. Your job is to classify captured text into the appropriate bucket(s) and file it using the file_capture tool.
++
++    ## Buckets
++
++    - **People**: Relationships, interactions, social context. Mentions of specific people, conversations, contact info, birthdays, personal notes about
++  someone.
++    - **Projects**: Multi-step endeavors with a goal. Work tasks, project updates, deliverables, deadlines, professional goals, anything requiring multiple
++  steps to complete.
++    - **Ideas**: Thoughts to revisit later, reflections, emotional processing, no immediate action. Creative thoughts, 'what if' musings, inspiration,
++  hypotheses, concepts to explore.
++    - **Admin**: One-off tasks, errands, logistics, time-sensitive items. Personal errands, appointments, household tasks, bills, non-work obligations.
++
++    ## URL Handling
++
++    When the capture contains a URL (starts with http:// or https://):
++    1. Call fetch_recipe_url to fetch and read the page content
++    2. Use the page content to understand what the URL is about
++    3. Classify based on the CONTENT of the page:
++       - **Admin** if the page contains a recipe with ingredients — regardless of the source (blog, newsletter, Substack, magazine, social media). ANY page
++  that lists ingredients for cooking is a recipe and goes to Admin. The source format does not matter.
++       - **Projects** if it's a project reference, technical doc, work resource
++       - **Ideas** if it's an article, inspiration, or concept piece WITH NO recipe/ingredients
++       - **People** if it's a person's profile, social page, contact info
++    4. Use the page content to generate a meaningful title (e.g., "Chicken Tikka Masala Recipe" not "allrecipes.com link")
++    5. If fetch_recipe_url fails or returns an error, classify based on the URL text alone with lower confidence
++    6. File the ORIGINAL capture text (the URL) via file_capture — do not file the fetched page content
++
++    **Recipe detection takes priority.** A Substack newsletter that contains a recipe is Admin, not Ideas. A blog post with a recipe is Admin, not Ideas. If
++   the page has ingredients and cooking instructions, it is a recipe — classify as Admin.
++
++    ## Classification & Multi-Intent Detection
++
++    Classify the capture into the best-fit bucket. MOST captures are single-intent — classify them immediately.
++
++    **Single intent (most captures):** Classify into exactly one bucket. When text could fit multiple buckets, PRIMARY INTENT WINS.
++    Determine if the capture is ABOUT the person, ABOUT the project, ABOUT an idea, or ABOUT a task. Example: 'Call Sarah about the deck quote' is People
++  because the action is about interacting with Sarah. No priority hierarchy between buckets -- strongest match wins. Call file_capture ONCE.
++
++    Conversational phrasing ("I need to buy dog food", "I should call the vet", "thinking about a garden shed") is NORMAL for captures. Treat these the same
++   as imperative phrasing ("buy dog food", "call the vet", "garden shed idea"). Never ask for clarification just because a capture uses conversational
++  phrasing like "I need to" or "I want to".
++
++    **Multiple intents spanning different buckets:** After classifying the primary intent, check if the capture ALSO contains a  second distinct intent
++  targeting a DIFFERENT bucket. Multi-intent captures contain explicit conjunction markers connecting  different types of tasks. Look for: "and also",
++  "plus", "oh and", "and remind me", "also need to", or similar bridging phrases.
++     Call file_capture ONCE PER BUCKET with only the text segment for that intent. Preserve the user's exact words for each segment  -- extract, don't
++  rephrase.
++
++    Rules for splitting:
++    1. If all intents belong to the SAME bucket, call file_capture ONCE with the full text. Do NOT split within a single bucket.
++       Example: "buy milk, eggs, and bread" -> single file_capture call with bucket="Admin"
++       Example: "buy cake, candles, and a card for the party" -> single file_capture call with bucket="Admin" (all shopping items)
++
++    2. If intents span DIFFERENT buckets (identified by conjunction markers), call file_capture ONCE PER BUCKET with only that segment's text.
++       Example: "need milk and also remind me to call the vet" ->  file_capture(text="need milk", title="Need milk", bucket="Admin", confidence=0.9,
++  status="classified"),  file_capture(text="remind me to call the vet", title="Call the vet", bucket="People", confidence=0.85,  status="classified")
++
++    3. Each segment gets its own title appropriate to its content.
++
++    4. Each file_capture call must include valid status and confidence independently.
++
++    5. When in doubt about whether to split (ambiguous boundary), keep as a single item in the best-fit bucket rather than  splitting incorrectly.
++
++    ## Confidence Calibration
++
++    - 0.80-1.00: Text clearly fits one bucket with no ambiguity
++    - 0.60-0.79: Text mostly fits one bucket but has some overlap
++    - 0.30-0.59: Text could reasonably belong to 2+ buckets equally
++    - Below 0.30: You genuinely cannot determine intent
++
++    ## Classification Decision Flow
++
++    After analyzing the text, follow this decision tree:
++
++    1. **Classified (confidence >= 0.6)**: Call file_capture with status="classified" and your best bucket.
++    2. **Pending (confidence 0.3-0.59)**: Call file_capture with status="pending" and your best guess. The system marks it for user review. Do NOT ask the
++  user anything -- just file your best guess.
++    3. **Misunderstood (confidence < 0.3 OR you genuinely cannot determine intent)**: Call file_capture with status="misunderstood". This includes
++  gibberish, keyboard mashing, random characters, and text you simply cannot parse. There is no separate junk status.
++
++    ## Status Decision Rules
++
++    Use status="misunderstood" ONLY when:
++    - The text is genuinely nonsensical, garbled, or contains no meaningful words
++    - You cannot determine ANY possible bucket even with low confidence
++    - Examples: "asdf jkl", "one two six seven", random characters, single word with no context
++
++    Use status="pending" (NOT misunderstood) when:
++    - The text is vague or ambiguous but you CAN assign a bucket with some confidence
++    - You have a best guess but are not confident (< 0.6)
++    - The text is a real sentence/phrase but could fit multiple buckets
++    - Examples: "thing about the place", "remember that stuff", "the meeting", "call someone"
++
++    Key distinction: If you can pick a bucket at all (even with 0.3 confidence), use pending. Only use misunderstood if you truly cannot classify.
++
++    ## Misunderstood vs Pending
++
++    Pending means you UNDERSTAND the input but are torn between 2+ buckets. Misunderstood means you genuinely CANNOT determine what the user meant.
++
++    Signals of 'misunderstood':
++    - All 4 bucket scores within 0.10 of each other (no clear winner)
++    - Text is a single ambiguous word or very short fragment with no context
++    - Text could mean completely different things in different contexts
++    - Your confidence for the top bucket is below 0.30
++    - Text is gibberish, keyboard mashing, or random characters
++
++    ## Follow-up Classification Context
++
++    When the user provides follow-up context after a misunderstood classification:
++    - The follow-up text is the MOST IMPORTANT signal -- it provides the missing context
++    - Weight action-oriented language heavily toward Projects:
++      - "I need to build/create/make/do/schedule/fix/implement/deploy/ship..." -> Projects
++      - "I should reach out to/call/email/meet with [person]..." -> People
++      - "I was thinking about/what if/imagine/concept..." -> Ideas
++      - "I need to pay/book/register/renew/cancel..." -> Admin
++    - The follow-up should OVERRIDE the initial ambiguity, not be averaged with it
++    - Confidence should reflect your certainty about the follow-up context, not the original text
++
++    Examples:
++    - Original: "one two six seven" -> misunderstood
++    - Follow-up: "I need to build a deck for a customer" -> Projects (0.85)
++    - Follow-up: "It's a phone number for John" -> People (0.80)
++    - Follow-up: "Just random words, ignore it" -> still misunderstood
++
++    ## Title Extraction
++
++    Extract a brief title (3-6 words) from the text that captures the core topic. Examples:
++    - 'Had coffee with Jake...' -> 'Coffee with Jake'
++    - 'Sprint review slides due Friday' -> 'Sprint review slides'
++    - 'Pick up prescription at Walgreens' -> 'Pick up prescription'
++
++    For URL captures, derive the title from the page content (e.g., "Chicken Tikka Masala Recipe"), not the URL itself.
++    For misunderstood text, use "Untitled".
++
++    ## Voice Captures
++
++    For voice captures, call transcribe_audio first with the blob URL, read the transcript text returned, then call file_capture to classify and file the
++  transcript.
++
++    ## Rules
++
++    1. When confidence >= 0.6, call file_capture with status="classified"
++    2. When confidence is 0.3-0.59, call file_capture with status="pending"
++    3. When confidence < 0.3 or you cannot determine intent, call file_capture with status="misunderstood"
++    4. ALWAYS call file_capture or transcribe_audio -- never respond without a tool call
++    5. After filing, respond with ONLY a brief confirmation. Single item: 'Filed to Projects (0.85)'. Multi-split: 'Filed to Admin, People'.
++    6. Do NOT add extra commentary before or after the confirmation
++    7. For multi-split captures, each file_capture call is independent -- complete all of them before responding with the confirmation
+diff --git a/backend/src/second_brain/agents/middleware.py b/backend/src/second_brain/agents/middleware.py
+deleted file mode 100644
+index 55c3df9..0000000
+--- a/backend/src/second_brain/agents/middleware.py
++++ /dev/null
+@@ -1,104 +0,0 @@
+-"""Agent middleware for Foundry Agent Service -- production observability layer.
+-
+-Produces OTel spans for agent runs and tool calls with classification-specific
+-attributes (bucket, confidence, status, item_id). Token usage is automatically
+-tracked by the agent-framework SDK's enable_instrumentation() call in main.py.
+-
+-Spans are exported to Application Insights via the Azure Monitor exporter
+-configured at startup, enabling structured queries across classifications.
+-"""
+-
+-import logging
+-import time
+-from collections.abc import Awaitable, Callable
+-
+-from agent_framework import (
+-    AgentContext,
+-    AgentMiddleware,
+-    FunctionInvocationContext,
+-    FunctionMiddleware,
+-)
+-from opentelemetry import trace
+-
+-logger = logging.getLogger(__name__)
+-tracer = trace.get_tracer("second_brain.agents")
+-
+-
+-class AuditAgentMiddleware(AgentMiddleware):
+-    """Produces an OTel span for each agent run.
+-
+-    Tracks agent name and duration as span attributes for Application Insights
+-    tracing. Debug-level logs retained as secondary output channel.
+-    """
+-
+-    def __init__(self, agent_name: str = "classifier") -> None:
+-        self._agent_name = agent_name
+-        self._span_name = f"{agent_name}_agent_run"
+-
+-    async def process(
+-        self,
+-        context: AgentContext,
+-        call_next: Callable[[], Awaitable[None]],
+-    ) -> None:
+-        """Create OTel span around agent run lifecycle."""
+-        with tracer.start_as_current_span(self._span_name) as span:
+-            span.set_attribute("agent.name", self._agent_name)
+-            start = time.monotonic()
+-            logger.debug("[Agent] Run started")
+-
+-            await call_next()
+-
+-            elapsed_ms = (time.monotonic() - start) * 1000
+-            span.set_attribute("agent.duration_ms", elapsed_ms)
+-            logger.debug("[Agent] Run completed in %.1fms", elapsed_ms)
+-
+-
+-class ToolTimingMiddleware(FunctionMiddleware):
+-    """Produces an OTel span per tool call with timing and classification attrs.
+-
+-    When the tool is file_capture, extracts classification metadata (bucket,
+-    confidence, status, item_id) from the result and sets them as span attributes
+-    for structured querying in Application Insights.
+-    """
+-
+-    async def process(
+-        self,
+-        context: FunctionInvocationContext,
+-        call_next: Callable[[], Awaitable[None]],
+-    ) -> None:
+-        """Create OTel span around tool call with classification attributes."""
+-        func_name = context.function.name
+-
+-        with tracer.start_as_current_span(f"tool_{func_name}") as span:
+-            span.set_attribute("tool.name", func_name)
+-            start = time.monotonic()
+-
+-            await call_next()
+-
+-            elapsed_ms = (time.monotonic() - start) * 1000
+-            span.set_attribute("tool.duration_ms", elapsed_ms)
+-            logger.debug("[Tool] %s completed in %.1fms", func_name, elapsed_ms)
+-
+-            # Extract classification-specific attributes from file_capture result
+-            if func_name == "file_capture" and context.result is not None:
+-                raw_result = context.result
+-                if hasattr(raw_result, "value"):
+-                    raw_result = raw_result.value
+-                if isinstance(raw_result, dict):
+-                    span.set_attribute(
+-                        "classification.bucket", raw_result.get("bucket", "")
+-                    )
+-                    span.set_attribute(
+-                        "classification.confidence",
+-                        raw_result.get("confidence", 0.0),
+-                    )
+-                    span.set_attribute(
+-                        "classification.status", raw_result.get("status", "")
+-                    )
+-                    span.set_attribute(
+-                        "classification.item_id", raw_result.get("item_id", "")
+-                    )
+-
+-            # Track transcription success
+-            if func_name == "transcribe_audio" and context.result is not None:
+-                span.set_attribute("transcription.success", True)
+diff --git a/backend/src/second_brain/api/capture.py b/backend/src/second_brain/api/capture.py
+index 4aac0bb..bad9385 100644
+--- a/backend/src/second_brain/api/capture.py
++++ b/backend/src/second_brain/api/capture.py
+@@ -5,12 +5,19 @@ POST /api/capture/voice -- voice capture (multipart file upload)
+ POST /api/capture/follow-up -- follow-up for misunderstood captures (SSE)
+ POST /api/capture/follow-up/voice -- voice follow-up for misunderstood captures (SSE)
+ 
+-Both capture endpoints stream Foundry agent classification results as
++All capture endpoints stream Foundry agent classification results as
+ AG-UI-compatible SSE events. The mobile Expo app consumes these via
+ react-native-sse EventSource.
++
++Phase 24 GA: the streaming adapter is invoked against ``app.state.classifier_agent``
++(GA ``Agent`` instance), not the deleted RC singleton. Conversation
++continuity for follow-ups rides on the inbox doc's ``conversationHistory``
++field via the 24-15 ``resolve_inbox_conversation_history`` helper (P0-1
++OUTCOME Option A). The RC ``foundryThreadId`` round-trip helpers are deleted
++in this commit -- the adapter now persists conversationHistory back to the
++doc directly.
+ """
+ 
+-import json
+ import logging
+ from uuid import uuid4
+ 
+@@ -19,15 +26,60 @@ from fastapi.responses import StreamingResponse
+ from opentelemetry import trace
+ from pydantic import BaseModel, Field
+ 
+-from second_brain.spine.cosmos_request_id import trace_headers
+ from second_brain.spine.stream_wrapper import spine_stream_wrapper
+ from second_brain.streaming.adapter import (
+     stream_follow_up_capture,
+     stream_text_capture,
+-    stream_voice_capture,
+ )
++from second_brain.streaming.sse import encode_sse
+ from second_brain.tools.classification import capture_trace_id_var, follow_up_context
+ 
++# --- Phase 24 D-01..D-04 + F-11: voice path failure-mode SSE generators ---
++#
++# The voice handler now direct-calls TranscriptionTools.transcribe_audio
++# BEFORE classifying. When transcription fails, the handler returns one of
++# these single-event streams with a forced_tool_failure-style sub_code so
++# monitoring/dashboards can distinguish transcription failures from generic
++# errors. Mobile clients already handle the ERROR type.
++
++
++async def _voice_unavailable_stream():
++    """Transcription helper not configured on the running container."""
++    yield encode_sse(
++        {
++            "type": "ERROR",
++            "message": "Voice transcription unavailable.",
++            "sub_code": "transcription_unavailable",
++        }
++    )
++    yield encode_sse({"type": "COMPLETE"})
++
++
++async def _voice_transcription_failed_stream(reason: str):
++    """Transcription call raised — surface the reason and a sub_code."""
++    yield encode_sse(
++        {
++            "type": "ERROR",
++            "message": "Voice transcription failed.",
++            "reason": reason,
++            "sub_code": "transcription_failed",
++        }
++    )
++    yield encode_sse({"type": "COMPLETE"})
++
++
++async def _voice_transcription_empty_stream():
++    """Transcription returned empty text — no speech detected in audio."""
++    yield encode_sse(
++        {
++            "type": "ERROR",
++            "message": "No speech detected.",
++            "sub_code": "transcription_empty",
++        }
++    )
++    yield encode_sse({"type": "COMPLETE"})
++
++
+ logger = logging.getLogger(__name__)
+ 
+ 
+@@ -92,111 +144,27 @@ class FollowUpBody(BaseModel):
+     follow_up_round: int = 1
+ 
+ 
+-async def _stream_with_thread_id_persistence(
+-    inner_generator,
+-    cosmos_manager,
+-    capture_trace_id: str = "",
+-):
+-    """Wrap a capture stream generator to persist foundryThreadId on MISUNDERSTOOD.
+-
+-    Yields all SSE events through to the client. When a MISUNDERSTOOD event is
+-    detected, immediately persists the foundryThreadId to Cosmos before
+-    yielding any further events -- this prevents a race condition where the
+-    client disconnects after COMPLETE and the Cosmos write never happens.
+-    """
+-    log_extra = _capture_extra(capture_trace_id)
+-    async for event in inner_generator:
+-        # Intercept MISUNDERSTOOD events to persist foundryThreadId immediately
+-        if event.startswith("data: "):
+-            try:
+-                payload = json.loads(event[6:].strip())
+-                if payload.get("type") == "MISUNDERSTOOD":
+-                    value = payload.get("value", {})
+-                    item_id = value.get("inboxItemId")
+-                    conversation_id = value.get("foundryConversationId")
+-                    if item_id and conversation_id:
+-                        try:
+-                            inbox_container = cosmos_manager.get_container("Inbox")
+-                            doc = await inbox_container.read_item(
+-                                item=item_id, partition_key="will"
+-                            )
+-                            doc["foundryThreadId"] = conversation_id
+-                            await inbox_container.upsert_item(
+-                                body=doc,
+-                                **trace_headers(capture_trace_id or None),
+-                            )
+-                            logger.info(
+-                                "Persisted foundryThreadId=%s for inbox item %s",
+-                                conversation_id,
+-                                item_id,
+-                                extra=log_extra,
+-                            )
+-                        except Exception:
+-                            logger.warning(
+-                                "Failed to persist foundryThreadId for %s",
+-                                item_id,
+-                                extra=log_extra,
+-                            )
+-            except (json.JSONDecodeError, AttributeError):
+-                pass
+-
+-        yield event
+-
+-
+ async def _stream_with_follow_up_context(
+     inner_generator,
+     inbox_item_id: str,
+-    cosmos_manager,
+-    capture_trace_id: str = "",
+ ):
+-    """Set follow-up context so file_capture updates existing doc in-place.
+-
+-    Wraps a follow-up stream generator. The follow_up_context context manager
+-    sets _follow_up_inbox_item_id so that file_capture (called by the Foundry
+-    agent during streaming) updates the existing misunderstood inbox doc
+-    instead of creating a new orphan.
+-
+-    Also handles foundryThreadId persistence when the follow-up results in
+-    MISUNDERSTOOD again (needed for further follow-up rounds).
++    """Set follow-up context so file_capture updates the existing doc in-place.
++
++    Wraps a follow-up stream generator. The ``follow_up_context`` context
++    manager sets ``_follow_up_inbox_item_id`` so that ``file_capture``
++    (called by the Foundry agent during streaming) updates the existing
++    misunderstood inbox doc instead of creating a new orphan.
++
++    Phase 24 P0-1 OUTCOME Option A: the legacy ``foundryThreadId``
++    persistence on MISUNDERSTOOD is GONE -- the adapter persists
++    ``conversationHistory`` back to the doc directly after the stream
++    completes. This wrapper now exists solely to manage the ContextVar
++    used by ``file_capture`` for in-place updates.
+     """
+-    log_extra = _capture_extra(capture_trace_id)
+     with follow_up_context(inbox_item_id):
+-        foundry_conversation_id = None
+         async for event in inner_generator:
+-            if event.startswith("data: "):
+-                try:
+-                    payload = json.loads(event[6:].strip())
+-                    if payload.get("type") == "MISUNDERSTOOD":
+-                        value = payload.get("value", {})
+-                        foundry_conversation_id = value.get("foundryConversationId")
+-                except (json.JSONDecodeError, AttributeError):
+-                    pass
+             yield event
+ 
+-        # After stream: if re-misunderstood, update foundryThreadId on original doc
+-        if foundry_conversation_id:
+-            try:
+-                inbox_container = cosmos_manager.get_container("Inbox")
+-                doc = await inbox_container.read_item(
+-                    item=inbox_item_id, partition_key="will"
+-                )
+-                doc["foundryThreadId"] = foundry_conversation_id
+-                await inbox_container.upsert_item(
+-                    body=doc, **trace_headers(capture_trace_id or None)
+-                )
+-                logger.info(
+-                    "Updated foundryThreadId=%s for ongoing follow-up on %s",
+-                    foundry_conversation_id,
+-                    inbox_item_id,
+-                    extra=log_extra,
+-                )
+-            except Exception:
+-                logger.warning(
+-                    "Failed to update foundryThreadId on follow-up for %s",
+-                    inbox_item_id,
+-                    extra=log_extra,
+-                )
+-
+ 
+ @router.post("/api/capture")
+ async def capture(request: Request, body: TextCaptureBody) -> StreamingResponse:
+@@ -204,13 +172,20 @@ async def capture(request: Request, body: TextCaptureBody) -> StreamingResponse:
+ 
+     Accepts a JSON body with the capture text, streams the Foundry agent
+     classification result as SSE events (STEP_START, STEP_END, CLASSIFIED/
+-    MISUNDERSTOOD/UNRESOLVED, COMPLETE).
++    MISUNDERSTOOD/UNRESOLVED/ERROR, COMPLETE).
+ 
+-    When the outcome is MISUNDERSTOOD, the foundryThreadId is persisted to the
+-    inbox document for use in follow-up calls.
++    Phase 24 GA: invokes ``stream_text_capture`` against the lifespan
++    ``app.state.classifier_agent`` (GA ``Agent``). No pre-created inbox doc
++    is passed -- the adapter uses ``file_capture``'s tool result to locate
++    the doc and persists ``conversationHistory`` onto it after the stream
++    completes (P0-1 OUTCOME Option A).
+     """
+-    client = request.app.state.classifier_client
+-    tools = request.app.state.classifier_agent_tools
++    classifier_agent = getattr(request.app.state, "classifier_agent", None)
++    if classifier_agent is None:
++        raise HTTPException(
++            status_code=503,
++            detail="Classifier agent is unavailable.",
++        )
+     cosmos_manager = request.app.state.cosmos_manager
+     thread_id = body.thread_id or f"thread-{uuid4()}"
+     run_id = body.run_id or f"run-{uuid4()}"
+@@ -237,10 +212,13 @@ async def capture(request: Request, body: TextCaptureBody) -> StreamingResponse:
+             extra=log_extra,
+         )
+ 
++    # P0-1 OUTCOME Option A: new captures pass inbox_doc=None. The adapter
++    # uses file_capture's primary item_id from the tool result to locate
++    # the doc and persists conversationHistory onto it.
+     generator = stream_text_capture(
+-        client=client,
++        agent=classifier_agent,
+         user_text=body.text,
+-        tools=tools,
++        inbox_doc=None,
+         thread_id=thread_id,
+         run_id=run_id,
+         cosmos_manager=cosmos_manager,
+@@ -248,9 +226,7 @@ async def capture(request: Request, body: TextCaptureBody) -> StreamingResponse:
+     )
+ 
+     spine_repo = getattr(request.app.state, "spine_repo", None)
+-    stream = _stream_with_thread_id_persistence(
+-        generator, cosmos_manager, capture_trace_id
+-    )
++    stream = generator
+     if spine_repo:
+         stream = spine_stream_wrapper(
+             stream,
+@@ -275,10 +251,17 @@ async def capture_voice(
+ ) -> StreamingResponse:
+     """Stream voice capture classification as AG-UI SSE events.
+ 
+-    Accepts a multipart audio file upload. The endpoint uploads the audio
+-    to Blob Storage, then streams the Foundry agent classification result.
+-    The blob is cleaned up after the stream completes. When the outcome is
+-    MISUNDERSTOOD, the foundryThreadId is persisted.
++    Phase 24 D-01..D-04 + F-11 voice path split: the handler direct-calls
++    ``TranscriptionTools.transcribe_audio`` BEFORE classifying. The
++    classifier Agent sees only the resulting transcript text and registers
++    only ``file_capture`` (``tool_choice='required'`` is unambiguous). On
++    transcription failure, one of three single-event SSE error streams is
++    returned with a ``forced_tool_failure``-style ``sub_code``
++    (``transcription_unavailable`` / ``transcription_failed`` /
++    ``transcription_empty``).
++
++    After transcription, the path routes through ``stream_text_capture``
++    against the lifespan GA Classifier Agent (P0-1 OUTCOME Option A).
+     """
+     blob_manager = getattr(request.app.state, "blob_manager", None)
+     if blob_manager is None:
+@@ -291,8 +274,6 @@ async def capture_voice(
+     audio_bytes = await _validate_and_read_audio(file)
+     blob_url = await blob_manager.upload_audio(audio_bytes=audio_bytes)
+ 
+-    client = request.app.state.classifier_client
+-    tools = request.app.state.classifier_agent_tools
+     cosmos_manager = request.app.state.cosmos_manager
+     thread_id = f"thread-{uuid4()}"
+     run_id = f"run-{uuid4()}"
+@@ -307,21 +288,99 @@ async def capture_voice(
+         _current.set_attribute("capture.trace_id", capture_trace_id)
+     log_extra = _capture_extra(capture_trace_id)
+ 
+-    async def stream_with_cleanup_and_persistence():
+-        """Wrap voice capture with blob cleanup and foundryThreadId persistence."""
+-        inner = stream_voice_capture(
+-            client=client,
+-            blob_url=blob_url,
+-            tools=tools,
++    # --- Phase 24 D-01..D-04 + F-11: direct-call transcribe BEFORE classify ---
++    transcription_tools = getattr(request.app.state, "transcription_tools", None)
++    if transcription_tools is None:
++        # Clean up blob — transcription is unavailable, no further work.
++        try:
++            await blob_manager.delete_audio(blob_url)
++        except Exception:
++            logger.warning(
++                "Failed to delete voice blob after unavailable transcription: %s",
++                blob_url,
++                extra=log_extra,
++            )
++        return StreamingResponse(
++            _voice_unavailable_stream(),
++            media_type="text/event-stream",
++            headers=SSE_HEADERS,
++        )
++
++    try:
++        transcript = await transcription_tools.transcribe_audio(blob_url)
++    except Exception as exc:
++        logger.warning(
++            "Voice transcription failed: %s",
++            exc,
++            extra={
++                "capture_trace_id": capture_trace_id,
++                "blob_url": blob_url,
++                "component": "capture",
++            },
++            exc_info=True,
++        )
++        try:
++            await blob_manager.delete_audio(blob_url)
++        except Exception:
++            logger.warning(
++                "Failed to delete voice blob after transcription failure: %s",
++                blob_url,
++                extra=log_extra,
++            )
++        return StreamingResponse(
++            _voice_transcription_failed_stream(str(exc)),
++            media_type="text/event-stream",
++            headers=SSE_HEADERS,
++        )
++
++    # Empty/whitespace-only transcript means no speech detected.
++    if not transcript or not transcript.strip():
++        try:
++            await blob_manager.delete_audio(blob_url)
++        except Exception:
++            logger.warning(
++                "Failed to delete voice blob after empty transcription: %s",
++                blob_url,
++                extra=log_extra,
++            )
++        return StreamingResponse(
++            _voice_transcription_empty_stream(),
++            media_type="text/event-stream",
++            headers=SSE_HEADERS,
++        )
++
++    logger.info(
++        "Voice transcribed (len=%d): %s",
++        len(transcript),
++        transcript[:80],
++        extra=log_extra,
++    )
++
++    # --- Transcription succeeded → route through TEXT classifier path ---
++    classifier_agent = getattr(request.app.state, "classifier_agent", None)
++    if classifier_agent is None:
++        try:
++            await blob_manager.delete_audio(blob_url)
++        except Exception:
++            logger.warning("Failed to delete voice blob: %s", blob_url, extra=log_extra)
++        raise HTTPException(
++            status_code=503,
++            detail="Classifier agent is unavailable.",
++        )
++
++    async def stream_with_cleanup():
++        """Wrap text-path stream with blob cleanup after stream completes."""
++        inner = stream_text_capture(
++            agent=classifier_agent,
++            user_text=transcript,
++            inbox_doc=None,
+             thread_id=thread_id,
+             run_id=run_id,
+             cosmos_manager=cosmos_manager,
+             capture_trace_id=capture_trace_id,
+         )
+         try:
+-            async for event in _stream_with_thread_id_persistence(
+-                inner, cosmos_manager, capture_trace_id
+-            ):
++            async for event in inner:
+                 yield event
+         finally:
+             try:
+@@ -334,7 +393,7 @@ async def capture_voice(
+                 )
+ 
+     spine_repo = getattr(request.app.state, "spine_repo", None)
+-    stream = stream_with_cleanup_and_persistence()
++    stream = stream_with_cleanup()
+     if spine_repo:
+         stream = spine_stream_wrapper(
+             stream,
+@@ -354,13 +413,27 @@ async def capture_voice(
+ 
+ @router.post("/api/capture/follow-up")
+ async def follow_up(request: Request, body: FollowUpBody) -> StreamingResponse:
+-    """Stream a follow-up classification attempt on the same Foundry thread.
+-
+-    Used for misunderstood captures that need conversational follow-up.
+-    Reads the original inbox item to get the stored foundryThreadId, then
+-    streams the follow-up classification with thread reuse. Sets follow-up
+-    context so file_capture updates the existing misunderstood doc in-place.
++    """Stream a follow-up classification attempt under P0-1 OUTCOME Option A.
++
++    Loads the existing inbox doc and passes it to ``stream_follow_up_capture``;
++    the adapter reads ``conversationHistory`` via
++    ``resolve_inbox_conversation_history`` (24-15), threads it as an
++    explicit Message list to ``agent.run(...)``, and persists the updated
++    history back to the doc. Sets ``follow_up_context`` so ``file_capture``
++    updates the existing misunderstood doc in-place rather than creating a
++    new orphan.
++
++    For legacy docs that carry only ``foundryThreadId`` (no
++    ``conversationHistory``), the helper returns an empty history and the
++    follow-up proceeds as a fresh conversation (Option A graceful-loss
++    trade-off).
+     """
++    classifier_agent = getattr(request.app.state, "classifier_agent", None)
++    if classifier_agent is None:
++        raise HTTPException(
++            status_code=503,
++            detail="Classifier agent is unavailable.",
++        )
+     cosmos_manager = request.app.state.cosmos_manager
+     inbox_container = cosmos_manager.get_container("Inbox")
+     capture_trace_id = request.headers.get("X-Trace-Id", str(uuid4()))
+@@ -373,9 +446,9 @@ async def follow_up(request: Request, body: FollowUpBody) -> StreamingResponse:
+     if _current.is_recording():
+         _current.set_attribute("capture.trace_id", capture_trace_id)
+ 
+-    # Look up the original inbox item to get the Foundry thread ID
++    # Load the inbox doc; the adapter resolves conversationHistory from it.
+     try:
+-        item = await inbox_container.read_item(
++        inbox_doc = await inbox_container.read_item(
+             item=body.inbox_item_id, partition_key="will"
+         )
+     except Exception as exc:
+@@ -384,33 +457,22 @@ async def follow_up(request: Request, body: FollowUpBody) -> StreamingResponse:
+             detail=f"Inbox item {body.inbox_item_id} not found",
+         ) from exc
+ 
+-    foundry_thread_id = item.get("foundryThreadId")
+-    if not foundry_thread_id:
+-        raise HTTPException(
+-            status_code=400,
+-            detail="No thread ID for follow-up. Item may not be misunderstood.",
+-        )
+-
+-    client = request.app.state.classifier_client
+-    tools = request.app.state.classifier_agent_tools
++    thread_id = f"thread-{uuid4()}"
+     run_id = f"run-{uuid4()}"
+ 
+     generator = stream_follow_up_capture(
+-        client=client,
++        agent=classifier_agent,
+         follow_up_text=body.follow_up_text,
+-        foundry_thread_id=foundry_thread_id,
++        inbox_doc=inbox_doc,
+         original_inbox_item_id=body.inbox_item_id,
+-        tools=tools,
+-        thread_id=foundry_thread_id,
++        thread_id=thread_id,
+         run_id=run_id,
+         cosmos_manager=cosmos_manager,
+         capture_trace_id=capture_trace_id,
+     )
+ 
+     spine_repo = getattr(request.app.state, "spine_repo", None)
+-    stream = _stream_with_follow_up_context(
+-        generator, body.inbox_item_id, cosmos_manager, capture_trace_id
+-    )
++    stream = _stream_with_follow_up_context(generator, body.inbox_item_id)
+     if spine_repo:
+         stream = spine_stream_wrapper(
+             stream,
+@@ -419,7 +481,7 @@ async def follow_up(request: Request, body: FollowUpBody) -> StreamingResponse:
+             operation="classify_follow_up",
+             capture_trace_id=capture_trace_id,
+             run_id=run_id,
+-            thread_id=foundry_thread_id,
++            thread_id=thread_id,
+         )
+ 
+     return StreamingResponse(
+@@ -436,19 +498,28 @@ async def follow_up_voice(
+     inbox_item_id: str = Form(...),  # noqa: B008
+     follow_up_round: int = Form(1),  # noqa: B008
+ ) -> StreamingResponse:
+-    """Stream a voice follow-up classification on the same Foundry thread.
++    """Stream a voice follow-up classification under P0-1 OUTCOME Option A.
+ 
+     Accepts multipart audio upload with inbox_item_id. Uploads audio to Blob
+     Storage for audit trail, transcribes via gpt-4o-transcribe from in-memory
+-    bytes, then streams the follow-up reclassification with follow-up context
+-    set so file_capture updates the existing misunderstood doc in-place.
+-    Blob is cleaned up after the stream completes.
++    bytes, then loads the existing inbox doc and routes through
++    ``stream_follow_up_capture`` against the lifespan GA Classifier Agent.
++    Sets ``follow_up_context`` so ``file_capture`` updates the existing
++    misunderstood doc in-place. Blob is cleaned up after the stream
++    completes.
+     """
+     # Validate blob storage
+     blob_manager = getattr(request.app.state, "blob_manager", None)
+     if blob_manager is None:
+         raise HTTPException(status_code=503, detail="Blob storage not configured.")
+ 
++    classifier_agent = getattr(request.app.state, "classifier_agent", None)
++    if classifier_agent is None:
++        raise HTTPException(
++            status_code=503,
++            detail="Classifier agent is unavailable.",
++        )
++
+     # Validate and read audio upload, then upload to blob for audit trail
+     audio_bytes = await _validate_and_read_audio(file)
+     blob_url = await blob_manager.upload_audio(audio_bytes=audio_bytes)
+@@ -466,6 +537,12 @@ async def follow_up_voice(
+     # Transcribe from in-memory bytes (no blob re-download)
+     openai_client = request.app.state.openai_client
+     if openai_client is None:
++        try:
++            await blob_manager.delete_audio(blob_url)
++        except Exception:
++            logger.warning(
++                "Failed to delete voice follow-up blob: %s", blob_url, extra=log_extra
++            )
+         raise HTTPException(status_code=503, detail="Transcription not configured.")
+ 
+     transcript = await openai_client.audio.transcriptions.create(
+@@ -482,36 +559,29 @@ async def follow_up_voice(
+         extra=log_extra,
+     )
+ 
+-    # Look up original inbox item for Foundry thread ID
++    # Load original inbox doc; adapter resolves conversationHistory from it.
+     cosmos_manager = request.app.state.cosmos_manager
+     inbox_container = cosmos_manager.get_container("Inbox")
+ 
+     try:
+-        item = await inbox_container.read_item(item=inbox_item_id, partition_key="will")
++        inbox_doc = await inbox_container.read_item(
++            item=inbox_item_id, partition_key="will"
++        )
+     except Exception as exc:
+         raise HTTPException(
+             status_code=404,
+             detail=f"Inbox item {inbox_item_id} not found",
+         ) from exc
+ 
+-    foundry_thread_id = item.get("foundryThreadId")
+-    if not foundry_thread_id:
+-        raise HTTPException(
+-            status_code=400,
+-            detail="No thread ID for follow-up. Item may not be misunderstood.",
+-        )
+-
+-    client = request.app.state.classifier_client
+-    tools = request.app.state.classifier_agent_tools
++    thread_id = f"thread-{uuid4()}"
+     run_id = f"run-{uuid4()}"
+ 
+     generator = stream_follow_up_capture(
+-        client=client,
++        agent=classifier_agent,
+         follow_up_text=follow_up_text,
+-        foundry_thread_id=foundry_thread_id,
++        inbox_doc=inbox_doc,
+         original_inbox_item_id=inbox_item_id,
+-        tools=tools,
+-        thread_id=foundry_thread_id,
++        thread_id=thread_id,
+         run_id=run_id,
+         cosmos_manager=cosmos_manager,
+         capture_trace_id=capture_trace_id,
+@@ -520,9 +590,7 @@ async def follow_up_voice(
+     async def stream_with_cleanup():
+         """Wrap follow-up stream with blob cleanup and follow-up context."""
+         try:
+-            async for event in _stream_with_follow_up_context(
+-                generator, inbox_item_id, cosmos_manager, capture_trace_id
+-            ):
++            async for event in _stream_with_follow_up_context(generator, inbox_item_id):
+                 yield event
+         finally:
+             try:
+@@ -544,7 +612,7 @@ async def follow_up_voice(
+             operation="classify_follow_up_voice",
+             capture_trace_id=capture_trace_id,
+             run_id=run_id,
+-            thread_id=foundry_thread_id,
++            thread_id=thread_id,
+         )
+ 
+     return StreamingResponse(
+diff --git a/backend/src/second_brain/api/eval.py b/backend/src/second_brain/api/eval.py
+index 134ef74..d1fbd17 100644
+--- a/backend/src/second_brain/api/eval.py
++++ b/backend/src/second_brain/api/eval.py
+@@ -1,17 +1,16 @@
+ """Eval API endpoints for triggering and monitoring eval runs.
+ 
+-Phase 24 plan 24-12: the runner now takes an ``EvalAgentInvoker`` instead
+-of raw RC clients. During the 23.2-23.3 migration window, this endpoint
+-constructs a ``_MigrationHybridInvoker`` that routes:
+-
+-- ``invoke_classifier`` -> ``RCEvalAgentInvoker`` (classifier still RC until
+-  plans 24-13..24-17).
+-- ``invoke_admin`` -> ``GAEvalAgentInvoker`` (admin migrated to GA in
+-  plans 24-09..24-11).
+-
+-Plan 24-18 deletes the hybrid + RC class together; this endpoint will then
+-construct a plain ``GAEvalAgentInvoker`` from ``app.state.classifier_agent``
+-and ``app.state.admin_agent``.
++Phase 24 plan 24-18: the temporary _MigrationHybridInvoker / RCEvalAgentInvoker
++seam introduced in 24-12 is gone. Both eval types now construct a plain
++``GAEvalAgentInvoker(classifier_agent=..., admin_agent=...)`` using the GA
++Agent singletons published on ``app.state``:
++
++- ``app.state.classifier_agent`` -- GA Agent built by 24-14
++- ``app.state.admin_agent``      -- GA Agent built by 24-09
++
++Eval runs no longer touch the legacy ``app.state.classifier_client`` /
++``app.state.admin_client`` attributes (those are W-03 dead-code references
++slated for sweep in 24-19).
+ """
+ 
+ import asyncio
+@@ -22,11 +21,7 @@ from uuid import uuid4
+ from fastapi import APIRouter, HTTPException, Query, Request
+ from pydantic import BaseModel
+ 
+-from second_brain.eval.invoker import (
+-    GAEvalAgentInvoker,
+-    RCEvalAgentInvoker,
+-    _MigrationHybridInvoker,
+-)
++from second_brain.eval.invoker import GAEvalAgentInvoker
+ from second_brain.eval.runner import run_admin_eval, run_classifier_eval
+ 
+ logger = logging.getLogger(__name__)
+@@ -44,34 +39,22 @@ class EvalRunRequest(BaseModel):
+     routing_context: str | None = None  # Required for admin_agent eval per D-13
+ 
+ 
+-def _build_migration_invoker(
+-    classifier_client: object | None,
++def _build_eval_invoker(
++    classifier_agent: object | None,
+     admin_agent: object | None,
+-) -> _MigrationHybridInvoker:
+-    """Construct the hybrid invoker for the 23.2-23.3 migration window.
+-
+-    Classifier path is RC (``classifier_client`` is an ``AzureAIAgentClient``
+-    set by main.py lifespan). Admin path is GA (``admin_agent`` is an
+-    ``agent_framework.Agent`` set by 24-09's ``build_admin_agent``).
+-
+-    Either side may be ``None`` if the corresponding agent failed to
+-    initialize at startup. The caller has already validated that the side
+-    needed for the requested eval_type is non-None before calling here, so
+-    we pass through whatever the lifespan produced.
++) -> GAEvalAgentInvoker:
++    """Construct the GA eval invoker.
++
++    Both ``classifier_agent`` and ``admin_agent`` are ``agent_framework.Agent``
++    instances published on ``app.state`` by main.py lifespan (24-14 and 24-09
++    respectively). The caller has already validated that the side needed for
++    the requested eval_type is non-None before calling here, so we pass through
++    whatever the lifespan produced.
+     """
+-    rc_invoker = RCEvalAgentInvoker(
+-        classifier_client=classifier_client,  # type: ignore[arg-type]
+-        # Admin client is no longer published on app.state after 24-09;
+-        # admin path goes through the GA invoker below. Pass None safely.
+-        admin_client=None,  # type: ignore[arg-type]
+-    )
+-    ga_invoker = GAEvalAgentInvoker(
+-        # Classifier agent is not yet built in GA (migration window).
+-        # Pass None safely; classifier path goes through the RC invoker above.
+-        classifier_agent=None,  # type: ignore[arg-type]
++    return GAEvalAgentInvoker(
++        classifier_agent=classifier_agent,  # type: ignore[arg-type]
+         admin_agent=admin_agent,  # type: ignore[arg-type]
+     )
+-    return _MigrationHybridInvoker(rc_invoker=rc_invoker, ga_invoker=ga_invoker)
+ 
+ 
+ @router.post("/api/eval/run", status_code=202)
+@@ -120,15 +103,15 @@ async def start_eval_run(request: Request, body: EvalRunRequest) -> dict:
+     }
+ 
+     if body.eval_type == "classifier":
+-        classifier_client = getattr(request.app.state, "classifier_client", None)
+-        if classifier_client is None:
++        classifier_agent = getattr(request.app.state, "classifier_agent", None)
++        if classifier_agent is None:
+             del _eval_runs[run_id]
+             raise HTTPException(
+                 status_code=503, detail="Classifier agent not configured."
+             )
+         admin_agent = getattr(request.app.state, "admin_agent", None)
+-        invoker = _build_migration_invoker(
+-            classifier_client=classifier_client,
++        invoker = _build_eval_invoker(
++            classifier_agent=classifier_agent,
+             admin_agent=admin_agent,
+         )
+         task = asyncio.create_task(
+@@ -144,9 +127,9 @@ async def start_eval_run(request: Request, body: EvalRunRequest) -> dict:
+         if admin_agent is None:
+             del _eval_runs[run_id]
+             raise HTTPException(status_code=503, detail="Admin agent not configured.")
+-        classifier_client = getattr(request.app.state, "classifier_client", None)
+-        invoker = _build_migration_invoker(
+-            classifier_client=classifier_client,
++        classifier_agent = getattr(request.app.state, "classifier_agent", None)
++        invoker = _build_eval_invoker(
++            classifier_agent=classifier_agent,
+             admin_agent=admin_agent,
+         )
+         task = asyncio.create_task(
+diff --git a/backend/src/second_brain/config.py b/backend/src/second_brain/config.py
+index 838537f..a5639a9 100644
+--- a/backend/src/second_brain/config.py
++++ b/backend/src/second_brain/config.py
+@@ -10,10 +10,7 @@ class Settings(BaseSettings):
+ 
+     # Azure AI Foundry
+     azure_ai_project_endpoint: str = ""
+-    foundry_model: str = "gpt-4o"  # NEW (Phase 24 task group 23.1)
+-    azure_ai_classifier_agent_id: str = ""  # KEEP — deleted in plan 24-21
+-    azure_ai_admin_agent_id: str = ""  # KEEP — deleted in plan 24-21
+-    azure_ai_investigation_agent_id: str = ""  # KEEP — deleted in plan 24-21
++    foundry_model: str = "gpt-4o"  # Phase 24 task group 23.1 (GA chat client model)
+ 
+     # Azure OpenAI (transcription API -- separate from Foundry project endpoint)
+     azure_openai_endpoint: str = ""
+@@ -57,6 +54,12 @@ class Settings(BaseSettings):
+     model_config = {
+         "env_file": ".env",
+         "case_sensitive": False,
++        # Tolerate orphan env vars (e.g. AZURE_AI_CLASSIFIER_AGENT_ID) that
++        # remain on the Container App between Phase 24 source-code cleanup
++        # (this plan, 24-21) and post-UAT env-var removal (24-23). Per
++        # 23-foundry-ga-prep/CONFIG-DELTAS.md Step C the GA image must boot
++        # cleanly even though those vars are still set in the environment.
++        "extra": "ignore",
+     }
+ 
+ 
+diff --git a/backend/src/second_brain/cosmos/__init__.py b/backend/src/second_brain/cosmos/__init__.py
+new file mode 100644
+index 0000000..1f187e5
+--- /dev/null
++++ b/backend/src/second_brain/cosmos/__init__.py
+@@ -0,0 +1,10 @@
++"""Cosmos-document helpers (Phase 24 P0-1 OUTCOME Option A).
++
++This package is the home for small helpers that read/write structured fields
++on Cosmos documents at the boundary between transport-shaped doc bodies and
++typed Pydantic models. The first occupant is the conversation-history
++resolver used by the GA Foundry capture flow (see CONTEXT P0-1 OUTCOME).
++
++Not to be confused with ``second_brain.db.cosmos`` (the CosmosManager / DI
++container). This package is purely about field semantics on doc payloads.
++"""
+diff --git a/backend/src/second_brain/cosmos/inbox_conversation_history.py b/backend/src/second_brain/cosmos/inbox_conversation_history.py
+new file mode 100644
+index 0000000..f8ac261
+--- /dev/null
++++ b/backend/src/second_brain/cosmos/inbox_conversation_history.py
+@@ -0,0 +1,105 @@
++"""Phase 24 P0-1 OUTCOME conversation-history resolver (Option A).
++
++Background: cross-process AgentSession rehydration via session_id alone fails
++on GA Foundry SDK 1.3.0 (probe fixture session_rehydration_fresh_process.json,
++recalled_pineapple=false). Operator locked Option A — persist explicit
++conversation history on the Inbox doc and pass it to agent.run(messages=[...])
++on each follow-up.
++
++During the migration window, an Inbox doc may have:
++  (a) only foundryThreadId (legacy RC doc — no conversationHistory)
++  (b) both foundryThreadId AND conversationHistory (post-24-17 new captures
++      during the rollback-safety window)
++  (c) only conversationHistory (post-24-24 cleanup of foundryThreadId)
++
++resolve_inbox_conversation_history() returns the conversationHistory list as-is
++if present, or an empty list with a logged warning if absent. Case (a) gracefully
++loses continuity — the classifier treats the follow-up as a new conversation.
++This is the accepted Option A trade-off: in-flight RC follow-ups during deploy
++are few; zero migration effort.
++"""
++
++from __future__ import annotations
++
++import logging
++from typing import Any, Literal
++
++from pydantic import BaseModel
++
++logger = logging.getLogger(__name__)
++
++
++class ConversationTurn(BaseModel):
++    """One turn in a persisted Inbox conversation history.
++
++    Stored on InboxDocument.conversationHistory (list[ConversationTurn]).
++    Reconstructed into agent_framework.Message objects in
++    streaming/adapter.py (24-16).
++    """
++
++    role: Literal["user", "assistant"]
++    content: str
++
++
++def resolve_inbox_conversation_history(inbox_doc: Any) -> list[ConversationTurn]:
++    """Return the conversation history stored on this Inbox doc.
++
++    If ``conversationHistory`` is set: return the list (parsed into
++    ConversationTurn models if raw dicts).
++
++    If absent but ``foundryThreadId`` is set (legacy RC doc): return []
++    and log a warning. The classifier treats this as a fresh conversation;
++    continuity is lost gracefully for legacy docs.
++
++    If both absent: return [] (brand-new capture, no warning).
++
++    Accepts any object with attribute access (Pydantic model) or
++    subscriptable access (dict from Cosmos).
++    """
++    raw_history = _read(inbox_doc, "conversationHistory")
++    if raw_history:
++        return _coerce_to_turns(raw_history)
++
++    legacy_thread = _read(inbox_doc, "foundryThreadId")
++    if legacy_thread:
++        doc_id = _read(inbox_doc, "id") or "<unknown>"
++        logger.warning(
++            "inbox doc %s has legacy foundryThreadId=%s but no conversationHistory "
++            "— follow-up will be treated as new conversation (continuity lost). "
++            "P0-1 OUTCOME Option A graceful-loss path.",
++            doc_id,
++            legacy_thread,
++        )
++        return []
++
++    return []
++
++
++def _read(doc: Any, key: str) -> Any:
++    """Read ``key`` from a Pydantic-attr object or a dict body, truthy only."""
++    if hasattr(doc, key):
++        value = getattr(doc, key, None)
++        if value:
++            return value
++    if isinstance(doc, dict) and key in doc:
++        value = doc.get(key)
++        if value:
++            return value
++    return None
++
++
++def _coerce_to_turns(raw: Any) -> list[ConversationTurn]:
++    """Accept either list[dict] (raw from Cosmos) or list[ConversationTurn]."""
++    if not isinstance(raw, list):
++        return []
++    turns: list[ConversationTurn] = []
++    for item in raw:
++        if isinstance(item, ConversationTurn):
++            turns.append(item)
++        elif isinstance(item, dict):
++            try:
++                turns.append(ConversationTurn(**item))
++            except Exception:
++                # Skip malformed entries rather than crash the follow-up
++                logger.warning("Skipping malformed ConversationTurn: %r", item)
++    return turns
+diff --git a/backend/src/second_brain/eval/dry_run_tools.py b/backend/src/second_brain/eval/dry_run_tools.py
+index 5a764f8..2d9543e 100644
+--- a/backend/src/second_brain/eval/dry_run_tools.py
++++ b/backend/src/second_brain/eval/dry_run_tools.py
+@@ -4,13 +4,19 @@ These classes mirror the production tool interfaces (ClassifierTools, AdminTools
+ but capture predictions in memory instead of writing to Cosmos DB.  The Foundry
+ agent matches tools by JSON schema, so parameter signatures (Annotated types,
+ Field descriptions) MUST be byte-for-byte identical to the production versions.
++
++Phase 24 GA migration (F-08): tool methods are registered with the GA Agent
++constructor via ``Agent(tools=[instance.method, ...])`` at the eval call site
++(see ``eval/invoker.py`` GAEvalAgentInvoker). The RC tool-registration
++decorator has been removed; ``Annotated[..., Field(description=...)]``
++parameter shapes plus the method docstring continue to serve as the GA
++tool description payload.
+ """
+ 
+ from __future__ import annotations
+ 
+ from typing import Annotated
+ 
+-from agent_framework import tool
+ from pydantic import Field
+ 
+ 
+@@ -20,6 +26,10 @@ class EvalClassifierTools:
+     Captures bucket, confidence, and status predictions without any Cosmos
+     writes.  Use ``last_bucket`` / ``last_confidence`` / ``last_status``
+     after the agent run to read the prediction.
++
++    Tool methods are decorator-free per Phase 24 D-05/D-06: registered via
++    ``Agent(tools=[instance.file_capture])`` rather than the RC tool-registration
++    decorator pattern.
+     """
+ 
+     def __init__(self) -> None:
+@@ -27,7 +37,6 @@ class EvalClassifierTools:
+         self.last_confidence: float | None = None
+         self.last_status: str | None = None
+ 
+-    @tool(approval_mode="never_require")
+     async def file_capture(
+         self,
+         text: Annotated[str, Field(description="The original captured text to file")],
+@@ -79,6 +88,11 @@ class DryRunAdminTools:
+     of writing to Cosmos DB.  Use ``captured_destinations``,
+     ``captured_items``, and ``captured_tasks`` after the agent run to read
+     the predictions.
++
++    Tool methods are decorator-free per Phase 24 D-05/D-06: registered via
++    ``Agent(tools=[instance.add_errand_items, instance.add_task_items,
++    instance.get_routing_context])`` rather than the RC tool-registration
++    decorator pattern.
+     """
+ 
+     def __init__(self, routing_context: str) -> None:
+@@ -87,7 +101,6 @@ class DryRunAdminTools:
+         self.captured_items: list[dict] = []
+         self.captured_tasks: list[dict] = []
+ 
+-    @tool(approval_mode="never_require")
+     async def add_errand_items(
+         self,
+         items: Annotated[
+@@ -117,7 +130,6 @@ class DryRunAdminTools:
+             self.captured_items.append(item)
+         return f"[DRY RUN] Would add {len(items)} errand items"
+ 
+-    @tool(approval_mode="never_require")
+     async def add_task_items(
+         self,
+         tasks: Annotated[
+@@ -140,7 +152,6 @@ class DryRunAdminTools:
+         self.captured_tasks.extend(tasks)
+         return f"[DRY RUN] Would add {len(tasks)} task items"
+ 
+-    @tool(approval_mode="never_require")
+     async def get_routing_context(self) -> str:
+         """Load all destinations and affinity rules for routing decisions.
+ 
+diff --git a/backend/src/second_brain/eval/invoker.py b/backend/src/second_brain/eval/invoker.py
+index c5bf34f..3e7f057 100644
+--- a/backend/src/second_brain/eval/invoker.py
++++ b/backend/src/second_brain/eval/invoker.py
+@@ -1,22 +1,20 @@
+-"""EvalAgentInvoker -- temporary facade hiding RC/GA call shape during migration.
+-
+-Introduced in Phase 24 task group 23.2 (plan 24-12) when the Admin agent
+-migrates to GA. The RC implementation is deleted at end of 23.3 (plan 24-18)
+-when no caller remains.
+-
+-D-07 EXPLICIT JUSTIFICATION (per EVAL-INVENTORY.md round-15):
+-
+-1. Framework primitive considered: Agent.run(messages) direct.
+-2. What custom code provides: translation between eval cases
+-   (input + expected label) and agent.run() call shape, AND adapting
+-   the response back to the eval runner's existing per-case dict format.
+-3. Why not middleware/context provider/tool/configuration: it CAN be
+-   solved by either, but during the migration window we have BOTH RC and
+-   GA call shapes alive (classifier on RC until plans 24-13..24-17,
+-   admin on GA after plans 24-09..24-11). The facade hides that split
+-   for one migration window.
+-4. Permanent or temporary: temporary. Deletion trigger: end of plan 24-18,
+-   when no RCEvalAgentInvoker caller remains.
++"""EvalAgentInvoker -- GA-only eval-side agent invocation facade.
++
++Phase 24 plan 24-12 introduced this facade as a temporary RC/GA migration
++seam. Plan 24-18 (this commit) DELETES the temporary parts now that the
++classifier is on GA:
++
++- RCEvalAgentInvoker (the RC implementation lifted verbatim from
++  eval/runner.py:133-149 + 278-294)
++- _MigrationHybridInvoker (the classifier->RC, admin->GA composition class)
++- The TYPE_CHECKING import of the legacy RC client class that supported
++  the RC implementation's type hints
++
++What remains: the EvalAgentInvoker Protocol + the single GA implementation.
++The Protocol stays because the eval runner types its parameter against it
++and the test suite mocks it directly. The single concrete class is
++GAEvalAgentInvoker; rename to a plain ``EvalAgentInvoker`` (drop the GA
++prefix and the Protocol) is deferred -- diff stays small here.
+ """
+ 
+ from __future__ import annotations
+@@ -27,7 +25,6 @@ from agent_framework import ChatOptions
+ 
+ if TYPE_CHECKING:
+     from agent_framework import Agent
+-    from agent_framework.azure import AzureAIAgentClient
+ 
+     from second_brain.eval.dry_run_tools import (
+         DryRunAdminTools,
+@@ -103,99 +100,3 @@ class GAEvalAgentInvoker:
+             # tool_choice not set -- admin eval contract uses default (auto)
+             # per EVAL-INVENTORY.md call site 2 behavior contract.
+         )
+-
+-
+-class RCEvalAgentInvoker:
+-    """RC implementation -- temporary, deleted in plan 24-18.
+-
+-    Body lifted from eval/runner.py:133-149 (classifier) and 278-294 (admin)
+-    verbatim. Used while the corresponding agent has not yet migrated to GA.
+-    After 24-18, the classifier is GA and this class has no callers.
+-
+-    Imports of RC-only types (Message, ChatOptions with tool_choice dict)
+-    happen inside the methods so this module does not place a top-level
+-    dependency on RC types at import time.
+-    """
+-
+-    def __init__(
+-        self,
+-        classifier_client: AzureAIAgentClient,
+-        admin_client: AzureAIAgentClient,
+-    ) -> None:
+-        self._classifier_client = classifier_client
+-        self._admin_client = admin_client
+-
+-    async def invoke_classifier(
+-        self,
+-        input_text: str,
+-        tools_instance: EvalClassifierTools,
+-    ) -> None:
+-        from agent_framework import ChatOptions as RCChatOptions
+-        from agent_framework import Message
+-
+-        messages = [Message(role="user", text=input_text)]
+-        options = RCChatOptions(
+-            tools=[tools_instance.file_capture],
+-            tool_choice={
+-                "mode": "required",
+-                "required_function_name": "file_capture",
+-            },
+-        )
+-        await self._classifier_client.get_response(messages=messages, options=options)
+-
+-    async def invoke_admin(
+-        self,
+-        input_text: str,
+-        tools_instance: DryRunAdminTools,
+-        routing_context: str,
+-    ) -> None:
+-        from agent_framework import ChatOptions as RCChatOptions
+-        from agent_framework import Message
+-
+-        prompt = f"{routing_context}\n\n---\n{input_text}"
+-        messages = [Message(role="user", text=prompt)]
+-        options = RCChatOptions(
+-            tools=[
+-                tools_instance.add_errand_items,
+-                tools_instance.add_task_items,
+-                tools_instance.get_routing_context,
+-            ],
+-        )
+-        await self._admin_client.get_response(messages=messages, options=options)
+-
+-
+-class _MigrationHybridInvoker:
+-    """Hybrid composition for the 23.2-23.3 migration window.
+-
+-    Routes invoke_classifier -> RC implementation (classifier still RC until
+-    plans 24-13..24-17) and invoke_admin -> GA implementation (admin migrated
+-    in plans 24-09..24-11).
+-
+-    Deletion trigger: end of plan 24-18 (cleanup commit), once both agents
+-    are GA and the call-site can construct a single GAEvalAgentInvoker. The
+-    leading underscore signals deletion-trigger-aligned private API, matching
+-    the RC/GA siblings.
+-    """
+-
+-    def __init__(
+-        self,
+-        rc_invoker: RCEvalAgentInvoker,
+-        ga_invoker: GAEvalAgentInvoker,
+-    ) -> None:
+-        self._rc = rc_invoker
+-        self._ga = ga_invoker
+-
+-    async def invoke_classifier(
+-        self,
+-        input_text: str,
+-        tools_instance: EvalClassifierTools,
+-    ) -> None:
+-        await self._rc.invoke_classifier(input_text, tools_instance)
+-
+-    async def invoke_admin(
+-        self,
+-        input_text: str,
+-        tools_instance: DryRunAdminTools,
+-        routing_context: str,
+-    ) -> None:
+-        await self._ga.invoke_admin(input_text, tools_instance, routing_context)
+diff --git a/backend/src/second_brain/eval/runner.py b/backend/src/second_brain/eval/runner.py
+index 2ad2872..d80fbd7 100644
+--- a/backend/src/second_brain/eval/runner.py
++++ b/backend/src/second_brain/eval/runner.py
+@@ -8,18 +8,14 @@ in-memory for status polling.
+ Each eval case runs in a fresh tool instance with no state leakage (Pitfall #2).
+ Agent calls have a 60-second timeout per case (Pitfall #5 / T-21-05).
+ 
+-Phase 24 task group 23.2 (plan 24-12, GA migration):
+-- Agent invocation is now indirected through ``EvalAgentInvoker`` so the
+-  runner stays agnostic of RC vs. GA call shapes during the migration
+-  window. See ``second_brain.eval.invoker`` for the Protocol + the two
+-  concrete implementations (RC for classifier until 24-13..24-17, GA for
+-  admin after 24-09..24-11).
+-- The caller (api/eval.py or tools/investigation.py) constructs a
+-  ``_MigrationHybridInvoker(rc_invoker=..., ga_invoker=...)`` and passes
+-  that single hybrid as the ``invoker`` argument. Plan 24-18 deletes the
+-  hybrid + RC class together once the classifier is GA.
+-- The runner does NOT import ``_MigrationHybridInvoker`` directly; it
+-  only types the parameter as the Protocol.
++Phase 24 plan 24-18 (final 23.3 cleanup):
++- Agent invocation is indirected through the ``EvalAgentInvoker`` Protocol.
++  After 24-18 there is a single concrete implementation,
++  ``GAEvalAgentInvoker``, both paths GA. The temporary 24-12
++  ``RCEvalAgentInvoker`` and ``_MigrationHybridInvoker`` classes are gone.
++- The caller (api/eval.py or tools/investigation.py) constructs a plain
++  ``GAEvalAgentInvoker(classifier_agent=..., admin_agent=...)`` and passes
++  it as the ``invoker`` argument.
+ """
+ 
+ from __future__ import annotations
+@@ -105,10 +101,9 @@ async def run_classifier_eval(
+     Args:
+         run_id: Unique identifier for this eval run.
+         cosmos_manager: Cosmos DB manager for reading/writing containers.
+-        invoker: ``EvalAgentInvoker`` implementation. During plan 24-12's
+-            migration window, callers construct a ``_MigrationHybridInvoker``
+-            that routes invoke_classifier -> RCEvalAgentInvoker. After plan
+-            24-18 this becomes a plain ``GAEvalAgentInvoker``.
++        invoker: ``EvalAgentInvoker`` implementation. Post-24-18, this is a
++            plain ``GAEvalAgentInvoker(classifier_agent=..., admin_agent=...)``
++            constructed at the call-site (api/eval.py or tools/investigation.py).
+         runs_dict: In-memory dict for tracking run status/progress.
+     """
+     try:
+@@ -244,10 +239,9 @@ async def run_admin_eval(
+     Args:
+         run_id: Unique identifier for this eval run.
+         cosmos_manager: Cosmos DB manager for reading/writing containers.
+-        invoker: ``EvalAgentInvoker`` implementation. During plan 24-12's
+-            migration window, callers construct a ``_MigrationHybridInvoker``
+-            that routes invoke_admin -> GAEvalAgentInvoker. After plan
+-            24-18 this becomes a plain ``GAEvalAgentInvoker``.
++        invoker: ``EvalAgentInvoker`` implementation. Post-24-18, this is a
++            plain ``GAEvalAgentInvoker(classifier_agent=..., admin_agent=...)``
++            constructed at the call-site (api/eval.py or tools/investigation.py).
+         routing_context: Pre-built routing context string for
+             ``DryRunAdminTools`` and passed into ``invoker.invoke_admin``.
+         runs_dict: In-memory dict for tracking run status/progress.
+diff --git a/backend/src/second_brain/main.py b/backend/src/second_brain/main.py
+index 60d7778..a96b43a 100644
+--- a/backend/src/second_brain/main.py
++++ b/backend/src/second_brain/main.py
+@@ -30,7 +30,7 @@ from agent_framework.observability import enable_instrumentation  # noqa: E402
+ # and gen_ai.operation.duration as OTel metrics for every get_response() call.
+ enable_instrumentation()
+ 
+-from agent_framework.azure import AzureAIAgentClient  # noqa: E402
++from agent_framework import Agent  # noqa: E402
+ from agent_framework_foundry import FoundryChatClient  # noqa: E402
+ from azure.identity import (  # noqa: E402
+     ManagedIdentityCredential,  # SYNC (P1-5 — NOT azure.identity.aio)
+@@ -48,12 +48,8 @@ from second_brain.agents.agent_middleware.capture_trace import (  # noqa: E402
+     CaptureTraceAgentMiddleware,
+     CaptureTraceFunctionMiddleware,
+ )
+-from second_brain.agents.classifier import ensure_classifier_agent  # noqa: E402
++from second_brain.agents.classifier import build_classifier_agent  # noqa: E402
+ from second_brain.agents.investigation import build_investigation_agent  # noqa: E402
+-from second_brain.agents.middleware import (  # noqa: E402
+-    AuditAgentMiddleware,
+-    ToolTimingMiddleware,
+-)
+ from second_brain.api.capture import router as capture_router  # noqa: E402
+ from second_brain.api.eval import router as eval_router  # noqa: E402
+ from second_brain.api.health import router as health_router  # noqa: E402
+@@ -513,41 +509,16 @@ async def lifespan(app: FastAPI):
+             )
+             raise
+ 
+-        # --- Foundry Agent Service (fail fast) ---
+-        # KEPT for Admin/Classifier slices that still use AzureAIAgentClient.
+-        # Removed in plans 24-09 (Admin) and 24-14 (Classifier).
+-        try:
+-            foundry_client = AzureAIAgentClient(
+-                credential=credential,
+-                project_endpoint=settings.azure_ai_project_endpoint,
+-                # model_deployment_name needed for constructor validation
+-                # when no agent_id is provided (Phase 7 sets agent_id)
+-                model_deployment_name="gpt-4o",
+-            )
+-            # AzureAIAgentClient is a lazy client -- construction alone does
+-            # NOT make a network call, so wrong credentials would pass
+-            # silently. Force an auth round-trip to genuinely validate
+-            # connectivity + RBAC.
+-            async for _ in foundry_client.agents_client.list_agents(limit=1):
+-                break
+-            app.state.foundry_client = foundry_client
+-            logger.info(
+-                "Foundry client initialized and connectivity validated: %s",
+-                settings.azure_ai_project_endpoint,
+-            )
+-        except Exception:
+-            logger.error(
+-                "FATAL: Could not initialize Foundry client",
+-                exc_info=True,
+-            )
+-            raise  # Fail fast -- backend is useless without Foundry
+-
+-        # --- Classifier Agent Registration (fail fast) ---
+-        classifier_agent_id = await ensure_classifier_agent(
+-            foundry_client=foundry_client,
+-            stored_agent_id=settings.azure_ai_classifier_agent_id,
+-        )
+-        app.state.classifier_agent_id = classifier_agent_id
++        # --- RC Foundry agents-client deleted (Phase 24 plan 24-19) ---
++        # The legacy RC client (formerly used here for connectivity validation
++        # via agents_client.list_agents) is gone. FoundryChatClient above is
++        # the single GA chat client driving all 3 agents. The health endpoint's
++        # Foundry connectivity probe (api/health.py) reads app.state.foundry_client
++        # via getattr(..., None) and gracefully reports "not_configured" when it
++        # is None -- there is no module-level NameError risk. Migrating the
++        # health probe to a GA-shaped check (e.g. app.state.classifier_agent.run)
++        # is a follow-up; the goal of this plan is zero RC references in src/.
++        app.state.foundry_client = None
+ 
+         # --- ClassifierTools (uses Cosmos for filing) ---
+         classifier_tools = ClassifierTools(
+@@ -574,6 +545,10 @@ async def lifespan(app: FastAPI):
+             logger.warning("AZURE_OPENAI_ENDPOINT not set -- transcription unavailable")
+ 
+         # --- TranscriptionTools + BlobStorage (optional) ---
++        # Phase 24 plan 24-14: transcribe_audio is NO LONGER a registered
++        # classifier tool (D-04 voice path split). The TranscriptionTools
++        # instance is still constructed here -- plan 24-15 wires it as a
++        # direct call from api/capture.py when audio is on the request.
+         blob_manager: BlobStorageManager | None = None
+         if openai_client and settings.blob_storage_url:
+             blob_manager = BlobStorageManager(
+@@ -592,32 +567,40 @@ async def lifespan(app: FastAPI):
+             app.state.blob_manager = None
+             app.state.transcription_tools = None
+ 
+-        # --- Classifier AzureAIAgentClient (with middleware) ---
+-        # Separate client from the probe client -- this one has agent_id set
+-        # and should_cleanup_agent=False to persist the agent across restarts
+-        classifier_client = AzureAIAgentClient(
+-            credential=credential,
+-            project_endpoint=settings.azure_ai_project_endpoint,
+-            agent_id=classifier_agent_id,
+-            should_cleanup_agent=False,
++        # --- Build Classifier Agent via GA factory (fail fast) ---
++        # Phase 24 task group 23.3: GA Agent constructed via
++        # build_classifier_agent using the shared FoundryChatClient.
++        # Instructions live in repo (D-02). Capture-trace middleware tags
++        # framework spans at source (D-07a, P1-3).
++        #
++        # D-04 voice path split: tools list contains ONLY file_capture.
++        # transcribe_audio is no longer a registered tool -- direct call
++        # from api/capture.py lands in plan 24-15.
++        # With one tool registered, tool_choice='required' is unambiguous;
++        # the Python safety net is deleted (D-03) and failures route to
++        # the forced_tool_failure SSE sub-code (plan 24-16).
++        classifier_agent = build_classifier_agent(
++            chat_client=chat_client,
++            tools=[classifier_tools.file_capture],
+             middleware=[
+-                AuditAgentMiddleware(agent_name="classifier"),
+-                ToolTimingMiddleware(),
++                CaptureTraceAgentMiddleware(),
++                CaptureTraceFunctionMiddleware(),
+             ],
+         )
+-        app.state.classifier_client = classifier_client
+-
+-        # Build tool list for request-time use (file_capture always,
+-        # transcribe_audio only if configured)
+-        agent_tools = [classifier_tools.file_capture]
+-        if app.state.transcription_tools:
+-            agent_tools.append(app.state.transcription_tools.transcribe_audio)
+-        app.state.classifier_agent_tools = agent_tools
++        app.state.classifier_agent = classifier_agent
++
++        # Mid-migration: RC client/agent_id attrs no longer set by Classifier
++        # slice. Set to None so warmup loop's classifier_client check can
++        # short-circuit (warmup migrates to GA in plan 24-19). Spine
++        # FoundryAgentAdapter for "classifier" segment similarly skips
++        # while classifier_agent_id is None. streaming/adapter.py still
++        # reads app.state.classifier_client until plan 24-16 rewrites it
++        # against app.state.classifier_agent.
++        app.state.classifier_client = None
++        app.state.classifier_agent_id = None
+ 
+         logger.info(
+-            "Classifier agent ready: id=%s tools=%d middleware=2",
+-            classifier_agent_id,
+-            len(agent_tools),
++            "Classifier agent ready (GA): tools=1 (file_capture only) middleware=2",
+         )
+ 
+         # --- Admin Agent (non-fatal, GA pattern) ---
+@@ -730,12 +713,11 @@ async def lifespan(app: FastAPI):
+                     logs_client=app.state.logs_client,
+                     workspace_id=settings.log_analytics_workspace_id,
+                     cosmos_manager=app.state.cosmos_manager,
+-                    classifier_client=app.state.classifier_client,
+-                    admin_client=getattr(app.state, "admin_client", None),
+-                    # Phase 24 plan 24-12: admin path is now GA via Agent
+-                    # singleton; classifier path stays RC during migration
+-                    # window. EvalAgentInvoker hybrid constructed in
+-                    # InvestigationTools._build_eval_invoker().
++                    # Phase 24 plan 24-18: both eval paths route through a
++                    # plain GAEvalAgentInvoker constructed inside
++                    # InvestigationTools._build_eval_invoker(). The 24-12
++                    # hybrid (classifier_client + admin_client) is gone.
++                    classifier_agent=getattr(app.state, "classifier_agent", None),
+                     admin_agent=getattr(app.state, "admin_agent", None),
+                 )
+                 app.state.investigation_tools_instance = investigation_tools
+@@ -797,81 +779,110 @@ async def lifespan(app: FastAPI):
+         if getattr(app.state, "recipe_tools", None) and app.state.spine_repo:
+             app.state.recipe_tools._spine_repo = app.state.spine_repo
+ 
+-        # --- Agent warm-up background task ---
++        # --- Agent warm-up background task (GA) ---
++        # Phase 24 plan 24-19: warmup loop and self-heal factories migrated
++        # to GA. The loop pings each Agent via ``agent.run("ping")``; on
++        # MAX_CONSECUTIVE_FAILURES the factory rebuilds the Agent via the
++        # corresponding ``build_*_agent`` helper and the replacement is
++        # written back to app.state via ``on_recreate``.
+         warmup_task = None
+         if settings.agent_warmup_enabled:
+-            warmup_clients: list = [("classifier", classifier_client)]
+-            if app.state.admin_client is not None:
+-                warmup_clients.append(("admin", app.state.admin_client))
+-            if getattr(app.state, "investigation_client", None) is not None:
+-                warmup_clients.append(("investigation", app.state.investigation_client))
+-
+-            # Factory functions for self-healing: recreate agent clients on
+-            # consecutive warmup failures without manual Container App restart.
+-            def _make_classifier_client() -> AzureAIAgentClient:
+-                return AzureAIAgentClient(
+-                    credential=credential,
+-                    project_endpoint=settings.azure_ai_project_endpoint,
+-                    agent_id=classifier_agent_id,
+-                    should_cleanup_agent=False,
++            warmup_agents: list[tuple[str, Agent]] = []
++            if getattr(app.state, "classifier_agent", None) is not None:
++                warmup_agents.append(("classifier", app.state.classifier_agent))
++            if getattr(app.state, "admin_agent", None) is not None:
++                warmup_agents.append(("admin", app.state.admin_agent))
++            if getattr(app.state, "investigation_agent", None) is not None:
++                warmup_agents.append(("investigation", app.state.investigation_agent))
++
++            # Factory functions for self-healing: rebuild the GA Agent on
++            # consecutive warmup failures without a Container App restart.
++            # Factories read tool instances from app.state at call time so
++            # they survive any future tool-instance replacement.
++            def _make_classifier_agent() -> Agent:
++                tools_inst = app.state.classifier_tools
++                return build_classifier_agent(
++                    chat_client=chat_client,
++                    tools=[tools_inst.file_capture],
+                     middleware=[
+-                        AuditAgentMiddleware(agent_name="classifier"),
+-                        ToolTimingMiddleware(),
++                        CaptureTraceAgentMiddleware(),
++                        CaptureTraceFunctionMiddleware(),
+                     ],
+                 )
+ 
+-            warmup_factories: dict[str, Callable[[], AzureAIAgentClient]] = {
+-                "classifier": _make_classifier_client,
+-            }
+-            if app.state.admin_client is not None:
+-
+-                def _make_admin_client() -> AzureAIAgentClient:
+-                    return AzureAIAgentClient(
+-                        credential=credential,
+-                        project_endpoint=settings.azure_ai_project_endpoint,
+-                        agent_id=app.state.admin_agent_id,
+-                        should_cleanup_agent=False,
++            warmup_factories: dict[str, Callable[[], Agent]] = {}
++            if getattr(app.state, "classifier_agent", None) is not None:
++                warmup_factories["classifier"] = _make_classifier_agent
++
++            if getattr(app.state, "admin_agent", None) is not None:
++
++                def _make_admin_agent() -> Agent:
++                    admin_tools_inst = app.state.admin_tools
++                    recipe_tools_inst = getattr(app.state, "recipe_tools", None)
++                    rebuilt_tools = [
++                        admin_tools_inst.add_errand_items,
++                        admin_tools_inst.add_task_items,
++                        admin_tools_inst.get_routing_context,
++                        admin_tools_inst.manage_destination,
++                        admin_tools_inst.manage_affinity_rule,
++                        admin_tools_inst.query_rules,
++                    ]
++                    if recipe_tools_inst is not None:
++                        rebuilt_tools.append(recipe_tools_inst.fetch_recipe_url)
++                    return build_admin_agent(
++                        chat_client=chat_client,
++                        tools=rebuilt_tools,
+                         middleware=[
+-                            AuditAgentMiddleware(agent_name="admin"),
+-                            ToolTimingMiddleware(),
++                            CaptureTraceAgentMiddleware(),
++                            CaptureTraceFunctionMiddleware(),
+                         ],
+                     )
+ 
+-                warmup_factories["admin"] = _make_admin_client
+-            if getattr(app.state, "investigation_client", None) is not None:
+-
+-                def _make_investigation_client() -> AzureAIAgentClient:
+-                    return AzureAIAgentClient(
+-                        credential=credential,
+-                        project_endpoint=settings.azure_ai_project_endpoint,
+-                        agent_id=app.state.investigation_agent_id,
+-                        should_cleanup_agent=False,
++                warmup_factories["admin"] = _make_admin_agent
++
++            if getattr(app.state, "investigation_agent", None) is not None:
++
++                def _make_investigation_agent() -> Agent:
++                    inv_tools_inst = app.state.investigation_tools_instance
++                    return build_investigation_agent(
++                        chat_client=chat_client,
++                        tools=[
++                            inv_tools_inst.trace_lifecycle,
++                            inv_tools_inst.recent_errors,
++                            inv_tools_inst.system_health,
++                            inv_tools_inst.usage_patterns,
++                            inv_tools_inst.query_feedback_signals,
++                            inv_tools_inst.promote_to_golden_dataset,
++                            inv_tools_inst.run_classifier_eval,
++                            inv_tools_inst.run_admin_eval,
++                            inv_tools_inst.get_eval_results,
++                        ],
+                         middleware=[
+-                            AuditAgentMiddleware(agent_name="investigation"),
+-                            ToolTimingMiddleware(),
++                            CaptureTraceAgentMiddleware(),
++                            CaptureTraceFunctionMiddleware(),
+                         ],
+                     )
+ 
+-                warmup_factories["investigation"] = _make_investigation_client
++                warmup_factories["investigation"] = _make_investigation_agent
+ 
+-            def _on_recreate(name: str, new_client: AzureAIAgentClient) -> None:
+-                """Update app.state with the recreated client."""
+-                attr = f"{name}_client"
+-                setattr(app.state, attr, new_client)
++            def _on_recreate(name: str, new_agent: Agent) -> None:
++                """Write the rebuilt Agent back to app.state."""
++                attr = f"{name}_agent"
++                setattr(app.state, attr, new_agent)
+                 logger.info("app.state.%s replaced by warmup self-heal", attr)
+ 
+             warmup_task = asyncio.create_task(
+                 agent_warmup_loop(
+-                    clients=warmup_clients,
++                    agents=warmup_agents,
+                     interval_seconds=settings.agent_warmup_interval_minutes * 60,
+-                    client_factories=warmup_factories,
++                    agent_factories=warmup_factories,
+                     on_recreate=_on_recreate,
+                 )
+             )
+             logger.info(
+                 "Agent warmup started: interval=%dm agents=%d",
+                 settings.agent_warmup_interval_minutes,
+-                len(warmup_clients),
++                len(warmup_agents),
+             )
+ 
+         yield
+diff --git a/backend/src/second_brain/models/documents.py b/backend/src/second_brain/models/documents.py
+index 9a2f233..d90fd60 100644
+--- a/backend/src/second_brain/models/documents.py
++++ b/backend/src/second_brain/models/documents.py
+@@ -9,6 +9,8 @@ from uuid import uuid4
+ 
+ from pydantic import BaseModel, Field
+ 
++from second_brain.cosmos.inbox_conversation_history import ConversationTurn
++
+ VALID_BUCKETS: frozenset[str] = frozenset({"People", "Projects", "Ideas", "Admin"})
+ 
+ 
+@@ -50,6 +52,16 @@ class InboxDocument(BaseDocument):
+     title: str | None = None
+     clarificationText: str | None = None
+     foundryThreadId: str | None = None
++    # Per CONTEXT D-07b + probe 4 (session_rehydration.json) + P0-1 OUTCOME (Option A):
++    # Holds the explicit conversation history reconstructed into Message[] on
++    # each follow-up. Cross-process AgentSession.session_id rehydration FAILS on
++    # GA Foundry SDK 1.3.0 (proven by session_rehydration_fresh_process.json,
++    # recalled_pineapple=false). Operator locked Option A -- persist full message
++    # history client-side and pass it to agent.run(messages=[...]) on each turn.
++    # ADDED alongside foundryThreadId (NOT a rename) for rollback safety during
++    # the deploy window. Both fields coexist until plan 24-24 (post-UAT)
++    # deletes foundryThreadId.
++    conversationHistory: list[ConversationTurn] | None = None
+     adminProcessingStatus: str | None = None  # None, "pending", "processed", "failed"
+ 
+ 
+diff --git a/backend/src/second_brain/observability/kql_templates.py b/backend/src/second_brain/observability/kql_templates.py
+index d5ddb8e..f22f30e 100644
+--- a/backend/src/second_brain/observability/kql_templates.py
++++ b/backend/src/second_brain/observability/kql_templates.py
+@@ -396,6 +396,53 @@ AppDependencies
+ """
+ 
+ 
++# ---------------------------------------------------------------------------
++# Forced Tool Failure Count -- 23.3 SSE sub-code introduced in plan 24-16
++# ---------------------------------------------------------------------------
++# Parameterised with {lookback} (KQL duration literal e.g. "24h", "7d") via
++# str.format(). Returns a per-hour count of forced_tool_failure events.
++#
++# Per SPAN-NAME-MAPPING.md Section "Task group 23.3":
++# Plan 24-16 introduced the `forced_tool_failure` SSE sub-code (D-04). It is
++# emitted by streaming/adapter.py at three points (text capture's
++# tool_choice=required-empty-result, text capture's exception handler, and
++# the follow-up flow's equivalents). Each emission writes a structured log
++# carrying ``extra={..., "capture.outcome": "forced_tool_failure"}``, which
++# lands on AppTraces (logger.warning) or AppExceptions (logger.error with
++# exc_info=True). This template unions both tables.
++#
++# The dotted property key `capture.outcome` requires bracket access in KQL
++# (`Properties.["capture.outcome"]`), not dot-access.
++#
++# Severity union: includes WARNING (SeverityLevel=2, the empty-result path)
++# AND ERROR (SeverityLevel=3, the exception path) so both emission shapes
++# contribute. SeverityLevel >= 2 filters out the DEBUG/INFO floor without
++# excluding either real emission point.
++#
++# 24-18 ships this template only; a corresponding query_*() function in
++# queries.py + post-deploy 7-day monitoring gate land in a follow-up plan.
++
++FORCED_TOOL_FAILURE_COUNT = """\
++union withsource=SourceTable
++    (AppTraces | where SeverityLevel >= 2),
++    AppExceptions
++| where TimeGenerated > ago({lookback})
++| where tostring(Properties.["capture.outcome"]) == "forced_tool_failure"
++| project
++    timestamp = TimeGenerated,
++    ItemType = case(
++        SourceTable == "AppTraces", "Log",
++        SourceTable == "AppExceptions", "Exception",
++        SourceTable
++    ),
++    severityLevel = SeverityLevel,
++    CaptureTraceId = tostring(Properties.capture_trace_id),
++    Component = tostring(Properties.component)
++| summarize count_ = count() by bin(timestamp, 1h), ItemType
++| order by timestamp asc
++"""
++
++
+ BACKEND_API_FAILURES = """\
+ union withsource=SourceTable
+     (AppTraces | where SeverityLevel >= 3),
+diff --git a/backend/src/second_brain/processing/admin_handoff.py b/backend/src/second_brain/processing/admin_handoff.py
+index abd5ad9..1a52604 100644
+--- a/backend/src/second_brain/processing/admin_handoff.py
++++ b/backend/src/second_brain/processing/admin_handoff.py
+@@ -7,7 +7,7 @@ are kept on the inbox item for delivery; simple confirmations trigger deletion.
+ Failed items remain with adminProcessingStatus = 'failed' for retry.
+ 
+ Phase 24 task group 23.2 (GA migration):
+-- Uses GA Agent.run() in place of RC AzureAIAgentClient.get_response().
++- Uses GA Agent.run() in place of the legacy RC client's get_response().
+ - Tool detection is post-hoc: walks response.messages for role='tool'
+   entries per FOUNDRY-PROBE-FINDINGS.md probe 2 (tool_call_extraction).
+ - Custom admin_agent_process / admin_agent_batch_process spans removed
+diff --git a/backend/src/second_brain/streaming/adapter.py b/backend/src/second_brain/streaming/adapter.py
+index 54eea82..550cd16 100644
+--- a/backend/src/second_brain/streaming/adapter.py
++++ b/backend/src/second_brain/streaming/adapter.py
+@@ -1,23 +1,50 @@
+-"""FoundrySSEAdapter -- async generator functions for streaming captures.
++"""FoundrySSEAdapter -- GA streaming adapter for Classifier captures.
+ 
+-Iterates ChatResponseUpdate objects from the Foundry streaming API,
+-detects tool outcomes via Content inspection, and yields SSE-formatted
++Iterates ``AgentResponseUpdate`` objects from ``agent.run(messages, stream=True)``,
++detects tool outcomes via ``Content`` inspection, and yields SSE-formatted
+ strings matching the AG-UI protocol the mobile app expects.
+ 
+ Chain-of-thought reasoning text is suppressed from the SSE stream and
+ logged to Application Insights for analysis and instruction tuning.
++
++P0-1 OUTCOME (2026-05-10, fixture
++``backend/tests/fixtures/foundry-probe/session_rehydration_fresh_process.json``):
++cross-process session-handle rehydration via ``session_id`` alone FAILS on
++GA Foundry SDK 1.3.0. Operator locked **Option A**: stateless agent invocation
++with explicit conversation context. The caller passes the inbox doc; the
++adapter resolves the persisted conversation history via
++``resolve_inbox_conversation_history()``, constructs an explicit
++``Message`` list (history + new user turn), calls ``agent.run(...)``, then
++persists the updated history back to the inbox doc after the stream
++completes.
++
++D-04 forced-tool failure mode: when ``tool_choice='required'`` cannot be
++satisfied (the framework raises before ``file_capture`` runs), the adapter
++yields an ``ERROR`` SSE event with ``sub_code='forced_tool_failure'`` so
++monitoring/dashboards can distinguish this from generic errors.
++
++F-14 custom-span deletion: the previous ``capture_text`` / ``capture_voice``
++/ ``capture_follow_up`` custom OTel spans are gone. The capture.*
++attributes that lived on them now ride on structured ``logger.info(...,
++extra=log_extra)`` dicts. The framework ``invoke_agent`` span (auto-emitted
++by the SDK + tagged at source by ``CaptureTraceAgentMiddleware`` from
++24-03) remains the canonical span for correlation.
+ """
+ 
++from __future__ import annotations
++
+ import asyncio
+ import json
+ import logging
++import uuid
+ from collections.abc import AsyncGenerator, Mapping
+-from uuid import uuid4
+ 
+-from agent_framework import ChatOptions, Message
+-from agent_framework.azure import AzureAIAgentClient
+-from opentelemetry import trace
++from agent_framework import Agent, ChatOptions, Message
+ 
++from second_brain.cosmos.inbox_conversation_history import (
++    ConversationTurn,
++    resolve_inbox_conversation_history,
++)
+ from second_brain.spine.cosmos_request_id import trace_headers
+ from second_brain.streaming.sse import (
+     classified_event,
+@@ -34,7 +61,6 @@ from second_brain.tools.classification import capture_trace_id_var
+ 
+ logger = logging.getLogger(__name__)
+ reasoning_logger = logging.getLogger("second_brain.streaming.reasoning")
+-tracer = trace.get_tracer("second_brain.streaming")
+ 
+ 
+ def _parse_args(raw: object) -> dict:
+@@ -62,9 +88,13 @@ def _emit_result_event(
+     detected_tool_args: dict,
+     tool_result: dict | None,
+     thread_id: str,
+-    foundry_conversation_id: str | None = None,
+ ) -> dict:
+-    """Determine and return the appropriate result event dict."""
++    """Determine and return the appropriate result event dict.
++
++    P0-1 OUTCOME: no foundry conversation id parameter; conversation
++    continuity now rides on the Inbox doc's ``conversationHistory`` field
++    rather than on a server-side session handle.
++    """
+     status = detected_tool_args.get("status")
+ 
+     # Prefer tool_result values, fall back to detected_tool_args
+@@ -75,9 +105,7 @@ def _emit_result_event(
+ 
+     if status == "misunderstood":
+         question_text = detected_tool_args.get("title", "Could you clarify?")
+-        return misunderstood_event(
+-            thread_id, item_id, question_text, foundry_conversation_id
+-        )
++        return misunderstood_event(thread_id, item_id, question_text)
+ 
+     if status == "classified":
+         return classified_event(item_id, bucket, confidence)
+@@ -89,72 +117,125 @@ def _emit_result_event(
+     return unresolved_event(item_id)
+ 
+ 
+-async def _safety_net_file_as_misunderstood(
+-    cosmos_manager,
+-    raw_text: str,
+-    thread_id: str,
+-    foundry_conversation_id: str | None,
+-    span,
+-    capture_trace_id: str = "",
++def _forced_tool_failure_event() -> dict:
++    """Construct an ERROR SSE event with the ``forced_tool_failure`` sub_code.
++
++    D-04: emitted when the agent run fails (e.g. ``tool_choice='required'``
++    cannot be satisfied, the framework raises before ``file_capture`` runs,
++    or the tool raises during execution). Distinct from a generic ``ERROR``
++    so monitoring/dashboards can break out forced-tool failures separately.
++    """
++    return {
++        "type": "ERROR",
++        "message": "Classifier could not file this capture.",
++        "sub_code": "forced_tool_failure",
++    }
++
++
++def _persist_conversation_history_inplace(
++    inbox_doc, history: list[ConversationTurn]
+ ) -> dict:
+-    """File a capture as misunderstood when the agent fails to call file_capture.
++    """Write the updated ``conversationHistory`` back onto the inbox doc.
+ 
+-    This is a safety net -- the agent is an LLM and sometimes skips tool calls.
+-    Every capture MUST produce a filed item. When the agent doesn't cooperate,
+-    the adapter writes the misunderstood doc directly and emits a MISUNDERSTOOD
+-    event so the user gets a follow-up prompt instead of a dead end.
++    Accepts either a dict (raw Cosmos body) or a Pydantic model. Returns the
++    mutated dict body ready for ``container.upsert_item(...)``.
++    """
++    serialized = [t.model_dump() for t in history]
++    if isinstance(inbox_doc, dict):
++        inbox_doc["conversationHistory"] = serialized
++        return inbox_doc
++    # Pydantic-style attribute access; coerce to dict for Cosmos upsert.
++    inbox_doc.conversationHistory = serialized
++    if hasattr(inbox_doc, "model_dump"):
++        body = inbox_doc.model_dump(mode="json")
++    else:
++        body = dict(getattr(inbox_doc, "__dict__", {}))
++    body["conversationHistory"] = serialized
++    return body
++
++
++def _get_inbox_id(inbox_doc) -> str | None:
++    """Extract the doc id from a dict body or Pydantic attribute object."""
++    if inbox_doc is None:
++        return None
++    if isinstance(inbox_doc, dict):
++        return inbox_doc.get("id")
++    return getattr(inbox_doc, "id", None)
++
++
++async def _upsert_inbox_with_history(
++    cosmos_manager,
++    inbox_doc,
++    history: list[ConversationTurn],
++    capture_trace_id: str,
++) -> None:
++    """Persist the updated ``conversationHistory`` to Cosmos (best-effort).
++
++    Race-safe: re-reads the doc from Cosmos before writing so we don't wipe
++    out concurrent classification field writes from ``file_capture`` which
++    ran INSIDE the stream. The caller-provided ``inbox_doc`` is only used
++    to find the doc id; the upsert body is the freshly-read Cosmos doc
++    with ``conversationHistory`` overwritten.
++
++    Failures are logged but do NOT raise -- the SSE stream has already
++    delivered the classification result to the client. Losing the history
++    write means a follow-up will treat the conversation as fresh
++    (P0-1 OUTCOME Option A graceful-loss path).
++    """
++    if cosmos_manager is None or inbox_doc is None:
++        return
++    log_extra = {"capture_trace_id": capture_trace_id, "component": "classifier"}
++    doc_id = _get_inbox_id(inbox_doc)
++    if not doc_id:
++        return
++    serialized = [t.model_dump() for t in history]
++    try:
++        inbox_container = cosmos_manager.get_container("Inbox")
++        # Re-read the latest doc state so we don't clobber concurrent
++        # file_capture writes that ran inside agent.run().
++        try:
++            fresh_doc = await inbox_container.read_item(
++                item=doc_id,
++                partition_key="will",
++                **trace_headers(capture_trace_id or None),
++            )
++        except Exception:
++            # Doc not yet written (e.g. classifier hit forced_tool_failure
++            # before file_capture ran). Fall back to the caller's body.
++            fresh_doc = _persist_conversation_history_inplace(inbox_doc, history)
++        else:
++            fresh_doc["conversationHistory"] = serialized
++        await inbox_container.upsert_item(
++            body=fresh_doc, **trace_headers(capture_trace_id or None)
++        )
++    except Exception:
++        logger.warning(
++            "Failed to persist conversationHistory back to inbox doc",
++            exc_info=True,
++            extra=log_extra,
++        )
+ 
+-    Returns the MISUNDERSTOOD event dict ready for encode_sse().
++
++def _build_message_list(
++    history: list[ConversationTurn], new_user_text: str
++) -> list[Message]:
++    """Build the explicit Message list passed to ``agent.run(...)``.
++
++    P0-1 OUTCOME Option A: stateless agent invocation. The history is the
++    full prior conversation as persisted on the Inbox doc; the new user
++    turn is appended.
+     """
+-    from second_brain.models.documents import InboxDocument
+-
+-    log_extra: dict = {"capture_trace_id": capture_trace_id, "component": "classifier"}
+-
+-    inbox_doc_id = str(uuid4())
+-    inbox_doc = InboxDocument(
+-        id=inbox_doc_id,
+-        rawText=raw_text,
+-        source="text",
+-        title="Untitled",
+-        filedRecordId=None,
+-        classificationMeta=None,
+-        status="misunderstood",
+-    )
+-
+-    # Include foundryThreadId and captureTraceId in the initial write
+-    doc_body = inbox_doc.model_dump(mode="json")
+-    if foundry_conversation_id:
+-        doc_body["foundryThreadId"] = foundry_conversation_id
+-    if capture_trace_id:
+-        doc_body["captureTraceId"] = capture_trace_id
+-
+-    inbox_container = cosmos_manager.get_container("Inbox")
+-    await inbox_container.create_item(
+-        body=doc_body, **trace_headers(capture_trace_id or None)
+-    )
+-
+-    span.set_attribute("capture.outcome", "misunderstood")
+-    span.set_attribute("capture.safety_net", True)
+-    logger.warning(
+-        "Safety-net: agent skipped file_capture, filed as misunderstood "
+-        "(inbox_id=%s, text=%s)",
+-        inbox_doc_id,
+-        raw_text[:80],
+-        extra=log_extra,
+-    )
+-
+-    return misunderstood_event(
+-        thread_id,
+-        inbox_doc_id,
+-        "I didn\u2019t quite catch that. Could you clarify?",
+-        foundry_conversation_id,
+-    )
++    msg_list: list[Message] = [
++        Message(role=t.role, contents=[t.content]) for t in history
++    ]
++    msg_list.append(Message(role="user", contents=[new_user_text]))
++    return msg_list
+ 
+ 
+ async def stream_text_capture(
+-    client: AzureAIAgentClient,
++    agent: Agent,
+     user_text: str,
+-    tools: list,
++    inbox_doc,
+     thread_id: str,
+     run_id: str,
+     cosmos_manager=None,
+@@ -162,544 +243,394 @@ async def stream_text_capture(
+ ) -> AsyncGenerator[str, None]:
+     """Stream a text capture through the Classifier agent as AG-UI SSE events.
+ 
+-    Iterates ChatResponseUpdate objects from the Foundry streaming API,
+-    detects tool outcomes, and yields SSE-formatted JSON events.
+-    Chain-of-thought reasoning text is suppressed and logged.
++    GA agent.run(messages, stream=True) under P0-1 OUTCOME Option A:
++
++    * Caller passes the inbox doc (either a freshly-constructed empty body
++      for a new capture, or the existing body for a follow-up).
++    * Adapter resolves the persisted conversation history from the doc
++      via ``resolve_inbox_conversation_history`` (24-15 helper).
++    * Adapter builds an explicit ``Message`` list (history + new user turn)
++      and calls ``agent.run(...)``.
++    * Adapter accumulates the assistant's emitted text deltas, then
++      appends the new user turn and the assistant turn to the history,
++      and persists the updated history back to the inbox doc.
++
++    Custom OTel span deleted (F-14). capture.* attributes ride on
++    structured logger.info(..., extra=log_extra) instead.
+ 
+-    The OTel span is created INSIDE the async generator (not the endpoint
+-    handler) so span context is preserved across async generator boundaries.
++    Args:
++        agent: GA ``Agent`` instance (Classifier; pre-registered with
++            ``[file_capture]`` per F-11 voice path split).
++        user_text: The user's text capture body.
++        inbox_doc: The inbox doc body to load history from and write the
++            updated history back to. dict (raw Cosmos body) or Pydantic
++            model accepted.
++        thread_id: App-level thread id for SSE event correlation
++            (echoed back on MISUNDERSTOOD + COMPLETE for mobile).
++        run_id: App-level run id for SSE event correlation.
++        cosmos_manager: ``CosmosManager`` for persisting the updated
++            conversationHistory back to the inbox doc.
++        capture_trace_id: Per-capture trace ID propagated end-to-end.
+     """
+-    log_extra: dict = {"capture_trace_id": capture_trace_id, "component": "classifier"}
++    log_extra: dict = {
++        "capture_trace_id": capture_trace_id,
++        "component": "classifier",
++        "capture.type": "text",
++        "capture.thread_id": thread_id,
++        "capture.run_id": run_id,
++    }
+     # Set ContextVar so file_capture can read the trace ID during agent execution
+     trace_token = capture_trace_id_var.set(capture_trace_id)
+-    with tracer.start_as_current_span("capture_text") as span:
+-        span.set_attribute("capture.type", "text")
+-        span.set_attribute("capture.thread_id", thread_id)
+-        span.set_attribute("capture.run_id", run_id)
+-        span.set_attribute("capture.trace_id", capture_trace_id)
+-
+-        messages = [Message(role="user", text=user_text)]
+-        options: ChatOptions = {
+-            "tools": tools,
+-            "tool_choice": {
+-                "mode": "required",
+-                "required_function_name": "file_capture",
+-            },
+-        }
+-
+-        yield encode_sse(step_start_event("Classifying"))
+-
+-        # Multi-result tracking (Phase 11.1)
+-        file_capture_results: list[dict] = []
+-        pending_calls: dict[str, dict] = {}  # call_id -> {name, args}
+-
+-        chunk_idx: int = 0
+-        foundry_conversation_id: str | None = None
+ 
+-        try:
+-            async with asyncio.timeout(60):
+-                stream = client.get_response(
+-                    messages=messages, stream=True, options=options
++    # P0-1 OUTCOME Option A: explicit conversation history threading
++    history = resolve_inbox_conversation_history(inbox_doc) if inbox_doc else []
++    msg_list = _build_message_list(history, user_text)
++    options = ChatOptions(tool_choice="required")
++
++    yield encode_sse(step_start_event("Classifying"))
++
++    # Multi-result tracking (Phase 11.1)
++    file_capture_results: list[dict] = []
++    pending_calls: dict[str, dict] = {}  # call_id -> {name, args}
++    accumulated_assistant_text = ""
++
++    chunk_idx: int = 0
++
++    try:
++        async with asyncio.timeout(60):
++            # GA: agent.run returns a streaming response directly when stream=True.
++            # Tools (file_capture) are pre-registered on the agent at lifespan
++            # construction (24-14); adapter no longer threads them in per call.
++            stream = agent.run(msg_list, options=options, stream=True)
++
++            async for update in stream:
++                # Per probe 1 (streaming_shape.json) update.text accumulates
++                # final user-visible text; empty during tool-call phase.
++                text_delta = getattr(update, "text", "")
++                if text_delta:
++                    accumulated_assistant_text += text_delta
++                    # Classifier suppresses text deltas from the SSE stream
++                    # (chain-of-thought is not the user-facing deliverable for
++                    # the classifier surface; cf. the Investigation adapter,
++                    # which DOES emit text). Log to reasoning channel for
++                    # offline analysis / instruction tuning.
++                    reasoning_logger.info(
++                        "Reasoning chunk",
++                        extra={
++                            "reasoning_text": text_delta,
++                            "agent_run_id": run_id,
++                            "chunk_index": chunk_idx,
++                            "capture_trace_id": capture_trace_id,
++                            "component": "classifier",
++                        },
++                    )
++                    chunk_idx += 1
++
++                for content in getattr(update, "contents", None) or []:
++                    content_type = getattr(content, "type", None)
++
++                    if content_type == "function_call":
++                        call_id = getattr(content, "call_id", None)
++                        name = getattr(content, "name", None)
++                        if call_id and name:
++                            pending_calls[call_id] = {
++                                "name": name,
++                                "args": _parse_args(getattr(content, "arguments", {}))
++                                if name == "file_capture"
++                                else {},
++                            }
++
++                    elif content_type == "function_result":
++                        call_id = getattr(content, "call_id", None)
++                        if call_id and call_id in pending_calls:
++                            call_info = pending_calls.pop(call_id)
++                            if call_info["name"] == "file_capture":
++                                parsed = _parse_result(getattr(content, "result", None))
++                                if parsed is not None:
++                                    merged = {**call_info["args"], **parsed}
++                                    file_capture_results.append(merged)
++
++            yield encode_sse(step_end_event("Classifying"))
++
++            # Emit result event and log outcome
++            if file_capture_results:
++                # Use first result as primary (backward-compatible)
++                primary = file_capture_results[0]
++                all_buckets = [r.get("bucket", "?") for r in file_capture_results]
++                all_item_ids = [r.get("item_id", "") for r in file_capture_results]
++                statuses = [r.get("status", "classified") for r in file_capture_results]
++
++                outcome_extra = {
++                    **log_extra,
++                    "capture.outcome": "classified",
++                    "capture.split_count": len(file_capture_results),
++                    "capture.buckets": ",".join(all_buckets),
++                    "capture.bucket": primary.get("bucket", ""),
++                    "capture.confidence": primary.get("confidence", 0.0),
++                }
++                logger.info(
++                    "Text capture classified: bucket=%s confidence=%.2f splits=%d",
++                    primary.get("bucket", ""),
++                    primary.get("confidence", 0.0),
++                    len(file_capture_results),
++                    extra=outcome_extra,
+                 )
+ 
+-                async for update in stream:
+-                    if (
+-                        getattr(update, "conversation_id", None)
+-                        and not foundry_conversation_id
+-                    ):
+-                        foundry_conversation_id = update.conversation_id
+-
+-                    for content in update.contents or []:
+-                        if content.type == "text" and getattr(content, "text", None):
+-                            reasoning_logger.info(
+-                                "Reasoning chunk",
+-                                extra={
+-                                    "reasoning_text": content.text,
+-                                    "agent_run_id": run_id,
+-                                    "chunk_index": chunk_idx,
+-                                    "capture_trace_id": capture_trace_id,
+-                                    "component": "classifier",
+-                                },
+-                            )
+-                            chunk_idx += 1
+-
+-                        elif content.type == "function_call":
+-                            call_id = getattr(content, "call_id", None)
+-                            name = getattr(content, "name", None)
+-                            if call_id and name:
+-                                pending_calls[call_id] = {
+-                                    "name": name,
+-                                    "args": _parse_args(
+-                                        getattr(content, "arguments", {})
+-                                    )
+-                                    if name == "file_capture"
+-                                    else {},
+-                                }
+-
+-                        elif content.type == "function_result":
+-                            call_id = getattr(content, "call_id", None)
+-                            if call_id and call_id in pending_calls:
+-                                call_info = pending_calls.pop(call_id)
+-                                if call_info["name"] == "file_capture":
+-                                    parsed = _parse_result(
+-                                        getattr(content, "result", None)
+-                                    )
+-                                    if parsed is not None:
+-                                        merged = {**call_info["args"], **parsed}
+-                                        file_capture_results.append(merged)
+-
+-                yield encode_sse(step_end_event("Classifying"))
+-
+-                # Emit result event and set outcome span attributes
+-                if file_capture_results:
+-                    # Use first result as primary (backward-compatible)
+-                    primary = file_capture_results[0]
+-                    all_buckets = [r.get("bucket", "?") for r in file_capture_results]
+-                    all_item_ids = [r.get("item_id", "") for r in file_capture_results]
+-
+-                    # Check statuses for edge cases
+-                    statuses = [
+-                        r.get("status", "classified") for r in file_capture_results
+-                    ]
+-
+-                    # OTel attributes
+-                    span.set_attribute("capture.outcome", "classified")
+-                    span.set_attribute("capture.split_count", len(file_capture_results))
+-                    span.set_attribute("capture.buckets", ",".join(all_buckets))
+-                    span.set_attribute(
+-                        "capture.bucket",
+-                        primary.get("bucket", ""),
++                if "misunderstood" in statuses:
++                    yield encode_sse(
++                        misunderstood_event(
++                            thread_id,
++                            primary.get("item_id", ""),
++                            "I didn’t quite catch that. Could you clarify?",
++                        )
+                     )
+-                    span.set_attribute(
+-                        "capture.confidence",
+-                        primary.get("confidence", 0.0),
++                elif "pending" in statuses:
++                    pending_item = next(
++                        r for r in file_capture_results if r.get("status") == "pending"
+                     )
+-
+-                    if "misunderstood" in statuses:
+-                        # Rare edge case: treat as misunderstood for whole capture
+-                        yield encode_sse(
+-                            misunderstood_event(
+-                                thread_id,
+-                                primary.get("item_id", ""),
+-                                "I didn\u2019t quite catch that. Could you clarify?",
+-                                foundry_conversation_id,
+-                            )
+-                        )
+-                    elif "pending" in statuses:
+-                        # Any low-confidence: show low-confidence for first pending item
+-                        pending_item = next(
+-                            r
+-                            for r in file_capture_results
+-                            if r.get("status") == "pending"
+-                        )
+-                        yield encode_sse(
+-                            low_confidence_event(
+-                                pending_item.get("item_id", ""),
+-                                pending_item.get("bucket", "?"),
+-                                pending_item.get("confidence", 0.0),
+-                            )
++                    yield encode_sse(
++                        low_confidence_event(
++                            pending_item.get("item_id", ""),
++                            pending_item.get("bucket", "?"),
++                            pending_item.get("confidence", 0.0),
+                         )
+-                    else:
+-                        # All classified -- emit aggregated CLASSIFIED
+-                        if len(file_capture_results) > 1:
+-                            yield encode_sse(
+-                                classified_event(
+-                                    primary.get("item_id", ""),
+-                                    primary.get("bucket", "?"),
+-                                    primary.get("confidence", 0.0),
+-                                    buckets=all_buckets,
+-                                    item_ids=all_item_ids,
+-                                )
+-                            )
+-                        else:
+-                            # Single result: use original format (no extra arrays)
+-                            yield encode_sse(
+-                                classified_event(
+-                                    primary.get("item_id", ""),
+-                                    primary.get("bucket", "?"),
+-                                    primary.get("confidence", 0.0),
+-                                )
+-                            )
+-
+-                elif cosmos_manager:
+-                    # Safety net: no file_capture calls at all
+-                    event = await _safety_net_file_as_misunderstood(
+-                        cosmos_manager,
+-                        user_text,
+-                        thread_id,
+-                        foundry_conversation_id,
+-                        span,
+-                        capture_trace_id,
+                     )
+-                    yield encode_sse(event)
+                 else:
+-                    span.set_attribute("capture.outcome", "unresolved")
+-                    yield encode_sse(unresolved_event(""))
+-
+-                yield encode_sse(complete_event(thread_id, run_id))
+-
+-        except Exception as exc:
+-            span.record_exception(exc)
+-            logger.error(
+-                "Text capture stream error: %s", exc, exc_info=True, extra=log_extra
+-            )
+-            yield encode_sse(
+-                error_event("An internal error occurred. Please try again.")
+-            )
+-            yield encode_sse(complete_event(thread_id, run_id))
+-    capture_trace_id_var.reset(trace_token)
+-
+-
+-async def stream_voice_capture(
+-    client: AzureAIAgentClient,
+-    blob_url: str,
+-    tools: list,
+-    thread_id: str,
+-    run_id: str,
+-    cosmos_manager=None,
+-    capture_trace_id: str = "",
+-) -> AsyncGenerator[str, None]:
+-    """Stream a voice capture through the Classifier agent as AG-UI SSE events.
+-
+-    Voice captures use a single "Processing" step bracket for the entire run.
+-    The agent calls transcribe_audio then file_capture internally -- the adapter
+-    observes these as function_call content but does not emit separate step events.
+-
+-    OTel span created inside the async generator to preserve context.
+-    """
+-    log_extra: dict = {"capture_trace_id": capture_trace_id, "component": "classifier"}
+-    trace_token = capture_trace_id_var.set(capture_trace_id)
+-    with tracer.start_as_current_span("capture_voice") as span:
+-        span.set_attribute("capture.type", "voice")
+-        span.set_attribute("capture.thread_id", thread_id)
+-        span.set_attribute("capture.run_id", run_id)
+-        span.set_attribute("capture.trace_id", capture_trace_id)
+-
+-        messages = [
+-            Message(
+-                role="user",
+-                text=(f"Transcribe and classify this voice recording: {blob_url}"),
+-            )
+-        ]
+-        options: ChatOptions = {"tools": tools}
+-
+-        yield encode_sse(step_start_event("Processing"))
+-
+-        # Multi-result tracking (Phase 11.1)
+-        file_capture_results: list[dict] = []
+-        pending_calls: dict[str, dict] = {}  # call_id -> {name, args}
+-        transcript_text: str | None = None
+-
+-        chunk_idx: int = 0
+-        foundry_conversation_id: str | None = None
+-
+-        try:
+-            async with asyncio.timeout(60):
+-                stream = client.get_response(
+-                    messages=messages, stream=True, options=options
+-                )
+-
+-                async for update in stream:
+-                    if (
+-                        getattr(update, "conversation_id", None)
+-                        and not foundry_conversation_id
+-                    ):
+-                        foundry_conversation_id = update.conversation_id
+-
+-                    for content in update.contents or []:
+-                        if content.type == "text" and getattr(content, "text", None):
+-                            reasoning_logger.info(
+-                                "Reasoning chunk",
+-                                extra={
+-                                    "reasoning_text": content.text,
+-                                    "agent_run_id": run_id,
+-                                    "chunk_index": chunk_idx,
+-                                    "capture_trace_id": capture_trace_id,
+-                                    "component": "classifier",
+-                                },
+-                            )
+-                            chunk_idx += 1
+-
+-                        elif content.type == "function_call":
+-                            call_id = getattr(content, "call_id", None)
+-                            name = getattr(content, "name", None)
+-                            if call_id and name:
+-                                if name == "transcribe_audio":
+-                                    logger.debug(
+-                                        "Voice capture: transcribe_audio called",
+-                                        extra=log_extra,
+-                                    )
+-                                pending_calls[call_id] = {
+-                                    "name": name,
+-                                    "args": _parse_args(
+-                                        getattr(content, "arguments", {})
+-                                    )
+-                                    if name == "file_capture"
+-                                    else {},
+-                                }
+-
+-                        elif content.type == "function_result":
+-                            call_id = getattr(content, "call_id", None)
+-                            if call_id and call_id in pending_calls:
+-                                call_info = pending_calls.pop(call_id)
+-                                parsed = _parse_result(getattr(content, "result", None))
+-                                if parsed is not None:
+-                                    if call_info["name"] == "transcribe_audio":
+-                                        transcript_text = parsed.get("raw", "")
+-                                    elif call_info["name"] == "file_capture":
+-                                        merged = {**call_info["args"], **parsed}
+-                                        file_capture_results.append(merged)
+-
+-                yield encode_sse(step_end_event("Processing"))
+-
+-                # Emit result event and set outcome span attributes
+-                if file_capture_results:
+-                    # Use first result as primary (backward-compatible)
+-                    primary = file_capture_results[0]
+-                    all_buckets = [r.get("bucket", "?") for r in file_capture_results]
+-                    all_item_ids = [r.get("item_id", "") for r in file_capture_results]
+-
+-                    # Check statuses for edge cases
+-                    statuses = [
+-                        r.get("status", "classified") for r in file_capture_results
+-                    ]
+-
+-                    # OTel attributes
+-                    span.set_attribute("capture.outcome", "classified")
+-                    span.set_attribute("capture.split_count", len(file_capture_results))
+-                    span.set_attribute("capture.buckets", ",".join(all_buckets))
+-                    span.set_attribute(
+-                        "capture.bucket",
+-                        primary.get("bucket", ""),
+-                    )
+-                    span.set_attribute(
+-                        "capture.confidence",
+-                        primary.get("confidence", 0.0),
+-                    )
+-
+-                    if "misunderstood" in statuses:
+-                        # Rare edge case: treat as misunderstood for whole capture
++                    if len(file_capture_results) > 1:
+                         yield encode_sse(
+-                            misunderstood_event(
+-                                thread_id,
++                            classified_event(
+                                 primary.get("item_id", ""),
+-                                "I didn\u2019t quite catch that. Could you clarify?",
+-                                foundry_conversation_id,
++                                primary.get("bucket", "?"),
++                                primary.get("confidence", 0.0),
++                                buckets=all_buckets,
++                                item_ids=all_item_ids,
+                             )
+                         )
+-                    elif "pending" in statuses:
+-                        # Any low-confidence: show low-confidence for first pending item
+-                        pending_item = next(
+-                            r
+-                            for r in file_capture_results
+-                            if r.get("status") == "pending"
+-                        )
++                    else:
+                         yield encode_sse(
+-                            low_confidence_event(
+-                                pending_item.get("item_id", ""),
+-                                pending_item.get("bucket", "?"),
+-                                pending_item.get("confidence", 0.0),
++                            classified_event(
++                                primary.get("item_id", ""),
++                                primary.get("bucket", "?"),
++                                primary.get("confidence", 0.0),
+                             )
+                         )
+-                    else:
+-                        # All classified -- emit aggregated CLASSIFIED
+-                        if len(file_capture_results) > 1:
+-                            yield encode_sse(
+-                                classified_event(
+-                                    primary.get("item_id", ""),
+-                                    primary.get("bucket", "?"),
+-                                    primary.get("confidence", 0.0),
+-                                    buckets=all_buckets,
+-                                    item_ids=all_item_ids,
+-                                )
+-                            )
+-                        else:
+-                            # Single result: use original format (no extra arrays)
+-                            yield encode_sse(
+-                                classified_event(
+-                                    primary.get("item_id", ""),
+-                                    primary.get("bucket", "?"),
+-                                    primary.get("confidence", 0.0),
+-                                )
+-                            )
+-
+-                elif cosmos_manager:
+-                    # Safety net: no file_capture calls at all.
+-                    # Use transcript if available, otherwise the blob URL.
+-                    raw_text = transcript_text or f"[Voice recording: {blob_url}]"
+-                    event = await _safety_net_file_as_misunderstood(
+-                        cosmos_manager,
+-                        raw_text,
+-                        thread_id,
+-                        foundry_conversation_id,
+-                        span,
+-                        capture_trace_id,
++            else:
++                # tool_choice='required' should force file_capture to fire.
++                # Reaching here means the framework allowed the model to
++                # produce only natural-language output, OR a tool result
++                # was malformed. With the Python safety net gone (F-09),
++                # surface this as a forced_tool_failure so monitoring can
++                # see the gap.
++                logger.warning(
++                    "Text capture: tool_choice=required produced no file_capture "
++                    "result (forced_tool_failure)",
++                    extra={**log_extra, "capture.outcome": "forced_tool_failure"},
++                )
++                yield encode_sse(_forced_tool_failure_event())
++
++            # P0-1 OUTCOME Option A: append the turns and persist history.
++            history.append(ConversationTurn(role="user", content=user_text))
++            if accumulated_assistant_text:
++                history.append(
++                    ConversationTurn(
++                        role="assistant", content=accumulated_assistant_text
+                     )
+-                    yield encode_sse(event)
+-                else:
+-                    span.set_attribute("capture.outcome", "unresolved")
+-                    yield encode_sse(unresolved_event(""))
+-
+-                yield encode_sse(complete_event(thread_id, run_id))
+-
+-        except Exception as exc:
+-            span.record_exception(exc)
+-            logger.error(
+-                "Voice capture stream error: %s", exc, exc_info=True, extra=log_extra
++                )
++            # If the caller didn't pre-supply an inbox doc (new-capture path),
++            # use file_capture's own inbox_id from the tool result so the
++            # conversationHistory lands on the doc file_capture created.
++            persist_target = inbox_doc
++            if _get_inbox_id(persist_target) is None and file_capture_results:
++                primary_item_id = file_capture_results[0].get("item_id")
++                if primary_item_id:
++                    persist_target = {"id": primary_item_id}
++            await _upsert_inbox_with_history(
++                cosmos_manager, persist_target, history, capture_trace_id
+             )
++
++            # COMPLETE event: thread_id is a fresh UUID per turn for mobile
++            # backward compat; no server-side meaning under P0-1 OUTCOME.
+             yield encode_sse(
+-                error_event("An internal error occurred. Please try again.")
++                complete_event(str(uuid.uuid4()), run_id),
+             )
+-            yield encode_sse(complete_event(thread_id, run_id))
+-    capture_trace_id_var.reset(trace_token)
++
++    except Exception as exc:
++        # D-04 forced_tool_failure: any exception from agent.run (including
++        # tool_choice='required' could-not-satisfy errors and tool exceptions)
++        # surfaces as the forced_tool_failure SSE sub_code.
++        logger.error(
++            "Text capture stream error (forced_tool_failure): %s",
++            exc,
++            exc_info=True,
++            extra={**log_extra, "capture.outcome": "forced_tool_failure"},
++        )
++        yield encode_sse(_forced_tool_failure_event())
++        yield encode_sse(complete_event(str(uuid.uuid4()), run_id))
++    finally:
++        capture_trace_id_var.reset(trace_token)
+ 
+ 
+ async def stream_follow_up_capture(
+-    client: AzureAIAgentClient,
++    agent: Agent,
+     follow_up_text: str,
+-    foundry_thread_id: str,
++    inbox_doc,
+     original_inbox_item_id: str,
+-    tools: list,
+     thread_id: str,
+     run_id: str,
+     cosmos_manager=None,
+     capture_trace_id: str = "",
+ ) -> AsyncGenerator[str, None]:
+-    """Stream a follow-up classification attempt on the same Foundry thread.
++    """Stream a follow-up classification under P0-1 OUTCOME Option A.
+ 
+-    Reuses the existing Foundry thread via conversation_id in ChatOptions so
+-    the agent sees its prior classification attempt and the user's responses.
+-    Yields the same SSE event sequence as stream_text_capture.
++    Loads the persisted conversationHistory from the inbox doc via the
++    24-15 helper, builds an explicit Message list (history + new user
++    turn), calls ``agent.run(...)``, accumulates the assistant text,
++    appends both turns, and persists the updated history back to the doc.
++
++    The original RC ``conversation_id`` round-trip is GONE (F-13). The
++    legacy ``foundryThreadId`` field is also unused here -- the helper
++    returns ``[]`` for docs that only carry the legacy field, and the
++    follow-up proceeds as a fresh conversation (Option A graceful-loss
++    trade-off).
+ 
+     Args:
++        agent: GA ``Agent`` instance (Classifier; pre-registered with
++            ``[file_capture]``).
++        follow_up_text: The user's follow-up clarification text.
++        inbox_doc: The existing inbox doc loaded by the caller.
+         original_inbox_item_id: The Cosmos inbox item ID for the original
+-            misunderstood capture, used in the OTel span for traceability.
+-
+-    OTel span created inside the async generator to preserve context.
++            misunderstood capture, used for structured logging.
++        thread_id: App-level thread id for SSE event correlation.
++        run_id: App-level run id for SSE event correlation.
++        cosmos_manager: ``CosmosManager`` for persisting the updated
++            conversationHistory back to the inbox doc.
++        capture_trace_id: Per-capture trace ID propagated end-to-end.
+     """
+-    log_extra: dict = {"capture_trace_id": capture_trace_id, "component": "classifier"}
++    log_extra: dict = {
++        "capture_trace_id": capture_trace_id,
++        "component": "classifier",
++        "capture.type": "follow_up",
++        "capture.thread_id": thread_id,
++        "capture.run_id": run_id,
++        "capture.original_inbox_item_id": original_inbox_item_id,
++    }
+     trace_token = capture_trace_id_var.set(capture_trace_id)
+-    with tracer.start_as_current_span("capture_follow_up") as span:
+-        span.set_attribute("capture.type", "follow_up")
+-        span.set_attribute("capture.thread_id", thread_id)
+-        span.set_attribute("capture.run_id", run_id)
+-        span.set_attribute("capture.original_inbox_item_id", original_inbox_item_id)
+-        span.set_attribute("capture.trace_id", capture_trace_id)
+-
+-        messages = [Message(role="user", text=follow_up_text)]
+-        options: ChatOptions = {
+-            "tools": tools,
+-            "tool_choice": {
+-                "mode": "required",
+-                "required_function_name": "file_capture",
+-            },
+-            "conversation_id": foundry_thread_id,
+-        }
+-
+-        yield encode_sse(step_start_event("Classifying"))
+-
+-        # Outcome tracking
+-        detected_tool: str | None = None
+-        detected_tool_args: dict = {}
+-        tool_result: dict | None = None
+-
+-        chunk_idx: int = 0
+-        foundry_conversation_id: str | None = None
+ 
+-        try:
+-            async with asyncio.timeout(60):
+-                stream = client.get_response(
+-                    messages=messages, stream=True, options=options
+-                )
++    history = resolve_inbox_conversation_history(inbox_doc) if inbox_doc else []
++    msg_list = _build_message_list(history, follow_up_text)
++    options = ChatOptions(tool_choice="required")
++
++    yield encode_sse(step_start_event("Classifying"))
++
++    # Outcome tracking
++    detected_tool: str | None = None
++    detected_tool_args: dict = {}
++    tool_result: dict | None = None
++    accumulated_assistant_text = ""
++
++    chunk_idx: int = 0
++
++    try:
++        async with asyncio.timeout(60):
++            stream = agent.run(msg_list, options=options, stream=True)
++
++            async for update in stream:
++                text_delta = getattr(update, "text", "")
++                if text_delta:
++                    accumulated_assistant_text += text_delta
++                    reasoning_logger.info(
++                        "Follow-up reasoning chunk",
++                        extra={
++                            "reasoning_text": text_delta,
++                            "agent_run_id": run_id,
++                            "chunk_index": chunk_idx,
++                            "capture_trace_id": capture_trace_id,
++                            "component": "classifier",
++                        },
++                    )
++                    chunk_idx += 1
+ 
+-                async for update in stream:
++                for content in getattr(update, "contents", None) or []:
++                    content_type = getattr(content, "type", None)
+                     if (
+-                        getattr(update, "conversation_id", None)
+-                        and not foundry_conversation_id
++                        content_type == "function_call"
++                        and getattr(content, "name", None) == "file_capture"
+                     ):
+-                        foundry_conversation_id = update.conversation_id
+-
+-                    for content in update.contents or []:
+-                        if content.type == "text" and getattr(content, "text", None):
+-                            reasoning_logger.info(
+-                                "Follow-up reasoning chunk",
+-                                extra={
+-                                    "reasoning_text": content.text,
+-                                    "agent_run_id": run_id,
+-                                    "chunk_index": chunk_idx,
+-                                    "capture_trace_id": capture_trace_id,
+-                                    "component": "classifier",
+-                                },
+-                            )
+-                            chunk_idx += 1
+-
+-                        elif (
+-                            content.type == "function_call"
+-                            and getattr(content, "name", None) == "file_capture"
+-                        ):
+-                            detected_tool = "file_capture"
+-                            detected_tool_args = _parse_args(
+-                                getattr(content, "arguments", {})
+-                            )
+-
+-                        elif content.type == "function_result":
+-                            tool_result = _parse_result(
+-                                getattr(content, "result", None)
+-                            )
+-
+-                yield encode_sse(step_end_event("Classifying"))
+-
+-                # Emit result event and set outcome span attributes
+-                if detected_tool == "file_capture":
+-                    result_src = tool_result or detected_tool_args
+-                    status = detected_tool_args.get("status", "")
+-                    span.set_attribute(
+-                        "capture.outcome",
+-                        status if status else "unresolved",
+-                    )
+-                    span.set_attribute(
+-                        "capture.bucket",
+-                        result_src.get("bucket", ""),
+-                    )
+-                    span.set_attribute(
+-                        "capture.confidence",
+-                        result_src.get("confidence", 0.0),
+-                    )
+-                    yield encode_sse(
+-                        _emit_result_event(
+-                            detected_tool_args,
+-                            tool_result,
+-                            thread_id,
+-                            foundry_conversation_id,
++                        detected_tool = "file_capture"
++                        detected_tool_args = _parse_args(
++                            getattr(content, "arguments", {})
+                         )
++
++                    elif content_type == "function_result":
++                        tool_result = _parse_result(getattr(content, "result", None))
++
++            yield encode_sse(step_end_event("Classifying"))
++
++            if detected_tool == "file_capture":
++                result_src = tool_result or detected_tool_args
++                status = detected_tool_args.get("status", "")
++                outcome_extra = {
++                    **log_extra,
++                    "capture.outcome": status if status else "unresolved",
++                    "capture.bucket": result_src.get("bucket", ""),
++                    "capture.confidence": result_src.get("confidence", 0.0),
++                }
++                logger.info(
++                    "Follow-up classified: status=%s bucket=%s confidence=%.2f",
++                    status or "unresolved",
++                    result_src.get("bucket", ""),
++                    result_src.get("confidence", 0.0),
++                    extra=outcome_extra,
++                )
++                yield encode_sse(
++                    _emit_result_event(detected_tool_args, tool_result, thread_id)
++                )
++            else:
++                logger.warning(
++                    "Follow-up: tool_choice=required produced no file_capture "
++                    "result (forced_tool_failure)",
++                    extra={**log_extra, "capture.outcome": "forced_tool_failure"},
++                )
++                yield encode_sse(_forced_tool_failure_event())
++
++            # P0-1 OUTCOME Option A: append turns and persist history.
++            history.append(ConversationTurn(role="user", content=follow_up_text))
++            if accumulated_assistant_text:
++                history.append(
++                    ConversationTurn(
++                        role="assistant", content=accumulated_assistant_text
+                     )
+-                elif cosmos_manager:
+-                    # Safety net: agent didn't call file_capture on follow-up
+-                    event = await _safety_net_file_as_misunderstood(
+-                        cosmos_manager,
+-                        follow_up_text,
+-                        thread_id,
+-                        foundry_conversation_id,
+-                        span,
+-                        capture_trace_id,
+-                    )
+-                    yield encode_sse(event)
+-                else:
+-                    span.set_attribute("capture.outcome", "unresolved")
+-                    yield encode_sse(unresolved_event(""))
+-
+-                yield encode_sse(complete_event(thread_id, run_id))
+-
+-        except Exception as exc:
+-            span.record_exception(exc)
+-            logger.error(
+-                "Follow-up capture stream error: %s",
+-                exc,
+-                exc_info=True,
+-                extra=log_extra,
++                )
++            await _upsert_inbox_with_history(
++                cosmos_manager, inbox_doc, history, capture_trace_id
+             )
++
+             yield encode_sse(
+-                error_event("An internal error occurred. Please try again.")
++                complete_event(str(uuid.uuid4()), run_id),
+             )
+-            yield encode_sse(complete_event(thread_id, run_id))
+-    capture_trace_id_var.reset(trace_token)
++
++    except Exception as exc:
++        logger.error(
++            "Follow-up capture stream error (forced_tool_failure): %s",
++            exc,
++            exc_info=True,
++            extra={**log_extra, "capture.outcome": "forced_tool_failure"},
++        )
++        yield encode_sse(_forced_tool_failure_event())
++        yield encode_sse(complete_event(str(uuid.uuid4()), run_id))
++    finally:
++        capture_trace_id_var.reset(trace_token)
++
++
++# The previous voice-capture streaming function has been deleted in plan
++# 24-16 (D-04 voice path split). Voice path routes through
++# stream_text_capture after the api/capture.py voice handler direct-calls
++# TranscriptionTools.transcribe_audio (24-15). Any remaining importer of
++# the deleted function will raise ImportError -- this is intentional and
++# documented in 24-15 SUMMARY's Decision #4 (left to ruff for stripping).
++
++# The legacy ``error_event`` helper from streaming/sse.py is retained for
++# the unresolved-event path and any future generic-error use; the new
++# forced_tool_failure path uses ``_forced_tool_failure_event()`` above.
++_ = error_event  # noqa: F401 -- preserved for callers; not used directly here.
++_ = unresolved_event  # noqa: F401 -- preserved for callers.
+diff --git a/backend/src/second_brain/tools/classification.py b/backend/src/second_brain/tools/classification.py
+index 4e8fa0b..53250ee 100644
+--- a/backend/src/second_brain/tools/classification.py
++++ b/backend/src/second_brain/tools/classification.py
+@@ -1,8 +1,14 @@
+ """Classification tools for the Classifier agent.
+ 
+-Uses the class-based tool pattern to bind CosmosManager references to @tool
++Uses the class-based tool pattern to bind CosmosManager references to tool
+ functions. ClassifierTools manages stateful references to CosmosManager and
+ the file_capture tool that writes classification results to Cosmos DB.
++
++Phase 24 GA migration: the RC tool-registration decorator was removed from
++file_capture. The GA Agent binds the bound method directly via
++``Agent(tools=[classifier_tools.file_capture])`` at construction time. The
++``Annotated[..., Field(description=...)]`` parameter shapes and the method
++docstring serve as the GA tool description surface.
+ """
+ 
+ import contextvars
+@@ -12,7 +18,6 @@ from datetime import UTC, datetime
+ from typing import Annotated
+ from uuid import uuid4
+ 
+-from agent_framework import tool
+ from pydantic import Field
+ 
+ from second_brain.db.cosmos import CosmosManager
+@@ -53,12 +58,16 @@ def follow_up_context(inbox_item_id: str):
+ class ClassifierTools:
+     """Classification tools bound to a CosmosManager instance.
+ 
+-    The Classifier agent does the reasoning; these tools are filing helpers
+-    that write the agent's classification decision to Cosmos DB.
++    The Classifier agent does the reasoning; ``file_capture`` is a filing
++    helper that writes the agent's classification decision to Cosmos DB. The
++    method is a plain async coroutine; GA Agent binds the bound method
++    directly via ``tools=[instance.file_capture]``.
+ 
+     Usage:
+         tools = ClassifierTools(cosmos_manager, classification_threshold=0.6)
+-        agent = client.create_agent(
++        agent = Agent(
++            client=chat_client,
++            instructions=...,
+             tools=[tools.file_capture],
+         )
+     """
+@@ -72,7 +81,6 @@ class ClassifierTools:
+         self._manager = cosmos_manager
+         self._threshold = classification_threshold
+ 
+-    @tool(approval_mode="never_require")
+     async def file_capture(
+         self,
+         text: Annotated[str, Field(description="The original captured text to file")],
+diff --git a/backend/src/second_brain/tools/investigation.py b/backend/src/second_brain/tools/investigation.py
+index 299feb7..28af3e6 100644
+--- a/backend/src/second_brain/tools/investigation.py
++++ b/backend/src/second_brain/tools/investigation.py
+@@ -99,50 +99,33 @@ class InvestigationTools:
+         logs_client: LogsQueryClient,
+         workspace_id: str,
+         cosmos_manager: CosmosManager | None = None,
+-        classifier_client: Any = None,
+-        admin_client: Any = None,
++        classifier_agent: Any = None,
+         admin_agent: Any = None,
+     ) -> None:
+         self._logs_client = logs_client
+         self._workspace_id = workspace_id
+         self._cosmos_manager = cosmos_manager
+-        self._classifier_client = classifier_client
+-        self._admin_client = admin_client
+-        # Phase 24 plan 24-12: admin path is GA (Agent), classifier path
+-        # is still RC (AzureAIAgentClient) during the 23.2-23.3 migration
+-        # window. After plan 24-18 admin_client is removed and a single
+-        # GAEvalAgentInvoker replaces the hybrid.
++        # Phase 24 plan 24-18: classifier_client + admin_client constructor
++        # params from the 24-12 hybrid window are gone. Both paths now use
++        # GA agent_framework.Agent instances published on app.state
++        # (classifier_agent: 24-14, admin_agent: 24-09).
++        self._classifier_agent = classifier_agent
+         self._admin_agent = admin_agent
+ 
+     def _build_eval_invoker(self) -> Any:
+-        """Construct the migration-window hybrid eval invoker.
++        """Construct the GA eval invoker.
+ 
+-        Routes invoke_classifier -> RCEvalAgentInvoker (classifier still RC
+-        until plans 24-13..24-17) and invoke_admin -> GAEvalAgentInvoker
+-        (admin migrated to GA in plans 24-09..24-11).
+-
+-        Deletion trigger: plan 24-18 (cleanup commit) when both agents are
+-        GA and a plain ``GAEvalAgentInvoker`` replaces this helper.
++        Phase 24 plan 24-18: the temporary 24-12 hybrid (RCEvalAgentInvoker
++        + _MigrationHybridInvoker) is deleted. Both classifier and admin
++        paths now route through a plain ``GAEvalAgentInvoker`` constructed
++        from the GA Agent singletons on this instance.
+         """
+-        # Local imports keep the migration-temporary symbols out of the
+-        # module-level surface during the migration window; auto-format
+-        # is also less likely to strip them mid-edit. Module-level imports
+-        # land in the same plan, below.
+-        from second_brain.eval.invoker import (
+-            GAEvalAgentInvoker,
+-            RCEvalAgentInvoker,
+-            _MigrationHybridInvoker,
+-        )
++        from second_brain.eval.invoker import GAEvalAgentInvoker
+ 
+-        rc_invoker = RCEvalAgentInvoker(
+-            classifier_client=self._classifier_client,
+-            admin_client=None,  # admin path uses GA invoker below
+-        )
+-        ga_invoker = GAEvalAgentInvoker(
+-            classifier_agent=None,  # classifier path uses RC invoker above
++        return GAEvalAgentInvoker(
++            classifier_agent=self._classifier_agent,
+             admin_agent=self._admin_agent,
+         )
+-        return _MigrationHybridInvoker(rc_invoker=rc_invoker, ga_invoker=ga_invoker)
+ 
+     # ------------------------------------------------------------------
+     # Tool 1: trace_lifecycle
+@@ -636,8 +619,8 @@ class InvestigationTools:
+         logger.info("run_classifier_eval called", extra=log_extra)
+ 
+         try:
+-            if self._classifier_client is None:
+-                return json.dumps({"error": "Classifier client not available"})
++            if self._classifier_agent is None:
++                return json.dumps({"error": "Classifier agent not available"})
+             if self._cosmos_manager is None:
+                 return json.dumps({"error": "Cosmos not configured"})
+ 
+@@ -715,7 +698,7 @@ class InvestigationTools:
+         logger.info("run_admin_eval called", extra=log_extra)
+ 
+         try:
+-            if self._admin_agent is None and self._admin_client is None:
++            if self._admin_agent is None:
+                 return json.dumps({"error": "Admin agent not available"})
+             if self._cosmos_manager is None:
+                 return json.dumps({"error": "Cosmos not configured"})
+diff --git a/backend/src/second_brain/tools/transcription.py b/backend/src/second_brain/tools/transcription.py
+index cb3c08d..5fbe8a4 100644
+--- a/backend/src/second_brain/tools/transcription.py
++++ b/backend/src/second_brain/tools/transcription.py
+@@ -1,35 +1,42 @@
+-"""Transcription tool for the Classifier agent.
++"""Transcription helper for the voice capture path.
+ 
+ TranscriptionTools wraps gpt-4o-transcribe via AsyncAzureOpenAI to convert
+-voice recordings into text. The Classifier agent calls transcribe_audio
+-first, reads the transcript, then calls file_capture to classify and file it.
++voice recordings into text.
++
++Phase 24 GA migration (D-01..D-04 + F-11): ``transcribe_audio`` is NO LONGER
++registered as a Classifier Agent tool. The on-device SFSpeechRecognizer
++(shipped Phase 12.5) is the primary voice path; the backend transcription
++helper is a rare cloud fallback only. The voice path now splits at the API
++layer: ``api/capture.py`` direct-calls ``transcribe_audio`` to produce text,
++then routes the transcribed text through the text-only classifier path. The
++Classifier Agent registers only ``file_capture``; ``tool_choice='required'``
++is unambiguous because exactly one tool is registered.
+ """
+ 
+ import logging
+-from typing import Annotated
+ 
+-from agent_framework import tool
+ from azure.identity.aio import DefaultAzureCredential
+ from azure.storage.blob.aio import BlobClient
+ from openai import AsyncAzureOpenAI
+-from pydantic import Field
+ 
+ logger = logging.getLogger(__name__)
+ 
+ 
+ class TranscriptionTools:
+-    """Transcription tools bound to an AsyncAzureOpenAI client.
++    """Audio-to-text helper bound to an AsyncAzureOpenAI client.
+ 
+     Uses gpt-4o-transcribe for audio-to-text conversion. Audio is downloaded
+     from Azure Blob Storage before being sent to the transcription API.
+ 
++    Direct helper called from api/capture.py voice handler. NOT registered as
++    an agent tool (see Phase 24 D-04 voice path split). The Classifier Agent
++    sees only the resulting transcript text.
++
+     Usage:
+-        tools = TranscriptionTools(
++        transcription_tools = TranscriptionTools(
+             openai_client, credential, "gpt-4o-transcribe"
+         )
+-        agent = client.create_agent(
+-            tools=[tools.transcribe_audio],
+-        )
++        transcript = await transcription_tools.transcribe_audio(blob_url)
+     """
+ 
+     def __init__(
+@@ -55,24 +62,14 @@ class TranscriptionTools:
+         finally:
+             await blob_client.close()
+ 
+-    @tool(approval_mode="never_require")
+-    async def transcribe_audio(
+-        self,
+-        blob_url: Annotated[
+-            str,
+-            Field(
+-                description=(
+-                    "Azure Blob Storage URL of the voice "
+-                    "recording to transcribe"
+-                )
+-            ),
+-        ],
+-    ) -> str:
++    async def transcribe_audio(self, blob_url: str) -> str:
+         """Transcribe a voice recording to text using gpt-4o-transcribe.
+ 
+-        Downloads audio from Blob Storage, sends to Azure OpenAI Audio API,
+-        and returns the transcript text. The Classifier agent should read the
+-        returned transcript, then call file_capture to classify and file it.
++        Direct helper called from api/capture.py voice handler. NOT registered
++        as an agent tool (see Phase 24 D-04 voice path split). Downloads audio
++        from Blob Storage, sends to Azure OpenAI Audio API, and returns the
++        transcript text. The voice handler then routes the transcript through
++        the text-only classifier path.
+         """
+         try:
+             audio_bytes = await self._download_blob(blob_url)
+diff --git a/backend/src/second_brain/warmup.py b/backend/src/second_brain/warmup.py
+index 4076a70..c458272 100644
+--- a/backend/src/second_brain/warmup.py
++++ b/backend/src/second_brain/warmup.py
+@@ -1,11 +1,20 @@
+-"""Background warm-up pings to prevent Azure AI Foundry agent cold starts."""
++"""Background warm-up pings to prevent Azure AI Foundry agent cold starts.
++
++Phase 24 task group 23.3 (plan 24-19): GA migration. The warmup loop takes
++GA ``Agent`` instances and pings each agent via ``agent.run("ping")``. The
++RC client + single-message ping shape has been removed.
++
++Self-heal still works in shape — the factory dict now produces GA Agent
++objects via the ``build_*_agent`` factories. The factory is invoked with
++no arguments per call site; each factory closes over its scoped
++``chat_client``, tool list, and middleware at lifespan-construction time.
++"""
+ 
+ import asyncio
+ import logging
+ from collections.abc import Callable
+ 
+-from agent_framework import Message
+-from agent_framework.azure import AzureAIAgentClient
++from agent_framework import Agent
+ 
+ logger = logging.getLogger(__name__)
+ 
+@@ -13,32 +22,31 @@ MAX_CONSECUTIVE_FAILURES = 3
+ 
+ 
+ async def agent_warmup_loop(
+-    clients: list[tuple[str, AzureAIAgentClient]],
++    agents: list[tuple[str, Agent]],
+     interval_seconds: int,
+-    client_factories: dict[str, Callable[[], AzureAIAgentClient]] | None = None,
+-    on_recreate: Callable[[str, AzureAIAgentClient], None] | None = None,
++    agent_factories: dict[str, Callable[[], Agent]] | None = None,
++    on_recreate: Callable[[str, Agent], None] | None = None,
+ ) -> None:
+     """Ping agents periodically to keep them warm.
+ 
+-    Self-heals unresponsive agents by recreating their client after
+-    MAX_CONSECUTIVE_FAILURES consecutive ping failures.
++    Self-heals unresponsive agents by recreating the Agent via its factory
++    after MAX_CONSECUTIVE_FAILURES consecutive ping failures.
+ 
+     Args:
+-        clients: List of (name, client) tuples to ping.
++        agents: List of (name, agent) tuples to ping.
+         interval_seconds: Seconds between ping rounds.
+-        client_factories: Optional dict mapping agent name to a callable that
+-            returns a fresh AzureAIAgentClient. Used for self-healing.
+-        on_recreate: Optional callback invoked with (name, new_client) after
+-            successful client recreation, so the caller can update app.state.
++        agent_factories: Optional dict mapping agent name to a callable that
++            returns a fresh ``Agent``. Used for self-healing.
++        on_recreate: Optional callback invoked with (name, new_agent) after
++            successful agent recreation, so the caller can update app.state.
+     """
+-    messages = [Message(role="user", text="ping")]
+-    failure_counts: dict[str, int] = {name: 0 for name, _ in clients}
++    failure_counts: dict[str, int] = {name: 0 for name, _ in agents}
+ 
+     while True:
+         await asyncio.sleep(interval_seconds)
+-        for idx, (name, client) in enumerate(clients):
++        for idx, (name, agent) in enumerate(agents):
+             try:
+-                await client.get_response(messages=messages)
++                await agent.run("ping")
+                 logger.debug("Warmup ping OK: %s", name)
+                 failure_counts[name] = 0
+             except Exception:
+@@ -52,25 +60,25 @@ async def agent_warmup_loop(
+ 
+                 if (
+                     failure_counts[name] >= MAX_CONSECUTIVE_FAILURES
+-                    and client_factories
+-                    and name in client_factories
++                    and agent_factories
++                    and name in agent_factories
+                 ):
+                     logger.error(
+                         "Warmup: %s failed %d consecutive pings "
+-                        "-- attempting client recreation",
++                        "-- attempting agent recreation",
+                         name,
+                         failure_counts[name],
+                     )
+                     try:
+-                        new_client = client_factories[name]()
+-                        clients[idx] = (name, new_client)
++                        new_agent = agent_factories[name]()
++                        agents[idx] = (name, new_agent)
+                         if on_recreate:
+-                            on_recreate(name, new_client)
++                            on_recreate(name, new_agent)
+                         failure_counts[name] = 0
+-                        logger.info("Warmup: %s client recreated successfully", name)
++                        logger.info("Warmup: %s agent recreated successfully", name)
+                     except Exception:
+                         logger.error(
+-                            "Warmup: failed to recreate %s client",
++                            "Warmup: failed to recreate %s agent",
+                             name,
+                             exc_info=True,
+                         )
+diff --git a/backend/tests/test_eval.py b/backend/tests/test_eval.py
+index 5cb9257..cdb7d7d 100644
+--- a/backend/tests/test_eval.py
++++ b/backend/tests/test_eval.py
+@@ -349,13 +349,18 @@ async def test_classifier_eval_catches_toplevel_exception() -> None:
+ 
+ @pytest.fixture
+ def eval_app() -> FastAPI:
+-    """FastAPI app with eval router and mocked app state."""
++    """FastAPI app with eval router and mocked app state.
++
++    Phase 24 plan 24-18: routes read app.state.classifier_agent /
++    app.state.admin_agent (the GA Agent singletons) instead of the
++    legacy 24-12 *_client attributes.
++    """
+     app = FastAPI()
+     app.include_router(eval_router)
+     app.state.api_key = TEST_API_KEY
+     app.state.cosmos_manager = MagicMock()
+-    app.state.classifier_client = AsyncMock()
+-    app.state.admin_client = AsyncMock()
++    app.state.classifier_agent = AsyncMock()
++    app.state.admin_agent = AsyncMock()
+     app.state.background_tasks = set()
+     app.add_middleware(APIKeyMiddleware)
+     return app
+@@ -493,17 +498,21 @@ async def test_admin_eval_requires_routing_context(
+ 
+ @pytest.fixture
+ def investigation_tools_with_eval() -> InvestigationTools:
+-    """InvestigationTools with mock clients for eval tools."""
++    """InvestigationTools with mock GA agents for eval tools.
++
++    Phase 24 plan 24-18: constructor takes classifier_agent + admin_agent
++    (the GA Agent singletons) instead of the legacy 24-12 *_client params.
++    """
+     logs_client = MagicMock()
+     cosmos_manager = MagicMock()
+-    classifier_client = AsyncMock()
+-    admin_client = AsyncMock()
++    classifier_agent = AsyncMock()
++    admin_agent = AsyncMock()
+     return InvestigationTools(
+         logs_client=logs_client,
+         workspace_id="test-workspace-id",
+         cosmos_manager=cosmos_manager,
+-        classifier_client=classifier_client,
+-        admin_client=admin_client,
++        classifier_agent=classifier_agent,
++        admin_agent=admin_agent,
+     )
+ 
+ 
+@@ -521,14 +530,19 @@ async def test_investigation_run_classifier_eval_starts(
+ 
+ 
+ @pytest.mark.asyncio
+-async def test_investigation_run_classifier_eval_no_client() -> None:
+-    """Investigation run_classifier_eval without client returns error."""
++async def test_investigation_run_classifier_eval_no_agent() -> None:
++    """Investigation run_classifier_eval without agent returns error.
++
++    Phase 24 plan 24-18: tool now checks ``self._classifier_agent`` (GA
++    Agent singleton) instead of ``self._classifier_client`` (the legacy
++    24-12 RC handle).
++    """
+     logs_client = MagicMock()
+     tools = InvestigationTools(
+         logs_client=logs_client,
+         workspace_id="test-workspace-id",
+         cosmos_manager=MagicMock(),
+-        classifier_client=None,
++        classifier_agent=None,
+     )
+ 
+     result_json = await tools.run_classifier_eval()
+diff --git a/backend/tests/test_inbox_dual_read.py b/backend/tests/test_inbox_dual_read.py
+new file mode 100644
+index 0000000..3e2699d
+--- /dev/null
++++ b/backend/tests/test_inbox_dual_read.py
+@@ -0,0 +1,113 @@
++"""Phase 24 P0-1 OUTCOME red test for conversation-history resolution (Option A).
++
++Asserts resolve_inbox_conversation_history() resolves correctly for the three
++Inbox doc states observed during the migration window:
++  (a) foundryThreadId-only (legacy RC doc — returns [] with warning)
++  (b) both foundryThreadId AND conversationHistory (returns history)
++  (c) conversationHistory-only (returns history)
++
++Plus negative tests: empty list, malformed entries, no fields at all.
++"""
++
++from __future__ import annotations
++
++import logging
++
++import pytest
++
++from second_brain.cosmos.inbox_conversation_history import (
++    ConversationTurn,
++    resolve_inbox_conversation_history,
++)
++
++
++def test_legacy_doc_with_only_foundry_thread_id_returns_empty_list_and_warns(
++    caplog: pytest.LogCaptureFixture,
++) -> None:
++    """Case (a): legacy RC doc. Helper returns [] and logs a warning."""
++    doc = {"id": "legacy-1", "foundryThreadId": "thread_legacy"}
++    with caplog.at_level(logging.WARNING):
++        result = resolve_inbox_conversation_history(doc)
++    assert result == []
++    assert any(
++        "legacy foundryThreadId" in rec.message and "legacy-1" in rec.message
++        for rec in caplog.records
++    ), "Expected a warning mentioning the doc id and legacy foundryThreadId"
++
++
++def test_doc_with_both_fields_returns_history_ignoring_foundry_thread_id() -> None:
++    """Case (b): post-24-17 transitional state. conversationHistory is authoritative."""
++    doc = {
++        "id": "transitional-1",
++        "foundryThreadId": "thread_legacy",
++        "conversationHistory": [
++            {"role": "user", "content": "Hello"},
++            {"role": "assistant", "content": "Hi there"},
++        ],
++    }
++    result = resolve_inbox_conversation_history(doc)
++    assert len(result) == 2
++    assert result[0].role == "user"
++    assert result[0].content == "Hello"
++    assert result[1].role == "assistant"
++    assert result[1].content == "Hi there"
++
++
++def test_doc_with_only_conversation_history_returns_history() -> None:
++    """Case (c): post-24-24 cleanup state. Only conversationHistory present."""
++    doc = {
++        "id": "new-1",
++        "conversationHistory": [
++            {"role": "user", "content": "What's the weather?"},
++            {"role": "assistant", "content": "I don't have weather data."},
++        ],
++    }
++    result = resolve_inbox_conversation_history(doc)
++    assert len(result) == 2
++    assert result[0].content == "What's the weather?"
++
++
++def test_brand_new_doc_with_no_fields_returns_empty_list() -> None:
++    """No prior conversation — fresh capture."""
++    doc = {"id": "fresh-1"}
++    result = resolve_inbox_conversation_history(doc)
++    assert result == []
++
++
++def test_empty_conversation_history_returns_empty_list() -> None:
++    doc = {"id": "x", "conversationHistory": []}
++    result = resolve_inbox_conversation_history(doc)
++    assert result == []
++
++
++def test_malformed_turns_are_skipped(caplog: pytest.LogCaptureFixture) -> None:
++    """A malformed entry doesn't crash the follow-up."""
++    doc = {
++        "id": "malformed-1",
++        "conversationHistory": [
++            {"role": "user", "content": "OK"},
++            {"role": "invalid_role", "content": "Bad"},  # invalid role
++            {"role": "assistant"},  # missing content
++            {"role": "assistant", "content": "Also OK"},
++        ],
++    }
++    with caplog.at_level(logging.WARNING):
++        result = resolve_inbox_conversation_history(doc)
++    # The two well-formed turns survive
++    assert len(result) == 2
++    assert result[0].content == "OK"
++    assert result[1].content == "Also OK"
++
++
++def test_works_with_attribute_access_object() -> None:
++    """Pydantic-style attribute access works as well as dict access."""
++
++    class FakeInbox:
++        id = "attr-1"
++        conversationHistory = [
++            ConversationTurn(role="user", content="From attrs"),
++        ]
++
++    result = resolve_inbox_conversation_history(FakeInbox())
++    assert len(result) == 1
++    assert result[0].content == "From attrs"
+diff --git a/backend/tests/test_legacy_middleware_imports_survive.py b/backend/tests/test_legacy_middleware_imports_survive.py
+index e9757f2..e08e5ba 100644
+--- a/backend/tests/test_legacy_middleware_imports_survive.py
++++ b/backend/tests/test_legacy_middleware_imports_survive.py
+@@ -1,15 +1,12 @@
+-"""Phase 24 P1-3 regression guard.
+-
+-Asserts that during the migration window (24-03 .. 24-17), the legacy module
+-`backend/src/second_brain/agents/middleware.py` remains importable. The new
+-GA middleware lives at `agents/agent_middleware/capture_trace.py` (distinct
+-package name -- the original plan put it at `agents/middleware/` which would
+-shadow the legacy module).
+-
+-This test passes during the migration window. After 24-18 deletes the legacy
+-module, this test will fail -- that's the trigger to retire the test (or
+-invert the assertion to negative coverage). 24-18 is responsible for
+-updating/removing this test as part of its cleanup.
++"""Phase 24 P1-3 regression guard (post-24-18 state).
++
++After plan 24-18 deletes backend/src/second_brain/agents/middleware.py,
++this test asserts:
++- The new GA middleware imports at second_brain.agents.agent_middleware.capture_trace.
++- No file or directory exists at second_brain/agents/middleware{,.py}.
++
++The legacy-importable sub-test from 24-03 is retired here per P1-3 spec
++(the legacy module is gone -- its import would now correctly raise ImportError).
+ """
+ 
+ from __future__ import annotations
+@@ -17,22 +14,6 @@ from __future__ import annotations
+ import importlib
+ 
+ 
+-def test_legacy_agents_middleware_module_still_importable() -> None:
+-    """During the migration window, legacy imports from agents/middleware.py
+-    must keep resolving. This proves the new agent_middleware/ package did
+-    not accidentally shadow the module."""
+-    mod = importlib.import_module("second_brain.agents.middleware")
+-    # AuditAgentMiddleware + ToolTimingMiddleware are the two RC-era classes
+-    assert hasattr(mod, "AuditAgentMiddleware"), (
+-        "Legacy AuditAgentMiddleware must still be importable from "
+-        "second_brain.agents.middleware during migration. The new GA "
+-        "middleware lives at second_brain.agents.agent_middleware.capture_trace."
+-    )
+-    assert hasattr(mod, "ToolTimingMiddleware"), (
+-        "Legacy ToolTimingMiddleware must still be importable during migration."
+-    )
+-
+-
+ def test_new_ga_middleware_imports_at_distinct_path() -> None:
+     """The new GA middleware must live at agent_middleware/, NOT middleware/."""
+     mod = importlib.import_module("second_brain.agents.agent_middleware.capture_trace")
+@@ -40,18 +21,22 @@ def test_new_ga_middleware_imports_at_distinct_path() -> None:
+     assert hasattr(mod, "CaptureTraceFunctionMiddleware")
+ 
+ 
+-def test_no_package_shadowing() -> None:
+-    """Confirm there is no second_brain.agents.middleware package (only the module).
+-
+-    If a directory `backend/src/second_brain/agents/middleware/` exists, Python
+-    will prefer the package and shadow the legacy module -- that's the P1-3 defect.
++def test_legacy_middleware_module_is_gone() -> None:
++    """Post-24-18: confirm the legacy agents/middleware.py is deleted AND
++    no replacement package exists at the same path. The new GA middleware
++    lives at agents/agent_middleware/.
+     """
+     from pathlib import Path
+ 
+     project_root = Path(__file__).resolve().parents[1]
+-    package_dir = project_root / "src" / "second_brain" / "agents" / "middleware"
+-    assert not package_dir.is_dir(), (
+-        f"P1-3 violation: found package directory at {package_dir}. "
+-        "The new GA middleware must live under agents/agent_middleware/ "
+-        "(not agents/middleware/) until 24-18 deletes the legacy file."
++    legacy_module = project_root / "src" / "second_brain" / "agents" / "middleware.py"
++    legacy_package = project_root / "src" / "second_brain" / "agents" / "middleware"
++    assert not legacy_module.exists(), (
++        f"Legacy module still present at {legacy_module}. "
++        "Plan 24-18 should have deleted it."
++    )
++    assert not legacy_package.is_dir(), (
++        f"P1-3 invariant: no package at {legacy_package} (would shadow "
++        "if the legacy module were ever resurrected). The GA path is "
++        "agents/agent_middleware/."
+     )
+diff --git a/backend/tests/test_observability.py b/backend/tests/test_observability.py
+index 995fe67..59f2d17 100644
+--- a/backend/tests/test_observability.py
++++ b/backend/tests/test_observability.py
+@@ -1,7 +1,17 @@
+ """Tests for Phase 17.4 observability features.
+ 
+-Covers: parameterized middleware, health endpoint cache, warmup self-heal,
+-investigation timeout.
++Covers: health endpoint cache, warmup self-heal, investigation timeout.
++
++Phase 24 plan 24-18 cleanup: the parameterized-middleware tests previously
++in this file have been REMOVED because they exercised the RC-era
++`AuditAgentMiddleware` class in `agents/middleware.py`, which is deleted
++by plan 24-18 (F-17). The replacement GA middleware lives at
++`agents/agent_middleware/capture_trace.py` (`CaptureTraceAgentMiddleware` /
++`CaptureTraceFunctionMiddleware`). The GA classes do NOT take an
++`agent_name` constructor arg -- they read `capture.trace_id` from a
++ContextVar instead -- so the assertions about `_span_name == "classifier_agent_run"`
++no longer apply. Coverage of the GA middleware lives in
++`tests/test_agent_middleware_capture_trace.py` (added in plan 24-03).
+ """
+ 
+ import asyncio
+@@ -13,38 +23,9 @@ import pytest
+ from fastapi import FastAPI
+ from fastapi.testclient import TestClient
+ 
+-from second_brain.agents.middleware import AuditAgentMiddleware
+ from second_brain.api.health import _FOUNDRY_CACHE_TTL, router
+ from second_brain.warmup import MAX_CONSECUTIVE_FAILURES, agent_warmup_loop
+ 
+-# ---------------------------------------------------------------------------
+-# Parameterized middleware
+-# ---------------------------------------------------------------------------
+-
+-
+-def test_parameterized_middleware_sets_distinct_span_names() -> None:
+-    """Each agent gets its own span name via the agent_name constructor arg."""
+-    classifier = AuditAgentMiddleware(agent_name="classifier")
+-    admin = AuditAgentMiddleware(agent_name="admin")
+-    investigation = AuditAgentMiddleware(agent_name="investigation")
+-
+-    assert classifier._span_name == "classifier_agent_run"
+-    assert classifier._agent_name == "classifier"
+-
+-    assert admin._span_name == "admin_agent_run"
+-    assert admin._agent_name == "admin"
+-
+-    assert investigation._span_name == "investigation_agent_run"
+-    assert investigation._agent_name == "investigation"
+-
+-
+-def test_parameterized_middleware_default_is_classifier() -> None:
+-    """Default agent_name is 'classifier' for backwards compat."""
+-    mw = AuditAgentMiddleware()
+-    assert mw._agent_name == "classifier"
+-    assert mw._span_name == "classifier_agent_run"
+-
+-
+ # ---------------------------------------------------------------------------
+ # Health endpoint helpers
+ # ---------------------------------------------------------------------------
+@@ -161,16 +142,21 @@ def test_health_includes_investigation_agent_status() -> None:
+ 
+ 
+ @pytest.mark.asyncio
+-async def test_warmup_recreates_client_after_consecutive_failures() -> None:
+-    """After MAX_CONSECUTIVE_FAILURES pings fail, factory is called."""
+-    failing_client = AsyncMock()
+-    failing_client.get_response = AsyncMock(side_effect=ConnectionError("down"))
+-
+-    new_client = MagicMock()
+-    factory = MagicMock(return_value=new_client)
++async def test_warmup_recreates_agent_after_consecutive_failures() -> None:
++    """After MAX_CONSECUTIVE_FAILURES pings fail, factory is called.
++
++    Phase 24 plan 24-19: warmup loop migrated to GA. The loop now pings via
++    ``agent.run("ping")`` instead of ``client.get_response(...)``; the
++    self-heal factory rebuilds an ``Agent`` rather than an ``AzureAIAgentClient``.
++    """
++    failing_agent = AsyncMock()
++    failing_agent.run = AsyncMock(side_effect=ConnectionError("down"))
++
++    new_agent = MagicMock()
++    factory = MagicMock(return_value=new_agent)
+     on_recreate = MagicMock()
+ 
+-    clients: list[tuple[str, object]] = [("test_agent", failing_client)]
++    agents: list[tuple[str, object]] = [("test_agent", failing_agent)]
+     iteration = 0
+ 
+     async def _fake_sleep(seconds: float) -> None:
+@@ -184,19 +170,22 @@ async def test_warmup_recreates_client_after_consecutive_failures() -> None:
+         pytest.raises(asyncio.CancelledError),
+     ):
+         await agent_warmup_loop(
+-            clients=clients,
++            agents=agents,
+             interval_seconds=1,
+-            client_factories={"test_agent": factory},
++            agent_factories={"test_agent": factory},
+             on_recreate=on_recreate,
+         )
+ 
+     factory.assert_called_once()
+-    on_recreate.assert_called_once_with("test_agent", new_client)
++    on_recreate.assert_called_once_with("test_agent", new_agent)
+ 
+ 
+ @pytest.mark.asyncio
+ async def test_warmup_resets_failure_count_on_success() -> None:
+-    """Success between failures resets the counter — no recreation."""
++    """Success between failures resets the counter — no recreation.
++
++    Phase 24 plan 24-19 GA signature: ``agent.run("ping")`` is the ping path.
++    """
+     call_count = 0
+ 
+     async def _alternating_response(*args, **kwargs):  # noqa: ANN002, ANN003
+@@ -206,11 +195,11 @@ async def test_warmup_resets_failure_count_on_success() -> None:
+         if call_count in (1, 2, 4, 5):
+             raise ConnectionError("down")
+ 
+-    mock_client = AsyncMock()
+-    mock_client.get_response = AsyncMock(side_effect=_alternating_response)
++    mock_agent = AsyncMock()
++    mock_agent.run = AsyncMock(side_effect=_alternating_response)
+ 
+     factory = MagicMock()
+-    clients: list[tuple[str, object]] = [("test_agent", mock_client)]
++    agents: list[tuple[str, object]] = [("test_agent", mock_agent)]
+     iteration = 0
+ 
+     async def _fake_sleep(seconds: float) -> None:
+@@ -224,9 +213,9 @@ async def test_warmup_resets_failure_count_on_success() -> None:
+         pytest.raises(asyncio.CancelledError),
+     ):
+         await agent_warmup_loop(
+-            clients=clients,
++            agents=agents,
+             interval_seconds=1,
+-            client_factories={"test_agent": factory},
++            agent_factories={"test_agent": factory},
+         )
+ 
+     # Factory never called because success at call 3 resets counter
