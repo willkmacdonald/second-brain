@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Observability & Evals
 status: executing
-stopped_at: Phase 24 wave 1 complete (push guard installed)
-last_updated: "2026-05-10T16:32:00.000Z"
-last_activity: 2026-05-10 -- Phase 24 plan 24-01 complete
+stopped_at: Completed 24-09-PLAN.md
+last_updated: "2026-05-11T01:44:51.307Z"
+last_activity: 2026-05-11
 progress:
   total_phases: 18
   completed_phases: 14
-  total_plans: 82
-  completed_plans: 54
-  percent: 66
+  total_plans: 81
+  completed_plans: 63
+  percent: 78
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-05)
 
 **Core value:** One-tap capture from a phone instantly routes through an agent that classifies, files, and clarifies -- with zero organizational effort.
-**Current focus:** Phase --phase — 24
+**Current focus:** Phase 24 — foundry-ga-migration
 
 ## Current Position
 
 Phase: 24 (foundry-ga-migration) — EXECUTING
-Plan: 1 of 27 — 24-01 complete
-Status: Wave 1 complete (push guard installed). Stopped per user request before Wave 2.
-Last activity: 2026-05-10 -- Phase 24 wave 1 complete; push guard active
+Plan: 2 of 26
+Status: Ready to execute
+Last activity: 2026-05-11
 
-Progress: [██████████] 96%
+Progress: [████████░░] 78%
 
 ## Performance Metrics
 
@@ -192,6 +192,10 @@ v3.0 decisions archived to .planning/milestones/v3.0-ROADMAP.md
 - [Phase 23-02]: tool_choice passed via options=ChatOptions(tool_choice=...) -- NOT as direct keyword argument
 - [Phase 23-02]: Framework handles tool execution internally during streaming -- adapter does NOT need manual tool call detection
 - Only AGENT_RUNS KQL template needs span Name update (_agent_run -> invoke_agent); all other queries use HTTP route Names or component properties
+- [24-09]: Admin slice mirrors Investigation factory pattern from 24-04; build_admin_agent reuses load_instructions helper (DRY)
+- [24-09]: Recipe tool wiring moved BEFORE build_admin_agent so fetch_recipe_url is in tools= at construction time (replaces post-hoc admin_agent_tools.append pattern)
+- [24-09]: Explicit app.state.admin_client = None on Admin success branch (Rule 2 deviation) — warmup loop uses direct attr access (line 793); 24-19 migrates warmup to GA
+- [24-09]: AdminTools tool names verified from source: manage_destination, manage_affinity_rule, query_rules (NOT update_inbox_status/delete_inbox_item/fetch_routing_destinations as plan must_haves listed). 7 tools total when Playwright succeeds (6 admin + 1 recipe), 6 when Playwright fails
 
 ### Pending Todos
 
@@ -223,8 +227,8 @@ None.
 
 ## Session Continuity
 
-Last session: --stopped-at
-Stopped at: Phase 24 context gathered
+Last session: 2026-05-11T01:44:51.299Z
+Stopped at: Completed 24-09-PLAN.md
 Resume action: Continue Phase 23 (next plan: 23-05, depends on 23-02 probe findings)
 
 **Planned Phase:** 24 (foundry-ga-migration) — 23 plans — 2026-05-10T03:08:32.888Z
