@@ -1,67 +1,34 @@
-"""Admin agent registration for Foundry Agent Service.
+"""Admin agent factory.
 
-This module provides:
-- ensure_admin_agent(): Self-healing agent registration at startup
-
-Agent instructions live in the AI Foundry portal -- editable without
-redeployment. No local copy is kept in the repo.
+GA pattern (Phase 24 task group 23.2): mirrors agents/investigation.py.
+Reuses load_instructions from agents/investigation. Replaces the
+RC portal-shell creation pattern (F-19).
 """
 
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from collections.abc import Sequence
+from typing import Any
 
-if TYPE_CHECKING:
-    from agent_framework.azure import AzureAIAgentClient
+from agent_framework import Agent
+from agent_framework_foundry import FoundryChatClient
+
+from second_brain.agents.investigation import load_instructions
 
 logger = logging.getLogger(__name__)
 
 
-async def ensure_admin_agent(
-    foundry_client: AzureAIAgentClient,
-    stored_agent_id: str,
-) -> str:
-    """Ensure the Admin agent exists in Foundry.
-
-    Self-healing: if the stored agent ID is valid, returns it. If missing
-    or invalid, creates a new agent and returns the new ID.
-
-    Unlike the Classifier, Admin Agent registration is non-fatal -- if it
-    fails, the app still starts (Admin processing is not required for core
-    capture flow). The caller should catch exceptions.
-
-    Args:
-        foundry_client: Initialized AzureAIAgentClient instance.
-        stored_agent_id: Agent ID from AZURE_AI_ADMIN_AGENT_ID env var.
-
-    Returns:
-        The validated or newly created agent ID.
-    """
-    if stored_agent_id:
-        try:
-            agent_info = await foundry_client.agents_client.get_agent(stored_agent_id)
-            logger.info(
-                "Admin agent loaded: id=%s name=%s",
-                agent_info.id,
-                agent_info.name,
-            )
-            return stored_agent_id
-        except Exception:
-            logger.warning(
-                "Stored Admin agent ID %s not found in Foundry, creating new agent",
-                stored_agent_id,
-            )
-
-    # Create agent shell -- instructions are managed in the AI Foundry portal
-    new_agent = await foundry_client.agents_client.create_agent(
-        model="gpt-4o",
-        name="AdminAgent",
+def build_admin_agent(
+    chat_client: FoundryChatClient,
+    tools: Sequence[Any],
+    middleware: Sequence[Any],
+) -> Agent:
+    """Construct the Admin Agent (single-turn, non-streaming)."""
+    instructions = load_instructions("admin")
+    return Agent(
+        client=chat_client,
+        instructions=instructions,
+        tools=list(tools),
+        middleware=list(middleware),
     )
-    logger.info(
-        "NEW Admin agent: id=%s -- "
-        "SET INSTRUCTIONS IN AI FOUNDRY PORTAL and "
-        "UPDATE AZURE_AI_ADMIN_AGENT_ID in env",
-        new_agent.id,
-    )
-    return new_agent.id
