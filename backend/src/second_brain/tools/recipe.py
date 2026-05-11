@@ -6,6 +6,11 @@ Three-tier fetch strategy:
 3. Playwright headless browser — fallback for JS-rendered pages
 
 Returns extracted text for LLM-based classification and ingredient extraction.
+
+Phase 24 GA migration: per D-05/D-06, the RC tool-registration decorator
+was removed from `fetch_recipe_url`. The method is a plain async coroutine
+that GA `Agent(tools=[instance.fetch_recipe_url, ...])` binds directly at
+construction time.
 """
 
 from __future__ import annotations
@@ -21,7 +26,6 @@ from typing import TYPE_CHECKING, Annotated
 from urllib.parse import urlparse, urlunparse
 
 import httpx
-from agent_framework import tool
 from bs4 import BeautifulSoup
 from playwright.async_api import Browser, Route
 from pydantic import Field
@@ -89,7 +93,11 @@ def _is_safe_url(url: str) -> bool:
 
 
 class RecipeTools:
-    """URL fetching tools bound to a Playwright Browser instance."""
+    """URL fetching tools bound to a Playwright Browser instance.
+
+    `fetch_recipe_url` is a plain async coroutine; GA Agent binds the bound
+    method directly via `tools=[instance.fetch_recipe_url, ...]`.
+    """
 
     def __init__(
         self,
@@ -99,7 +107,6 @@ class RecipeTools:
         self._browser = browser
         self._spine_repo = spine_repo
 
-    @tool(approval_mode="never_require")
     async def fetch_recipe_url(
         self,
         url: Annotated[
