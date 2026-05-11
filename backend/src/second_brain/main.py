@@ -48,7 +48,7 @@ from second_brain.agents.agent_middleware.capture_trace import (  # noqa: E402
     CaptureTraceAgentMiddleware,
     CaptureTraceFunctionMiddleware,
 )
-from second_brain.agents.classifier import ensure_classifier_agent  # noqa: E402
+from second_brain.agents.classifier import build_classifier_agent  # noqa: E402
 from second_brain.agents.investigation import build_investigation_agent  # noqa: E402
 from second_brain.agents.middleware import (  # noqa: E402
     AuditAgentMiddleware,
@@ -542,13 +542,6 @@ async def lifespan(app: FastAPI):
             )
             raise  # Fail fast -- backend is useless without Foundry
 
-        # --- Classifier Agent Registration (fail fast) ---
-        classifier_agent_id = await ensure_classifier_agent(
-            foundry_client=foundry_client,
-            stored_agent_id=settings.azure_ai_classifier_agent_id,
-        )
-        app.state.classifier_agent_id = classifier_agent_id
-
         # --- ClassifierTools (uses Cosmos for filing) ---
         classifier_tools = ClassifierTools(
             cosmos_manager=cosmos_mgr,
@@ -574,6 +567,10 @@ async def lifespan(app: FastAPI):
             logger.warning("AZURE_OPENAI_ENDPOINT not set -- transcription unavailable")
 
         # --- TranscriptionTools + BlobStorage (optional) ---
+        # Phase 24 plan 24-14: transcribe_audio is NO LONGER a registered
+        # classifier tool (D-04 voice path split). The TranscriptionTools
+        # instance is still constructed here -- plan 24-15 wires it as a
+        # direct call from api/capture.py when audio is on the request.
         blob_manager: BlobStorageManager | None = None
         if openai_client and settings.blob_storage_url:
             blob_manager = BlobStorageManager(
@@ -592,32 +589,46 @@ async def lifespan(app: FastAPI):
             app.state.blob_manager = None
             app.state.transcription_tools = None
 
-        # --- Classifier AzureAIAgentClient (with middleware) ---
-        # Separate client from the probe client -- this one has agent_id set
-        # and should_cleanup_agent=False to persist the agent across restarts
-        classifier_client = AzureAIAgentClient(
-            credential=credential,
-            project_endpoint=settings.azure_ai_project_endpoint,
-            agent_id=classifier_agent_id,
-            should_cleanup_agent=False,
+        # --- Build Classifier Agent via GA factory (fail fast) ---
+        # Phase 24 task group 23.3: GA Agent constructed via
+        # build_classifier_agent using the shared FoundryChatClient.
+        # Instructions live in repo (D-02). Capture-trace middleware tags
+        # framework spans at source (D-07a, P1-3).
+        #
+        # D-04 voice path split: tools list contains ONLY file_capture.
+        # transcribe_audio is no longer a registered tool -- direct call
+        # from api/capture.py lands in plan 24-15.
+        # With one tool registered, tool_choice='required' is unambiguous;
+        # the Python safety net is deleted (D-03) and failures route to
+        # the forced_tool_failure SSE sub-code (plan 24-16).
+        classifier_agent = build_classifier_agent(
+            chat_client=chat_client,
+            tools=[classifier_tools.file_capture],
             middleware=[
-                AuditAgentMiddleware(agent_name="classifier"),
-                ToolTimingMiddleware(),
+                CaptureTraceAgentMiddleware(),
+                CaptureTraceFunctionMiddleware(),
             ],
         )
-        app.state.classifier_client = classifier_client
+        app.state.classifier_agent = classifier_agent
 
-        # Build tool list for request-time use (file_capture always,
-        # transcribe_audio only if configured)
-        agent_tools = [classifier_tools.file_capture]
-        if app.state.transcription_tools:
-            agent_tools.append(app.state.transcription_tools.transcribe_audio)
-        app.state.classifier_agent_tools = agent_tools
+        # Mid-migration: RC client/agent_id attrs no longer set by Classifier
+        # slice. Set to None so warmup loop's classifier_client check can
+        # short-circuit (warmup migrates to GA in plan 24-19). Spine
+        # FoundryAgentAdapter for "classifier" segment similarly skips
+        # while classifier_agent_id is None. streaming/adapter.py still
+        # reads app.state.classifier_client until plan 24-16 rewrites it
+        # against app.state.classifier_agent.
+        app.state.classifier_client = None
+        app.state.classifier_agent_id = None
+        # Placeholder local for the _make_classifier_client warmup factory
+        # closure (line ~815). Warmup will skip Classifier because
+        # app.state.classifier_client is None; factory body never executes.
+        # Removed in plan 24-19 (warmup migration to GA).
+        classifier_agent_id = None
+        classifier_client = None
 
         logger.info(
-            "Classifier agent ready: id=%s tools=%d middleware=2",
-            classifier_agent_id,
-            len(agent_tools),
+            "Classifier agent ready (GA): tools=1 (file_capture only) middleware=2",
         )
 
         # --- Admin Agent (non-fatal, GA pattern) ---
