@@ -1,8 +1,14 @@
 """Classification tools for the Classifier agent.
 
-Uses the class-based tool pattern to bind CosmosManager references to @tool
+Uses the class-based tool pattern to bind CosmosManager references to tool
 functions. ClassifierTools manages stateful references to CosmosManager and
 the file_capture tool that writes classification results to Cosmos DB.
+
+Phase 24 GA migration: the RC tool-registration decorator was removed from
+file_capture. The GA Agent binds the bound method directly via
+``Agent(tools=[classifier_tools.file_capture])`` at construction time. The
+``Annotated[..., Field(description=...)]`` parameter shapes and the method
+docstring serve as the GA tool description surface.
 """
 
 import contextvars
@@ -12,7 +18,6 @@ from datetime import UTC, datetime
 from typing import Annotated
 from uuid import uuid4
 
-from agent_framework import tool
 from pydantic import Field
 
 from second_brain.db.cosmos import CosmosManager
@@ -53,12 +58,16 @@ def follow_up_context(inbox_item_id: str):
 class ClassifierTools:
     """Classification tools bound to a CosmosManager instance.
 
-    The Classifier agent does the reasoning; these tools are filing helpers
-    that write the agent's classification decision to Cosmos DB.
+    The Classifier agent does the reasoning; ``file_capture`` is a filing
+    helper that writes the agent's classification decision to Cosmos DB. The
+    method is a plain async coroutine; GA Agent binds the bound method
+    directly via ``tools=[instance.file_capture]``.
 
     Usage:
         tools = ClassifierTools(cosmos_manager, classification_threshold=0.6)
-        agent = client.create_agent(
+        agent = Agent(
+            client=chat_client,
+            instructions=...,
             tools=[tools.file_capture],
         )
     """
@@ -72,7 +81,6 @@ class ClassifierTools:
         self._manager = cosmos_manager
         self._threshold = classification_threshold
 
-    @tool(approval_mode="never_require")
     async def file_capture(
         self,
         text: Annotated[str, Field(description="The original captured text to file")],
