@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Observability & Evals
 status: executing
-stopped_at: Completed 24-15 (Voice path split + P0-1 OUTCOME conversation-history helper)
-last_updated: "2026-05-11T05:21:54.230Z"
+stopped_at: Completed 24-16 (classifier streaming GA + P0-1 Option A)
+last_updated: "2026-05-11T05:36:29.691Z"
 last_activity: 2026-05-11
 progress:
   total_phases: 18
   completed_phases: 14
   total_plans: 81
-  completed_plans: 70
-  percent: 86
+  completed_plans: 71
+  percent: 88
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 ## Current Position
 
 Phase: 24 (foundry-ga-migration) — EXECUTING
-Plan: 17 of 26 (Wave 3 complete: 24-09 through 24-13.5)
+Plan: 18 of 26 (Wave 3 complete: 24-09 through 24-13.5)
 Status: Ready to execute
 Last activity: 2026-05-11
 
-Progress: [█████████░] 86%
+Progress: [█████████░] 88%
 
 ## Performance Metrics
 
@@ -49,7 +49,7 @@ Progress: [█████████░] 86%
 **Velocity (v3.1):**
 
 - Plans completed: 18 fully + 2 code-complete awaiting bundled human-verify checkpoint (19.2-04 + 19.2-05)
-- Last plan duration: 5 min (24-15 -- voice path split + P0-1 OUTCOME helper; 4 tasks, 6 files)
+- Last plan duration: 8 min (24-16 -- classifier streaming GA + P0-1 OUTCOME Option A; 2 tasks, 3 commits, 2 files)
 - Timeline: 2026-04-05 to present
 
 *Updated after each plan completion*
@@ -222,6 +222,10 @@ v3.0 decisions archived to .planning/milestones/v3.0-ROADMAP.md
 - [24-15]: ConversationTurn lives in new cosmos/ package (separate from db.cosmos CosmosManager DI container). Plan 24-17 will import ConversationTurn from this module rather than re-defining it on InboxDocument — avoids circular dep risk.
 - [24-15]: P0-1 OUTCOME conversation-history helper accepts BOTH Pydantic attribute access AND dict subscriptable access via _read(doc, key) — Cosmos read_item returns dicts; InboxDocument has attribute access. Single API for both shapes.
 - [24-15]: Malformed conversationHistory entries are skipped with a logged warning, not raised — preserves the follow-up flow's resilience per P0-1 OUTCOME's graceful continuity-loss trade-off.
+- [24-16]: Classifier streaming GA + P0-1 OUTCOME Option A — adapter rewritten; safety net deleted (F-09); custom OTel spans deleted (F-14); forced_tool_failure SSE sub_code wired (D-04); stream_voice_capture function removed; new captures pass inbox_doc=None and adapter locates doc via primary tool result item_id
+- [24-16]: Race-safe conversationHistory upsert — adapter re-reads inbox doc before writing because file_capture also writes to the same doc inside agent.run() with full-body upsert; without re-read, post-stream upsert would clobber file_capture's classification field writes
+- [24-16]: _stream_with_thread_id_persistence helper deleted entirely — foundryThreadId persistence replaced by adapter's conversationHistory write. _stream_with_follow_up_context simplified to 2-line context-manager wrap (only _follow_up_inbox_item_id ContextVar still load-bearing)
+- [24-16]: forced_tool_failure has two emission points in each streaming function — (a) tool_choice=required produced no file_capture result after stream completes; (b) agent.run raised any exception. Both converge on same wire shape {type: ERROR, sub_code: forced_tool_failure}. Mobile already handles ERROR; sub_code is for dashboard/monitoring distinction
 
 ### Pending Todos
 
@@ -253,8 +257,8 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-05-11T05:21:29.619Z
-Stopped at: Completed 24-15 (Voice path split + P0-1 OUTCOME conversation-history helper)
+Last session: 2026-05-11T05:36:12.827Z
+Stopped at: Completed 24-16 (classifier streaming GA + P0-1 Option A)
 Resume action: Continue Phase 23 (next plan: 23-05, depends on 23-02 probe findings)
 
 **Planned Phase:** 24 (foundry-ga-migration) — 23 plans — 2026-05-10T03:08:32.888Z
