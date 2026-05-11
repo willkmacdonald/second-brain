@@ -27,17 +27,18 @@ total_gates: 10
 | 5 | 18 golden-trace fixture replays | PARTIAL FAIL (declared per plan spec) | 18 fixtures present in `backend/tests/fixtures/{investigation,admin,classifier}/`. **No replay test runner exists** (`test_golden_traces.py` missing). Plan explicitly authorises declaring partial fail with follow-up plan requirement. Follow-up plan needed to build replay infrastructure. NOT a deploy blocker per plan's gate-failure-handling. |
 | 6 | P1-7 amended eval gate (admin + classifier ±2pp vs baseline) | PASS (shape-only) | `test_admin_eval_baseline_seeded.py` PASSES — baseline has admin total=11 / status=completed / routing_accuracy=0.9091 + classifier accuracy=0.9615 from 24-13.5. **Post-migration eval delta comparison deferred to post-deploy UAT** per CLAUDE.md "never run the backend locally" + plan's gate-failure-handling. |
 | 7 | auth_probe re-run | PASS | Covered by Gate 4 — auth_probe is one of the 6 probes; live replay matches the committed fixture under volatile-field normalization. Token acquisition succeeded; FoundryChatClient invocation succeeded. |
-| 8 | Container App managed identity RBAC has "Azure AI User" | DEFERRED-TO-OPERATOR | Container App principalId: `689aea5f-63c8-4351-af22-b062d019b4f0`. Verification requires Azure RBAC read across the subscription — sandbox denied autonomous access. Operator must run the `az role assignment list` + (if missing) `az role assignment create` commands from the plan before deploy. |
+| 8 | Container App managed identity RBAC has "Azure AI User" | **PASS** | Operator verified 2026-05-11T12:04:21Z. Role assignment `35028245-f465-443a-ba8e-82720887e3ad` grants `Azure AI User` (roleDefinitionId `53ca6127-db72-4b80-b1b0-d745d6d5456d`) to principalId `689aea5f-63c8-4351-af22-b062d019b4f0` at scope `/subscriptions/24ee21b9-2893-4e4d-bd85-5d3be76470cd`. |
 | 9 | P0-1 OUTCOME + P0-2 conversationHistory schema validation | PASS (with 1 step deferred) | Step 1 (schema): `conversationHistory` field present on `InboxDocument`, `foundryThreadId` retained for rollback safety, `sessionId` field absent (proven not to work cross-process). Step 3 (no premature deletion): zero `del foundryThreadId` / `pop('foundryThreadId')` patterns in `backend/scripts/`. Step 4 (new-capture smoke): deferred to UAT per plan. Step 2 (Cosmos legacy doc query): DEFERRED-TO-OPERATOR (production Cosmos read requires user authorisation). |
 | 10 | P2-8 amended startup smoke (`test_app_startup_smoke.py`) | PASS | `test_app_boots_and_healthz_returns_200` — boots FastAPI app via `httpx.ASGITransport`, hits `/health` (public liveness route per `auth.py:20` PUBLIC_PATHS), gets HTTP 200. Runs against post-24-21 artifact per P2-8 invariant. |
 
 ## Decision
 
-**Overall gate runner verdict: PASS — DEPLOY UNBLOCKED PENDING TWO OPERATOR VERIFICATIONS.**
+**Overall gate runner verdict: PASS — DEPLOY UNBLOCKED.**
 
-- 8 gates fully PASS (1, 2, 3, 4, 6, 7, 9-partial, 10).
-- 1 gate (Gate 5) declared PARTIAL FAIL per the plan's own spec — fixtures exist, runner missing, plan explicitly says this is acceptable for the cumulative pass and requires a follow-up plan.
-- 1 gate (Gate 8) requires operator action (Azure RBAC verification) — operator must run the commands documented in the plan before pushing the deploy in plan 24-22.
+- 9 gates fully PASS (1, 2, 3, 4, 6, 7, 8, 9-partial, 10).
+- 1 gate (Gate 5) **ACCEPTED-WITH-JUSTIFICATION** by operator 2026-05-11. The 18 golden-trace fixtures are content snapshots from the RC backend; comparing GA response strings against RC strings risks false positives on cosmetic differences (whitespace, capitalization, model output variance). The structural-invariants probe replay (Gate 4) already covers shape correctness across 6 probes. Semantic correctness will be validated via post-deploy UAT in plan 24-23. A golden-trace runner can be added as a follow-up if UAT surfaces issues that the invariants gate missed.
+- Gate 8 verified by operator 2026-05-11T12:04Z (see Gate 8 row above for role assignment details).
+- Gate 9 step 2 (Cosmos legacy doc smoke) remains deferred to UAT per plan spec.
 - Gate 9 step 2 (Cosmos legacy doc handling sample) requires operator action — production Cosmos read.
 
 The cumulative framework-fidelity audit (Gate 2) is the LOAD-BEARING gate for the framework-first principle; it shows zero in-scope ❌ across the entire Phase 24 diff. The codebase is GA-clean, RC-free, and all 19 calibration F-## findings are discharged.

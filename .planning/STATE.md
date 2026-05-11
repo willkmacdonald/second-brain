@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Observability & Evals
 status: executing
-stopped_at: Completed 24-20 (pre-deploy gate runner — cumulative audit PASS, 8/10 gates PASS, 1 PARTIAL FAIL per spec, 1 OPERATOR-DEFERRED). Plan 24-22 deploy READY pending operator RBAC verification per Gate 8 + optional Cosmos smoke per Gate 9 step 2.
+stopped_at: 24-20 fully PASS — Gate 8 RBAC verified by operator 2026-05-11T12:04Z, Gate 5 accepted-with-justification (golden-trace runner deferred to post-UAT follow-up). Wave 5 complete. 24-22 deploy event UNBLOCKED.
 last_updated: "2026-05-11T06:46:30.424Z"
 last_activity: 2026-05-11
 progress:
