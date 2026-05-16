@@ -75,6 +75,7 @@ See: .planning/milestones/v3.0-ROADMAP.md
 - [x] **Phase 21: Eval Framework** - Golden datasets, deterministic evaluators, score storage, on-demand trigger (completed 2026-04-23)
 - [ ] **Phase 21.1: Migrate Eval to Foundry Native Platform** (INSERTED) - Replace custom eval with Foundry agent target evaluation, custom code-based evaluators, built-in AI evaluators
 - [ ] **Phase 22: Self-Monitoring Loop** - Automated weekly evals, threshold alerts, push notifications on degradation
+- [ ] **Phase 25: Admin Inbox Soft-Delete + 30-day Retention** (INSERTED) - Replace hard-delete with `status="filed"` + Cosmos TTL on Admin-bucket inbox items processed by the Admin agent. Preserves audit trail for evals/observability; People/Ideas/Projects unchanged (no agent processes them)
 
 ## Phase Details
 
@@ -365,6 +366,31 @@ Plans:
   4. User receives a push notification via Azure Monitor when eval scores degrade
 **Plans**: TBD
 
+### Phase 25: Admin Inbox Soft-Delete + 30-day Retention (INSERTED)
+
+**Context:** Today, when the Admin agent successfully processes a capture by firing `add_errand_items` or `add_task_items`, the source Inbox doc is **hard-deleted** from Cosmos. This drops the only record that links the raw user text + classification metadata (bucket, confidence, traceId, classifiedAt) to the resulting Errand/Task. Audit trail survives only in `spine_events` (728k+ rows of granular events), which is cumbersome to query for "how did this Errand get here?" lookups.
+
+People/Ideas/Projects/Admin (non-processed) inbox docs are unaffected by this phase — no agent processes them away, so they already persist as durable records.
+
+**Goal:** Replace the hard-delete-on-Admin-success path with `status="filed"` soft-delete + Cosmos TTL-based 30-day cleanup, preserving short-term audit trail for evals/observability without unbounded Cosmos growth.
+
+**Depends on:** Phase 24 (Foundry GA migration must be stable before touching admin_handoff.py lifecycle code)
+
+**Requirements:** TBD (likely OBS-XX, EVAL-XX series — to be assigned at plan-phase time)
+
+**Success Criteria** (what must be TRUE):
+  1. Admin agent success path sets `status="filed"` on the Inbox doc (instead of `delete_item`)
+  2. Cosmos TTL on filed docs = 30 days (configurable via `INBOX_FILED_RETENTION_DAYS` env var)
+  3. Phone inbox view filters out `filed` status (no UI regression)
+  4. `/investigate` Inbox queries default to excluding `filed` (with opt-in `include_filed=true`)
+  5. Scope is limited to **Admin-bucket** Inbox items processed by the Admin agent — People/Ideas/Projects inbox docs are unchanged
+  6. Recipe URL captures (which generate N Errand items) follow the same path: source Inbox → filed once, ingredients persist normally in Errands
+
+**Optional bundled scope (decide at plan-phase):**
+  - Add `sourceInboxItemId` + `sourceCaptureTraceId` backlinks to Errand/Task docs at creation time. Lets the phone surface "where did this come from?" in a UI affordance, while the 30-day window is open.
+
+**Plans:** TBD (likely 1-3 plans depending on bundled scope — minimum is the soft-delete + TTL flip in admin_handoff.py)
+
 ## Backlog
 
 Items not yet scheduled into a milestone or phase.
@@ -378,7 +404,7 @@ Items not yet scheduled into a milestone or phase.
 - v1.0: 1 -> 2 -> 3 -> 4 -> 4.1 -> 4.2 -> 4.3 -> 5 (complete)
 - v2.0: 6 -> 7 -> 8 -> 9 -> 9.1 (complete)
 - v3.0: 10 -> 11 -> 11.1 -> 12 -> 12.1 -> 12.2 -> 12.3 -> 12.3.1 -> 12.5 -> 13 -> 14 -> 15 (complete)
-- v3.1: 16 -> 16.1 -> 17 -> 17.3 -> 17.4 -> 18 -> 19 -> 19.4.1 -> 20 -> 20.1 -> 21 -> 21.1 -> 22
+- v3.1: 16 -> 16.1 -> 17 -> 17.3 -> 17.4 -> 18 -> 19 -> 19.4.1 -> 20 -> 20.1 -> 21 -> 21.1 -> 22 -> 25
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -396,6 +422,7 @@ Items not yet scheduled into a milestone or phase.
 | 21. Eval Framework | v3.1 | 5/5 | Complete    | 2026-04-24 |
 | 21.1. Migrate Eval to Foundry Native | v3.1 | 0/2 | Not started | - |
 | 22. Self-Monitoring Loop | v3.1 | 0/TBD | Not started | - |
+| 25. Admin Inbox Soft-Delete + 30-day Retention (INSERTED) | v3.1 | 0/TBD | Not started | - |
 
 ### Phase 23: Foundry GA Migration — Prep (artifact-only setup)
 
