@@ -86,6 +86,62 @@ def inbox_app(mock_cosmos_manager: MagicMock) -> FastAPI:
 
 
 @pytest.mark.asyncio
+async def test_list_inbox_excludes_filed_status(
+    inbox_app: FastAPI,
+    mock_cosmos_manager: MagicMock,
+) -> None:
+    """GET /api/inbox excludes docs with status='filed' (Phase 25 REQ-SD-06).
+
+    The mock simulates Cosmos applying the WHERE filter server-side
+    (returns only classified). The test additionally asserts the SQL
+    string the API code passed to Cosmos contains the filed-exclusion
+    clause (proves the WHERE was actually written, not just that mock
+    happened to return what we wanted).
+    """
+    classified_doc = {
+        "id": "inbox-classified",
+        "userId": "will",
+        "rawText": "buy milk",
+        "title": "Milk errand",
+        "status": "classified",
+        "createdAt": "2026-05-17T10:00:00Z",
+    }
+
+    captured_queries: list[str] = []
+
+    def _async_iter(items):
+        async def _iter(*args, **kwargs):
+            captured_queries.append(kwargs.get("query", ""))
+            for item in items:
+                yield item
+
+        return _iter
+
+    inbox_container = mock_cosmos_manager.get_container("Inbox")
+    inbox_container.query_items = MagicMock(side_effect=_async_iter([classified_doc]))
+
+    transport = httpx.ASGITransport(app=inbox_app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get(
+            "/api/inbox",
+            headers={"Authorization": f"Bearer {TEST_API_KEY}"},
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    ids = [item["id"] for item in data["items"]]
+    assert "inbox-classified" in ids
+    assert "inbox-filed" not in ids
+
+    # Assert the SQL passed to Cosmos has the filed-exclusion clause.
+    assert len(captured_queries) >= 1
+    sql = captured_queries[0]
+    assert "c.status" in sql
+    assert "filed" in sql
+    assert "NOT IS_DEFINED" in sql
+
+
+@pytest.mark.asyncio
 async def test_recategorize_success(
     inbox_app: FastAPI,
     mock_cosmos_manager: MagicMock,
