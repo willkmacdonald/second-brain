@@ -377,13 +377,13 @@ People/Ideas/Projects/Admin (non-processed) inbox docs are unaffected by this ph
 
 **Depends on:** Phase 24 (Foundry GA migration must be stable before touching admin_handoff.py lifecycle code)
 
-**Requirements:** TBD (likely OBS-XX, EVAL-XX series — to be assigned at plan-phase time)
+**Requirements:** REQ-SD-01, REQ-SD-02, REQ-SD-03, REQ-SD-04, REQ-SD-05, REQ-SD-06, REQ-SD-07, REQ-SD-08, REQ-SD-09, REQ-SD-10, REQ-SD-11, REQ-BL-01, REQ-BL-02, REQ-BL-03, REQ-BL-04, REQ-BL-05
 
 **Success Criteria** (what must be TRUE):
   1. Admin agent success path sets `status="filed"` on the Inbox doc (instead of `delete_item`)
   2. Cosmos TTL on filed docs = 30 days (configurable via `INBOX_FILED_RETENTION_DAYS` env var)
   3. Phone inbox view filters out `filed` status (no UI regression)
-  4. `/investigate` Inbox queries default to excluding `filed` (with opt-in `include_filed=true`)
+  4. Filed items are fully hidden from user surfaces — phone inbox excludes them via server-side SQL filter, and the investigation agent has no direct Inbox Cosmos query path (verified by CI guard `test_investigation_has_no_direct_inbox_query`). No `include_filed=true` opt-in parameter exists anywhere — the 30-day window is purely internal for eval/debugging via direct Cosmos query if needed.
   5. Scope is limited to **Admin-bucket** Inbox items processed by the Admin agent — People/Ideas/Projects inbox docs are unchanged
   6. Recipe URL captures (which generate N Errand items) follow the same path: source Inbox → filed once, ingredients persist normally in Errands
 
@@ -393,10 +393,10 @@ People/Ideas/Projects/Admin (non-processed) inbox docs are unaffected by this ph
 **Plans:** 5 plans
 
 Plans:
-- [ ] 25-01-PLAN.md — admin_handoff Branch B soft-delete (status='filed' + ttl + adminProcessingStatus='completed') + admin_inbox_item_id_var ContextVar shell in tools/admin.py
-- [ ] 25-02-PLAN.md — Settings.inbox_filed_retention_days field + operator-authorized Cosmos container TTL=-1 infra step
-- [ ] 25-03-PLAN.md — api/inbox.py listing filter + api/errands.py dismiss soft-delete + unprocessed-orthogonality test + investigation guard test
-- [ ] 25-04-PLAN.md — ErrandItem/TaskItem optional backlink fields + add_errand_items/add_task_items ContextVar reads
+- [x] 25-01-PLAN.md — admin_handoff Branch B soft-delete (status='filed' + ttl + adminProcessingStatus='completed') + admin_inbox_item_id_var ContextVar shell in tools/admin.py
+- [x] 25-02-PLAN.md — Settings.inbox_filed_retention_days field + operator-authorized Cosmos container TTL=-1 infra step
+- [x] 25-03-PLAN.md — api/inbox.py listing filter + api/errands.py dismiss soft-delete + unprocessed-orthogonality test + investigation guard test
+- [x] 25-04-PLAN.md — ErrandItem/TaskItem optional backlink fields + add_errand_items/add_task_items ContextVar reads
 - [ ] 25-05-PLAN.md — ROADMAP success-criterion #4 amendment + deploy + post-deploy UAT
 
 ### Phase 26: Remove Recipe Extraction (INSERTED)
