@@ -22,49 +22,111 @@ from second_brain.processing.admin_handoff import (
 )
 
 
-def _tool_content(name: str) -> MagicMock:
-    """Construct a Content block representing a tool call/result.
+def _function_call(name: str, call_id: str) -> MagicMock:
+    """function_call content (lives on role='assistant' messages).
 
-    Per FOUNDRY-PROBE-FINDINGS.md probe 2 (tool_call_extraction.json),
-    tool-result message contents have a `name` (or `function_name`) field
-    identifying the function that was called. _output_tool_called walks
-    response.messages for role='tool' entries and reads this field.
+    GA framework shape verified 2026-05-17 by local probe against deployed
+    Foundry endpoint: the tool name is on the function_call Content (which
+    appears on the prior assistant message). The function_result Content
+    (which appears on the follow-up role='tool' message) has name=None and
+    only carries the matching call_id + result/exception.
     """
     content = MagicMock()
+    content.type = "function_call"
     content.name = name
+    content.call_id = call_id
+    content.arguments = "{}"
     return content
 
 
-def _tool_message(tool_name: str) -> MagicMock:
-    """Construct a Message with role='tool' carrying one Content block."""
-    msg = MagicMock()
-    msg.role = "tool"
-    msg.contents = [_tool_content(tool_name)]
-    msg.text = ""
-    return msg
+def _function_result(call_id: str, exception: str | None = None) -> MagicMock:
+    """function_result content (lives on role='tool' messages).
+
+    name is intentionally None to match the real GA shape — the name lives
+    on the matching function_call in the prior assistant message.
+    """
+    content = MagicMock()
+    content.type = "function_result"
+    content.name = None
+    content.call_id = call_id
+    content.result = "" if exception is None else f"Error: {exception}"
+    content.exception = exception
+    return content
 
 
-def _assistant_message(text: str = "") -> MagicMock:
-    """Construct a Message with role='assistant' and the given text."""
+def _assistant_message(
+    text: str = "",
+    calls: list[tuple[str, str]] | None = None,
+) -> MagicMock:
+    """role='assistant' message. `calls` is a list of (name, call_id)
+    tuples for function_call content blocks attached to this message.
+    """
     msg = MagicMock()
     msg.role = "assistant"
-    msg.contents = []
     msg.text = text
+    contents: list[MagicMock] = []
+    if text:
+        text_content = MagicMock()
+        text_content.type = "text"
+        text_content.name = None
+        text_content.call_id = None
+        contents.append(text_content)
+    for name, call_id in calls or []:
+        contents.append(_function_call(name, call_id))
+    msg.contents = contents
     return msg
 
 
-def _agent_response(text: str, tool_names: list[str] | None = None) -> MagicMock:
-    """Construct an AgentResponse-shaped mock.
+def _tool_message(
+    call_ids: list[str], exceptions: list[str | None] | None = None
+) -> MagicMock:
+    """role='tool' message carrying one or more function_result blocks.
 
-    Per probe 2: response.text is the final assistant answer; response.messages
-    is the full conversation walk including role='tool' entries for each tool
-    invocation. We mirror that shape so _output_tool_called can detect calls.
+    `call_ids` must match function_calls emitted by a prior assistant
+    message. `exceptions` is parallel to call_ids: None for success, a
+    string for a validation-failure exception payload.
+    """
+    msg = MagicMock()
+    msg.role = "tool"
+    msg.text = ""
+    excs = exceptions if exceptions is not None else [None] * len(call_ids)
+    msg.contents = [
+        _function_result(cid, exc) for cid, exc in zip(call_ids, excs, strict=False)
+    ]
+    return msg
+
+
+def _agent_response(
+    text: str,
+    tool_names: list[str] | None = None,
+    tool_exceptions: list[str | None] | None = None,
+) -> MagicMock:
+    """Construct an AgentResponse-shaped mock matching the real GA shape.
+
+    For each tool in `tool_names`, generates an assistant message carrying a
+    function_call with that name, followed by a tool message carrying the
+    matching function_result. `tool_exceptions` (parallel list) lets a test
+    simulate a tool whose result raised (e.g. validation failure) — those
+    don't count as fired in _output_tool_called.
+
+    GA shape verified 2026-05-17 against the deployed Foundry endpoint:
+      [assistant function_call(name='X', call_id='c1')]
+      [tool      function_result(name=None, call_id='c1', result/exception)]
+      [assistant text]
     """
     response = MagicMock()
     response.text = text
-    messages: list[MagicMock] = [_assistant_message("")]
-    for name in tool_names or []:
-        messages.append(_tool_message(name))
+    messages: list[MagicMock] = []
+    excs = (
+        tool_exceptions
+        if tool_exceptions is not None
+        else [None] * len(tool_names or [])
+    )
+    for i, name in enumerate(tool_names or []):
+        call_id = f"call-{i}-{name}"
+        messages.append(_assistant_message("", calls=[(name, call_id)]))
+        exc = excs[i] if i < len(excs) else None
+        messages.append(_tool_message([call_id], [exc]))
     messages.append(_assistant_message(text))
     response.messages = messages
     return response

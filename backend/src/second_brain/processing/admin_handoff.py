@@ -50,22 +50,54 @@ def _output_tool_called(response) -> tuple[bool, set[str]]:
 
     Returns (output_tool_fired, all_tools_called).
 
-    Per FOUNDRY-PROBE-FINDINGS.md probe 2 (tool_call_extraction.json):
-    tool calls are in messages with role='tool'. The Content blocks
-    inside have a `name` (or `function_name`) field for the function
-    called. Walks response.messages defensively (treats missing
-    attributes as no tool call).
+    Phase 24 UAT bug fix (2026-05-17): Plan 24-11's original implementation
+    walked role='tool' messages looking for `content.name`, but on the GA
+    framework the `name` field is populated on the `function_call` content
+    (in role='assistant' messages), NOT on the `function_result` content
+    (in role='tool' messages). The probe fixture didn't reveal this, so
+    detection silently returned empty for every successful capture →
+    admin_handoff marked the inbox as failed → next /api/errands poll
+    re-fired the agent → tool fired again → duplicate Errand/Task rows
+    accumulated.
+
+    Correct shape per local probe (2026-05-17):
+      message[i] role='assistant' contents=[function_call(name='X', call_id='c1', arguments=...)]
+      message[i+1] role='tool' contents=[function_result(name=None, call_id='c1', result=...)]
+
+    We look at the `function_call` blocks (any role) for tool detection.
+    If the function_result for the matching call_id carries an `exception`,
+    the call failed at validation — don't count it as fired.
     """
     tools_called: set[str] = set()
+    # First pass: collect function_call (name, call_id) pairs
+    call_id_to_name: dict[str, str] = {}
+    for msg in getattr(response, "messages", None) or []:
+        for content in getattr(msg, "contents", None) or []:
+            if getattr(content, "type", None) != "function_call":
+                continue
+            name = getattr(content, "name", None) or getattr(
+                content, "function_name", None
+            )
+            call_id = getattr(content, "call_id", None)
+            if name and call_id:
+                call_id_to_name[call_id] = str(name)
+    # Second pass: only count calls whose result didn't raise. A
+    # validation-error result (e.g., bad args) sets `exception` on the
+    # function_result content. Those count as attempted but not actually
+    # executed — admin_handoff's retry path should still fire.
+    failed_call_ids: set[str] = set()
     for msg in getattr(response, "messages", None) or []:
         if getattr(msg, "role", None) != "tool":
             continue
         for content in getattr(msg, "contents", None) or []:
-            name = getattr(content, "name", None) or getattr(
-                content, "function_name", None
-            )
-            if name:
-                tools_called.add(str(name))
+            if getattr(content, "type", None) != "function_result":
+                continue
+            call_id = getattr(content, "call_id", None)
+            if call_id and getattr(content, "exception", None):
+                failed_call_ids.add(call_id)
+    for cid, name in call_id_to_name.items():
+        if cid not in failed_call_ids:
+            tools_called.add(name)
     return bool(tools_called & _OUTPUT_TOOL_NAMES), tools_called
 
 
