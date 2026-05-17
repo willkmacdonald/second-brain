@@ -594,27 +594,30 @@ Setting container `defaultTtl=N` (positive) would expire ALL Inbox docs after N 
 ### 10. Pre-existing `status` values that are not in any "active" allowlist
 There is no positive `status="active"` check anywhere in the codebase (verified via grep). All status checks are either positive-match-specific (`status == "pending"`, `status == "classified"`) or status-list-membership for UI categorization. The new `"filed"` value will simply not match any of these positive checks, which is the intended behavior. **No allowlist exists to update.**
 
-## Open Questions for Planner
+## Open Questions (RESOLVED)
 
-CONTEXT.md is locked. However, code reading surfaced **three small clarifications** worth flagging:
+CONTEXT.md is locked. However, code reading surfaced **three small clarifications** worth flagging. All three resolved in plan content during planning iteration:
 
-1. **Should `dismiss_admin_notification` (api/errands.py:461) also become soft-delete-with-filed?**
+1. **RESOLVED:** Should `dismiss_admin_notification` (api/errands.py:461) also become soft-delete-with-filed?
    - Today: hard delete via `inbox_container.delete_item`
    - Phase 25 logic: Branch A items (kept for delivery) get manually dismissed by user; this is functionally "done"
    - Symmetry argument: yes, treat dismissal as the same lifecycle event as Branch B's auto-file
    - Out-of-scope argument: CONTEXT.md says "hard-delete-on-Admin-success path" which technically only covers Branch B
-   - **Recommendation:** YES, fold into Phase 25 for lifecycle symmetry. Documented in Plan 01.
+   - **Recommendation:** YES, fold into Phase 25 for lifecycle symmetry.
+   - **Resolution site:** Plan 03 (`25-03-PLAN.md`) modifies `dismiss_admin_notification` to soft-delete with `status="filed"` + `ttl` + `adminProcessingStatus="completed"` per the same atomic-upsert pattern as Branch B.
 
-2. **CONTEXT.md success criterion #4 (investigation filter) — should plan explicitly state "no-op"?**
+2. **RESOLVED:** CONTEXT.md success criterion #4 (investigation filter) — should plan explicitly state "no-op"?
    - Investigation agent has no direct Inbox Cosmos query path
    - Success criterion is satisfied vacuously
    - **Recommendation:** Plan must-haves should include "verify no investigation.py Inbox query exists" as an explicit no-op check, with a grep test in CI: `grep -rn 'get_container(\"Inbox\"' backend/src/second_brain/tools/investigation.py` should return zero matches.
+   - **Resolution site:** Plan 03 (`25-03-PLAN.md`) adds `test_investigation_has_no_direct_inbox_query` to `backend/tests/test_investigation_queries.py` as a CI grep guard. Plan 03 acceptance criteria + must_haves enumerate "investigation.py: no change required."
 
-3. **Branch B currently does NOT set `adminProcessingStatus="completed"` (because the doc is being deleted)**
+3. **RESOLVED:** Branch B currently does NOT set `adminProcessingStatus="completed"` (because the doc is being deleted)
    - Phase 25 MUST add this flip in the soft-delete path
    - Otherwise filed docs will have lingering `adminProcessingStatus="pending"` and the api/errands.py:174 re-fire query will match them
    - This is a critical correctness change buried in the soft-delete swap
    - **Recommendation:** Plan 01 explicit must-have: the filing upsert sets BOTH `status="filed"` AND `adminProcessingStatus="completed"` AND `ttl` in the same body. Test: assert the upserted body has all three fields.
+   - **Resolution site:** Plan 01 (`25-01-PLAN.md`) Task 1 Sub-step 1.3 adds `test_filing_writes_all_fields_atomically` and Task 2 implements the 3-field atomic upsert at Branch B (admin_handoff.py:396-405). Plan 01 must_haves enumerate the atomicity constraint as Must-have #3.
 
 ## Project Constraints (from CLAUDE.md)
 
