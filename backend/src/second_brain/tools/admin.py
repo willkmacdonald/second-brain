@@ -27,6 +27,7 @@ from second_brain.models.documents import (
     ErrandItem,
     TaskItem,
 )
+from second_brain.tools.classification import capture_trace_id_var
 
 logger = logging.getLogger(__name__)
 
@@ -185,12 +186,20 @@ class AdminTools:
             needs_routing = destination == "unrouted"
             source_name = item_data.get("sourceName")
             source_url = item_data.get("sourceUrl")
+            # Phase 25: stamp source backlinks if running inside an admin processing
+            # context (admin_handoff sets both ContextVars before agent.run). Eval and
+            # direct-invoke paths leave the ContextVars at their defaults -> both fields
+            # land as None and the ErrandItem optional defaults handle that gracefully.
+            source_inbox_id = admin_inbox_item_id_var.get()
+            source_trace_id = capture_trace_id_var.get() or None
             doc = ErrandItem(
                 destination=destination,
                 name=name,
                 needsRouting=needs_routing,
                 sourceName=source_name,
                 sourceUrl=source_url,
+                sourceInboxItemId=source_inbox_id,
+                sourceCaptureTraceId=source_trace_id,
             )
             await container.create_item(body=doc.model_dump())
             destination_counts[destination] = destination_counts.get(destination, 0) + 1
@@ -238,7 +247,15 @@ class AdminTools:
                 logger.warning("Skipping task with empty name: %s", task_data)
                 continue
 
-            doc = TaskItem(name=name)
+            # Phase 25: stamp source backlinks if running inside an admin processing
+            # context. Eval / direct-invoke paths leave ContextVars unset -> None.
+            source_inbox_id = admin_inbox_item_id_var.get()
+            source_trace_id = capture_trace_id_var.get() or None
+            doc = TaskItem(
+                name=name,
+                sourceInboxItemId=source_inbox_id,
+                sourceCaptureTraceId=source_trace_id,
+            )
             await container.create_item(body=doc.model_dump(mode="json"))
             added += 1
 
