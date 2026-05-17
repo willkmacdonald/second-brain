@@ -128,3 +128,43 @@ class TestQueryRecentFailuresFilteredTruncation:
         assert result.total_count == 47
         assert result.returned_count == 10
         assert result.truncated is True
+
+
+def test_investigation_has_no_direct_inbox_query() -> None:
+    """Investigation agent must never query the Inbox container directly (REQ-SD-11).
+
+    Phase 25 closure: RESEARCH.md confirmed that CONTEXT.md's claim of
+    "investigation tool inbox queries at lines 443, 812" was WRONG --
+    those query the Feedback and EvalResults containers respectively.
+    The investigation agent has zero Cosmos Inbox query path today; it
+    reads inbox state indirectly via App Insights KQL.
+
+    This guard test fails if a future edit reintroduces a direct Inbox
+    Cosmos query into tools/investigation.py. If the investigation agent
+    ever needs to surface filed items, route through api/inbox.py
+    (which applies the filed-exclusion filter) or extend the App Insights
+    query layer, NOT a direct Cosmos query.
+    """
+    from pathlib import Path
+
+    investigation_path = (
+        Path(__file__).parent.parent
+        / "src"
+        / "second_brain"
+        / "tools"
+        / "investigation.py"
+    )
+    source = investigation_path.read_text()
+
+    # Reject ANY direct Inbox container access. Both quote styles are checked
+    # because the codebase uses both single and double quotes for container names.
+    assert 'get_container("Inbox"' not in source, (
+        "tools/investigation.py grew a direct Inbox Cosmos query. "
+        "Route inbox queries through api/inbox.py (which applies the "
+        "filed-exclusion filter) or via App Insights KQL instead. "
+        "Phase 25 guard (REQ-SD-11)."
+    )
+    assert "get_container('Inbox'" not in source, (
+        "tools/investigation.py grew a direct Inbox Cosmos query (single-quote form). "
+        "Phase 25 guard (REQ-SD-11)."
+    )

@@ -608,12 +608,27 @@ async def test_get_errands_returns_admin_notifications(
 
 
 @pytest.mark.asyncio
-async def test_dismiss_admin_notification(
+async def test_dismiss_admin_notification_files_instead_of_delete(
     errands_app: FastAPI,
     mock_cosmos_manager: MagicMock,
 ) -> None:
-    """POST /dismiss deletes the inbox item for the notification."""
+    """POST /dismiss soft-deletes (upsert with status='filed') -- lifecycle symmetry with admin_handoff Branch B.
+
+    Phase 25 (REQ-SD-08): the dismiss endpoint stops hard-deleting Branch A
+    items. Instead it soft-deletes with status='filed' + adminProcessingStatus='completed'
+    + ttl, mirroring the auto-file path admin_handoff Branch B uses. RESEARCH.md
+    Open Question #1 resolved YES (lifecycle symmetry over CONTEXT.md narrow scope).
+    """
     inbox_container = mock_cosmos_manager.get_container("Inbox")
+    inbox_container.read_item = AsyncMock(
+        return_value={
+            "id": "notif-1",
+            "userId": "will",
+            "adminProcessingStatus": "completed",
+            "adminAgentResponse": "I created a rule: chicken goes to jewel",
+        }
+    )
+    inbox_container.upsert_item = AsyncMock()
     inbox_container.delete_item = AsyncMock()
 
     transport = httpx.ASGITransport(app=errands_app)
@@ -624,9 +639,15 @@ async def test_dismiss_admin_notification(
         )
 
     assert response.status_code == 204
-    inbox_container.delete_item.assert_called_once_with(
-        item="notif-1", partition_key="will"
-    )
+    # Phase 25: NO hard delete
+    inbox_container.delete_item.assert_not_called()
+    # Phase 25: upsert with filed body
+    inbox_container.upsert_item.assert_called_once()
+    body = inbox_container.upsert_item.call_args.kwargs["body"]
+    assert body["status"] == "filed"
+    assert body["adminProcessingStatus"] == "completed"
+    assert body["ttl"] > 0
+    assert isinstance(body["ttl"], int)
 
 
 @pytest.mark.asyncio
@@ -634,9 +655,13 @@ async def test_dismiss_admin_notification_not_found(
     errands_app: FastAPI,
     mock_cosmos_manager: MagicMock,
 ) -> None:
-    """POST /dismiss returns 404 when notification inbox item is missing."""
+    """POST /dismiss returns 404 when notification inbox item is missing.
+
+    Phase 25: 404 is now produced by the read_item attempt, not the
+    delete_item attempt. Behavior otherwise identical to pre-Phase-25.
+    """
     inbox_container = mock_cosmos_manager.get_container("Inbox")
-    inbox_container.delete_item = AsyncMock(
+    inbox_container.read_item = AsyncMock(
         side_effect=CosmosResourceNotFoundError(status_code=404, message="Not found")
     )
 
@@ -776,6 +801,117 @@ async def test_get_errands_no_processing_when_query_returns_empty(
     data = response.json()
     assert data["processingCount"] == 0
     mock_create_task.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_unprocessed_admin_query_skips_filed(
+    errands_app: FastAPI,
+    mock_cosmos_manager: MagicMock,
+) -> None:
+    """The unprocessed-admin query (api/errands.py:174) MUST NOT re-fire on filed docs.
+
+    REQ-SD-07: a filed doc has adminProcessingStatus='completed' AND status='filed'.
+    The unprocessed query filters by adminProcessingStatus IN (None, 'failed', 'pending')
+    so filed-completed docs are naturally excluded. This test verifies the
+    orthogonality by asserting the SQL string contains the right filters AND
+    that the API does not fire a background task when the query returns empty.
+
+    Self-contained: uses only _make_async_iterator (the single verified helper);
+    inlines Destinations/Errands/Inbox mocks rather than depending on the broader
+    helper set.
+    """
+    # Inline Destinations mock -- return one destination
+    dest_container = mock_cosmos_manager.get_container("Destinations")
+    dest_container.query_items = MagicMock(
+        return_value=_make_async_iterator(
+            [
+                {
+                    "id": "d1",
+                    "userId": "will",
+                    "slug": "jewel",
+                    "displayName": "Jewel-Osco",
+                    "type": "physical",
+                }
+            ]
+        )()
+    )
+
+    # Inline Errands mock -- return jewel items
+    errands_container = mock_cosmos_manager.get_container("Errands")
+
+    def errands_query_side_effect(*, query: str, partition_key: str):
+        items = (
+            [{"id": "j1", "name": "milk", "destination": "jewel"}]
+            if partition_key == "jewel"
+            else []
+        )
+        return _make_async_iterator(items)(query=query, partition_key=partition_key)
+
+    errands_container.query_items = MagicMock(side_effect=errands_query_side_effect)
+
+    # Inline Inbox mock -- capture queries and return empty for all of them.
+    # The notifications query path returns empty (no admin notifications).
+    # The unprocessed query path returns empty (simulating Phase 25:
+    # filed-completed docs are excluded by the adminProcessingStatus filter).
+    captured_inbox_queries: list[str] = []
+    inbox_container = mock_cosmos_manager.get_container("Inbox")
+
+    def inbox_query_side_effect(**kwargs):
+        query = kwargs.get("query", "")
+        captured_inbox_queries.append(query)
+        return _make_async_iterator([])(**kwargs)
+
+    inbox_container.query_items = MagicMock(side_effect=inbox_query_side_effect)
+
+    errands_app.state.admin_agent = AsyncMock()
+    errands_app.state.admin_agent_tools = [AsyncMock()]
+    errands_app.state.background_tasks = set()
+
+    # Close any background coroutine to prevent RuntimeWarning (inline closer)
+    def _close_coro(coro):
+        coro.close()
+        mock_task = MagicMock()
+        mock_task.add_done_callback = MagicMock()
+        return mock_task
+
+    with patch(
+        "second_brain.api.errands.asyncio.create_task",
+        side_effect=_close_coro,
+    ) as mock_create_task:
+        transport = httpx.ASGITransport(app=errands_app)
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://test"
+        ) as client:
+            response = await client.get(
+                "/api/errands",
+                headers={"Authorization": f"Bearer {TEST_API_KEY}"},
+            )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["processingCount"] == 0  # No re-fire on filed-completed docs
+    mock_create_task.assert_not_called()
+
+    # Verify the unprocessed-admin query SQL has the orthogonality filter shape.
+    # Identify the unprocessed query by its distinctive 'classificationMeta.bucket' clause.
+    unprocessed_queries = [
+        q
+        for q in captured_inbox_queries
+        if "classificationMeta.bucket" in q and "Admin" in q
+    ]
+    assert len(unprocessed_queries) >= 1, (
+        f"Expected at least one unprocessed-admin query; got: {captured_inbox_queries}"
+    )
+    unprocessed_sql = unprocessed_queries[0]
+    assert "adminProcessingStatus" in unprocessed_sql, (
+        f"Unprocessed-admin query missing adminProcessingStatus filter: {unprocessed_sql}"
+    )
+    assert "'failed'" in unprocessed_sql, (
+        f"Unprocessed-admin query missing 'failed' status: {unprocessed_sql}"
+    )
+    assert "'pending'" in unprocessed_sql, (
+        f"Unprocessed-admin query missing 'pending' status: {unprocessed_sql}"
+    )
 
 
 @pytest.mark.asyncio
