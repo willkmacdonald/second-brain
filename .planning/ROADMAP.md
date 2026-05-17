@@ -390,7 +390,14 @@ People/Ideas/Projects/Admin (non-processed) inbox docs are unaffected by this ph
 **Optional bundled scope (decide at plan-phase):**
   - Add `sourceInboxItemId` + `sourceCaptureTraceId` backlinks to Errand/Task docs at creation time. Lets the phone surface "where did this come from?" in a UI affordance, while the 30-day window is open.
 
-**Plans:** TBD (likely 1-3 plans depending on bundled scope — minimum is the soft-delete + TTL flip in admin_handoff.py)
+**Plans:** 5 plans
+
+Plans:
+- [ ] 25-01-PLAN.md — admin_handoff Branch B soft-delete (status='filed' + ttl + adminProcessingStatus='completed') + admin_inbox_item_id_var ContextVar shell in tools/admin.py
+- [ ] 25-02-PLAN.md — Settings.inbox_filed_retention_days field + operator-authorized Cosmos container TTL=-1 infra step
+- [ ] 25-03-PLAN.md — api/inbox.py listing filter + api/errands.py dismiss soft-delete + unprocessed-orthogonality test + investigation guard test
+- [ ] 25-04-PLAN.md — ErrandItem/TaskItem optional backlink fields + add_errand_items/add_task_items ContextVar reads
+- [ ] 25-05-PLAN.md — ROADMAP success-criterion #4 amendment + deploy + post-deploy UAT
 
 ### Phase 26: Remove Recipe Extraction (INSERTED)
 
