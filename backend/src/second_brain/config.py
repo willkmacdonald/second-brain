@@ -2,6 +2,7 @@
 
 from functools import lru_cache
 
+from pydantic import Field
 from pydantic_settings import BaseSettings
 
 
@@ -43,6 +44,16 @@ class Settings(BaseSettings):
 
     # Classification
     classification_threshold: float = 0.6
+
+    # Inbox filed-doc retention (Phase 25). Per-doc Cosmos TTL value =
+    # this * 86400 seconds. Cosmos container `defaultTtl` must be -1 for
+    # this to take effect (one-time infra step in Plan 02). Minimum 1 day
+    # prevents accidental immediate-purge from a misconfigured env var.
+    inbox_filed_retention_days: int = Field(
+        default=30,
+        ge=1,
+        description="Days to retain filed admin inbox docs; minimum 1.",
+    )
 
     # Database
     database_name: str = "second-brain"

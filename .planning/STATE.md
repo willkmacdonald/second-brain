@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Observability & Evals
-status: GA live in production on revision --0000089; 7-day forced_tool_failure tracking window open through 2026-05-24
+status: executing
 stopped_at: Completed 24-20 (pre-deploy gate runner — cumulative audit PASS, 8/10 gates PASS, 1 PARTIAL FAIL per spec, 1 OPERATOR-DEFERRED). Plan 24-22 deploy READY pending operator RBAC verification per Gate 8 + optional Cosmos smoke per Gate 9 step 2.
-last_updated: "2026-05-17T02:53:17.821Z"
-last_activity: 2026-05-17 -- Phase 24 SHIPPED with 2 in-flight hotfixes
+last_updated: "2026-05-17T03:02:05.590Z"
+last_activity: 2026-05-17 -- Phase 25 execution started
 progress:
   total_phases: 20
   completed_phases: 15
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-05)
 
 **Core value:** One-tap capture from a phone instantly routes through an agent that classifies, files, and clarifies -- with zero organizational effort.
-**Current focus:** Phase 24 — foundry-ga-migration
+**Current focus:** Phase 25 — admin-inbox-soft-delete-30-day-retention-inserted
 
 ## Current Position
 
-Phase: 24 (foundry-ga-migration) — SHIPPED (Task 2 of 24-24 awaits soak)
-Plan: 26 of 26 (24-23 PASSED + Step C complete; 24-24 Task 1 complete, Task 2 ≥2026-05-18)
-Status: GA live in production on revision --0000089; 7-day forced_tool_failure tracking window open through 2026-05-24
-Last activity: 2026-05-17 -- Phase 24 SHIPPED with 2 in-flight hotfixes
+Phase: 25 (admin-inbox-soft-delete-30-day-retention-inserted) — EXECUTING
+Plan: 1 of 5
+Status: Executing Phase 25
+Last activity: 2026-05-17 -- Phase 25 execution started
 
 Progress: [█████████▉] 99%
 
