@@ -13,6 +13,7 @@ the tool itself; GA `Agent(tools=[instance.method, ...])` binds bound
 methods directly at construction time.
 """
 
+import contextvars
 import logging
 from datetime import UTC, datetime
 from typing import Annotated
@@ -28,6 +29,16 @@ from second_brain.models.documents import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+# Context var for source-inbox-item propagation. Set by admin_handoff.py
+# before agent.run() so add_errand_items / add_task_items can stamp the
+# sourceInboxItemId backlink on each created Errand/Task doc. Default None
+# so non-admin code paths (eval, direct tool tests) don't crash on .get().
+# Read sites (add_errand_items + add_task_items) land in Plan 04.
+admin_inbox_item_id_var: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "admin_inbox_item_id_var", default=None
+)
 
 
 async def build_routing_context(cosmos_manager: CosmosManager) -> str:

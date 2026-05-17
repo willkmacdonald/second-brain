@@ -24,11 +24,12 @@ import time
 from agent_framework import Agent, ChatOptions
 from azure.cosmos.exceptions import CosmosResourceNotFoundError
 
+from second_brain.config import get_settings
 from second_brain.db.cosmos import CosmosManager
 from second_brain.spine.agent_emitter import emit_agent_workload
 from second_brain.spine.cosmos_request_id import trace_headers
 from second_brain.spine.storage import SpineRepository
-from second_brain.tools.admin import build_routing_context
+from second_brain.tools.admin import admin_inbox_item_id_var, build_routing_context
 
 logger = logging.getLogger(__name__)
 
@@ -213,6 +214,10 @@ async def process_admin_capture(
 
     if capture_trace_id:
         capture_trace_id_var.set(capture_trace_id)
+    # Phase 25: set inbox_item_id ContextVar so add_errand_items / add_task_items
+    # (Plan 04 read sites) can stamp sourceInboxItemId backlinks on every
+    # Errand/Task doc created during this admin processing context.
+    admin_inbox_item_id_var.set(inbox_item_id)
 
     # Spine workload tracking
     _spine_start = time.perf_counter()
@@ -393,13 +398,25 @@ async def process_admin_capture(
                     extra=log_extra,
                 )
         else:
-            # Simple confirmation -- delete the inbox item
+            # Simple confirmation -- soft-delete by filing the inbox item.
+            # Setting status="filed" + adminProcessingStatus="completed" + ttl
+            # in ONE upsert is critical: the api/errands.py:174 unprocessed
+            # query gates on adminProcessingStatus, so partial writes would
+            # re-fire the agent on a filed doc (Landmine #4). Container TTL
+            # must already be enabled (defaultTtl=-1) for the per-doc ttl to
+            # take effect (Plan 02 one-time infra step).
             try:
-                await inbox_container.delete_item(
+                settings = get_settings()
+                ttl_seconds = settings.inbox_filed_retention_days * 86400
+                doc = await inbox_container.read_item(
                     item=inbox_item_id, partition_key="will", **th
                 )
+                doc["status"] = "filed"
+                doc["adminProcessingStatus"] = "completed"
+                doc["ttl"] = ttl_seconds
+                await inbox_container.upsert_item(body=doc, **th)
                 logger.info(
-                    "Deleted processed inbox item %s. outcome=processed",
+                    "Filed processed inbox item %s. outcome=filed",
                     inbox_item_id,
                     extra=log_extra,
                 )
@@ -410,12 +427,12 @@ async def process_admin_capture(
                     inbox_item_id,
                     extra=log_extra,
                 )
-            except Exception as del_exc:
+            except Exception as file_exc:
                 # Non-fatal: errand items are the durable output
                 logger.warning(
-                    "Failed to delete processed inbox item %s: %s",
+                    "Failed to file processed inbox item %s: %s",
                     inbox_item_id,
-                    del_exc,
+                    file_exc,
                     extra=log_extra,
                 )
 
