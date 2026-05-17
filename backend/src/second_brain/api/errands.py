@@ -16,6 +16,7 @@ from azure.cosmos.exceptions import CosmosResourceNotFoundError
 from fastapi import APIRouter, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field
 
+from second_brain.config import get_settings
 from second_brain.models.documents import (
     AffinityRuleDocument,
     FeedbackDocument,
@@ -447,7 +448,13 @@ async def dismiss_admin_notification(
     request: Request,
     inbox_item_id: str,
 ) -> Response:
-    """Dismiss an admin notification by deleting the completed inbox item.
+    """Dismiss an admin notification by filing the completed inbox item.
+
+    Phase 25 (REQ-SD-08): soft-deletes with status='filed' + per-doc ttl
+    instead of hard delete_item. Provides lifecycle symmetry with
+    admin_handoff Branch B (auto-file on success). The 30-day TTL is
+    sourced from settings.inbox_filed_retention_days. Cosmos container
+    defaultTtl must be -1 for the ttl to take effect (Plan 02 infra step).
 
     The mobile app calls this after the user has seen the notification.
     """
@@ -459,14 +466,25 @@ async def dismiss_admin_notification(
         )
 
     inbox_container = cosmos_manager.get_container("Inbox")
+    settings = get_settings()
+    ttl_seconds = settings.inbox_filed_retention_days * 86400
 
     try:
-        await inbox_container.delete_item(item=inbox_item_id, partition_key="will")
+        doc = await inbox_container.read_item(item=inbox_item_id, partition_key="will")
     except CosmosResourceNotFoundError as exc:
         raise HTTPException(
             status_code=404,
             detail=f"Notification {inbox_item_id} not found",
         ) from exc
 
-    logger.info("Dismissed admin notification %s", inbox_item_id)
+    doc["status"] = "filed"
+    # adminProcessingStatus is already 'completed' for Branch A items
+    # (admin_handoff set it before storing the response). This assignment
+    # is idempotent and defensive -- ensures the field is correct even if
+    # the doc shape ever drifts.
+    doc["adminProcessingStatus"] = "completed"
+    doc["ttl"] = ttl_seconds
+    await inbox_container.upsert_item(body=doc)
+
+    logger.info("Dismissed admin notification %s (filed)", inbox_item_id)
     return Response(status_code=204)

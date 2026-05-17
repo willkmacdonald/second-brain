@@ -75,6 +75,7 @@ async def list_inbox(
 
     query = (
         "SELECT * FROM c WHERE c.userId = @userId "
+        "AND (NOT IS_DEFINED(c.status) OR c.status != 'filed') "
         "ORDER BY c.createdAt DESC "
         "OFFSET @offset LIMIT @limit"
     )
