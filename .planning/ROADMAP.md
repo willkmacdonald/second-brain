@@ -76,6 +76,7 @@ See: .planning/milestones/v3.0-ROADMAP.md
 - [ ] **Phase 21.1: Migrate Eval to Foundry Native Platform** (INSERTED) - Replace custom eval with Foundry agent target evaluation, custom code-based evaluators, built-in AI evaluators
 - [ ] **Phase 22: Self-Monitoring Loop** - Automated weekly evals, threshold alerts, push notifications on degradation
 - [ ] **Phase 25: Admin Inbox Soft-Delete + 30-day Retention** (INSERTED) - Replace hard-delete with `status="filed"` + Cosmos TTL on Admin-bucket inbox items processed by the Admin agent. Preserves audit trail for evals/observability; People/Ideas/Projects unchanged (no agent processes them)
+- [ ] **Phase 26: Remove Recipe Extraction** (INSERTED) - Retire `tools/recipe.py`, drop `fetch_recipe_url` from Admin agent, remove URL Handling section from classifier instructions, remove Playwright from Dockerfile. Anti-scrape measures on major recipe sites (AllRecipes 402, etc.) have eroded reliability; per Phase 24 UAT 2026-05-17 the feature is no longer worth its complexity + image weight.
 
 ## Phase Details
 
@@ -391,6 +392,48 @@ People/Ideas/Projects/Admin (non-processed) inbox docs are unaffected by this ph
 
 **Plans:** TBD (likely 1-3 plans depending on bundled scope — minimum is the soft-delete + TTL flip in admin_handoff.py)
 
+### Phase 26: Remove Recipe Extraction (INSERTED)
+
+**Context:** Recipe URL extraction was Phase 13's signature capability: paste an allrecipes.com / budgetbytes.com / substack-recipe URL → tool fetches the page → ingredients extracted → multiple `add_errand_items` calls land items on the right grocery destination. It worked when the source sites were friendly.
+
+By 2026-05-17 (Phase 24 UAT), anti-scrape measures have eroded reliability:
+- AllRecipes now returns HTTP 402 Payment Required to programmatic fetches
+- Heavy ad networks cause Playwright's `networkidle` timeout to fire before page settles
+- Jina Reader silently times out on protected sites
+- Only 6 successful extractions in Cosmos history; last reliable ones were BudgetBytes in late April
+
+The feature is no longer worth its complexity + image weight (Playwright + Chromium = ~200 MB).
+
+**Goal:** Remove the recipe extraction capability cleanly. URLs you paste become normal text captures that classify based on URL text alone (Admin/Ideas/Projects depending on context).
+
+**Depends on:** Phase 24 (Foundry GA migration stable; admin tool surface clean)
+
+**Requirements:** TBD
+
+**Success Criteria** (what must be TRUE):
+  1. `backend/src/second_brain/tools/recipe.py` deleted
+  2. `fetch_recipe_url` removed from Admin agent's registered tools (admin tool count drops from 7 to 6)
+  3. `## URL Handling` section removed from `agents/instructions/admin.md`; classifier `## URL Handling` rewritten to drop recipe-detection logic (URLs classify based on URL text alone)
+  4. Playwright + Chromium dropped from `Dockerfile`
+  5. `playwright` removed from `backend/pyproject.toml`
+  6. Lifespan `Playwright browser started` log line + `app.state.playwright_browser` machinery deleted
+  7. `tests/test_recipe*.py` deleted
+  8. Cold-start time improves by ≥1.5 sec (Playwright init was the biggest startup cost)
+  9. Image size decreases by ≥150 MB
+
+**Out of scope:**
+  - Existing Errand items with `sourceName` / `sourceUrl` populated stay as-is (historical artifacts; no migration)
+  - Existing Inbox captures with URL text stay classified to whatever bucket they're in
+  - No new "paste URL" UI — phone behavior unchanged; URLs just don't auto-extract anymore
+
+**Triggered by:** Phase 24 UAT 2026-05-17 — AllRecipes 402/timeout reproduced; operator decision to remove rather than fix.
+
+**Plans:** TBD (likely 1 plan; pure deletion + instructions + Dockerfile edit)
+
+**Related backlog items become obsolete on completion:**
+  - "Admin Retry Bound" — still useful for other transient agent failures but loses its primary motivating case
+  - "Admin Recipe-Fetch Fallback" — fully obsolete (no fetch to fall back from)
+
 ## Backlog
 
 Items not yet scheduled into a milestone or phase.
@@ -426,7 +469,7 @@ The classifier instructions DO have a fallback for this case ("If fetch_recipe_u
 - v1.0: 1 -> 2 -> 3 -> 4 -> 4.1 -> 4.2 -> 4.3 -> 5 (complete)
 - v2.0: 6 -> 7 -> 8 -> 9 -> 9.1 (complete)
 - v3.0: 10 -> 11 -> 11.1 -> 12 -> 12.1 -> 12.2 -> 12.3 -> 12.3.1 -> 12.5 -> 13 -> 14 -> 15 (complete)
-- v3.1: 16 -> 16.1 -> 17 -> 17.3 -> 17.4 -> 18 -> 19 -> 19.4.1 -> 20 -> 20.1 -> 21 -> 21.1 -> 22 -> 25
+- v3.1: 16 -> 16.1 -> 17 -> 17.3 -> 17.4 -> 18 -> 19 -> 19.4.1 -> 20 -> 20.1 -> 21 -> 21.1 -> 22 -> 25 -> 26
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -445,6 +488,7 @@ The classifier instructions DO have a fallback for this case ("If fetch_recipe_u
 | 21.1. Migrate Eval to Foundry Native | v3.1 | 0/2 | Not started | - |
 | 22. Self-Monitoring Loop | v3.1 | 0/TBD | Not started | - |
 | 25. Admin Inbox Soft-Delete + 30-day Retention (INSERTED) | v3.1 | 0/TBD | Not started | - |
+| 26. Remove Recipe Extraction (INSERTED) | v3.1 | 0/TBD | Not started | - |
 
 ### Phase 23: Foundry GA Migration — Prep (artifact-only setup)
 
