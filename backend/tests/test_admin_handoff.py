@@ -177,10 +177,16 @@ def _setup_inbox_read(mock_cosmos_manager):
 class TestProcessAdminCaptureSuccess:
     """Tests for the happy path."""
 
-    async def test_sets_pending_then_deletes_on_success(
+    async def test_simple_confirmation_files_inbox_item(
         self, mock_admin_agent, mock_cosmos_manager
     ):
-        """Status transitions: None -> pending, then delete on success."""
+        """Branch B: status="filed" + ttl + adminProcessingStatus="completed" via upsert (no delete).
+
+        Phase 25 swap: previously the success path called delete_item; now it
+        soft-deletes via upsert with status='filed' + ttl + completed marker.
+        All three fields must land in the SAME upsert body (Landmine #4 in
+        RESEARCH.md — partial writes would re-fire the agent on filed docs).
+        """
         await process_admin_capture(
             admin_agent=mock_admin_agent,
             cosmos_manager=mock_cosmos_manager,
@@ -190,29 +196,125 @@ class TestProcessAdminCaptureSuccess:
 
         container = mock_cosmos_manager.get_container("Inbox")
 
-        # Only ONE upsert: the "pending" status
+        # TWO upserts: pending (line ~247) + filing (Phase 25 swap)
         upsert_calls = container.upsert_item.call_args_list
-        assert len(upsert_calls) == 1
+        assert len(upsert_calls) == 2
+
         first_body = upsert_calls[0].kwargs.get("body") or upsert_calls[0][1].get(
             "body"
         )
         assert first_body["adminProcessingStatus"] == "pending"
 
-        # delete_item called once for the processed inbox item
-        container.delete_item.assert_called_once_with(
-            item="test-inbox-id", partition_key="will"
+        filing_body = upsert_calls[-1].kwargs.get("body") or upsert_calls[-1][1].get(
+            "body"
         )
+        assert filing_body["status"] == "filed"
+        assert filing_body["adminProcessingStatus"] == "completed"
+        assert filing_body["ttl"] > 0
+        assert isinstance(filing_body["ttl"], int)
 
-    async def test_delete_not_found_is_non_fatal(
+        # delete_item should NOT have been called (replaced by upsert)
+        container.delete_item.assert_not_called()
+
+    async def test_filed_doc_ttl_matches_settings(
         self, mock_admin_agent, mock_cosmos_manager
     ):
-        """CosmosResourceNotFoundError on delete does not raise."""
-        container = mock_cosmos_manager.get_container("Inbox")
-        container.delete_item = AsyncMock(
-            side_effect=CosmosResourceNotFoundError(
-                status_code=404, message="Not found"
-            )
+        """Filed doc ttl = settings.inbox_filed_retention_days * 86400."""
+        from second_brain.config import get_settings
+
+        await process_admin_capture(
+            admin_agent=mock_admin_agent,
+            cosmos_manager=mock_cosmos_manager,
+            inbox_item_id="test-inbox-id",
+            raw_text="need milk",
         )
+
+        container = mock_cosmos_manager.get_container("Inbox")
+        filing_body = container.upsert_item.call_args_list[-1].kwargs.get("body")
+
+        expected_ttl = get_settings().inbox_filed_retention_days * 86400
+        assert filing_body["ttl"] == expected_ttl
+        assert expected_ttl == 30 * 86400  # 2592000 default
+
+    async def test_filing_writes_all_fields_atomically(
+        self, mock_admin_agent, mock_cosmos_manager
+    ):
+        """status, adminProcessingStatus, and ttl land in the SAME upsert body.
+
+        Landmine #4: if filed-status and completed-marker were written in
+        separate upserts, a partial write would leave the doc with
+        adminProcessingStatus='pending' (which matches the api/errands.py:174
+        re-fire query) AND status='filed' (which the listing query hides).
+        Net result: invisible re-fire loop. The test asserts atomicity.
+        """
+        await process_admin_capture(
+            admin_agent=mock_admin_agent,
+            cosmos_manager=mock_cosmos_manager,
+            inbox_item_id="test-inbox-id",
+            raw_text="need milk",
+        )
+
+        container = mock_cosmos_manager.get_container("Inbox")
+        filing_body = container.upsert_item.call_args_list[-1].kwargs.get("body")
+
+        assert "status" in filing_body
+        assert "adminProcessingStatus" in filing_body
+        assert "ttl" in filing_body
+        assert filing_body["status"] == "filed"
+        assert filing_body["adminProcessingStatus"] == "completed"
+
+    async def test_admin_handoff_sets_inbox_item_id_contextvar(
+        self, mock_admin_agent, mock_cosmos_manager
+    ):
+        """process_admin_capture sets admin_inbox_item_id_var before agent.run.
+
+        add_errand_items / add_task_items (Plan 04) read this ContextVar to
+        stamp sourceInboxItemId backlinks on Errand/Task docs.
+        """
+        from second_brain.tools.admin import admin_inbox_item_id_var
+
+        observed_id: list[str | None] = []
+
+        async def _capture_var(*args, **kwargs):
+            observed_id.append(admin_inbox_item_id_var.get())
+            return _agent_response(
+                text="Added items.",
+                tool_names=["add_errand_items"],
+            )
+
+        mock_admin_agent.run = AsyncMock(side_effect=_capture_var)
+
+        await process_admin_capture(
+            admin_agent=mock_admin_agent,
+            cosmos_manager=mock_cosmos_manager,
+            inbox_item_id="ctx-inbox-id",
+            raw_text="need milk",
+        )
+
+        assert observed_id == ["ctx-inbox-id"]
+
+    async def test_filing_not_found_is_non_fatal(
+        self, mock_admin_agent, mock_cosmos_manager
+    ):
+        """CosmosResourceNotFoundError on filing read does not raise.
+
+        Phase 25: the success path now reads the doc before upserting the
+        filing fields. If the doc has been removed concurrently (e.g., user
+        swipe-deleted), the read raises NotFound and we swallow it.
+        """
+        container = mock_cosmos_manager.get_container("Inbox")
+
+        # Pending read succeeds; filing read raises NotFound.
+        call_count = 0
+
+        async def _read_side_effect(**kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count <= 1:
+                return _inbox_doc()
+            raise CosmosResourceNotFoundError(status_code=404, message="Not found")
+
+        container.read_item = AsyncMock(side_effect=_read_side_effect)
 
         # Should NOT raise
         await process_admin_capture(
@@ -222,12 +324,28 @@ class TestProcessAdminCaptureSuccess:
             raw_text="need cat litter and milk",
         )
 
-    async def test_delete_failure_is_non_fatal(
+    async def test_filing_failure_is_non_fatal(
         self, mock_admin_agent, mock_cosmos_manager
     ):
-        """Generic Exception on delete does not raise."""
+        """Generic Exception during filing does not raise.
+
+        Phase 25: errand items are the durable output; the filing upsert is
+        best-effort. If Cosmos times out on the filing write, we log and move
+        on rather than propagating the error.
+        """
         container = mock_cosmos_manager.get_container("Inbox")
-        container.delete_item = AsyncMock(side_effect=Exception("Cosmos timeout"))
+
+        # First upsert (pending) succeeds; second upsert (filing) raises.
+        call_count = 0
+
+        async def _upsert_side_effect(**kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count <= 1:
+                return None
+            raise Exception("Cosmos timeout")
+
+        container.upsert_item = AsyncMock(side_effect=_upsert_side_effect)
 
         # Should NOT raise
         await process_admin_capture(
@@ -303,6 +421,35 @@ class TestProcessAdminCaptureFailure:
             "body"
         )
         assert last_body["adminProcessingStatus"] == "failed"
+        # Phase 25 orthogonality: failed items MUST NOT be marked filed (Landmine #1).
+        assert last_body.get("status") != "filed"
+
+    async def test_agent_error_does_not_file_inbox_item(
+        self, mock_admin_agent, mock_cosmos_manager
+    ):
+        """When Admin Agent raises, the soft-delete filing path MUST NOT run.
+
+        Failed items get adminProcessingStatus="failed" only — not status="filed".
+        This preserves orthogonality with Phase 24 backlog "Admin Retry Bound"
+        (retry-exhausted items stay visible until manually deleted).
+        """
+        mock_admin_agent.run.side_effect = RuntimeError("Foundry timeout")
+
+        await process_admin_capture(
+            admin_agent=mock_admin_agent,
+            cosmos_manager=mock_cosmos_manager,
+            inbox_item_id="test-inbox-id",
+            raw_text="need cat litter",
+        )
+
+        container = mock_cosmos_manager.get_container("Inbox")
+        # Every upsert body in the test must NOT have status="filed"
+        upsert_calls = container.upsert_item.call_args_list
+        for call in upsert_calls:
+            body = call.kwargs.get("body") or call[1].get("body")
+            assert body.get("status") != "filed", (
+                f"Failed path wrote status='filed' to an upsert body: {body}"
+            )
 
     async def test_agent_error_does_not_raise(
         self, mock_admin_agent, mock_cosmos_manager
@@ -426,8 +573,8 @@ class TestProcessAdminCaptureNoToolCall:
             raw_text="random text",
         )
 
-    async def test_output_tool_called_deletes_inbox_item(self, mock_cosmos_manager):
-        """Output tool called -- inbox item is deleted.
+    async def test_output_tool_called_files_inbox_item(self, mock_cosmos_manager):
+        """Output tool called -- inbox item is filed (Phase 25 soft-delete).
 
         We trust that if the agent invoked an output tool (add_errand_items,
         add_task_items, etc.), it completed its job.
@@ -449,8 +596,16 @@ class TestProcessAdminCaptureNoToolCall:
 
         container = mock_cosmos_manager.get_container("Inbox")
 
-        # Inbox item SHOULD be deleted since output tool was called
-        container.delete_item.assert_called_once()
+        # Phase 25: filing replaces delete
+        upsert_calls = container.upsert_item.call_args_list
+        assert len(upsert_calls) >= 2  # pending + filing
+        filing_body = upsert_calls[-1].kwargs.get("body") or upsert_calls[-1][1].get(
+            "body"
+        )
+        assert filing_body["status"] == "filed"
+        assert filing_body["adminProcessingStatus"] == "completed"
+        assert filing_body["ttl"] > 0
+        container.delete_item.assert_not_called()
 
     async def test_intermediate_tool_only_retries_then_marks_failed(
         self, mock_cosmos_manager
@@ -536,11 +691,19 @@ class TestProcessAdminCaptureNoToolCall:
 
         container = mock_cosmos_manager.get_container("Inbox")
 
-        # Inbox item SHOULD be deleted -- retry succeeded
-        container.delete_item.assert_called_once()
+        # Phase 25: filing replaces delete (retry succeeded)
+        upsert_calls = container.upsert_item.call_args_list
+        assert len(upsert_calls) >= 2  # pending + filing
+        filing_body = upsert_calls[-1].kwargs.get("body") or upsert_calls[-1][1].get(
+            "body"
+        )
+        assert filing_body["status"] == "filed"
+        assert filing_body["adminProcessingStatus"] == "completed"
+        assert filing_body["ttl"] > 0
+        container.delete_item.assert_not_called()
 
-    async def test_tool_call_still_deletes(self, mock_admin_agent, mock_cosmos_manager):
-        """When agent DOES call an output tool, inbox item is deleted."""
+    async def test_tool_call_still_files(self, mock_admin_agent, mock_cosmos_manager):
+        """When agent DOES call an output tool, inbox item is filed (Phase 25)."""
         await process_admin_capture(
             admin_agent=mock_admin_agent,
             cosmos_manager=mock_cosmos_manager,
@@ -549,9 +712,17 @@ class TestProcessAdminCaptureNoToolCall:
         )
 
         container = mock_cosmos_manager.get_container("Inbox")
-        container.delete_item.assert_called_once_with(
-            item="test-inbox-id", partition_key="will"
+
+        # Phase 25: filing replaces delete
+        upsert_calls = container.upsert_item.call_args_list
+        assert len(upsert_calls) >= 2  # pending + filing
+        filing_body = upsert_calls[-1].kwargs.get("body") or upsert_calls[-1][1].get(
+            "body"
         )
+        assert filing_body["status"] == "filed"
+        assert filing_body["adminProcessingStatus"] == "completed"
+        assert filing_body["ttl"] > 0
+        container.delete_item.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
@@ -653,18 +824,20 @@ class TestProcessAdminCapturesBatch:
         # Both items were attempted
         assert agent.run.call_count == 2
 
-        # Failed item gets "failed" upsert; successful item gets delete
+        # Phase 25: failed item gets "failed" upsert; successful item gets a
+        # filing upsert (status="filed" + adminProcessingStatus="completed" + ttl).
         upsert_calls = container.upsert_item.call_args_list
-        statuses = [
-            (c.kwargs.get("body") or c[1].get("body"))["adminProcessingStatus"]
-            for c in upsert_calls
-        ]
+        bodies = [c.kwargs.get("body") or c[1].get("body") for c in upsert_calls]
+        statuses = [b["adminProcessingStatus"] for b in bodies]
         assert "failed" in statuses
-        # "processed" should NOT be in upserts -- success path deletes
-        assert "processed" not in statuses
+        # At least one filing upsert (success path) lands in the same batch.
+        filing_bodies = [b for b in bodies if b.get("status") == "filed"]
+        assert len(filing_bodies) >= 1
+        assert filing_bodies[0]["adminProcessingStatus"] == "completed"
+        assert filing_bodies[0]["ttl"] > 0
 
-        # delete_item called at least once (for the successful item)
-        assert container.delete_item.call_count >= 1
+        # delete_item NEVER called (Phase 25 replaces hard-delete with file)
+        container.delete_item.assert_not_called()
 
     async def test_batch_empty_list_is_noop(
         self, mock_admin_agent, mock_cosmos_manager
