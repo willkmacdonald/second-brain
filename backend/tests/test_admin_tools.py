@@ -246,6 +246,96 @@ async def test_add_items_no_destination_defaults_to_unrouted(
 
 
 # ---------------------------------------------------------------------------
+# Phase 25: source-backlink propagation tests (REQ-BL-03, REQ-BL-04, REQ-BL-05)
+# ---------------------------------------------------------------------------
+
+
+async def test_add_errand_items_carries_backlinks(
+    mock_cosmos_manager: object,
+) -> None:
+    """add_errand_items stamps sourceInboxItemId + sourceCaptureTraceId from ContextVars.
+
+    Phase 25 (REQ-BL-03): when admin_handoff sets both ContextVars before
+    agent.run, the persisted ErrandItem doc must carry both backlink fields.
+    """
+    from second_brain.tools.admin import admin_inbox_item_id_var
+    from second_brain.tools.classification import capture_trace_id_var
+
+    _setup_echo(mock_cosmos_manager, "Errands")
+
+    inbox_token = admin_inbox_item_id_var.set("inbox-source-42")
+    trace_token = capture_trace_id_var.set("trace-source-99")
+    try:
+        tools = _make_tools(mock_cosmos_manager)
+        await tools.add_errand_items(
+            items=[{"name": "milk", "destination": "jewel"}]
+        )
+    finally:
+        admin_inbox_item_id_var.reset(inbox_token)
+        capture_trace_id_var.reset(trace_token)
+
+    bodies = _get_all_bodies(mock_cosmos_manager, "Errands")
+    assert len(bodies) == 1
+    assert bodies[0]["sourceInboxItemId"] == "inbox-source-42"
+    assert bodies[0]["sourceCaptureTraceId"] == "trace-source-99"
+
+
+async def test_add_task_items_carries_backlinks(
+    mock_cosmos_manager: object,
+) -> None:
+    """add_task_items stamps sourceInboxItemId + sourceCaptureTraceId from ContextVars.
+
+    Phase 25 (REQ-BL-04): same as add_errand_items but for the Tasks container.
+    """
+    from second_brain.tools.admin import admin_inbox_item_id_var
+    from second_brain.tools.classification import capture_trace_id_var
+
+    _setup_echo(mock_cosmos_manager, "Tasks")
+
+    inbox_token = admin_inbox_item_id_var.set("inbox-task-7")
+    trace_token = capture_trace_id_var.set("trace-task-13")
+    try:
+        tools = _make_tools(mock_cosmos_manager)
+        await tools.add_task_items(
+            tasks=[{"name": "Book eye appointment"}]
+        )
+    finally:
+        admin_inbox_item_id_var.reset(inbox_token)
+        capture_trace_id_var.reset(trace_token)
+
+    bodies = _get_all_bodies(mock_cosmos_manager, "Tasks")
+    assert len(bodies) == 1
+    assert bodies[0]["sourceInboxItemId"] == "inbox-task-7"
+    assert bodies[0]["sourceCaptureTraceId"] == "trace-task-13"
+
+
+async def test_add_errand_items_no_contextvars_set(
+    mock_cosmos_manager: object,
+) -> None:
+    """When ContextVars are unset (default), backlinks land as None -- no crash.
+
+    Phase 25 (REQ-BL-05): eval and direct-invoke paths don't set these
+    ContextVars. The tool MUST gracefully accept None defaults rather than
+    crashing on .get(). Empty-string default of capture_trace_id_var
+    normalizes to None via the `.get() or None` idiom.
+    """
+    _setup_echo(mock_cosmos_manager, "Errands")
+
+    # NO ContextVar set -- relies on defaults (admin_inbox_item_id_var=None,
+    # capture_trace_id_var=""). The "" trace id should normalize to None.
+    tools = _make_tools(mock_cosmos_manager)
+    await tools.add_errand_items(
+        items=[{"name": "milk", "destination": "jewel"}]
+    )
+
+    bodies = _get_all_bodies(mock_cosmos_manager, "Errands")
+    assert len(bodies) == 1
+    assert bodies[0]["sourceInboxItemId"] is None
+    assert bodies[0]["sourceCaptureTraceId"] is None
+
+
+
+# ---------------------------------------------------------------------------
 # Tests: get_routing_context
 # ---------------------------------------------------------------------------
 
