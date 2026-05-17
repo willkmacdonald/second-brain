@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Observability & Evals
-status: executing
-stopped_at: 24-23 UAT PASSED + Step C complete (revision --0000089, AGENT_ID env vars removed). 24-24 Task 1 (cleanup script) complete; Task 2 (operator cleanup run) awaits ≥2026-05-18 soak completion + forced_tool_failure <1% verification. 2 in-flight hotfixes shipped during UAT (c5a2fc7 streaming JSONDecodeError + 853a68b admin tool detection — both were unshipped 24-16/24-11 fixes).
-last_updated: "2026-05-17T01:35:00.000Z"
-last_activity: 2026-05-17 -- Phase 24 fully shipped (Task 2 of 24-24 awaiting 7-day soak)
+status: GA live in production on revision --0000089; 7-day forced_tool_failure tracking window open through 2026-05-24
+stopped_at: Completed 24-20 (pre-deploy gate runner — cumulative audit PASS, 8/10 gates PASS, 1 PARTIAL FAIL per spec, 1 OPERATOR-DEFERRED). Plan 24-22 deploy READY pending operator RBAC verification per Gate 8 + optional Cosmos smoke per Gate 9 step 2.
+last_updated: "2026-05-17T02:53:17.821Z"
+last_activity: 2026-05-17 -- Phase 24 SHIPPED with 2 in-flight hotfixes
 progress:
-  total_phases: 18
-  completed_phases: 14
-  total_plans: 81
-  completed_plans: 80
-  percent: 99
+  total_phases: 20
+  completed_phases: 15
+  total_plans: 86
+  completed_plans: 79
+  percent: 92
 ---
 
 # Project State
@@ -274,4 +274,4 @@ Last session: 2026-05-11T06:46:23.361Z
 Stopped at: Completed 24-20 (pre-deploy gate runner — cumulative audit PASS, 8/10 gates PASS, 1 PARTIAL FAIL per spec, 1 OPERATOR-DEFERRED). Plan 24-22 deploy READY pending operator RBAC verification per Gate 8 + optional Cosmos smoke per Gate 9 step 2.
 Resume action: Continue Phase 23 (next plan: 23-05, depends on 23-02 probe findings)
 
-**Planned Phase:** 24 (foundry-ga-migration) — 23 plans — 2026-05-10T03:08:32.888Z
+**Planned Phase:** 25 (Admin Inbox Soft-Delete + 30-day Retention (INSERTED)) — 5 plans — 2026-05-17T02:53:17.814Z
