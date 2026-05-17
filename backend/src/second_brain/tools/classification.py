@@ -205,7 +205,12 @@ class ClassifierTools:
                 text[:80],
                 extra=log_extra,
             )
-            return {"bucket": bucket, "confidence": confidence, "item_id": inbox_doc_id}
+            return {
+                "bucket": bucket,
+                "confidence": confidence,
+                "item_id": inbox_doc_id,
+                "status": status,
+            }
 
         # Classified or pending: write to both Inbox and bucket container
         bucket_doc_id = str(uuid4())
@@ -262,7 +267,12 @@ class ClassifierTools:
             text[:80],
             extra=log_extra,
         )
-        return {"bucket": bucket, "confidence": confidence, "item_id": inbox_doc_id}
+        return {
+            "bucket": bucket,
+            "confidence": confidence,
+            "item_id": inbox_doc_id,
+            "status": status,
+        }
 
     async def _write_follow_up_to_cosmos(
         self,
@@ -305,6 +315,7 @@ class ClassifierTools:
                 "bucket": bucket,
                 "confidence": confidence,
                 "item_id": existing_inbox_id,
+                "status": status,
             }
 
         # Classified or pending: update existing inbox doc with classification,
@@ -367,4 +378,5 @@ class ClassifierTools:
             "bucket": bucket,
             "confidence": confidence,
             "item_id": existing_inbox_id,
+            "status": status,
         }

@@ -66,7 +66,15 @@ reasoning_logger = logging.getLogger("second_brain.streaming.reasoning")
 def _parse_args(raw: object) -> dict:
     """Parse function call arguments defensively (str or dict/Mapping)."""
     if isinstance(raw, str):
-        return json.loads(raw)
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError:
+            # Foundry streaming can surface partial argument chunks before
+            # the final function_result. Keep the call_id pairing alive and
+            # let the tool result carry the authoritative fields.
+            logger.warning("Ignoring malformed streamed function_call arguments")
+            return {}
+        return parsed if isinstance(parsed, dict) else {}
     if isinstance(raw, Mapping):
         return dict(raw)
     return {}
@@ -84,6 +92,11 @@ def _parse_result(raw: object) -> dict | None:
     return None
 
 
+def _is_tool_error(result: dict | None) -> bool:
+    """Return True when a parsed tool result represents a failed tool call."""
+    return bool(result and result.get("error"))
+
+
 def _emit_result_event(
     detected_tool_args: dict,
     tool_result: dict | None,
@@ -95,10 +108,9 @@ def _emit_result_event(
     continuity now rides on the Inbox doc's ``conversationHistory`` field
     rather than on a server-side session handle.
     """
-    status = detected_tool_args.get("status")
-
     # Prefer tool_result values, fall back to detected_tool_args
     result_src = tool_result or detected_tool_args
+    status = detected_tool_args.get("status") or result_src.get("status")
     item_id = result_src.get("item_id", "")
     bucket = result_src.get("bucket", detected_tool_args.get("bucket", ""))
     confidence = result_src.get("confidence", detected_tool_args.get("confidence", 0.0))
@@ -354,6 +366,17 @@ async def stream_text_capture(
 
             # Emit result event and log outcome
             if file_capture_results:
+                tool_errors = [r for r in file_capture_results if _is_tool_error(r)]
+                if tool_errors:
+                    logger.warning(
+                        "Text capture: file_capture returned error(s): %s",
+                        [e.get("error") for e in tool_errors],
+                        extra={**log_extra, "capture.outcome": "forced_tool_failure"},
+                    )
+                    yield encode_sse(_forced_tool_failure_event())
+                    yield encode_sse(complete_event(str(uuid.uuid4()), run_id))
+                    return
+
                 # Use first result as primary (backward-compatible)
                 primary = file_capture_results[0]
                 all_buckets = [r.get("bucket", "?") for r in file_capture_results]
@@ -458,12 +481,55 @@ async def stream_text_capture(
         # D-04 forced_tool_failure: any exception from agent.run (including
         # tool_choice='required' could-not-satisfy errors and tool exceptions)
         # surfaces as the forced_tool_failure SSE sub_code.
-        logger.error(
-            "Text capture stream error (forced_tool_failure): %s",
-            exc,
-            exc_info=True,
-            extra={**log_extra, "capture.outcome": "forced_tool_failure"},
-        )
+        #
+        # Phase 24 diagnostic patch (2026-05-17): production captures
+        # silently fail with JSONDecodeError appearing only as an empty
+        # AppExceptions row — the logger.error(...exc_info=True) below
+        # doesn't reach App Insights. Capture exception detail
+        # eagerly into structured fields BEFORE any formatting that might
+        # itself raise. Each value gets its own log line so a failure in
+        # one doesn't lose the others.
+        try:
+            from typing import Any
+
+            diag_extra: dict[str, Any] = {
+                **log_extra,
+                "capture.outcome": "forced_tool_failure",
+                "exception.type": type(exc).__name__,
+                "exception.module": type(exc).__module__,
+                "exception.repr": repr(exc)[:1000],
+                "exception.str": str(exc)[:1000],
+            }
+            if isinstance(exc, json.JSONDecodeError):
+                diag_extra["jsondecodeerror.msg"] = exc.msg
+                diag_extra["jsondecodeerror.pos"] = exc.pos
+                diag_extra["jsondecodeerror.lineno"] = exc.lineno
+                diag_extra["jsondecodeerror.colno"] = exc.colno
+                diag_extra["jsondecodeerror.doc_len"] = len(exc.doc or "")
+                diag_extra["jsondecodeerror.doc_head"] = (exc.doc or "")[:500]
+                diag_extra["jsondecodeerror.doc_around_pos"] = (exc.doc or "")[
+                    max(0, exc.pos - 100) : exc.pos + 100
+                ]
+            logger.error(
+                "PHASE24-DIAG text-capture exception: %s",
+                type(exc).__name__,
+                extra=diag_extra,
+            )
+        except Exception:
+            # Never let the diagnostic itself prevent the SSE event.
+            pass
+        # Original error logging — kept for back-compat with KQL templates,
+        # but the structured diag log above is the authoritative source
+        # while we hunt the production-only failure.
+        try:
+            logger.error(
+                "Text capture stream error (forced_tool_failure): %s",
+                exc,
+                exc_info=True,
+                extra={**log_extra, "capture.outcome": "forced_tool_failure"},
+            )
+        except Exception:
+            pass
         yield encode_sse(_forced_tool_failure_event())
         yield encode_sse(complete_event(str(uuid.uuid4()), run_id))
     finally:
@@ -567,8 +633,20 @@ async def stream_follow_up_capture(
             yield encode_sse(step_end_event("Classifying"))
 
             if detected_tool == "file_capture":
+                if _is_tool_error(tool_result):
+                    logger.warning(
+                        "Follow-up: file_capture returned error: %s",
+                        tool_result.get("error"),
+                        extra={**log_extra, "capture.outcome": "forced_tool_failure"},
+                    )
+                    yield encode_sse(_forced_tool_failure_event())
+                    yield encode_sse(complete_event(str(uuid.uuid4()), run_id))
+                    return
+
                 result_src = tool_result or detected_tool_args
-                status = detected_tool_args.get("status", "")
+                status = detected_tool_args.get("status") or result_src.get(
+                    "status", ""
+                )
                 outcome_extra = {
                     **log_extra,
                     "capture.outcome": status if status else "unresolved",

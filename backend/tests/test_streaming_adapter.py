@@ -9,7 +9,11 @@ import json
 
 from agent_framework import Content
 
-from second_brain.streaming.adapter import _parse_args, _parse_result
+from second_brain.streaming.adapter import (
+    _parse_args,
+    _parse_result,
+    stream_text_capture,
+)
 from second_brain.streaming.sse import (
     classified_event,
     complete_event,
@@ -20,6 +24,57 @@ from second_brain.streaming.sse import (
     step_start_event,
     unresolved_event,
 )
+
+
+class _MockContent:
+    def __init__(
+        self,
+        content_type: str,
+        call_id: str,
+        name: str | None = None,
+        arguments: object | None = None,
+        result: object | None = None,
+    ):
+        self.type = content_type
+        self.call_id = call_id
+        self.name = name
+        self.arguments = arguments
+        self.result = result
+
+
+class _MockUpdate:
+    def __init__(self, contents: list[object]):
+        self.contents = contents
+        self.text = ""
+
+
+class _MockStream:
+    def __init__(self, updates: list[_MockUpdate]):
+        self._updates = updates
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        if not self._updates:
+            raise StopAsyncIteration
+        return self._updates.pop(0)
+
+
+class _MockAgent:
+    def __init__(self, stream: _MockStream):
+        self._stream = stream
+
+    def run(self, *args, **kwargs):
+        return self._stream
+
+
+def _parse_sse_events(events: list[str]) -> list[dict]:
+    parsed: list[dict] = []
+    for event in events:
+        payload = event.removeprefix("data: ").strip()
+        parsed.append(json.loads(payload))
+    return parsed
 
 
 class TestEncodeSSE:
@@ -194,6 +249,124 @@ class TestEventTypeNames:
         event = unresolved_event("id")
         assert event["type"] == "UNRESOLVED"
         assert "name" not in event
+
+
+class TestStreamTextCaptureToolErrors:
+    """Verify failed file_capture tool results do not become fake successes."""
+
+    async def test_malformed_function_call_args_do_not_abort_successful_result(
+        self,
+    ) -> None:
+        """A partial streamed args chunk must not block a later tool result."""
+        agent = _MockAgent(
+            _MockStream(
+                [
+                    _MockUpdate(
+                        [
+                            _MockContent(
+                                "function_call",
+                                "call-1",
+                                "file_capture",
+                                arguments='{"text": "buy milk and bread',
+                            )
+                        ]
+                    ),
+                    _MockUpdate(
+                        [
+                            Content.from_function_result(
+                                "call-1",
+                                result=json.dumps(
+                                    {
+                                        "bucket": "Admin",
+                                        "confidence": 0.92,
+                                        "item_id": "inbox-1",
+                                        "status": "classified",
+                                    }
+                                ),
+                            )
+                        ]
+                    ),
+                ]
+            )
+        )
+
+        events = [
+            event
+            async for event in stream_text_capture(
+                agent=agent,
+                user_text="buy milk and bread",
+                inbox_doc=None,
+                thread_id="thread-1",
+                run_id="run-1",
+                cosmos_manager=None,
+                capture_trace_id="trace-1",
+            )
+        ]
+
+        parsed = _parse_sse_events(events)
+        event_types = [event["type"] for event in parsed]
+
+        assert "ERROR" not in event_types
+        classified = next(event for event in parsed if event["type"] == "CLASSIFIED")
+        assert classified["value"]["inboxItemId"] == "inbox-1"
+        assert classified["value"]["bucket"] == "Admin"
+
+    async def test_file_capture_error_emits_error_not_classified(self) -> None:
+        """Cosmos write failures should be loud and must not emit CLASSIFIED."""
+        agent = _MockAgent(
+            _MockStream(
+                [
+                    _MockUpdate(
+                        [
+                            Content.from_function_call(
+                                "call-1",
+                                "file_capture",
+                                arguments={
+                                    "text": "buy milk and bread",
+                                    "bucket": "Admin",
+                                    "confidence": 0.92,
+                                    "status": "classified",
+                                    "title": "Buy milk and bread",
+                                },
+                            )
+                        ]
+                    ),
+                    _MockUpdate(
+                        [
+                            Content.from_function_result(
+                                "call-1",
+                                result=json.dumps(
+                                    {
+                                        "error": "cosmos_write_failed",
+                                        "detail": "Failed to save classification",
+                                    }
+                                ),
+                            )
+                        ]
+                    ),
+                ]
+            )
+        )
+
+        events = [
+            event
+            async for event in stream_text_capture(
+                agent=agent,
+                user_text="buy milk and bread",
+                inbox_doc=None,
+                thread_id="thread-1",
+                run_id="run-1",
+                cosmos_manager=None,
+                capture_trace_id="trace-1",
+            )
+        ]
+
+        parsed = _parse_sse_events(events)
+        event_types = [event["type"] for event in parsed]
+
+        assert "CLASSIFIED" not in event_types
+        error = next(event for event in parsed if event["type"] == "ERROR")
+        assert error["sub_code"] == "forced_tool_failure"
 
 
 class TestCallIdPairing:
