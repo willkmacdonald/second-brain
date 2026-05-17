@@ -395,6 +395,28 @@ People/Ideas/Projects/Admin (non-processed) inbox docs are unaffected by this ph
 
 Items not yet scheduled into a milestone or phase.
 
+### Admin Retry Bound — Stop Reprocessing Permanently-Failed Items
+
+**Context:** Surfaced during Phase 24 UAT 2026-05-17. `errands.py` line 178-183 includes `adminProcessingStatus = 'failed'` in the "unprocessed" query, so any item the admin agent gave up on gets retried every time the user opens the Tasks tab. With unrecoverable failures (e.g. AllRecipes scraping blocked, see "Admin Recipe-Fetch Fallback" below), the loop is forever — the "Processing 1 new capture..." banner never clears and a fresh agent run fires every ~3 seconds.
+
+**Goal:** Add a retry counter (`adminRetryCount`) to Inbox docs. After N=3 failed retries the item is excluded from the unprocessed query. User can still swipe-delete it manually from Inbox. Banner clears. Stuck loop avoided.
+
+**Triggered by:** Phase 24-UAT recipe URL test (AllRecipes 402 + Playwright timeout). Loop reproduced 3+ retry cycles before manual delete broke it.
+
+**Likely 1 plan:** add field to model, update query, update admin_handoff increment-on-failure, update banner threshold logic.
+
+### Admin Recipe-Fetch Fallback (Instructions Gap)
+
+**Context:** Surfaced during Phase 24 UAT 2026-05-17. When `fetch_recipe_url` fails all three tiers (Jina Reader, Simple HTTP, Playwright), the admin agent has no instruction telling it what to do. It retries `fetch_recipe_url` once more, fails again, gives up via `_output_tool_called` path → marks Inbox as failed → loop (see "Admin Retry Bound" above).
+
+The classifier instructions DO have a fallback for this case ("If fetch_recipe_url fails or returns an error, classify based on the URL text alone with lower confidence") but the admin agent's instructions don't have an equivalent fallback for the processing step.
+
+**Goal:** Update `agents/instructions/admin.md` with an explicit instruction: when `fetch_recipe_url` returns an error, DO NOT retry. Instead call `add_errand_items` with one item: `{name: <URL>, destination: "unrouted"}`. This converts unrecoverable scrape failures into a user-visible record they can manually act on.
+
+**Triggered by:** Phase 24-UAT recipe URL test. AllRecipes blocked all 3 fetch tiers; admin agent had no graceful fallback.
+
+**Likely 1 plan:** instructions update + regression test that the admin agent files unscrapeable URLs as errand items rather than looping.
+
 ### YouTube Recipe Extraction
 **Context:** Extract ingredients from YouTube recipe videos via captions/transcript. Originally Phase 13 scope, replaced by general recipe URL extraction which covers more use cases. YouTube support could be added later as an enhancement to Phase 13's URL extraction pipeline (fetch captions instead of page HTML).
 
