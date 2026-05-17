@@ -578,5 +578,6 @@ Plans:
 - [x] 24-20-PLAN.md — Cumulative framework-fidelity audit + pre-deploy gates (tests/replays/eval/auth/RBAC/backfill) (Wave 5, checkpoint)
 - [x] 24-21-PLAN.md — Final config.py cleanup: remove azure_ai_*_agent_id orphan settings (Wave 5, sequential)
 - [x] 24-22-PLAN.md — Step A env vars + unguard + git push origin main (Step B) (Wave 6, checkpoint) — DEPLOYED 2026-05-11; revision sha-1bc40d8 healthy, /health probe hotfixed
-- [ ] 24-23-PLAN.md — Day-after UAT + Step C orphan env-var removal + 7-day forced_tool_failure tracking (Wave 7, checkpoint)
+- [x] 24-23-PLAN.md — Day-after UAT + Step C orphan env-var removal + 7-day forced_tool_failure tracking (Wave 7, checkpoint) — UAT PASSED-WITH-NOTES 2026-05-17 after 2 hotfixes (c5a2fc7 + 853a68b); Step C complete; revision --0000089 active; 7-day tracking window open through 2026-05-24
+- [~] 24-24-PLAN.md — foundryThreadId cleanup script (Wave 8, checkpoint) — Task 1 (script creation) complete 2026-05-17; Task 2 (operator-driven cleanup) awaits ≥2026-05-18 soak completion + forced_tool_failure <1% verification
 

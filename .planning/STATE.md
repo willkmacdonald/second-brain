@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Observability & Evals
 status: executing
-stopped_at: 24-22 deploy event COMPLETE — GA revision sha-1bc40d8 active 100% traffic, /health=ok, all 3 GA agents ready. /health probe hotfixed mid-deploy (24-19 deferred follow-up). Wave 6 done. Wave 7 (24-23 UAT + env-var cleanup) ready.
-last_updated: "2026-05-11T14:36:00.000Z"
-last_activity: 2026-05-11 -- Phase 24 deployed to production
+stopped_at: 24-23 UAT PASSED + Step C complete (revision --0000089, AGENT_ID env vars removed). 24-24 Task 1 (cleanup script) complete; Task 2 (operator cleanup run) awaits ≥2026-05-18 soak completion + forced_tool_failure <1% verification. 2 in-flight hotfixes shipped during UAT (c5a2fc7 streaming JSONDecodeError + 853a68b admin tool detection — both were unshipped 24-16/24-11 fixes).
+last_updated: "2026-05-17T01:35:00.000Z"
+last_activity: 2026-05-17 -- Phase 24 fully shipped (Task 2 of 24-24 awaiting 7-day soak)
 progress:
   total_phases: 18
   completed_phases: 14
   total_plans: 81
-  completed_plans: 77
-  percent: 95
+  completed_plans: 80
+  percent: 99
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 
 ## Current Position
 
-Phase: 24 (foundry-ga-migration) — EXECUTING
-Plan: 23 of 26 (Wave 4 complete: 24-14 through 24-19; codebase under backend/src/second_brain/ is RC-free; AST scan red test GREEN)
-Status: Ready to execute
-Last activity: 2026-05-11
+Phase: 24 (foundry-ga-migration) — SHIPPED (Task 2 of 24-24 awaits soak)
+Plan: 26 of 26 (24-23 PASSED + Step C complete; 24-24 Task 1 complete, Task 2 ≥2026-05-18)
+Status: GA live in production on revision --0000089; 7-day forced_tool_failure tracking window open through 2026-05-24
+Last activity: 2026-05-17 -- Phase 24 SHIPPED with 2 in-flight hotfixes
 
-Progress: [█████████░] 94%
+Progress: [█████████▉] 99%
 
 ## Performance Metrics
 
