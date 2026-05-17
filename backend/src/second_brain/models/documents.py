@@ -117,6 +117,12 @@ class ErrandItem(BaseModel):
     )
     sourceName: str | None = None  # Recipe name for source attribution
     sourceUrl: str | None = None  # Recipe URL for source attribution
+    # Phase 25 backlinks. Populated by tools/admin.py:add_errand_items when
+    # running inside an admin processing context (admin_handoff sets the
+    # ContextVars before agent.run). Absent on pre-Phase-25 docs; UI handles
+    # missing backlinks gracefully (no affordance shown).
+    sourceInboxItemId: str | None = None  # Source Inbox doc id (durable for 30d)
+    sourceCaptureTraceId: str | None = None  # Source capture trace id (durable forever)
 
 
 class TaskItem(BaseModel):
@@ -131,6 +137,10 @@ class TaskItem(BaseModel):
     userId: str = "will"
     name: str  # Natural language: "book eye appointments", "fill out Peloton expenses"
     createdAt: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    # Phase 25 backlinks. Populated by tools/admin.py:add_task_items when
+    # running inside an admin processing context. Absent on pre-Phase-25 docs.
+    sourceInboxItemId: str | None = None  # Source Inbox doc id (durable for 30d)
+    sourceCaptureTraceId: str | None = None  # Source capture trace id (durable forever)
 
 
 class DestinationDocument(BaseModel):
